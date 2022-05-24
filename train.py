@@ -4,6 +4,7 @@
 def main():
     ###ここにデータセットモデルのインスタンス作成train関数を回す#####
     print('test')
+    print('branch test')
     return
 
 
