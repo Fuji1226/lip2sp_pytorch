@@ -1,4 +1,4 @@
-##pytoch版　lip2sp
+##　pytoch版　lip2sp
 
 
 ○やること
