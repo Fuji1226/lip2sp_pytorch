@@ -1,3 +1,8 @@
+"""
+lip2sp/links/cnn.pyの再現
+"""
+
+
 import numpy as np
 import torch
 from torch import nn
@@ -72,6 +77,7 @@ class PreNet(nn.Module):
         res_blocks.append(ResidualBlock3D(
             out_channels, out_channels, stride=1,
         ))
+
         for _ in range(min(layers, 2)):
             res_blocks.append(ResidualBlock3D(
                 out_channels, out_channels, stride=2,
@@ -79,15 +85,30 @@ class PreNet(nn.Module):
         self.res_block = res_blocks
     
     def forward(self, x):
+        """
+        x : (Batch, Channel, Width, Height, Time)
+
+        return
+        h : (B, C, T)
+        """
         h = self.frontend(x)
         h = self.res_block(h)
+        # W, HについてAverage pooling
         h = torch.mean(h, dim=(2, 3))
         return h
 
-"""
+
 if __name__ == "__main__":
-    x = torch.rand(1, 3, 128, 128, 100)
+    B = 1
+    C = 3
+    W = 128
+    H = 128
+    T = 100
+
+    # W, Hが小さいと途中でカーネルサイズより小さくなっちゃって通りませんでした
+    # とりあえず上の条件で一応通ると思います
+    x = torch.rand(B, C, W, H, T)
     net = PreNet(3, 128)
     out = net(x)
     print(out.size())
-"""
+
