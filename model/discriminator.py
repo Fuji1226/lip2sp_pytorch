@@ -1,3 +1,7 @@
+"""
+JCU discriminatorとU-Net discriminator
+"""
+
 import torch 
 import torch.nn as nn
 from torch.nn.utils import weight_norm
@@ -100,7 +104,6 @@ class UNetDiscriminator(nn.Module):
         原論文が単話者なので、一旦単話者を想定して実装
         encoderの特徴量の結合の仕方が論文に詳しく書いていないので微妙。とりあえずUNetと同様に、チャンネル方向に結合している。
         複数話者にも適応したい
-        また、ResUNetのアイデアも使ってみたい
         """
         self.encoder = [
             nn.Sequential(
