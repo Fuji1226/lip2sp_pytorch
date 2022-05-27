@@ -34,29 +34,52 @@ data_root = Path(get_datasetroot()).expanduser()
 
 
 def av_speech_collate_fn_pad(batch):
-    lower_faces, speeches, melspecs = zip(*batch)
+    """
+    各バッチで口唇動画、音声サンプル、メルスペクトログラムをそれぞれ最大フレームに合わせるpaddingを行なっています
+
+    lips : (T, C, H, W)
+    speeches : (C=1, T)
+    melspecs : (n_mel_channels, mel_frames)
+
+    上だとpadded_lipが5次元にならないので、こっちかもしれないです
+    lips : (B, T, C, H, W)
+    speeches : (B, C=1, T)
+    melspecs : (B, n_mel_channels, mel_frames)
+
+    <追記>
+    やっぱり下のデータ形状であってる気がします
+    """
+    lips, waveforms, melspecs = zip(*batch)
     
-    max_frames_in_batch = max([l.shape[0] for l in lower_faces])
-    max_samples_in_batch = max([s.shape[1] for s in speeches])
+    # 口唇動画、音声サンプル、メルスペクトログラムそれぞれについて、バッチ内での最大フレーム数を計算
+    max_frames_in_batch = max([l.shape[0] for l in lips])
+    max_samples_in_batch = max([s.shape[1] for s in waveforms])
     max_melspec_samples_in_batch = max([m.shape[1] for m in melspecs])
 
-    padded_lower_faces = torch.zeros(len(lower_faces), max_frames_in_batch, *tuple(lower_faces[0].shape[1:]))
-    padded_speeches = torch.zeros(len(speeches), 1, max_samples_in_batch)
+    # バッチ内で最大のフレーム数のサンプルのやつに合わせるための0行列を作成
+    # len(data) == data.shape[0]
+    # padded_lips : (len(lips), max_frames_in_batch, H, W)  4次元なので70行目あたりと矛盾
+    # padded_lips : (len(lips), max_frames_in_batch, C, H, W)   こっちなのかも
+    padded_lips = torch.zeros(len(lips), max_frames_in_batch, *tuple(lips[0].shape[1:]))  
+    padded_waveforms = torch.zeros(len(waveforms), 1, max_samples_in_batch)
     padded_melspecs = torch.zeros(len(melspecs), melspecs[0].shape[0], max_melspec_samples_in_batch)
+
+    # mel_gate_paddedはよくわかりません。
     mel_gate_padded = torch.zeros(len(melspecs), max_melspec_samples_in_batch)
 
     video_lengths = list()
     audio_lengths = list()
     melspec_lengths = list()
-    for idx, (lower_face, speech, melspec) in enumerate(zip(lower_faces, speeches, melspecs)):
-        T = lower_face.shape[0]
+    # 0で初期化された行列に入れていくことで最大フレームに合わせている
+    for idx, (lip, waveform, melspec) in enumerate(zip(lips, waveforms, melspecs)):
+        T = lip.shape[0]
         video_lengths.append(T)
 
-        padded_lower_faces[idx, :T, :, :, :] = lower_face
+        padded_lips[idx, :T, :, :, :] = lip
 
-        S = speech.shape[-1]
+        S = waveform.shape[-1]
         audio_lengths.append(S)
-        padded_speeches[idx, :, :S] = speech
+        padded_waveforms[idx, :, :S] = waveform
         
         M = melspec.shape[-1]
         melspec_lengths.append(M)
@@ -64,14 +87,16 @@ def av_speech_collate_fn_pad(batch):
 
         mel_gate_padded[idx, M-1:] = 1.0
 
-    padded_lower_faces = padded_lower_faces.permute(0, 2, 1, 3, 4)
-    padded_speeches = padded_speeches.squeeze(1) 
+    # (len(lips), max_frames_in_batch, C, H, W) -> (len(lips), C, max_frames_in_batch, H, W)
+    padded_lips = padded_lips.permute(0, 2, 1, 3, 4)
+    # (len(waveform), 1, max_samples_in_batch) -> (len(waveform), max_samples_in_batch)
+    padded_waveforms = padded_waveforms.squeeze(1) 
 
     video_lengths = torch.tensor(video_lengths)
     audio_lengths = torch.tensor(audio_lengths)
     melspec_lengths = torch.tensor(melspec_lengths)
 
-    return (padded_lower_faces, video_lengths), (padded_speeches, audio_lengths), (padded_melspecs, melspec_lengths, mel_gate_padded)
+    return (padded_lips, video_lengths), (padded_waveforms, audio_lengths), (padded_melspecs, melspec_lengths, mel_gate_padded)
 
 
 def x_round(x):
@@ -156,6 +181,7 @@ class KablabDataset(Dataset):
         }
         return self.current_item
 
+    # __getitem__()の挙動が見たい時はselfで
     def __getitem__(self, _):
         if self.current_item is None:
             item = self.get_item()
@@ -176,8 +202,8 @@ class KablabDataset(Dataset):
         self.current_item_attributes['start_time'] += duration
 
         try:
-            # speech : (C, T)
-            speech, sampling_rate = torchaudio.load(audio_path, frame_offset=int(16000 * start_time), 
+            # waveform : (C=1, T)
+            waveform, sampling_rate = torchaudio.load(audio_path, frame_offset=int(16000 * start_time), 
                                                                num_frames=int(16000 * duration), normalize=True, format='wav')                                    
         except:
             # traceback.print_exc()
@@ -185,7 +211,7 @@ class KablabDataset(Dataset):
         
         assert sampling_rate == 16000
         
-        if speech.shape[1] == 0:
+        if waveform.shape[1] == 0:
             return self.reset_item()
 
         # 返り値はvideo frames, audio frames, meta data。video framesしか使わない
@@ -194,18 +220,20 @@ class KablabDataset(Dataset):
         # (T, H, W, C) -> (T, C, H, W)
         frames = frames.permute(0, 3, 1, 2)
 
-        # 正規化
+        # transforms
+        # data augmentationもここかも
         # frames = self.trans(frames)
 
         if frames.shape[0] == 0:
             return self.reset_item()
 
         try:
-            melspec = self.spec(speech).squeeze(0)
+            # melspec : (n_mel_channels, mel_frames)
+            melspec = self.spec(waveform).squeeze(0)
         except:
             return self.reset_item()
 
-        return frames, speech, melspec
+        return frames, waveform, melspec
         
 
 
@@ -213,9 +241,9 @@ def main():
     datasets = KablabDataset(data_root)
     loader = DataLoader(
         dataset=datasets,
-        batch_size=2,
+        batch_size=2,   
         shuffle=False,
-        num_workers=0,
+        num_workers=0,      
         pin_memory=False,
         drop_last=True,
         collate_fn=av_speech_collate_fn_pad
@@ -223,18 +251,42 @@ def main():
 
     # print(datasets.__len__())
     # print(datasets.current_item)
-    # # print(datasets.reset_item())
-    # frames, speech, melspec = datasets.__getitem__()
-    # print(f"type(faces) = {type(frames)}")
-    # print(f"type(speech) = {type(speech)}")
+    # print(datasets.reset_item())
+
+    # データ確認用。__getitem__(self, _)を__getitem__(self)に変更すれば見れます！
+    # ただ、そうすると下のresultsの方は見れません。どっちかだけです。
+    # frames, waveform, melspec = datasets.__getitem__()
+    # print("####### type #######")
+    # print(f"type(frames) = {type(frames)}")
+    # print(f"type(waveform) = {type(waveform)}")
     # print(f"type(melspec) = {type(melspec)}")
+
+    # print("\n####### shape #######")
+    # print(f"frames.shape = {frames.shape}")
+    # print(f"waveform.shape = {waveform.shape}")
+    # print(f"melspec.shape = {melspec.shape}")
+
+    # print("\n####### len #######")
+    # print(f"len(frames) = {len(frames)}")
+    # print(f"len(waveform) = {len(waveform)}")
+    # print(f"len(melspec) = {len(melspec)}")
+
+    # print("\n####### collate_check #######")
+    # print(*tuple(frames[0].shape[1:]))
+
+    # max_frames_in_batch = frames.shape[0] + 10
+    # padded_lips = torch.zeros(len(frames), max_frames_in_batch, *tuple(frames[0].shape[1:]))  
+    # print(padded_lips.shape)
+
+    # idx = 0
+    # padded_lips[idx, :frames.shape[0], :, :, :] = frames
+    # print(type(padded_lips))
+
 
 
     # results
     for bdx, batch in enumerate(loader):
         (video, video_lengths), (speeches, audio_lengths), (melspecs, melspec_lengths, mel_gates) = batch
-        
-        frames = video
         print("################################################")
         print("<video_data>")
         print(f"video.shape = {video.shape}")
