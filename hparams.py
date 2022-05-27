@@ -5,6 +5,7 @@ def create_hparams():
     hparams = dict(
         # video parameter
         fps = 50,
+        video_channels = 3,
 
         # audio parameter
         sampling_rate = 16000,
@@ -14,6 +15,14 @@ def create_hparams():
         f_min = 0,
         f_max = 7600,
         n_mel_channels = 80,
+
+        # dataloader
+        batch_size = 2,
+        num_workers = 0,
+
+        # optimizer
+        lr = 0.001,
+        betas = (0.9, 0.999),
     )
 
     class HParams:
@@ -25,10 +34,10 @@ def create_hparams():
     return hparams
 
 
-class HParams:
-    def __init__(self, dictionary):
-        for k, v in dictionary.items():
-            setattr(self, k, v)
+# class HParams:
+#     def __init__(self, dictionary):
+#         for k, v in dictionary.items():
+#             setattr(self, k, v)
 
 
 # if __name__ == "__main__":

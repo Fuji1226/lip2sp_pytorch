@@ -30,7 +30,7 @@ from data_process.audio_process import MelSpectrogram
 from get_dir import get_datasetroot, get_data_directory
 
 
-data_root = Path(get_datasetroot()).expanduser()
+data_root = Path(get_datasetroot()).expanduser()    # 確認用
 
 
 def av_speech_collate_fn_pad(batch):
@@ -103,22 +103,20 @@ def x_round(x):
     return math.floor(x * 4) / 4
 
 
-class KablabDataset(Dataset):
-    def __init__(self, data_root, mode='train', duration=1):
-        super().__init__()
-        assert mode in ('train', 'test')
-        self.data_root = data_root
-        self.spec = MelSpectrogram()
-        self.mode = mode
+def get_datasets(data_root, mode):
+    """
+    train用とtest用のデータのディレクトリを分けておいて、modeで分岐させる感じにしてみました
+    とりあえず
+    dataset/lip/lip_cropped         にtrain用データ
+    dataset/lip/lip_cropped_test    にtest用データを適当に置いてやってみて動きました
 
-        self.trans = transforms.Compose([
-            transforms.Lambda(lambda im: im.float() / 255.0),
-            # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-        ])
-
-        self.items = dict()
-        idx = 0
-        for curDir, Dir, Files in os.walk(self.data_root):
+    今、hparams.pyのbatch_size=2にしているので、2つ分データをlip_cropped_testに持っていけば動くと思います
+    1個だとバグります
+    """
+    items = dict()
+    idx = 0
+    if mode == "train":
+        for curDir, Dir, Files in os.walk(data_root):
             for filename in Files:
                 # curDirの末尾がlip_croppedの時
                 if curDir.endswith("lip_cropped"):
@@ -130,10 +128,44 @@ class KablabDataset(Dataset):
                         audio_path = os.path.join(curDir, filename.replace(str(format), ".wav"))
 
                         if os.path.isfile(audio_path) and os.path.isfile(audio_path):
-                            self.items[idx] = [video_path, audio_path]
+                            items[idx] = [video_path, audio_path]
                             idx += 1
                 else:
                     continue
+    else:
+        for curDir, Dir, Files in os.walk(data_root):
+            for filename in Files:
+                # curDirの末尾がlip_cropped_testの時
+                if curDir.endswith("lip_cropped_test"):
+                    # filenameの末尾（拡張子）が.mp4の時
+                    if filename.endswith(".mp4"):
+                        format = ".mp4"
+                        video_path = os.path.join(curDir, filename)
+                        # 名前を同じにしているので拡張子だけ.wavに変更
+                        audio_path = os.path.join(curDir, filename.replace(str(format), ".wav"))
+
+                        if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+                            items[idx] = [video_path, audio_path]
+                            idx += 1
+                else:
+                    continue
+    return items
+
+
+class KablabDataset(Dataset):
+    def __init__(self, data_root, mode='train', duration=1):
+        super().__init__()
+        assert mode in ('train', 'test')
+        self.data_root = data_root
+        self.spec = MelSpectrogram()
+        self.mode = mode
+
+        # self.trans = transforms.Compose([
+        #     transforms.Lambda(lambda im: im.float() / 255.0),
+        #     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        # ])
+
+        self.items = get_datasets(self.data_root, self.mode)
         self.len = len(self.items)
         self.duration = duration
 
@@ -181,7 +213,7 @@ class KablabDataset(Dataset):
         }
         return self.current_item
 
-    # __getitem__()の挙動が見たい時はselfで
+    # __getitem__()の挙動が見たい時は (self, _) -> (self)で一応見れます
     def __getitem__(self, _):
         if self.current_item is None:
             item = self.get_item()
@@ -238,7 +270,8 @@ class KablabDataset(Dataset):
 
 
 def main():
-    datasets = KablabDataset(data_root)
+    # datasets = KablabDataset(data_root, mode="train")
+    datasets = KablabDataset(data_root, mode="test")
     loader = DataLoader(
         dataset=datasets,
         batch_size=2,   
