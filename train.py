@@ -1,10 +1,14 @@
 """
 reference
-https://github.com/Rudrabha/Lip2Wav.git
+https://github.com/joannahong/Lip2Wav-pytorch.git
+https://github.com/Chris10M/Lip2Speech.git
 """
 
 from pathlib import Path
 import os
+import time
+from datetime import datetime
+import numpy as np
 
 # pytorch
 import torch
@@ -16,6 +20,13 @@ from get_dir import get_datasetroot, get_data_directory
 from model.dataset import av_speech_collate_fn_pad, x_round, KablabDataset
 from hparams import create_hparams
 from model.net import PreNet
+
+
+current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
 
 
 def make_train_loader(data_root, hparams, mode):
@@ -47,25 +58,44 @@ def make_test_loader(data_root, hparams, mode):
     return test_loader
 
 
+# パラメータの保存
+def save_checkpoint(model, optimizer, iteration, ckpt_pth):
+	torch.save({'model': model.state_dict(),
+				'optimizer': optimizer.state_dict(),
+				'iteration': iteration}, ckpt_pth)
+
+
 def train(data_root, hparams):
     ###モデルにデータの入力、誤差の算出、逆伝搬によるパラメータの更新を行う####
 
-    # Dataloader作成
-    train_loader = make_train_loader(data_root, hparams, mode="train")
-    test_loader = make_test_loader(data_root, hparams, mode="test")
-
     # model作成
     model = PreNet(in_channels=hparams.video_channels, out_channels=hparams.n_mel_channels)
-    # print(model)
 
     # 最適化手法
     optimizer = torch.optim.Adam(
         model.parameters(), lr=hparams.lr, betas=hparams.betas
     )
-    # print(optimizer)
+
+    # load checkpoint
+    # 保存したパラメータがすでにあるときにそれを読み込む
+    iteration = 1
+
+    # Dataloader作成
+    train_loader = make_train_loader(data_root, hparams, mode="train")
+    test_loader = make_test_loader(data_root, hparams, mode="test")
+
 
     # 損失関数
     loss = nn.MSELoss()
+
+
+    model.train()
+    # ================ MAIN TRAINNIG LOOP! ===================
+    while iteration <= hparams.max_iter:
+        for batch in train_loader:
+            if iteration > hparams.max_iter:
+                break
+            start = time.perf_counter()
 
 
     return

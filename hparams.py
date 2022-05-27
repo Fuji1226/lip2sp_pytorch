@@ -23,6 +23,9 @@ def create_hparams():
         # optimizer
         lr = 0.001,
         betas = (0.9, 0.999),
+
+        # training
+        max_iter = 10,
     )
 
     class HParams:
