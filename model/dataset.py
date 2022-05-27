@@ -252,8 +252,6 @@ class KablabDataset(Dataset):
         # (T, H, W, C) -> (T, C, H, W)
         frames = frames.permute(0, 3, 1, 2)
 
-        # transforms
-        # data augmentationもここかも
         # frames = self.trans(frames)
 
         if frames.shape[0] == 0:
