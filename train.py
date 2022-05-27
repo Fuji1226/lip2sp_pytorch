@@ -103,6 +103,8 @@ def train(data_root, hparams):
 
 def main():
     ###ここにデータセットモデルのインスタンス作成train関数を回す#####
+    print('test')
+    print('branch test')
 
     # datasetディレクトリまでのパス
     data_root = Path(get_datasetroot()).expanduser()    # users/minami/dataset
