@@ -38,14 +38,14 @@ def get_data_directory():
 
 
 data_root = Path(get_data_directory()).expanduser()     # /Users/minami/dataset/lip/cropped
-save_dir = "/Users/minami/dataset/lip/lip_cropped"      # 変えてください
+save_dir = "/Users/fujitanaoaki/Desktop/lip2sp_pytorch/fujita/lip_cropped"      # 変えてください
 
 
 
 # 口唇のランドマーク検出
 def Lip_Cropping(frame, det):
     im_size = (96, 128)
-    predicter_Path = "/Users/minami/Documents/python/shape_predictor_68_face_landmarks.dat"     # 変えてください
+    predicter_Path = "/Users/fujitanaoaki/Desktop/lip2sp_pytorch/fujita/shape_predictor_68_face_landmarks.dat"     # 変えてください
     predictor = dlib.shape_predictor(predicter_Path)
     shape = predictor(frame, det)
     shapes = []
@@ -99,6 +99,7 @@ def main():
         
         # 口唇抽出
         im_size, mouth_area = Lip_Cropping(frame, det)
+        breakpoint()
         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
         out = cv2.VideoWriter(f"{data_name}.mp4", int(fourcc), fps, (int(im_size[1]), int(im_size[0])))
         if movie.isOpened() == True:
@@ -109,6 +110,8 @@ def main():
             out.write(frame[mouth_area[0]:mouth_area[1], mouth_area[2]:mouth_area[3]])
             ret,frame = movie.read()
         out.release()
+
+    
 
 
 
