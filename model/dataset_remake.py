@@ -1,6 +1,8 @@
 """
 reference
 https://github.com/Chris10M/Lip2Speech.git
+
+一旦データが出るようになりました
 """
 
 import os
