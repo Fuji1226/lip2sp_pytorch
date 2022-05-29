@@ -1,6 +1,8 @@
 """
 reference
 https://github.com/Chris10M/Lip2Speech.git
+
+元々lip2spにあるfeature.pyを使った方がよさそうでした
 """
 
 import os

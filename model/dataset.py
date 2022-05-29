@@ -5,6 +5,8 @@ https://github.com/Chris10M/Lip2Speech.git
 
 import os
 import sys
+
+from matplotlib.pyplot import step
 # 親ディレクトリからのimport用
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -26,11 +28,16 @@ import torchvision.transforms as transforms
 import torchaudio
 from torch.utils.data import Dataset, DataLoader, get_worker_info
 
+# 自作
 from data_process.audio_process import MelSpectrogram
 from get_dir import get_datasetroot, get_data_directory
+from hparams import create_hparams
+from transform import preprocess
 
 
 data_root = Path(get_datasetroot()).expanduser()    # 確認用
+
+hparams = create_hparams()
 
 
 def av_speech_collate_fn_pad(batch):
@@ -49,22 +56,22 @@ def av_speech_collate_fn_pad(batch):
     <追記>
     やっぱり下のデータ形状であってる気がします
     """
+    print("# av_speech_collate_fn_pad ... #")
     lips, waveforms, melspecs = zip(*batch)
-    
+
     # 口唇動画、音声サンプル、メルスペクトログラムそれぞれについて、バッチ内での最大フレーム数を計算
-    max_frames_in_batch = max([l.shape[0] for l in lips])
-    max_samples_in_batch = max([s.shape[1] for s in waveforms])
-    max_melspec_samples_in_batch = max([m.shape[1] for m in melspecs])
+    max_frames_in_batch = max([l.shape[0] for l in lips])   # 50
+    max_samples_in_batch = max([s.shape[1] for s in waveforms]) # 16000
+    max_melspec_samples_in_batch = max([m.shape[1] for m in melspecs])  # 100
+    # print(max_frames_in_batch)
+    # print(max_samples_in_batch)
+    # print(max_melspec_samples_in_batch)
 
     # バッチ内で最大のフレーム数のサンプルのやつに合わせるための0行列を作成
     # len(data) == data.shape[0]
-    # padded_lips : (len(lips), max_frames_in_batch, H, W)  4次元なので70行目あたりと矛盾
-    # padded_lips : (len(lips), max_frames_in_batch, C, H, W)   こっちなのかも
     padded_lips = torch.zeros(len(lips), max_frames_in_batch, *tuple(lips[0].shape[1:]))  
     padded_waveforms = torch.zeros(len(waveforms), 1, max_samples_in_batch)
     padded_melspecs = torch.zeros(len(melspecs), melspecs[0].shape[0], max_melspec_samples_in_batch)
-
-    # mel_gate_paddedはよくわかりません。
     mel_gate_padded = torch.zeros(len(melspecs), max_melspec_samples_in_batch)
 
     video_lengths = list()
@@ -110,8 +117,6 @@ def get_datasets(data_root, mode):
     dataset/lip/lip_cropped         にtrain用データ
     dataset/lip/lip_cropped_test    にtest用データを適当に置いてやってみて動きました
 
-    今、hparams.pyのbatch_size=2にしているので、2つ分データをlip_cropped_testに持っていけば動くと思います
-    1個だとバグります
     """
     items = dict()
     idx = 0
@@ -153,11 +158,11 @@ def get_datasets(data_root, mode):
 
 
 class KablabDataset(Dataset):
-    def __init__(self, data_root, mode='train', duration=1):
+    def __init__(self, data_root, mode='train', duration=1 - (1/hparams.fps)):
         super().__init__()
         assert mode in ('train', 'test')
         self.data_root = data_root
-        self.spec = MelSpectrogram()
+        # self.spec = MelSpectrogram()
         self.mode = mode
 
         # self.trans = transforms.Compose([
@@ -165,9 +170,10 @@ class KablabDataset(Dataset):
         #     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         # ])
 
+        # 口唇動画、音声データまでのパス一覧を取得
         self.items = get_datasets(self.data_root, self.mode)
         self.len = len(self.items)
-        self.duration = duration
+        # self.duration = duration
 
         print(f'Size of {type(self).__name__}: {self.len}')
 
@@ -182,10 +188,12 @@ class KablabDataset(Dataset):
         return self.len
 
     def reset_item(self):
+        print("# reset_item ... #")
         self.current_item = None
         return self['item']
 
     def get_item(self):
+        print("# get_item ... #")
         try:
             # イテレータの次の要素を受け取る
             item_idx = next(self.item_iter)
@@ -215,6 +223,7 @@ class KablabDataset(Dataset):
 
     # __getitem__()の挙動が見たい時は (self, _) -> (self)で一応見れます
     def __getitem__(self, _):
+        print("# getting item... #")
         if self.current_item is None:
             item = self.get_item()
         else:
@@ -222,40 +231,44 @@ class KablabDataset(Dataset):
 
         # 動画、音声ファイルへのpath
         video_path, audio_path = item
+        print(video_path)
+        print(audio_path)
 
-        overlap = 0.2
+        overlap = 0.1
         start_time = max(self.current_item_attributes['start_time'] - overlap, 0)
+        print(start_time)
         end_time = self.current_item_attributes['end_time']
+
+        # start_timeからend_time-1の間で、0.5秒ずつ刻んだランダムなタイミングをstart_timeに設定
+        # 1秒間のデータを取りたいのでend_time-1しています
+        # get_timing_step = 0.5
+        # start_time = random.choice(np.arange(start_time, end_time-1, get_timing_step))
 
         if start_time > end_time:
             return self.reset_item()
 
-        duration = random.choice(np.arange(0.5, self.duration + overlap, overlap))
+        # データの時間を3つの選択肢からランダムに選ぶ
+        # duration = random.choice(np.arange(0.5, self.duration + overlap, overlap))
+        duration = self.duration    # 1秒
+        # 取った1秒分足しておく
         self.current_item_attributes['start_time'] += duration
 
+        #######################################
+        # audio_process #
+        #######################################
         try:
-            # waveform : (C=1, T)
+            # waveform : (C=1, T=16000)
             waveform, sampling_rate = torchaudio.load(audio_path, frame_offset=int(16000 * start_time), 
                                                                num_frames=int(16000 * duration), normalize=True, format='wav')                                    
         except:
             # traceback.print_exc()
             return self.reset_item()
         
-        assert sampling_rate == 16000
-        
         if waveform.shape[1] == 0:
             return self.reset_item()
 
-        # 返り値はvideo frames, audio frames, meta data。video framesしか使わない
-        # frames : (T, H, W, C)
-        frames, _, _ = torchvision.io.read_video(video_path, start_pts=start_time, end_pts=start_time + duration, pts_unit='sec')
-        # (T, H, W, C) -> (T, C, H, W)
-        frames = frames.permute(0, 3, 1, 2)
-
-        # frames = self.trans(frames)
-
-        if frames.shape[0] == 0:
-            return self.reset_item()
+        assert sampling_rate == 16000
+        # assert waveform.shape[1] == 16000
 
         try:
             # melspec : (n_mel_channels, mel_frames)
@@ -263,16 +276,41 @@ class KablabDataset(Dataset):
         except:
             return self.reset_item()
 
+        # assert melspec.shape[1] == hparams.fps * 2
+        #######################################
+        # video_process #
+        #######################################
+
+        # 動画のfpsが50か確認
+        check_fps = ffmpeg.probe(video_path)['streams'][0]['avg_frame_rate']
+        assert check_fps == "50/1"
+
+        # 返り値はvideo frames, audio frames, meta data。video framesしか使わない
+        # frames : (T, H, W, C)
+        try:
+            frames, _, _ = torchvision.io.read_video(video_path, start_pts=start_time, end_pts=start_time + duration, pts_unit='sec')
+        except:
+            return self.reset_item()
+
+        if frames.shape[0] == 0:
+            return self.reset_item()
+        # print(frames.shape)
+        # assert frames.shape[0] == 50
+        # (T, H, W, C) -> (T, C, H, W)
+        frames = frames.permute(0, 3, 1, 2)
+
+        # frames = self.trans(frames)
+
         return frames, waveform, melspec
         
 
 
 def main():
-    # datasets = KablabDataset(data_root, mode="train")
-    datasets = KablabDataset(data_root, mode="test")
+    datasets = KablabDataset(data_root, mode="train")
+    # datasets = KablabDataset(data_root, mode="test")
     loader = DataLoader(
         dataset=datasets,
-        batch_size=2,   
+        batch_size=5,   
         shuffle=False,
         num_workers=0,      
         pin_memory=False,
@@ -301,18 +339,6 @@ def main():
     # print(f"len(frames) = {len(frames)}")
     # print(f"len(waveform) = {len(waveform)}")
     # print(f"len(melspec) = {len(melspec)}")
-
-    # print("\n####### collate_check #######")
-    # print(*tuple(frames[0].shape[1:]))
-
-    # max_frames_in_batch = frames.shape[0] + 10
-    # padded_lips = torch.zeros(len(frames), max_frames_in_batch, *tuple(frames[0].shape[1:]))  
-    # print(padded_lips.shape)
-
-    # idx = 0
-    # padded_lips[idx, :frames.shape[0], :, :, :] = frames
-    # print(type(padded_lips))
-
 
 
     # results

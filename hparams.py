@@ -10,11 +10,17 @@ def create_hparams():
         # audio parameter
         sampling_rate = 16000,
         n_fft = 1024,
-        hop_length = 256,
-        win_length = 1024,
+        hop_length = 160,
+        win_length = 640,
         f_min = 0,
         f_max = 7600,
         n_mel_channels = 80,
+
+        # frame period
+        frame_period=10,
+
+        # acoutic feature frames in training
+        length=300,
 
         # dataloader
         batch_size = 2,
@@ -25,7 +31,17 @@ def create_hparams():
         betas = (0.9, 0.999),
 
         # training
-        max_iter = 10,
+        max_iter = 5,
+
+        # feature type setting.
+        # input grayscale.（グレースケールかRGBか）
+        gray=False,
+
+        # input first and second derivative.（動的特徴量を使うかどうか）
+        delta=True,
+
+        # "world" or "mspec"（音響特徴量の選択）
+        feature_type="mspec",
     )
 
     class HParams:

@@ -65,7 +65,7 @@ def save_checkpoint(model, optimizer, iteration, ckpt_pth):
 				'iteration': iteration}, ckpt_pth)
 
 
-def train(data_root, hparams):
+def train(data_root, hparams, device):
     ###モデルにデータの入力、誤差の算出、逆伝搬によるパラメータの更新を行う####
 
     # model作成
@@ -90,12 +90,20 @@ def train(data_root, hparams):
 
 
     model.train()
-    # ================ MAIN TRAINNIG LOOP! ===================
+    print("================ MAIN TRAINNIG LOOP! ===================")
     while iteration <= hparams.max_iter:
         for batch in train_loader:
             if iteration > hparams.max_iter:
                 break
             start = time.perf_counter()
+            print(f"start = {start}")
+
+            (videos, video_lengths), (audios, audio_lengths), (melspecs, melspec_lengths, mel_gates) = batch
+            videos, audios, melspecs = videos.to(device), audios.to(device), melspecs.to(device)
+            video_lengths, audio_lengths, melspec_lengths = video_lengths.to(device), audio_lengths.to(device), melspec_lengths.to(device)
+            mel_gates = mel_gates.to(device)
+
+            iteration += 1
 
 
     return
@@ -106,6 +114,9 @@ def main():
     print('test')
     print('branch test')
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"device = {device}")
+
     # datasetディレクトリまでのパス
     data_root = Path(get_datasetroot()).expanduser()    # users/minami/dataset
 
@@ -113,7 +124,7 @@ def main():
     hparams = create_hparams()
 
     # training
-    train(data_root, hparams)
+    train(data_root, hparams, device)
 
     return
 
