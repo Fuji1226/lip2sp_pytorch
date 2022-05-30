@@ -136,7 +136,7 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
 
 def save_result(loss_list, save_path):
     plt.figure()
-    plt.plot(np.arange(loss_list), loss_list)
+    plt.plot(np.arange(len(loss_list)), loss_list)
     plt.savefig(save_path)
 
 
