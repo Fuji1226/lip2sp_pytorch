@@ -48,7 +48,6 @@ def get_datasets(data_root, mode):
     とりあえず
     dataset/lip/lip_cropped         にtrain用データ
     dataset/lip/lip_cropped_test    にtest用データを適当に置いてやってみて動きました
-
     """
     items = dict()
     idx = 0
@@ -121,9 +120,9 @@ class KablabDataset(Dataset):
 
         print(f'Size of {type(self).__name__}: {self.len}')
 
-        random.shuffle(self.items)
+        #random.shuffle(self.items)
         # イテレータを生成
-        self.item_iter = iter(self.items)
+        #self.item_iter = iter(self.items)
 
         # self.current_item = None
         # self.current_item_attributes = dict()
@@ -166,10 +165,9 @@ class KablabDataset(Dataset):
     #     return self.current_item
 
     # __getitem__()の挙動が見たい時は (self, _) -> (self)で一応見れます
-    def __getitem__(self, _):
-        item_idx = next(self.item_iter)
-        video_path, audio_path = self.items[item_idx]
-
+    def __getitem__(self, index):
+        #item_idx = next(self.item_iter)
+        video_path, audio_path = self.items[index]
         print("\ngetting data...")
         print(f"video_path = {video_path}")
         print(f"audio_path = {audio_path}")
@@ -215,6 +213,7 @@ class KablabDataset(Dataset):
 def main():
     print("############################ Start!! ############################")
     datasets = KablabDataset(data_root, mode="train")
+    breakpoint()
     # datasets = KablabDataset(data_root, mode="test")
     loader = DataLoader(
         dataset=datasets,

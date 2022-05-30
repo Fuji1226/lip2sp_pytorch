@@ -32,6 +32,7 @@ def create_hparams():
 
         # training
         max_iter = 5,
+        max_epoch = 100,
 
         # feature type setting.
         # input grayscale.（グレースケールかRGBか）

@@ -9,6 +9,7 @@ import os
 import time
 from datetime import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 
 # pytorch
 import torch
@@ -87,46 +88,91 @@ def train(data_root, hparams, device):
 
     # 損失関数
     loss = nn.MSELoss()
+    breakpoint()
 
-
+    loss_list = []
     model.train()
     print("================ MAIN TRAINNIG LOOP! ===================")
-    while iteration <= hparams.max_iter:
-        for batch in train_loader:
-            if iteration > hparams.max_iter:
-                break
-            start = time.perf_counter()
-            print(f"start = {start}")
+    # for epoch in range(hparams.max_epoch):
+    #     loss = 
+    # while iteration <= hparams.max_iter:
+    #     for batch in train_loader:
+    #         if iteration > hparams.max_iter:
+    #             break
+    #         start = time.perf_counter()
+    #         print(f"start = {start}")
 
-            (videos, video_lengths), (audios, audio_lengths), (melspecs, melspec_lengths, mel_gates) = batch
-            videos, audios, melspecs = videos.to(device), audios.to(device), melspecs.to(device)
-            video_lengths, audio_lengths, melspec_lengths = video_lengths.to(device), audio_lengths.to(device), melspec_lengths.to(device)
-            mel_gates = mel_gates.to(device)
+    #         (videos, video_lengths), (audios, audio_lengths), (melspecs, melspec_lengths, mel_gates) = batch
+    #         videos, audios, melspecs = videos.to(device), audios.to(device), melspecs.to(device)
+    #         video_lengths, audio_lengths, melspec_lengths = video_lengths.to(device), audio_lengths.to(device), melspec_lengths.to(device)
+    #         mel_gates = mel_gates.to(device)
 
-            iteration += 1
+    #         iteration += 1
+    # return
 
 
-    return
+def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
+    epoch_loss = 0
+    data_cnt = 0
+    for batch in data_loader:
+        (videos, video_lengths), (audios, audio_lengths), (melspecs, melspec_lengths, mel_gates) = batch
+        videos, audios, melspecs = videos.to(device), audios.to(device), melspecs.to(device)
+        mel_gates = mel_gates.to(device)
+
+        batch_size = videos.shape[0]
+        data_cnt += batch_size
+        ################順伝搬###############
+        output = model()                        ##modelの入力はおいおい
+        ####################################
+
+        loss = loss_f(output, target)           #targetはおいおい
+        loss.backward()
+        optimizer.step()
+
+        epoch_loss = loss.item()
+
+    epoch_loss /= data_cnt
+    return epoch_loss
+
+def save_result(loss_list, save_path):
+    plt.figure()
+    plt.plot(np.arange(len(loss_list)), loss_list)
+    plt.savefig(save_path)
 
 
 def main():
     ###ここにデータセットモデルのインスタンス作成train関数を回す#####
-    print('test')
-    print('branch test')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     # datasetディレクトリまでのパス
     data_root = Path(get_datasetroot()).expanduser()    # users/minami/dataset
-
     # パラメータ取得
     hparams = create_hparams()
 
-    # training
-    train(data_root, hparams, device)
+    #resultの表示
+    result_path = 'results'
+    os.mkdir(result_path)
 
-    return
+
+    #インスタンス作成
+    model = PreNet(in_channels=hparams.video_channels, out_channels=hparams.n_mel_channels)
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=hparams.lr, betas=hparams.betas
+    )
+    # Dataloader作成
+    train_loader = make_train_loader(data_root, hparams, mode="train")
+    test_loader = make_test_loader(data_root, hparams, mode="test")
+
+    loss_f = nn.MSELoss()
+    train_loss_list = []
+
+    # training
+    for epoch in range(hparams.max_epoch):
+        epoch_loss = train_one_epoch(model, train_loader, optimizer, loss_f, device)
+        train_loss_list.append(epoch_loss)
+        save_result(train_loss_list, result_path+'/train_loss.png')
 
 
 if __name__=='__main__':
