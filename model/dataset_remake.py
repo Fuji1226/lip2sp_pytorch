@@ -37,7 +37,7 @@ from hparams import create_hparams
 from transform import preprocess
 
 
-data_root = Path(get_datasetroot()).expanduser()    # 確認用
+data_root = Path(get_datasetroot()).expanduser()    
 
 hparams = create_hparams()
 
@@ -89,8 +89,16 @@ def get_datasets(data_root, mode):
     return items
 
 
-def x_round(x):
-    return math.floor(x * 4) / 4
+# def normalization(data_root=data_root, mode='train'):
+#     items = get_datasets(data_root, mode)
+#     data_len = len(items)
+#     item_iter = iter(items)
+#     item_idx = next(item_iter)
+
+#     while item_idx:
+#         video_path, audio_path = items[item_idx]
+
+
 
 
 class KablabDataset(Dataset):
@@ -98,7 +106,7 @@ class KablabDataset(Dataset):
         super().__init__()
         assert mode in ('train', 'test')
         self.data_root = data_root
-        self.spec = MelSpectrogram()
+        # self.spec = MelSpectrogram()
         self.mode = mode
 
         # self.trans = transforms.Compose([
@@ -161,10 +169,12 @@ class KablabDataset(Dataset):
     def __getitem__(self, _):
         item_idx = next(self.item_iter)
         video_path, audio_path = self.items[item_idx]
+
         print("\ngetting data...")
         print(f"video_path = {video_path}")
         print(f"audio_path = {audio_path}")
         data_path = Path(video_path)
+
         ret = preprocess(
             data_path=data_path,
             gray=hparams.gray,
@@ -179,12 +189,6 @@ class KablabDataset(Dataset):
             var=0,
             mode=None,
         )
-
-
-
-
-
-
 
         # overlap = 0.1
         # start_time = max(self.current_item_attributes['start_time'] - overlap, 0)
@@ -205,8 +209,6 @@ class KablabDataset(Dataset):
         # # 取った1秒分足しておく
         # self.current_item_attributes['start_time'] += duration
 
-        
-
         return ret
         
 
@@ -216,7 +218,7 @@ def main():
     # datasets = KablabDataset(data_root, mode="test")
     loader = DataLoader(
         dataset=datasets,
-        batch_size=1,   
+        batch_size=5,   
         shuffle=False,
         num_workers=0,      
         pin_memory=False,
@@ -256,10 +258,12 @@ def main():
             print(type(ret[1]))
             print(type(ret[2]))
             print(type(ret[3]))
-            print(f"lip = {ret[0].shape}")
-            print(f"y(acoustic features) = {ret[1].shape}")
-            print(f"mask = {ret[2].shape}")
-            print(f"feat_add = {ret[3].shape}")
+            print(f"lip = {ret[0].shape}")  # (B, C=5, W=48, H=48, T=150)
+            print(f"y(acoustic features) = {ret[1].shape}") # (B, C, T=300)
+            print(f"mask = {ret[2].shape}")     # (B, T=300)
+            print(f"feat_add = {ret[3].shape}")     # (B, C=3, T=300)
+
+
 
 
 

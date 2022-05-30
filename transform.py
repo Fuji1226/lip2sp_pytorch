@@ -308,6 +308,7 @@ def preprocess(
         print(f"upsample = {upsample}")
 
     # 学習時の処理
+    # chainer依存なので、適当に手動で変更できるようにした方がいい
     if chainer.config.train:
         if mode == "check":
             print("augmentation...")
@@ -328,8 +329,11 @@ def preprocess(
         T = y.shape[0]
         T_l = lip.shape[-1]
         idx = np.linspace(0, 1, int(T*rate) // upsample * upsample)
+        # print(f"idx = {idx.size}")
         idx = (idx - idx.min()) / (idx.max() - idx.min())
+        # print(f"idx = {idx.size}")
         idx_l = (idx[::upsample] * (T_l-1)).astype(int)
+        # print(f"idx_l = {idx_l.size}")
         lip = lip[..., idx_l]
         y = interpolate_1d(y, idx.size)
         feat_add = interpolate_1d(feat_add, idx.size)
@@ -343,6 +347,7 @@ def preprocess(
         print(f"upsample = {upsample}")
 
     data_len = min(len(y) // upsample * upsample,  lip.shape[-1] * upsample)
+    data_len = data_len // 2
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
@@ -474,12 +479,12 @@ if __name__ == "__main__":
         length=hparams.length,
         mean=0,
         var=0,
-        mode=None,  # "check"に変更すると色々出ます
+        mode="check",  # "check"に変更すると色々出ます
     )
     print("Done!")
     print(type(ret[0]))
     print(type(ret[1]))
     print(type(ret[2]))
     print(type(ret[3]))
-    print(ret[1].shape)
+    print(ret[2])
     

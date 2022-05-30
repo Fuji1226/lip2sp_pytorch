@@ -154,10 +154,10 @@ class PreNet(nn.Module):
 
 if __name__ == "__main__":
     B = 4
-    C = 3
+    C = 5
     W = 48
     H = 48
-    T = 50
+    T = 150
 
     # W, Hが小さいと途中でカーネルサイズより小さくなっちゃって通りませんでした
     # とりあえず上の条件で一応通ると思います
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     #x = np.random.rand(B, C, W, H, T)
     #x = chainer.Variable(x)
 
-    net = PreNet(3, 64)
-    out = net(x)
+    net = PreNet(C, 64)
+    out = net(x)    # (B, C, T=150)
     print(out.shape)
 

@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from model.dataset import av_speech_collate_fn_pad, x_round, KablabDataset
+from model.dataset_remake import KablabDataset
 from hparams import create_hparams
 from model.net import PreNet
 
@@ -39,7 +39,7 @@ def make_train_loader(data_root, hparams, mode):
         num_workers=hparams.num_workers,      
         pin_memory=False,
         drop_last=True,
-        collate_fn=av_speech_collate_fn_pad
+        collate_fn=None,
     )
     return train_loader
 
@@ -53,7 +53,7 @@ def make_test_loader(data_root, hparams, mode):
         num_workers=hparams.num_workers,      
         pin_memory=False,
         drop_last=True,
-        collate_fn=av_speech_collate_fn_pad
+        collate_fn=None,
     )
     return test_loader
 
