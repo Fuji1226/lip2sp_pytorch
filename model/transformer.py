@@ -3,7 +3,7 @@ reference
 https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
 """
 import os
-os.environ['PYTHONBREAKPOINT'] = ''
+os.environ['PYTHONBREAKPOINT'] = '0'
 
 import torch
 import torch.nn as nn
@@ -241,15 +241,15 @@ class Prenet(nn.Module):
 class Decoder(nn.Module):
     def __init__(
         self, n_layers, n_head, d_k, d_v, d_model, d_inner, 
-        pre_in_channels, pre_inner_channels, pre_out_channels,
-        out_dim, use_gc=False,
+        pre_in_channels, pre_inner_channels, 
+        out_channels, use_gc=False,
         dropout=0.1, n_position=150, reduction_factor=2):
         super().__init__()
 
         self.reduction_factor = reduction_factor
-        self.out_dim = out_dim
+        self.out_channels = out_channels
 
-        self.prenet = Prenet(pre_in_channels, pre_out_channels, pre_inner_channels)
+        self.prenet = Prenet(pre_in_channels, d_model, pre_inner_channels)
 
         self.position_enc = PositionalEncoding(d_model, n_position)
         self.dropout = nn.Dropout(p=dropout)
@@ -258,7 +258,7 @@ class Decoder(nn.Module):
             for _ in range(n_layers)
         ])
 
-        self.conv_o = weight_norm(nn.Conv1d(d_model, self.out_dim * self.reduction_factor, kernel_size=1))
+        self.conv_o = weight_norm(nn.Conv1d(d_model, self.out_channels * self.reduction_factor, kernel_size=1))
 
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.d_model = d_model
@@ -281,7 +281,7 @@ class Decoder(nn.Module):
         """
         B = enc_output.shape[0]
         T = enc_output.shape[-1] * self.reduction_factor
-        D = self.out_dim
+        D = self.out_channels
         # 前時刻の出力
         self.pre_out = None
 
@@ -370,7 +370,7 @@ def main():
 
     # 音響特徴量
     feature_channels = 80
-    target_feature = torch.rand(batch, feature_channels, t*2)
+    feature = torch.rand(batch, feature_channels, t*2)
 
     # transformer parameter
     n_layers = 6
@@ -390,10 +390,10 @@ def main():
 
     # prenet
     prenet = Prenet(in_channels=feature_channels, out_channels=d_model//2)
-    pre_out = prenet(target_feature)    # (B, C, T)
+    pre_out = prenet(feature)    # (B, C, T)
 
     # mask
-    target_mask = get_subsequent_mask(target_feature)
+    target_mask = get_subsequent_mask(feature)
 
     # decoder parameter
     pre_in_channels = feature_channels * 2
@@ -403,9 +403,9 @@ def main():
     # decoder
     decoder = Decoder(
         n_layers, n_head, d_k, d_v, d_model, d_inner,
-        pre_in_channels, pre_inner_channels, pre_out_channels,
-        out_dim=80)
-    dec_out = decoder(enc_out, target_feature) 
+        pre_in_channels, pre_inner_channels, 
+        out_channels=80)
+    dec_out = decoder(enc_out, feature) 
 
     # postnet
     postnet = Postnet(80, 512, 80)
