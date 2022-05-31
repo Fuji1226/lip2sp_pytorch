@@ -181,10 +181,13 @@ class PositionalEncoding(nn.Module):
         sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
         sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
 
-        return torch.FloatTensor(sinusoid_table).unsqueeze(0)
+        return torch.FloatTensor(sinusoid_table).unsqueeze(0)   # (1, n_position, d_hid)
 
     def forward(self, x):
-        return x + self.pos_table[:, :x.size(1)].clone().detach()
+        """
+        x : (B, n_position, d_hid)
+        """
+        return x + self.pos_table[:, :x.size(1)].clone().detach()   
 
 
 class Encoder(nn.Module):
@@ -205,6 +208,7 @@ class Encoder(nn.Module):
         """
         enc_slf_attn_list = []
         # positional encoding
+        prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
         prenet_out = self.dropout(self.position_enc(prenet_out))
         enc_outout = self.layer_norm(prenet_out)
 
@@ -273,11 +277,11 @@ class Decoder(nn.Module):
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
 
         input
-        prev : (B, C, T=300)
-        enc_output : (B, T=150, C)
+        prev : (B, C, T)
+        enc_output : (B, T, C)
 
         return
-        dec_output : (B, C, T=300)
+        dec_output : (B, C, T)
         """
         B = enc_output.shape[0]
         T = enc_output.shape[-1] * self.reduction_factor
@@ -292,7 +296,7 @@ class Decoder(nn.Module):
             prev = prev.permute(0, -1, -2)
             prev = prev.reshape(B, -1, D * self.reduction_factor)
             prev = prev.permute(0, -1, -2)  
-
+        breakpoint()
         # get target_mask
         target_mask = get_subsequent_mask(prev) # (B, T, T)
         
@@ -309,7 +313,7 @@ class Decoder(nn.Module):
 
         dec_slf_attn_list = []
         dec_enc_attn_list = []
-        breakpoint()
+
         # decoder layers
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
@@ -319,12 +323,16 @@ class Decoder(nn.Module):
 
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
         dec_output = self.conv_o(dec_output)
-        breakpoint()
         dec_output = dec_output.reshape(B, D, -1)   
         breakpoint()
         if return_attns:
             return dec_output, dec_slf_attn_list, dec_enc_attn_list
         return dec_output
+
+    def inference(self):
+        return
+
+    
 
 
 class Postnet(nn.Module):
@@ -366,7 +374,7 @@ def main():
     channels = 256
     t = 150
     prenet_out = torch.rand(batch, channels, t)
-    prenet_out = prenet_out.permute(0, 2, 1)    # (B, T, C)
+    # prenet_out = prenet_out.permute(0, 2, 1)    # (B, T, C)
 
     # 音響特徴量
     feature_channels = 80
@@ -382,7 +390,7 @@ def main():
 
     # positional encoding
     posenc = PositionalEncoding(256, 150)
-    posenc_out = posenc(prenet_out)
+    posenc_out = posenc(prenet_out.permute(0, -1, -2))
 
     # encoder
     encoder = Encoder(n_layers, n_head, d_k, d_v, d_model, d_inner)

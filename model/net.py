@@ -147,7 +147,7 @@ class ResNet3D(nn.Module):
         h = self.res_block(h)
         # W, HについてAverage pooling
         h = torch.mean(h, dim=(2, 3))
-        print(f'after GAP {h.shape}')
+        # print(f'after GAP {h.shape}')
         return h
 
 
