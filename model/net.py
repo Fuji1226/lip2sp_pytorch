@@ -119,7 +119,7 @@ class ResidualBlock3D(nn.Module):
 
 
 ####３DCNN+GAP#####
-class PreNet(nn.Module):
+class ResNet3D(nn.Module):
     def __init__(self, in_channels, out_channels, layers=5) -> None:
         super().__init__()
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     #x = np.random.rand(B, C, W, H, T)
     #x = chainer.Variable(x)
 
-    net = PreNet(C, 64)
+    net = ResNet3D(C, 64)
     out = net(x)    # (B, C, T=150)
     print(out.shape)
 

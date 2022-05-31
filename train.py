@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from get_dir import get_datasetroot, get_data_directory
 from model.dataset_remake import KablabDataset
 from hparams import create_hparams
-from model.net import PreNet
+from model.net import ResNet3D
 
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
