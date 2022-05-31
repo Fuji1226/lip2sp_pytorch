@@ -120,7 +120,7 @@ class KablabDataset(Dataset):
 
         print(f'Size of {type(self).__name__}: {self.len}')
 
-        #random.shuffle(self.items)
+        random.shuffle(self.items)
         # イテレータを生成
         #self.item_iter = iter(self.items)
 
@@ -218,7 +218,7 @@ def main():
     loader = DataLoader(
         dataset=datasets,
         batch_size=5,   
-        shuffle=False,
+        shuffle=True,
         num_workers=0,      
         pin_memory=False,
         drop_last=True,
