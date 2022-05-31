@@ -1,4 +1,10 @@
-from multiprocessing import reduction
+"""
+reference
+https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
+"""
+import os
+os.environ['PYTHONBREAKPOINT'] = '0'
+
 import torch
 import torch.nn as nn
 import torch.functional as F
@@ -66,7 +72,6 @@ class MultiHeadAttention(nn.Module):
 
         # Pass through the pre-attention projection: b x lq x (n*dv)
         # Separate different heads: b x lq x n x dv
-        # 論文ではheadごとに全結合層があったけど、実際はまず全head分作り、後からheadごとに分割している
         q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
         k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
         v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
@@ -199,7 +204,6 @@ class Encoder(nn.Module):
         prenet_out : (B, C, T)
         """
         enc_slf_attn_list = []
-
         # positional encoding
         prenet_out = self.dropout(self.position_enc(prenet_out))
         enc_outout = self.layer_norm(prenet_out)
@@ -238,7 +242,7 @@ class Decoder(nn.Module):
     def __init__(
         self, n_layers, n_head, d_k, d_v, d_model, d_inner, 
         pre_in_channels, pre_inner_channels, pre_out_channels,
-        out_dim,
+        out_dim, use_gc=False,
         dropout=0.1, n_position=150, reduction_factor=2):
         super().__init__()
 
@@ -253,44 +257,59 @@ class Decoder(nn.Module):
             DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
             for _ in range(n_layers)
         ])
+
+        self.conv_o = weight_norm(nn.Conv1d(d_model, self.out_dim * self.reduction_factor, kernel_size=1))
+
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.d_model = d_model
 
+        # self.proj_pre = nn.Conv1d(d_model, d_model, kernel_size=1, bias=False)
+        # if use_gc:
+        #     self.proj_gc = nn.Linear()
+
     def forward(self, enc_output, prev=None, target_mask=None, mask=None, gc=None, return_attns=False):
         """
-        Prenetもこの中で通す
+        reduction_factorにより、
+        口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
 
-        target : (B, C, T=300)
+        input
+        prev : (B, C, T=300)
         enc_output : (B, T=150, C)
+
+        return
+        dec_output : (B, C, T=300)
         """
         B = enc_output.shape[0]
         T = enc_output.shape[-1] * self.reduction_factor
         D = self.out_dim
         # 前時刻の出力
         self.pre_out = None
+
+        # global conditionの結合
         
         # reshape for reduction factor
+        if prev is not None:
+            prev = prev.permute(0, -1, -2)
+            prev = prev.reshape(B, -1, D * self.reduction_factor)
+            prev = prev.permute(0, -1, -2)  
+
+        # get target_mask
+        target_mask = get_subsequent_mask(prev) # (B, T, T)
         
+        # Prenet
+        prev = self.prenet(prev)    # (B, d_model, T=150)
+        self.pre_out = prev
 
-        # target = target.permute(0, -1, -2)    # (B, T, C)
-        # B, T, C = target.shape
+        # global conditionの結合後、カーネル数1の畳み込み
 
-        # print(target.shape)
-        # # 音響特徴量のreshape
-        # # 口唇動画1フレームに対して音響特徴量2フレームを同時に出力
-        # target = target.view(B, -1, C * self.reduction_factor)  
-        # target = target.permute(0, -1, -2)  
-        # print(target.shape)
-        # print(enc_output.shape)
+        # positional encoding
+        prev = prev.permute(0, -1, -2)  # (B, T, C)
+        dec_output = self.dropout(self.position_enc(prev))
+        dec_output = self.layer_norm(dec_output)
 
         dec_slf_attn_list = []
         dec_enc_attn_list = []
-
-        # positional encoding
-        dec_output = self.dropout(self.position_enc(prev))
-        dec_output = self.layer_norm(dec_output)
-        print("Finish positional encoding")
-
+        breakpoint()
         # decoder layers
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
@@ -298,10 +317,38 @@ class Decoder(nn.Module):
             dec_slf_attn_list += [dec_slf_attn] if return_attns else []
             dec_enc_attn_list += [dec_enc_attn] if return_attns else []
 
+        dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
+        dec_output = self.conv_o(dec_output)
+        dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
+        dec_output = dec_output.reshape(B, D, -1)   
+        breakpoint()
         if return_attns:
             return dec_output, dec_slf_attn_list, dec_enc_attn_list
         return dec_output
 
+
+class Postnet(nn.Module):
+    def __init__(self, in_channels, inner_channels, out_channels, n_layers=5, dropout=0.5):
+        super().__init__()
+
+        conv = nn.Sequential(
+            nn.Conv1d(in_channels, inner_channels, kernel_size=5, padding=5//2, bias=False),
+            nn.BatchNorm1d(inner_channels),
+            nn.Tanh(),
+            nn.Dropout(p=dropout)
+        )
+        for _ in range(n_layers - 2):
+            conv.append(nn.Conv1d(
+                inner_channels, inner_channels, kernel_size=5, padding=5//2, bias=False
+            ))
+            conv.append(nn.BatchNorm1d(inner_channels))
+            conv.append(nn.Tanh())
+            conv.append(nn.Dropout(p=dropout))
+        conv.append(weight_norm(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=5//2)))
+        self.conv = conv
+
+    def forward(self, x):
+        return x + self.conv(x)
 
 
 def get_subsequent_mask(seq):
@@ -321,11 +368,11 @@ def main():
     prenet_out = torch.rand(batch, channels, t)
     prenet_out = prenet_out.permute(0, 2, 1)    # (B, T, C)
 
-    # decoderに入力される音響特徴量
+    # 音響特徴量
     feature_channels = 80
     target_feature = torch.rand(batch, feature_channels, t*2)
 
-    # transformerのparameter
+    # transformer parameter
     n_layers = 6
     d_model = 256
     d_inner = d_model * 4   # 原論文と同様
@@ -333,31 +380,36 @@ def main():
     d_k = d_model // n_head
     d_v = d_model // n_head
 
+    # positional encoding
     posenc = PositionalEncoding(256, 150)
     posenc_out = posenc(prenet_out)
-    # print(posenc_out.shape)
 
+    # encoder
     encoder = Encoder(n_layers, n_head, d_k, d_v, d_model, d_inner)
     enc_out = encoder(prenet_out)   # (B, T, C)
-    # print(f"enc_output = {enc_out.shape}")
 
+    # prenet
     prenet = Prenet(in_channels=feature_channels, out_channels=d_model//2)
     pre_out = prenet(target_feature)    # (B, C, T)
-    # print(f"pre_output = {pre_out.shape}")
 
+    # mask
     target_mask = get_subsequent_mask(target_feature)
-    # print(target_mask.shape)
-    # print(target_mask)
 
-    pre_in_channels = feature_channels
+    # decoder parameter
+    pre_in_channels = feature_channels * 2
     pre_inner_channels = 32
     pre_out_channels = d_model
+
+    # decoder
     decoder = Decoder(
         n_layers, n_head, d_k, d_v, d_model, d_inner,
-        pre_in_channels, pre_inner_channels, pre_out_channels)
-    # dec_out = decoder(enc_out, target_feature, target_mask=target_mask)
+        pre_in_channels, pre_inner_channels, pre_out_channels,
+        out_dim=80)
+    dec_out = decoder(enc_out, target_feature) 
 
-
+    # postnet
+    postnet = Postnet(80, 512, 80)
+    postnet_out = postnet(torch.rand(8, 80, 300))
 
 
 
