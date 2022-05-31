@@ -3,7 +3,7 @@ reference
 https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
 """
 import os
-os.environ['PYTHONBREAKPOINT'] = '0'
+os.environ['PYTHONBREAKPOINT'] = ''
 
 import torch
 import torch.nn as nn
@@ -319,7 +319,7 @@ class Decoder(nn.Module):
 
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
         dec_output = self.conv_o(dec_output)
-        dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
+        breakpoint()
         dec_output = dec_output.reshape(B, D, -1)   
         breakpoint()
         if return_attns:
