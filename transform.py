@@ -166,6 +166,7 @@ def cals_sp(wave, fs, frame_period, feature_type, path=None, nmels=None, f_min=N
             # 先輩のが謎です
             mcep, clf0, vuv, cap, fbin, _ = wav2world(
                 wave, fs, frame_period=frame_period)
+    
             y = np.hstack([mcep, clf0.reshape(-1, 1),
                            vuv.reshape(-1, 1), cap])
         else:
@@ -371,12 +372,9 @@ def preprocess(
             #     index * upsample:index * upsample + length]
     
     # 音響特徴量の標準化
-    # 事前に全データの音響特徴量から平均と分散を求めておいたらよさそう
-    # mean = 0
-    # var = 1
     if not (mean is None or var is None):
         y = (y - mean) / np.sqrt(var)
-
+    
     lip = lip.astype('float32')
     y = y.T.astype('float32')
     feat_add = feat_add.T.astype('float32')

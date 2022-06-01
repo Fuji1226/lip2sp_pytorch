@@ -176,9 +176,10 @@ def modspec_smoothing(array, fs, cut_off=30, axis=0, fbin=11):
     h = signal.firwin(fbin, cut_off, nyq=fs // 2)
     return signal.filtfilt(h, 1, array, axis)
 
+# メルケプストラムの次元は26に設定（江崎さんと同様）
 def wav2world(
         wave, fs,
-        mcep_order=25, f0_smoothing=0,
+        mcep_order=26, f0_smoothing=0,
         ap_smoothing=0, sp_smoothing=0,
         frame_period=None, f0_floor=None, f0_ceil=None,
         f0_mode="harvest", sp_type="mcep"):
@@ -189,7 +190,7 @@ def wav2world(
         if frame_period is None else frame_period
     f0_floor = pyworld.default_f0_floor if f0_floor is None else f0_floor
     f0_ceil = pyworld.default_f0_ceil if f0_ceil is None else f0_ceil
-
+    
     # f0
     if f0_mode == "harvest":
         f0, t = pyworld.harvest(
@@ -197,7 +198,7 @@ def wav2world(
             f0_floor=f0_floor, f0_ceil=f0_ceil,
             frame_period=frame_period)
         threshold = 0.85
-
+    
     elif f0_mode == "reaper":
         _, _, t, f0, _ = reaper(
             (wave * (2**15 - 1)).astype("int16"),
@@ -213,16 +214,16 @@ def wav2world(
 
     else:
         raise ValueError
-
+    
     # world
-    sp = pyworld.cheaptrick(wave,  f0, t, fs)
+    sp = pyworld.cheaptrick(wave,  f0, t, fs)   
     ap = pyworld.d4c(wave, f0, t, fs, threshold=threshold)
     fbin = sp.shape[1]
-
+    
     # extract vuv from ap
     vuv_flag = (ap[:, 0] < 0.5) * (f0 > 1.0)
     vuv = vuv_flag.astype('int')
-
+    
     # continuous log f0
     clf0 = np.zeros_like(f0)
     if vuv_flag.any():
@@ -242,10 +243,13 @@ def wav2world(
 
     else:
         clf0 = np.ones_like(f0) * f0_floor
-
+    
     # code ap
+    # これが帯域非周期性指標
+    # 論文では4か5次元の感じだったけど、1次元になってる
+    # どうやって設定する？
     cap = pyworld.code_aperiodicity(ap, fs)
-
+    
     # coding sp
     if sp_type == "spec":
         sp = sp
@@ -267,7 +271,6 @@ def wav2world(
     if f0_smoothing > 0:
         clf0 = modspec_smoothing(
             clf0, 1000 / frame_period, cut_off=f0_smoothing)
-
     return sp, clf0, vuv, cap, fbin, t
 
 

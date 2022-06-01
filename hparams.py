@@ -37,11 +37,15 @@ def create_hparams():
         d_inner = 1024,
 
         # Prenet & Postnet parameter
-        # pre_in_channelsはfeature_typeによって違うので微妙
-        # メルスペクトログラムなら160、worldなら64
-        pre_in_channels = 160,  # 音響特徴量の次元の2倍   
+        pre_in_channels = 160,  # 音響特徴量のチャンネル数の2倍   
         pre_inner_channels = 32,
         post_inner_channels = 512,
+
+        # out_channels
+        out_channels = 80,  # 音響特徴量のチャンネル数（mspec:80, world:29）
+
+        # "world" or "mspec"（音響特徴量の選択）
+        feature_type="mspec",
 
         # glu parameter
         glu_inner_channels = 256,
@@ -63,7 +67,7 @@ def create_hparams():
 
         # training
         max_iter = 5,
-        max_epoch = 2,
+        max_epoch = 5,
 
         # feature type setting.
         # input grayscale.（グレースケールかRGBか）
@@ -71,9 +75,6 @@ def create_hparams():
 
         # input first and second derivative.（動的特徴量を使うかどうか）
         delta=True,
-
-        # "world" or "mspec"（音響特徴量の選択）
-        feature_type="mspec",
     )
 
     class HParams:

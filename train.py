@@ -8,6 +8,7 @@ from pathlib import Path
 import os
 import time
 from datetime import datetime
+from urllib.request import HTTPPasswordMgrWithDefaultRealm
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -138,7 +139,6 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
         epoch_loss += loss.item()
 
     epoch_loss /= data_cnt
-    breakpoint()
     return epoch_loss
 
 def save_result(loss_list, save_path):
@@ -166,7 +166,7 @@ def main():
     #インスタンス作成
     model = Lip2SP(
         in_channels=5, 
-        out_channels=80,
+        out_channels=hparams.out_channels,
         res_layers=hparams.res_layers,
         d_model=hparams.d_model,
         n_layers=hparams.n_layers,
