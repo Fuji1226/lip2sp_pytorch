@@ -22,6 +22,8 @@ from get_dir import get_datasetroot, get_data_directory
 from model.dataset_remake import KablabDataset
 from hparams import create_hparams
 from model.models import Lip2SP
+from loss import masked_mse
+
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 
@@ -35,52 +37,6 @@ def save_checkpoint(model, optimizer, iteration, ckpt_pth):
 	torch.save({'model': model.state_dict(),
 				'optimizer': optimizer.state_dict(),
 				'iteration': iteration}, ckpt_pth)
-
-"""
-def train(data_root, hparams, device):
-    ###モデルにデータの入力、誤差の算出、逆伝搬によるパラメータの更新を行う####
-
-    # model作成
-
-    # 最適化手法
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=hparams.lr, betas=hparams.betas
-    )
-
-    # load checkpoint
-    # 保存したパラメータがすでにあるときにそれを読み込む
-    iteration = 1
-
-    # Dataloader作成
-    train_loader = make_train_loader(data_root, hparams, mode="train")
-    test_loader = make_test_loader(data_root, hparams, mode="test")
-
-
-    # 損失関数
-    loss = nn.MSELoss()
-    breakpoint()
-
-    loss_list = []
-    model.train()
-    print("================ MAIN TRAINNIG LOOP! ===================")
-    # for epoch in range(hparams.max_epoch):
-    #     loss = 
-    # while iteration <= hparams.max_iter:
-    #     for batch in train_loader:
-    #         if iteration > hparams.max_iter:
-    #             break
-    #         start = time.perf_counter()
-    #         print(f"start = {start}")
-
-    #         (videos, video_lengths), (audios, audio_lengths), (melspecs, melspec_lengths, mel_gates) = batch
-    #         videos, audios, melspecs = videos.to(device), audios.to(device), melspecs.to(device)
-    #         video_lengths, audio_lengths, melspec_lengths = video_lengths.to(device), audio_lengths.to(device), melspec_lengths.to(device)
-    #         mel_gates = mel_gates.to(device)
-
-    #         iteration += 1
-    # return
-
-"""
 
 
 def make_train_loader(data_root, hparams, mode):
@@ -129,10 +85,11 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
             data_len=data_len,
             prev=target,
             which_decoder="transformer",
-        )                        ##modelの入力はおいおい
+        )                      
         ####################################
 
-        loss = loss_f(output, target)           #targetはおいおい
+        # loss = loss_f(output[:, :, 2:], target[:, :, :-2])  # 未来予測なのでシフトして損失を計算       
+        loss = masked_mse(output[:, :, 2:], target[:, :, :-2], data_len)
         loss.backward()
         optimizer.step()
 
@@ -140,6 +97,7 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
 
     epoch_loss /= data_cnt
     return epoch_loss
+
 
 def save_result(loss_list, save_path):
     plt.figure()
