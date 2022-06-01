@@ -3,13 +3,60 @@ reference
 https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
 """
 import os
-os.environ['PYTHONBREAKPOINT'] = '0'
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import torch
 import torch.nn as nn
 import torch.functional as F
 from torch.nn.utils import weight_norm
 import numpy as np
+
+from hparams import create_hparams
+
+
+hparams = create_hparams()
+
+
+def get_subsequent_mask(seq):
+    ''' 
+    音響特徴量の未来の値のマスク
+
+    For masking out the subsequent info. 
+    '''
+    len_s = seq.size()[-1]
+    subsequent_mask = (1 - torch.triu(
+        torch.ones((1, len_s, len_s), device=seq.device), diagonal=1)).bool()
+    return subsequent_mask
+
+
+def make_pad_mask(lengths, maxlen):
+    """
+    data_lenが短くて0パディングしたデータに対してのマスク
+    maxlenは口唇動画のフレーム数
+    
+    Make mask for padding frames
+
+    Args:
+        lengths (list): list of lengths（tensorでOK）
+        maxlen (int, optional): maximum length. If None, use max value of lengths.
+
+    Returns:
+        torch.ByteTensor: mask
+    """
+    if not isinstance(lengths, list):
+        lengths = lengths.tolist()
+    bs = int(len(lengths))
+    if maxlen is None:
+        maxlen = int(max(lengths))
+
+    seq_range = torch.arange(0, maxlen, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, maxlen)
+    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    mask = seq_range_expand < seq_length_expand     # (B, T=maxlen)
+
+    return mask.unsqueeze(1)    # (B, 1, T)
+
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -24,10 +71,8 @@ class ScaledDotProductAttention(nn.Module):
     def forward(self, q, k, v, mask=None):
         # tempratureは√d_k
         attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
-
         if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e9)
-
+            attn = attn.masked_fill(mask == 0, -1e9)    # maskがFalseのところを-infに変更
         # attn = self.dropout(F.softmax(attn, dim=-1))
         attn = self.dropout(self.softmax(attn))
         output = torch.matmul(attn, v)
@@ -164,7 +209,7 @@ class DecoderLayer(nn.Module):
 
 class PositionalEncoding(nn.Module):
 
-    def __init__(self, d_hid, n_position=150):
+    def __init__(self, d_hid, n_position=hparams.length // 2):
         super(PositionalEncoding, self).__init__()
 
         # Not a parameter
@@ -191,7 +236,9 @@ class PositionalEncoding(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self,n_layers, n_head, d_k, d_v, d_model, d_inner, dropout=0.1, n_position=150):
+    def __init__(
+        self,n_layers, n_head, d_k, d_v, d_model, d_inner, 
+        dropout=0.1, n_position=hparams.length // 2, reduction_factor=hparams.reduction_factor):
         super().__init__()
         self.position_enc = PositionalEncoding(d_model, n_position)
         self.dropout = nn.Dropout(p=dropout)
@@ -200,18 +247,24 @@ class Encoder(nn.Module):
             for _ in range(n_layers)
         ])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+
         self.d_model = d_model
+        self.reduction_factor = reduction_factor
     
-    def forward(self, prenet_out, mask=None, return_attns=False):
+    def forward(self, prenet_out, data_len, return_attns=False):
         """
         prenet_out : (B, C, T)
         """
-        enc_slf_attn_list = []
+        # get mask
+        data_len = torch.div(data_len, self.reduction_factor)
+        mask = make_pad_mask(data_len, maxlen=150)
+        
         # positional encoding
         prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
         prenet_out = self.dropout(self.position_enc(prenet_out))
         enc_outout = self.layer_norm(prenet_out)
 
+        enc_slf_attn_list = []
         # encoder layers
         for enc_layer in self.layer_stack:
             enc_output, enc_slf_attn = enc_layer(enc_outout, slf_attn_mask=mask)
@@ -247,7 +300,7 @@ class Decoder(nn.Module):
         self, n_layers, n_head, d_k, d_v, d_model, d_inner, 
         pre_in_channels, pre_inner_channels, 
         out_channels, use_gc=False,
-        dropout=0.1, n_position=150, reduction_factor=2):
+        dropout=0.1, n_position=hparams.length // 2, reduction_factor=hparams.reduction_factor):
         super().__init__()
 
         self.reduction_factor = reduction_factor
@@ -271,7 +324,7 @@ class Decoder(nn.Module):
         # if use_gc:
         #     self.proj_gc = nn.Linear()
 
-    def forward(self, enc_output, prev=None, target_mask=None, mask=None, gc=None, return_attns=False):
+    def forward(self, enc_output, data_len, prev=None, gc=None, return_attns=False):
         """
         reduction_factorにより、
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
@@ -296,9 +349,11 @@ class Decoder(nn.Module):
             prev = prev.permute(0, -1, -2)
             prev = prev.reshape(B, -1, D * self.reduction_factor)
             prev = prev.permute(0, -1, -2)  
-        breakpoint()
+        
         # get target_mask
-        target_mask = get_subsequent_mask(prev) # (B, T, T)
+        data_len = torch.div(data_len, self.reduction_factor)
+        mask = make_pad_mask(data_len, maxlen=150)
+        target_mask = make_pad_mask(data_len, maxlen=150) & get_subsequent_mask(prev) # (B, T, T)
         
         # Prenet
         prev = self.prenet(prev)    # (B, d_model, T=150)
@@ -324,15 +379,13 @@ class Decoder(nn.Module):
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
         dec_output = self.conv_o(dec_output)
         dec_output = dec_output.reshape(B, D, -1)   
-        breakpoint()
+        
         if return_attns:
             return dec_output, dec_slf_attn_list, dec_enc_attn_list
         return dec_output
 
     def inference(self):
         return
-
-    
 
 
 class Postnet(nn.Module):
@@ -359,16 +412,12 @@ class Postnet(nn.Module):
         return x + self.conv(x)
 
 
-def get_subsequent_mask(seq):
-    ''' For masking out the subsequent info. '''
-    len_s = seq.size()[-1]
-    subsequent_mask = (1 - torch.triu(
-        torch.ones((1, len_s, len_s), device=seq.device), diagonal=1)).bool()
-    return subsequent_mask
-
-
 
 def main():
+    # data_len
+    data_len = [300, 300, 300, 300, 100, 100, 200, 200]
+    data_len = torch.tensor(data_len)
+
     # 3DResnetからの出力
     batch = 8
     channels = 256
@@ -394,7 +443,7 @@ def main():
 
     # encoder
     encoder = Encoder(n_layers, n_head, d_k, d_v, d_model, d_inner)
-    enc_out = encoder(prenet_out)   # (B, T, C)
+    enc_out = encoder(prenet_out, data_len)   # (B, T, C)
 
     # prenet
     prenet = Prenet(in_channels=feature_channels, out_channels=d_model//2)
@@ -413,13 +462,13 @@ def main():
         n_layers, n_head, d_k, d_v, d_model, d_inner,
         pre_in_channels, pre_inner_channels, 
         out_channels=80)
-    dec_out = decoder(enc_out, feature) 
+    dec_out = decoder(enc_out, data_len, feature) 
 
     # postnet
     postnet = Postnet(80, 512, 80)
     postnet_out = postnet(torch.rand(8, 80, 300))
 
-
+    
 
 if __name__ == "__main__":
     main()

@@ -22,6 +22,24 @@ def create_hparams():
         # acoutic feature frames in training
         length=300,
 
+        # reduction factor
+        reduction_factor = 2,
+
+        # transformer parameter
+        n_layer = 6,
+        d_model = 256,
+        d_inner = 1024,
+        n_head = 8,
+        d_k = 32,   # d_model // n_head
+        d_v = 32,   # d_model // n_head
+
+        # Prenet & Postnet parameter
+        # pre_in_channelsはfeature_typeによって違うので微妙
+        # メルスペクトログラムなら80、worldなら32
+        pre_in_channels = 80,   
+        pre_inner_channels = 32,
+        post_inner_channels = 512,
+
         # dataloader
         batch_size = 2,
         num_workers = 0,

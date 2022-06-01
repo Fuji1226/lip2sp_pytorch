@@ -33,18 +33,18 @@ class Lip2SP(nn.Module):
 
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels)
 
-    def forward(self, lip=None, prev=None, mask=None, gc=None):
+    def forward(self, lip, data_len, prev=None, gc=None):
         if lip is not None:
             # encoder
             lip = self.first_batch_norm(lip)
             breakpoint()
             lip_feature = self.ResNet_GAP(lip)
             breakpoint()
-            enc_output = self.transformer_encoder(lip_feature)  
+            enc_output = self.transformer_encoder(lip_feature, data_len)  
             breakpoint()
             
             # decoder
-            dec_output = self.transformer_decoder(enc_output, prev)
+            dec_output = self.transformer_decoder(enc_output, data_len, prev)
             breakpoint()
             self.pre = dec_output
             breakpoint()
@@ -55,6 +55,10 @@ class Lip2SP(nn.Module):
 
 def main():
     batch_size = 8
+
+    # data_len
+    data_len = [300, 300, 300, 300, 100, 100, 200, 200]
+    data_len = torch.tensor(data_len)
 
     # 口唇動画
     lip_channels = 5
@@ -89,7 +93,7 @@ def main():
         dropout=0.1, n_position=frames, reduction_factor=2
     )
 
-    out = net(lip=lip, prev=acoustic_feature)
+    out = net(lip=lip, data_len=data_len, prev=acoustic_feature)
 
 
 
