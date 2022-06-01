@@ -123,6 +123,7 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
         data_cnt += batch_size
         
         ################順伝搬###############
+        print(f'data_cnt = {data_cnt}')
         output = model(
             lip=lip,
             data_len=data_len,
@@ -138,7 +139,6 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
         epoch_loss += loss.item()
 
     epoch_loss /= data_cnt
-    breakpoint()
     return epoch_loss
 
 def save_result(loss_list, save_path):
@@ -191,7 +191,7 @@ def main():
 
     # Dataloader作成
     train_loader = make_train_loader(data_root, hparams, mode="train")
-    test_loader = make_test_loader(data_root, hparams, mode="test")
+    #test_loader = make_test_loader(data_root, hparams, mode="test")
 
     loss_f = nn.MSELoss()
     train_loss_list = []
@@ -204,7 +204,7 @@ def main():
         print(f"epoch_loss = {epoch_loss}")
         print(f"train_loss_list = {train_loss_list}")
         
-    save_result(train_loss_list, result_path+'/train_loss.png')
+        save_result(train_loss_list, result_path+'/train_loss.png')
 
 
 if __name__=='__main__':
