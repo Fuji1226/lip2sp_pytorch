@@ -222,7 +222,7 @@ def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, 
     sppath = sppath.parent / (sppath.stem + ".wav")
     wave, fs = librosa.load(str(sppath), sr=None, mono=None)
     wave = wave[:int(lip.shape[-1]/fps*1.2*fs)]
-
+    breakpoint()
     # frame_period = 10
     # feature_type = "mspec"
     # nmels = 80
@@ -277,7 +277,7 @@ def preprocess(
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
-
+    breakpoint()
     # 学習時の処理
     # 口唇動画のデータ拡張
     if mode == "train":
@@ -317,7 +317,7 @@ def preprocess(
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
-
+    
     # hparamsではlength = 300になっている
     # 使用する音響特徴量のフレーム数
     # length = 300
@@ -334,7 +334,7 @@ def preprocess(
             data_len = y.shape[0]
     mask = np.ones(data_len)
     """
-
+    
     ################## new ##################
     # 足りない時は単純にlengthまで0パディング
     # transformerのマスクする行列の計算をしたいので、変更してみました
@@ -356,7 +356,7 @@ def preprocess(
             lip = lip_padded
             y = y_padded
     ########################################
-
+    
     # data_lenがlengthよりも多い時の処理
     # 適当にlengthフレームだけ取得する
     if length:
@@ -370,7 +370,7 @@ def preprocess(
                 index * upsample:index * upsample + length]
             # mask = mask[
             #     index * upsample:index * upsample + length]
-    
+    breakpoint()
     # 音響特徴量の標準化
     # 事前に全データの音響特徴量から平均と分散を求めておいたらよさそう
     # mean = 0

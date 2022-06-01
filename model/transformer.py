@@ -12,11 +12,6 @@ import torch.functional as F
 from torch.nn.utils import weight_norm
 import numpy as np
 
-from hparams import create_hparams
-
-
-hparams = create_hparams()
-
 
 def get_subsequent_mask(seq):
     ''' 
@@ -56,7 +51,6 @@ def make_pad_mask(lengths, maxlen):
     mask = seq_range_expand < seq_length_expand     # (B, T=maxlen)
 
     return mask.unsqueeze(1)    # (B, 1, T)
-
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -209,7 +203,7 @@ class DecoderLayer(nn.Module):
 
 class PositionalEncoding(nn.Module):
 
-    def __init__(self, d_hid, n_position=hparams.length // 2):
+    def __init__(self, d_hid, n_position):
         super(PositionalEncoding, self).__init__()
 
         # Not a parameter
@@ -221,7 +215,7 @@ class PositionalEncoding(nn.Module):
 
         def get_position_angle_vec(position):
             return [position / np.power(10000, 2 * (hid_j // 2) / d_hid) for hid_j in range(d_hid)]
-
+        
         sinusoid_table = np.array([get_position_angle_vec(pos_i) for pos_i in range(n_position)])
         sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
         sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
@@ -238,7 +232,7 @@ class PositionalEncoding(nn.Module):
 class Encoder(nn.Module):
     def __init__(
         self,n_layers, n_head, d_k, d_v, d_model, d_inner, 
-        dropout=0.1, n_position=hparams.length // 2, reduction_factor=hparams.reduction_factor):
+        n_position, reduction_factor, dropout=0.1):
         super().__init__()
         self.position_enc = PositionalEncoding(d_model, n_position)
         self.dropout = nn.Dropout(p=dropout)
@@ -298,9 +292,8 @@ class Prenet(nn.Module):
 class Decoder(nn.Module):
     def __init__(
         self, n_layers, n_head, d_k, d_v, d_model, d_inner, 
-        pre_in_channels, pre_inner_channels, 
-        out_channels, use_gc=False,
-        dropout=0.1, n_position=hparams.length // 2, reduction_factor=hparams.reduction_factor):
+        pre_in_channels, pre_inner_channels, out_channels, 
+        n_position, reduction_factor, dropout=0.1, use_gc=False):
         super().__init__()
 
         self.reduction_factor = reduction_factor
@@ -341,7 +334,7 @@ class Decoder(nn.Module):
         D = self.out_channels
         # 前時刻の出力
         self.pre_out = None
-
+        
         # global conditionの結合
         
         # reshape for reduction factor

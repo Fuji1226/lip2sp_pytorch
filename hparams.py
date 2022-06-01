@@ -25,18 +25,21 @@ def create_hparams():
         # reduction factor
         reduction_factor = 2,
 
+        # ResNet3D parameter
+        res_layers = 5,
+
         # transformer parameter
-        n_layer = 6,
+        n_layers = 6,
         d_model = 256,
-        d_inner = 1024,
         n_head = 8,
         d_k = 32,   # d_model // n_head
         d_v = 32,   # d_model // n_head
+        d_inner = 1024,
 
         # Prenet & Postnet parameter
         # pre_in_channelsはfeature_typeによって違うので微妙
-        # メルスペクトログラムなら80、worldなら32
-        pre_in_channels = 80,   
+        # メルスペクトログラムなら160、worldなら64
+        pre_in_channels = 160,  # 音響特徴量の次元の2倍   
         pre_inner_channels = 32,
         post_inner_channels = 512,
 
@@ -44,8 +47,14 @@ def create_hparams():
         glu_inner_channels = 256,
         glu_layers = 4,
 
+        # dropout
+        dropout = 0.1,
+
+        # global condition
+        use_gc = False,
+
         # dataloader
-        batch_size = 2,
+        batch_size = 5,
         num_workers = 0,
 
         # optimizer
@@ -54,7 +63,7 @@ def create_hparams():
 
         # training
         max_iter = 5,
-        max_epoch = 100,
+        max_epoch = 2,
 
         # feature type setting.
         # input grayscale.（グレースケールかRGBか）
@@ -76,34 +85,3 @@ def create_hparams():
     return hparams
 
 
-# class HParams:
-#     def __init__(self, dictionary):
-#         for k, v in dictionary.items():
-#             setattr(self, k, v)
-
-
-# if __name__ == "__main__":
-#     hparams = dict(
-
-#         #########################
-#         # video Parameters      #
-#         #########################
-#         fps = 50,
-
-#         #########################
-#         # Audio Parameters      #
-#         #########################
-#         sampling_rate = 16000,
-#         n_fft = 1024,
-#         hop_length = 256,
-#         win_length = 1024,
-#         f_min = 0,
-#         f_max = 7600,
-#         n_mel_channels = 80,
-#     )
-
-#     print(hparams)
-
-#     parameter = HParams(hparams)
-#     print(parameter.fps)
-#     print(parameter.sampling_rate)

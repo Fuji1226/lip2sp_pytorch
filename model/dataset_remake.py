@@ -168,9 +168,6 @@ class KablabDataset(Dataset):
     def __getitem__(self, index):
         #item_idx = next(self.item_iter)
         video_path, audio_path = self.items[index]
-        print("\ngetting data...")
-        print(f"video_path = {video_path}")
-        print(f"audio_path = {audio_path}")
         data_path = Path(video_path)
 
         # modeを追加

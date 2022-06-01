@@ -2,15 +2,12 @@
 最終的なモデル
 """
 
+
 import torch
 import torch.nn as nn
-from wavenet.submodules.mychainerutils.hparam_tf import HParams
-from net import ResNet3D
-from transformer import Prenet, Postnet, Encoder, Decoder
-from glu import GLU
-
-import os
-os.environ['PYTHONBREAKPOINT'] = ''
+from .net import ResNet3D
+from .transformer import Postnet, Encoder, Decoder
+from .glu import GLU
 
 
 class Lip2SP(nn.Module):
@@ -27,12 +24,12 @@ class Lip2SP(nn.Module):
         self.ResNet_GAP = ResNet3D(in_channels, d_model, res_layers)
 
         self.transformer_encoder = Encoder(
-            n_layers, n_head, d_k, d_v, d_model, d_inner, dropout, n_position)
+            n_layers, n_head, d_k, d_v, d_model, d_inner, n_position, reduction_factor, dropout)
 
         self.transformer_decoder = Decoder(
             n_layers, n_head, d_k, d_v, d_model, d_inner, 
             pre_in_channels, pre_inner_channels, 
-            out_channels, use_gc, dropout, n_position, reduction_factor)
+            out_channels, n_position, reduction_factor, dropout, use_gc)
 
         self.glu_decoder = GLU(
             glu_inner_channels, out_channels,
@@ -47,22 +44,17 @@ class Lip2SP(nn.Module):
             lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
             enc_output = self.transformer_encoder(lip_feature, data_len)    # (B, T, C)
-            breakpoint()
             
             # decoder
             if which_decoder == "transformer":
                 dec_output = self.transformer_decoder(enc_output, data_len, prev)
-                breakpoint()
                 self.pre = dec_output
                 out = self.postnet(dec_output)
-                breakpoint()
 
             elif which_decoder == "glu":
                 dec_output = self.glu_decoder(enc_output, prev)
-                breakpoint()
                 self.pre = dec_output
                 out = self.postnet(dec_output)
-                breakpoint()
 
         return out
 
@@ -110,7 +102,12 @@ def main():
         dropout=0.1, n_position=frames, reduction_factor=2
     )
 
-    out = net(lip=lip, data_len=data_len, prev=acoustic_feature, which_decoder="glu")
+    out = net(lip=lip, data_len=data_len, prev=acoustic_feature, which_decoder="transformer")
+    loss_f = nn.MSELoss()
+    loss = loss_f(out, acoustic_feature)
+    breakpoint()
+
+
 
 
 
