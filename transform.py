@@ -1,5 +1,8 @@
 """
-先輩のpreprocessを使って最後に型変換すればそのまま使えそうなので、とりあえずそうしてます。
+先輩のpreprocessを使って最後に型変換すればそのまま使えそうなので、とりあえずそうしてます
+
+追記
+元々出力されていたmaskの使い方がわからなかったので、data_lenを出力するように変更しました
 """
 
 from skvideo.io import vread, vwrite
@@ -306,8 +309,9 @@ def preprocess(
         print(f"y = {y.shape}")
         print(f"feat_add = {feat_add.shape}")
         print(f"upsample = {upsample}")
-
+    
     # 学習時の処理
+    # 口唇動画のデータ拡張
     # chainer依存なので、適当に手動で変更できるようにした方がいい
     if chainer.config.train:
         if mode == "check":
@@ -322,18 +326,23 @@ def preprocess(
         sys.exit()
         """
     # 学習時の処理
+    # 口唇動画、音響特徴量のフレーム数を増やしている
     if chainer.config.train:
         if mode == "check":
             print("processing...")
-        rate = np.random.rand() * 0.5 + 1.
+        rate = np.random.rand() * 0.5 + 1. 
         T = y.shape[0]
         T_l = lip.shape[-1]
+
+        # 要素数T*rateの[0,1]の乱数生成
         idx = np.linspace(0, 1, int(T*rate) // upsample * upsample)
-        # print(f"idx = {idx.size}")
         idx = (idx - idx.min()) / (idx.max() - idx.min())
-        # print(f"idx = {idx.size}")
+
+        # 生成した乱数からupsample間隔で抜き取り、T_l-1倍してスケーリング
         idx_l = (idx[::upsample] * (T_l-1)).astype(int)
-        # print(f"idx_l = {idx_l.size}")
+
+        # フレーム数をidx_lに拡張
+        # 同じフレームがランダムに連続することで、総フレーム数を拡大
         lip = lip[..., idx_l]
         y = interpolate_1d(y, idx.size)
         feat_add = interpolate_1d(feat_add, idx.size)
@@ -346,8 +355,9 @@ def preprocess(
         print(f"feat_add = {feat_add.shape}")
         print(f"upsample = {upsample}")
 
+    # data_lenを更新（学習時はフレーム数が増えるので）
+    # これを出力
     data_len = min(len(y) // upsample * upsample,  lip.shape[-1] * upsample)
-    data_len = data_len // 2
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
@@ -362,8 +372,12 @@ def preprocess(
 
 
     # hparamsではlength = 300になっている
-    # 音響特徴量のフレーム数
+    # 使用する音響特徴量のフレーム数
     # length = 300
+    
+    # data_lenがlengthよりも少ない時の処理
+    # rep回時間方向に繰り返すことにより、データ拡張
+    """
     if length:
         if data_len <= length:
             rep = length // data_len + 1
@@ -372,6 +386,29 @@ def preprocess(
             lip = np.tile(lip, (1, 1, 1, rep))
             data_len = y.shape[0]
     mask = np.ones(data_len)
+    """
+
+    ################## new ##################
+    # 足りない時は単純にlengthまで0パディング
+    # transformerのマスクする行列の計算をしたいので、変更してみました
+    # 上の処理だとさらにそこからランダムに取られちゃうので、その後の処理の上手いやり方が浮かんでません
+    if length:
+        length = length // upsample * upsample
+        if data_len <= length:        
+            # lengthまでの0初期化
+            lip_padded = np.zeros((lip.shape[0], lip.shape[1], lip.shape[2], length // upsample))
+            y_padded = np.zeros((length, y.shape[1]))
+
+            # 代入
+            for i in range(data_len // upsample):
+                lip_padded[..., i] = lip[..., i]
+            for i in range(data_len):
+                y_padded[i, ...] = y[i, ...]
+
+            # 更新
+            lip = lip_padded
+            y = y_padded
+    ########################################
 
     if mode == "check":
         print("######### after fourth processing #########")
@@ -379,8 +416,9 @@ def preprocess(
         print(f"y = {y.shape}")
         print(f"feat_add = {feat_add.shape}")
         print(f"upsample = {upsample}")
-        print(f"mask = {mask.shape}")
 
+    # data_lenがlengthよりも多い時の処理
+    # 適当にlengthフレームだけ取得する
     if length:
         length = length // upsample * upsample
         if data_len > length:
@@ -390,15 +428,14 @@ def preprocess(
                 index * upsample:index * upsample + length]
             feat_add = feat_add[
                 index * upsample:index * upsample + length]
-            mask = mask[
-                index * upsample:index * upsample + length]
+            # mask = mask[
+            #     index * upsample:index * upsample + length]
     if mode == "check":
         print("######### after fifth processing #########")
         print(f"lip = {lip.shape}")
         print(f"y = {y.shape}")
         print(f"feat_add = {feat_add.shape}")
         print(f"upsample = {upsample}")
-        print(f"mask = {mask.shape}")
     
     # 音響特徴量の標準化
     # 事前に全データの音響特徴量から平均と分散を求めておいたらよさそう
@@ -410,7 +447,7 @@ def preprocess(
     lip = lip.astype('float32')
     y = y.T.astype('float32')
     feat_add = feat_add.T.astype('float32')
-    mask = mask.astype('float32')
+    # mask = mask.astype('float32')
 
     # 動的特徴量の計算
     # delta = True
@@ -444,20 +481,26 @@ def preprocess(
         print(f"y = {y.shape}")
         print(f"feat_add = {feat_add.shape}")
         print(f"upsample = {upsample}")
-        print(f"mask = {mask.shape}")
 
     lip = torch.from_numpy(lip)
     y = torch.from_numpy(y)
-    mask = torch.from_numpy(mask)
+    # mask = torch.from_numpy(mask)
     feat_add = torch.from_numpy(feat_add)
     # labelがわからないので一旦スルー
     # ret = (lip, y, mask, feat_add, label)
-    ret = (lip, y, mask, feat_add)
+
+    # maskを消去
+    # 使い方がわからず、data_lenを利用しようと思います
+    ret = (lip, y, feat_add)
+
+    # 複数話者
     # if d_vectors is not None:
     #     d_vector = get_dvector(d_vectors, label_name).astype('float32')
     #     ret += (d_vector)
 
-    return ret
+    # data_lenを追加
+    # マスク計算に使用（今出力されてるmaskの使い方がよくわかりませんでした）
+    return ret, data_len
 
 
 
@@ -467,7 +510,7 @@ if __name__ == "__main__":
     data_path = Path('/Users/minami/dataset/lip/lip_cropped/ATR503_j05_0.mp4')
     hparams = create_hparams()
 
-    ret = preprocess(
+    ret, data_len = preprocess(
         data_path=data_path,
         gray=hparams.gray,
         delta=hparams.delta,
@@ -479,12 +522,11 @@ if __name__ == "__main__":
         length=hparams.length,
         mean=0,
         var=0,
-        mode="check",  # "check"に変更すると色々出ます
+        mode=None
     )
-    print("Done!")
+    
     print(type(ret[0]))
     print(type(ret[1]))
     print(type(ret[2]))
-    print(type(ret[3]))
-    print(ret[2])
-    
+    # print(ret[2])
+    print(data_len)

@@ -173,7 +173,7 @@ class KablabDataset(Dataset):
         print(f"audio_path = {audio_path}")
         data_path = Path(video_path)
 
-        ret = preprocess(
+        ret, data_len = preprocess(
             data_path=data_path,
             gray=hparams.gray,
             delta=hparams.delta,
@@ -207,7 +207,7 @@ class KablabDataset(Dataset):
         # # 取った1秒分足しておく
         # self.current_item_attributes['start_time'] += duration
 
-        return ret
+        return ret, data_len
         
 
 def main():
@@ -251,16 +251,15 @@ def main():
     # results
     for interation in range(hparams.max_iter):
         for bdx, batch in enumerate(loader):
-            ret = batch    
+            ret, data_len = batch    
             print("################################################")
             print(type(ret[0]))
             print(type(ret[1]))
             print(type(ret[2]))
-            print(type(ret[3]))
             print(f"lip = {ret[0].shape}")  # (B, C=5, W=48, H=48, T=150)
             print(f"y(acoustic features) = {ret[1].shape}") # (B, C, T=300)
-            print(f"mask = {ret[2].shape}")     # (B, T=300)
-            print(f"feat_add = {ret[3].shape}")     # (B, C=3, T=300)
+            print(f"feat_add = {ret[2].shape}")     # (B, C=3, T=300)
+            print(f"data_len = {data_len}")
 
 
 
