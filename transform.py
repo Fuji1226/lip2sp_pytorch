@@ -222,7 +222,6 @@ def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, 
     sppath = sppath.parent / (sppath.stem + ".wav")
     wave, fs = librosa.load(str(sppath), sr=None, mono=None)
     wave = wave[:int(lip.shape[-1]/fps*1.2*fs)]
-    breakpoint()
     # frame_period = 10
     # feature_type = "mspec"
     # nmels = 80
