@@ -111,8 +111,8 @@ class GLU(nn.Module):
 
         dec_output = self.conv_o(dec_output)
         dec_output = dec_output.reshape(B, D, -1)   
-        breakpoint()
-        return dec_output
+        
+        return dec_output   
 
 
 

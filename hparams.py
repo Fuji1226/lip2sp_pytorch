@@ -40,6 +40,10 @@ def create_hparams():
         pre_inner_channels = 32,
         post_inner_channels = 512,
 
+        # glu parameter
+        glu_inner_channels = 256,
+        glu_layers = 4,
+
         # dataloader
         batch_size = 2,
         num_workers = 0,
