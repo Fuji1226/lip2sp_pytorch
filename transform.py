@@ -1,8 +1,10 @@
 """
 先輩のpreprocessを使って最後に型変換すればそのまま使えそうなので、とりあえずそうしてます
 
-追記
+<追記>
 元々出力されていたmaskの使い方がわからなかったので、data_lenを出力するように変更しました
+
+chainer.config.trainでの分岐を手動に変えました
 """
 
 from skvideo.io import vread, vwrite
@@ -215,17 +217,11 @@ def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, 
     おそらく捜索した時のファイル名とかを取ってくる感じだと思うのですが、一旦スルーしてます
     lip2sp/submodules/mychainerutils/dataset.py 128行目からのPathDatasetクラスが関係してそうです
     """
-    if mode == "check":
-        print("######### loading data #########")
     lip, fps = load_mp4(str(data_path), gray)
     sppath = Path(data_path)
     sppath = sppath.parent / (sppath.stem + ".wav")
     wave, fs = librosa.load(str(sppath), sr=None, mono=None)
     wave = wave[:int(lip.shape[-1]/fps*1.2*fs)]
-
-    if mode == "check":
-        print(lip.shape)
-        print(wave.shape)
 
     # frame_period = 10
     # feature_type = "mspec"
@@ -240,32 +236,18 @@ def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, 
         path=data_path, nmels=nmels, f_min=f_min, f_max=f_max)
     hop_length = fs * frame_period // 1000  # 160
 
-    if mode == "check":
-        print(y.shape)
-
     power = librosa.feature.rms(wave, frame_length=hop_length*2,
                 hop_length=hop_length).squeeze()
     power = fill_nan(power)
     f0 = swipe(wave.astype("float64"), fs, hop_length,
                min=70.0, otype='f0').squeeze()
 
-    if mode == "check":
-        print(f"f0.size(before continuous_f0) = {f0.size}")
-
     f0, vuv = continuous_f0(f0)
     T = min(power.size, f0.size, y.shape[0])
-
-    if mode == "check":
-        print(f"power.size = {power.size}")
-        print(f"f0.size = {f0.size}")
-        print(f"y.shape[0] = {y.shape[0]}")
 
     feat_add = np.vstack((f0[:T], vuv[:T], power[:T])).T
     feat_add = np.log(np.maximum(feat_add, 1.0e-7))
     y = y[:T]
-
-    if mode == "check":
-        print(f"y.shape(after processing) = {y.shape}")
 
     ret = (
         lip, y, feat_add, upsample
@@ -291,31 +273,14 @@ def preprocess(
     # upsample : scalar
     (lip, y, feat_add, upsample) = ret
 
-    if mode == "check":
-        print("######### start #########")
-        print(f"lip = {lip.shape}")
-        print(f"y = {y.shape}")
-        print(f"feat_add = {feat_add.shape}")
-        print(f"upsample = {upsample}")
-
     data_len = min(len(y) // upsample * upsample,  lip.shape[-1] * upsample)
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
 
-    if mode == "check":
-        print("######### after first processing #########")
-        print(f"lip = {lip.shape}")
-        print(f"y = {y.shape}")
-        print(f"feat_add = {feat_add.shape}")
-        print(f"upsample = {upsample}")
-    
     # 学習時の処理
     # 口唇動画のデータ拡張
-    # chainer依存なので、適当に手動で変更できるようにした方がいい
-    if chainer.config.train:
-        if mode == "check":
-            print("augmentation...")
+    if mode == "train":
         lip = lip_augument(lip)
 
         """
@@ -326,10 +291,8 @@ def preprocess(
         sys.exit()
         """
     # 学習時の処理
-    # 口唇動画、音響特徴量のフレーム数を増やしている
-    if chainer.config.train:
-        if mode == "check":
-            print("processing...")
+    # 口唇動画、音響特徴量のフレーム数を拡張
+    if mode == "train":
         rate = np.random.rand() * 0.5 + 1. 
         T = y.shape[0]
         T_l = lip.shape[-1]
@@ -348,28 +311,12 @@ def preprocess(
         feat_add = interpolate_1d(feat_add, idx.size)
         assert y.shape[0] == lip.shape[-1] * upsample
 
-    if mode == "check":
-        print("######### after second processing #########")
-        print(f"lip = {lip.shape}")
-        print(f"y = {y.shape}")
-        print(f"feat_add = {feat_add.shape}")
-        print(f"upsample = {upsample}")
-
     # data_lenを更新（学習時はフレーム数が増えるので）
     # これを出力
     data_len = min(len(y) // upsample * upsample,  lip.shape[-1] * upsample)
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
-
-    if mode == "check":
-        print("######### after third processing #########")
-        print(f"lip = {lip.shape}")
-        print(f"y = {y.shape}")
-        print(f"feat_add = {feat_add.shape}")
-        print(f"upsample = {upsample}")
-        print(f"data_len = {data_len}")
-
 
     # hparamsではlength = 300になっている
     # 使用する音響特徴量のフレーム数
@@ -410,13 +357,6 @@ def preprocess(
             y = y_padded
     ########################################
 
-    if mode == "check":
-        print("######### after fourth processing #########")
-        print(f"lip = {lip.shape}")
-        print(f"y = {y.shape}")
-        print(f"feat_add = {feat_add.shape}")
-        print(f"upsample = {upsample}")
-
     # data_lenがlengthよりも多い時の処理
     # 適当にlengthフレームだけ取得する
     if length:
@@ -430,12 +370,6 @@ def preprocess(
                 index * upsample:index * upsample + length]
             # mask = mask[
             #     index * upsample:index * upsample + length]
-    if mode == "check":
-        print("######### after fifth processing #########")
-        print(f"lip = {lip.shape}")
-        print(f"y = {y.shape}")
-        print(f"feat_add = {feat_add.shape}")
-        print(f"upsample = {upsample}")
     
     # 音響特徴量の標準化
     # 事前に全データの音響特徴量から平均と分散を求めておいたらよさそう
@@ -475,12 +409,6 @@ def preprocess(
         import sys
         sys.exit()
         """
-    if mode == "check":
-        print("######### after sixth processing #########")
-        print(f"lip = {lip.shape}")
-        print(f"y = {y.shape}")
-        print(f"feat_add = {feat_add.shape}")
-        print(f"upsample = {upsample}")
 
     lip = torch.from_numpy(lip)
     y = torch.from_numpy(y)
@@ -522,7 +450,7 @@ if __name__ == "__main__":
         length=hparams.length,
         mean=0,
         var=0,
-        mode=None
+        mode="train",
     )
     
     print(type(ret[0]))

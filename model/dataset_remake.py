@@ -173,6 +173,8 @@ class KablabDataset(Dataset):
         print(f"audio_path = {audio_path}")
         data_path = Path(video_path)
 
+        # modeを追加
+        # "train"でデータ拡張とか通るようになるように分岐
         ret, data_len = preprocess(
             data_path=data_path,
             gray=hparams.gray,
@@ -185,7 +187,7 @@ class KablabDataset(Dataset):
             length=hparams.length,
             mean=0,
             var=0,
-            mode=None,
+            mode=self.mode,
         )
 
         # overlap = 0.1
