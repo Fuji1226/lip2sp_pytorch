@@ -182,8 +182,8 @@ class KablabDataset(Dataset):
             f_min=hparams.f_min,
             f_max=hparams.f_max,
             length=hparams.length,
-            mean=0,
-            var=0,
+            mean=None,
+            var=None,
             mode=self.mode,
         )
 

@@ -1,7 +1,6 @@
 """
-reference
-https://github.com/joannahong/Lip2Wav-pytorch.git
-https://github.com/Chris10M/Lip2Speech.git
+user/minami/dataset/lip/lip_cropped
+このディレクトリに口唇部分を切り取った動画と、wavデータを入れておけば動くと思います!
 """
 
 from genericpath import exists

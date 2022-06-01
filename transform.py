@@ -234,7 +234,7 @@ def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, 
         wave, fs, frame_period, feature_type,
         path=data_path, nmels=nmels, f_min=f_min, f_max=f_max)
     hop_length = fs * frame_period // 1000  # 160
-
+    
     power = librosa.feature.rms(wave, frame_length=hop_length*2,
                 hop_length=hop_length).squeeze()
     power = fill_nan(power)
@@ -276,7 +276,7 @@ def preprocess(
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
-    breakpoint()
+    
     # 学習時の処理
     # 口唇動画のデータ拡張
     if mode == "train":
@@ -369,7 +369,7 @@ def preprocess(
                 index * upsample:index * upsample + length]
             # mask = mask[
             #     index * upsample:index * upsample + length]
-    breakpoint()
+    
     # 音響特徴量の標準化
     # 事前に全データの音響特徴量から平均と分散を求めておいたらよさそう
     # mean = 0
@@ -424,7 +424,7 @@ def preprocess(
     # if d_vectors is not None:
     #     d_vector = get_dvector(d_vectors, label_name).astype('float32')
     #     ret += (d_vector)
-
+    
     # data_lenを追加
     # マスク計算に使用（今出力されてるmaskの使い方がよくわかりませんでした）
     return ret, data_len
@@ -447,8 +447,8 @@ if __name__ == "__main__":
         f_min=hparams.f_min,
         f_max=hparams.f_max,
         length=hparams.length,
-        mean=0,
-        var=0,
+        mean=None,
+        var=None,
         mode="train",
     )
     
