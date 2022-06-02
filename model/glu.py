@@ -3,7 +3,6 @@ Gated Linear Unit
 """
 
 import os
-from pyparsing import GoToColumn 
 os.environ['PYTHONBREAKPOINT'] = ''
 
 import torch
@@ -11,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 
-from .transformer import Prenet
+from transformer import Prenet
 
 
 class CausalConv1d(nn.Module):
@@ -38,6 +37,10 @@ class GLUBlock(nn.Module):
         self.conv = nn.Conv1d(in_channels, out_channels, kernel_size=1, bias=False)
 
     def forward(self, feature, x):
+        """
+        feature（encoderからの特徴量） : (B, C, T)
+        x（音響特徴量） : (B, C, T)
+        """
         res = x
         y = self.dropout(x)
         y = self.causal_conv(y)
@@ -72,7 +75,7 @@ class GLU(nn.Module):
         self.conv_o = weight_norm(nn.Conv1d(
             inner_channels, self.out_channels * self.reduction_factor, kernel_size=1))
 
-    def forward(self, enc_output, prev, gc=None):
+    def forward(self, enc_output, prev=None, gc=None):
         """
         reduction_factorにより、
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
@@ -85,7 +88,7 @@ class GLU(nn.Module):
         dec_output : (B, C, T=300)
         """
         B = enc_output.shape[0]
-        T = enc_output.shape[-1] * self.reduction_factor
+        T = enc_output.shape[1]
         D = self.out_channels
         # 前時刻の出力
         self.pre_out = None
@@ -105,7 +108,7 @@ class GLU(nn.Module):
         # GLU stack
         enc_output = enc_output.permute(0, -1, -2)  # (B, C, T)
         dec_output = prev
-        
+
         for layer in self.glu_stack:
             dec_output = layer(enc_output, dec_output)
 
@@ -114,6 +117,60 @@ class GLU(nn.Module):
         
         return dec_output   
 
+    def inference(self, enc_output, prev=None, gc=None):
+        """
+        reduction_factorにより、
+        口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
+
+        input
+        enc_output : (B, T, C)
+
+        return
+        dec_output : (B, C, T)
+        """
+        B = enc_output.shape[0]
+        T = enc_output.shape[1]
+        D = self.out_channels
+        # 前時刻の出力
+        self.pre_out = None
+        
+        # global conditionの結合
+        
+        # reshape for reduction factor
+        if prev is not None:
+            prev = prev.permute(0, -1, -2)
+            prev = prev.reshape(B, -1, D * self.reduction_factor)
+            prev = prev.permute(0, -1, -2)
+        else:
+            go_frame = torch.zeros(B, D * self.reduction_factor, 1)
+            prev = go_frame
+
+        max_decoder_time_steps = T
+
+        # メインループ
+        outs = []
+        enc_output = enc_output.permute(0, -1, -2)  # (B, C, T)
+        for _ in range(max_decoder_time_steps):
+            # Prenet
+            pre_out = self.prenet(prev)    # (B, d_model, T=150)
+            
+            # GLU stack
+            dec_output = pre_out
+            breakpoint()
+            for layer in self.glu_stack:
+                dec_output = layer(enc_output, dec_output)
+
+            dec_output = self.conv_o(dec_output)
+
+            # 出力を保持
+            outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
+
+            # 次のループへの入力
+            prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+        
+        # 各時刻の出力を結合
+        outs = torch.cat(outs, dim=2)
+        return outs
 
 
 def main():

@@ -138,7 +138,7 @@ def main():
         pre_inner_channels=hparams.pre_inner_channels,
         post_inner_channels=hparams.post_inner_channels,
         dropout=hparams.dropout,
-        n_position=hparams.length // 2,
+        n_position=hparams.length // 2, # もっと長くてもいい
         reduction_factor=hparams.reduction_factor,
         use_gc=hparams.use_gc,
     )

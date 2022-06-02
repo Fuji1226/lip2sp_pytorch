@@ -5,6 +5,7 @@
 元々出力されていたmaskの使い方がわからなかったので、data_lenを出力するように変更しました
 
 chainer.config.trainでの分岐を手動に変えました
+学習時はフレーム数の拡大、data augmentation、音響特徴量300フレーム（口唇動画150フレーム）の取得が行われます
 """
 
 from skvideo.io import vread, vwrite
@@ -335,41 +336,43 @@ def preprocess(
     mask = np.ones(data_len)
     """
     
-    ################## new ##################
-    # 足りない時は単純にlengthまで0パディング
-    # transformerのマスクする行列の計算をしたいので、変更してみました
-    # 上の処理だとさらにそこからランダムに取られちゃうので、その後の処理の上手いやり方が浮かんでません
-    if length:
-        length = length // upsample * upsample
-        if data_len <= length:        
-            # lengthまでの0初期化
-            lip_padded = np.zeros((lip.shape[0], lip.shape[1], lip.shape[2], length // upsample))
-            y_padded = np.zeros((length, y.shape[1]))
+    # 学習時
+    # パディングor切り取り
+    if mode == "train":
+        ################## new ##################
+        # 足りない時は単純にlengthまで0パディング
+        # transformerのマスクする行列の計算をしたいので、変更してみました
+        if length:
+            length = length // upsample * upsample
+            if data_len <= length:        
+                # lengthまでの0初期化
+                lip_padded = np.zeros((lip.shape[0], lip.shape[1], lip.shape[2], length // upsample))
+                y_padded = np.zeros((length, y.shape[1]))
 
-            # 代入
-            for i in range(data_len // upsample):
-                lip_padded[..., i] = lip[..., i]
-            for i in range(data_len):
-                y_padded[i, ...] = y[i, ...]
+                # 代入
+                for i in range(data_len // upsample):
+                    lip_padded[..., i] = lip[..., i]
+                for i in range(data_len):
+                    y_padded[i, ...] = y[i, ...]
 
-            # 更新
-            lip = lip_padded
-            y = y_padded
-    ########################################
-    
-    # data_lenがlengthよりも多い時の処理
-    # 適当にlengthフレームだけ取得する
-    if length:
-        length = length // upsample * upsample
-        if data_len > length:
-            index = np.random.randint(0, data_len - length) // upsample
-            lip = lip[..., index:index + length // upsample]
-            y = y[
-                index * upsample:index * upsample + length]
-            feat_add = feat_add[
-                index * upsample:index * upsample + length]
-            # mask = mask[
-            #     index * upsample:index * upsample + length]
+                # 更新
+                lip = lip_padded
+                y = y_padded
+        ########################################
+        
+        # data_lenがlengthよりも多い時の処理
+        # 適当にlengthフレームだけ取得する
+        if length:
+            length = length // upsample * upsample
+            if data_len > length:
+                index = np.random.randint(0, data_len - length) // upsample
+                lip = lip[..., index:index + length // upsample]
+                y = y[
+                    index * upsample:index * upsample + length]
+                feat_add = feat_add[
+                    index * upsample:index * upsample + length]
+                # mask = mask[
+                #     index * upsample:index * upsample + length]
     
     # 音響特徴量の標準化
     if not (mean is None or var is None):

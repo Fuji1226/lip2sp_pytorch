@@ -24,21 +24,6 @@ def masked_mse(output, target, data_len, max_len=300-2):
                 idx += 1
             else:
                 break
-    breakpoint()
+    
     mse /= idx
     return mse
-
-
-def main():
-    x = torch.rand(8, 1, 10)
-    y = torch.rand(8, 1, 10)
-    loss = (x - y)**2
-    loss_a = torch.zeros(1, loss.shape[1], 1)
-    breakpoint()
-    loss_a += loss[0, :, 0]
-    breakpoint()
-        
-
-
-if __name__ == "__main__":
-    main()
