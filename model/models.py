@@ -2,12 +2,15 @@
 最終的なモデル
 """
 
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import torch
 import torch.nn as nn
-from .net import ResNet3D
-from .transformer import Postnet, Encoder, Decoder
-from .glu import GLU
+from net import ResNet3D
+from transformer import Postnet, Encoder, Decoder
+from glu import GLU
 
 
 class Lip2SP(nn.Module):
@@ -55,7 +58,25 @@ class Lip2SP(nn.Module):
                 dec_output = self.glu_decoder(enc_output, prev)
                 self.pre = dec_output
                 out = self.postnet(dec_output)
+        return out
 
+    def inference(self, lip=None, data_len=None, prev=None, gc=None, which_decoder=None):
+        if lip is not None:
+            # encoder
+            lip = self.first_batch_norm(lip)
+            lip_feature = self.ResNet_GAP(lip)
+            enc_output = self.transformer_encoder.inference(lip_feature, data_len)    # (B, T, C)
+            
+            # decoder
+            if which_decoder == "transformer":
+                dec_output = self.transformer_decoder.inference(enc_output, data_len, prev)
+                self.pre = dec_output
+                out = self.postnet(dec_output)
+                
+            # elif which_decoder == "glu":
+            #     dec_output = self.glu_decoder.inference(enc_output, prev)
+            #     self.pre = dec_output
+            #     out = self.postnet(dec_output)
         return out
 
 
@@ -102,11 +123,22 @@ def main():
         dropout=0.1, n_position=frames, reduction_factor=2
     )
 
-    out = net(lip=lip, data_len=data_len, prev=acoustic_feature, which_decoder="transformer")
-    loss_f = nn.MSELoss()
-    loss = loss_f(out, acoustic_feature)
-    breakpoint()
+    # training
+    # out = net(lip=lip, data_len=data_len, prev=acoustic_feature, which_decoder="transformer")
+    # loss_f = nn.MSELoss()
+    # loss = loss_f(out, acoustic_feature)
+    # breakpoint()
 
+    # inference
+    # 口唇動画
+    lip_channels = 5
+    width = 48
+    height = 48
+    frames = 10
+    lip = torch.rand(batch_size, lip_channels, width, height, frames)
+    inference_out = net.inference(lip=lip, which_decoder="transformer")
+    print(inference_out.shape)
+    
 
 
 

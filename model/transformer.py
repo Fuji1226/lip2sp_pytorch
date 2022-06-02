@@ -6,6 +6,7 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.functional as F
@@ -224,7 +225,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         """
-        x : (B, n_position, d_hid)
+        x : (B, T, d_hid)
         """
         return x + self.pos_table[:, :x.size(1)].clone().detach()   
 
@@ -268,6 +269,28 @@ class Encoder(nn.Module):
             return enc_output, enc_slf_attn_list
         return enc_output
 
+    def inference(self, prenet_out, data_len=None, return_attns=False):
+        """
+        prenet_out : (B, C, T)
+        """
+        # get mask
+        mask = None
+
+        # positional encoding
+        prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
+        prenet_out = self.dropout(self.position_enc(prenet_out))
+        enc_outout = self.layer_norm(prenet_out)
+
+        enc_slf_attn_list = []
+        # encoder layers
+        for enc_layer in self.layer_stack:
+            enc_output, enc_slf_attn = enc_layer(enc_outout, slf_attn_mask=mask)
+            enc_slf_attn_list += [enc_slf_attn] if return_attns else []
+
+        if return_attns:
+            return enc_output, enc_slf_attn_list
+        return enc_output
+
 
 class Prenet(nn.Module):
     def __init__(self, in_channels, out_channels, inner_channels=32, dropout=0.5):
@@ -282,11 +305,14 @@ class Prenet(nn.Module):
 
     def forward(self, x):
         """
-        x : (B, C=d_model, T)
+        x : (B, C=feature channels, T)
+
+        return
+        y : (B, C=d_model, T)
         """
-        x = x.permute(0, 2, 1)  # (B, T, C)
+        x = x.permute(0, -1, -2)  # (B, T, C)
         y = self.fc(x)
-        return y.permute(0, 2, 1)   # (B, C, T)
+        return y.permute(0, -1, -2)   # (B, C, T)
 
 
 class Decoder(nn.Module):
@@ -330,8 +356,9 @@ class Decoder(nn.Module):
         dec_output : (B, C, T)
         """
         B = enc_output.shape[0]
-        T = enc_output.shape[-1] * self.reduction_factor
+        T = enc_output.shape[1]
         D = self.out_channels
+        
         # 前時刻の出力
         self.pre_out = None
         
@@ -377,8 +404,74 @@ class Decoder(nn.Module):
             return dec_output, dec_slf_attn_list, dec_enc_attn_list
         return dec_output
 
-    def inference(self):
+    def inference(self, enc_output, data_len=None, prev=None, gc=None, return_attns=False):
+        """
+        reduction_factorにより、
+        口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
+
+        input
+        enc_output : (B, T, C)
+
         return
+        dec_output : (B, C, T)
+        """
+        B = enc_output.shape[0]
+        T = enc_output.shape[1]
+        D = self.out_channels
+        # 前時刻の出力
+        self.pre_out = None
+        
+        # global conditionの結合
+        
+        # reshape for reduction factor
+        if prev is not None:
+            prev = prev.permute(0, -1, -2)
+            prev = prev.reshape(B, -1, D * self.reduction_factor)
+            prev = prev.permute(0, -1, -2)
+        else:
+            go_frame = torch.zeros(B, D * self.reduction_factor, 1)
+            prev = go_frame
+
+        max_decoder_time_steps = T
+
+        # get target_mask
+        # 推論時はいらないはず…
+        mask = None
+        target_mask = None
+
+        # メインループ
+        outs = []
+        for _ in range(max_decoder_time_steps):
+            # Prenet
+            pre_out = self.prenet(prev)    # (B, C=d_model, T)
+            
+            # positional encoding
+            pre_out = pre_out.permute(0, -1, -2)  # (B, T, C)
+            dec_output = self.dropout(self.position_enc(pre_out))
+            dec_output = self.layer_norm(dec_output)
+            dec_slf_attn_list = []
+            dec_enc_attn_list = []
+
+            # decoder layers
+            for dec_layer in self.layer_stack:
+                dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
+                    dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
+                dec_slf_attn_list += [dec_slf_attn] if return_attns else []
+                dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+
+            dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
+            dec_output = self.conv_o(dec_output)
+            # dec_output = dec_output.reshape(B, D, -1)   
+
+            # 出力を保持
+            outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
+
+            # 次のループへの入力
+            prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+                
+        # 各時刻の出力を結合
+        outs = torch.cat(outs, dim=2)
+        return outs
 
 
 class Postnet(nn.Module):
@@ -461,7 +554,6 @@ def main():
     postnet = Postnet(80, 512, 80)
     postnet_out = postnet(torch.rand(8, 80, 300))
 
-    
 
 if __name__ == "__main__":
     main()
