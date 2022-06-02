@@ -8,7 +8,6 @@ from pathlib import Path
 import os
 import time
 from datetime import datetime
-from urllib.request import HTTPPasswordMgrWithDefaultRealm
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -84,7 +83,6 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
             lip=lip,
             data_len=data_len,
             prev=target,
-            which_decoder="transformer",
         )                      
         ####################################
 
@@ -137,8 +135,12 @@ def main():
         pre_in_channels=hparams.pre_in_channels,
         pre_inner_channels=hparams.pre_inner_channels,
         post_inner_channels=hparams.post_inner_channels,
+        n_position=hparams.length,  # 口唇動画に対して長ければいい
+        which_decoder=hparams.which_decoder,
+        training_method=hparams.training_method,
+        num_passes=hparams.num_passes,
+        mixing_prob=hparams.mixing_prob,
         dropout=hparams.dropout,
-        n_position=hparams.length // 2, # もっと長くてもいい
         reduction_factor=hparams.reduction_factor,
         use_gc=hparams.use_gc,
     )

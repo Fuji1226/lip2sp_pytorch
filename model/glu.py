@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 
-from transformer import Prenet
+from .transformer import Prenet
 
 
 class CausalConv1d(nn.Module):
