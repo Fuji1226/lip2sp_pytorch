@@ -343,58 +343,85 @@ class Decoder(nn.Module):
         # if use_gc:
         #     self.proj_gc = nn.Linear()
 
-    def forward(self, enc_output, data_len, prev=None, gc=None, return_attns=False):
+    def forward(
+        self, enc_output, data_len, target=None, gc=None, return_attns=False, 
+        training_method=None, num_passes=None, mixing_prob=None):
         """
         reduction_factorにより、
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
 
         input
-        prev : (B, C, T)
+        target（音響特徴量） : (B, C, T)
         enc_output : (B, T, C)
 
         return
         dec_output : (B, C, T)
         """
+        assert training_method == 'tf' or training_method == "ss", "please set traning_method"
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
         
-        # 前時刻の出力
-        self.pre_out = None
-        
         # global conditionの結合
         
         # reshape for reduction factor
-        if prev is not None:
-            prev = prev.permute(0, -1, -2)
-            prev = prev.reshape(B, -1, D * self.reduction_factor)
-            prev = prev.permute(0, -1, -2)  
+        if target is not None:
+            target = target.permute(0, -1, -2)
+            target = target.reshape(B, -1, D * self.reduction_factor)
+            target = target.permute(0, -1, -2)  
         
         # get target_mask
         data_len = torch.div(data_len, self.reduction_factor)
         mask = make_pad_mask(data_len, maxlen=150)
-        target_mask = make_pad_mask(data_len, maxlen=150) & get_subsequent_mask(prev) # (B, T, T)
+        target_mask = make_pad_mask(data_len, maxlen=150) & get_subsequent_mask(target) # (B, T, T)
         
         # Prenet
-        prev = self.prenet(prev)    # (B, d_model, T=150)
-        self.pre_out = prev
+        target = self.prenet(target)    # (B, d_model, T=150)
 
         # global conditionの結合後、カーネル数1の畳み込み
 
         # positional encoding
-        prev = prev.permute(0, -1, -2)  # (B, T, C)
-        dec_output = self.dropout(self.position_enc(prev))
-        dec_output = self.layer_norm(dec_output)
+        target = target.permute(0, -1, -2)  # (B, T, C)
+        target = self.dropout(self.position_enc(target))
+
+        target = self.layer_norm(target)
+        dec_output = target
 
         dec_slf_attn_list = []
         dec_enc_attn_list = []
 
-        # decoder layers
-        for dec_layer in self.layer_stack:
-            dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
-                dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
-            dec_slf_attn_list += [dec_slf_attn] if return_attns else []
-            dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+        # teacher forcing
+        if training_method == "tf":
+            # decoder layers
+            for dec_layer in self.layer_stack:
+                dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
+                    dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
+                dec_slf_attn_list += [dec_slf_attn] if return_attns else []
+                dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+
+        # scheduled sampling
+        elif training_method == "ss":
+            # decoder layers
+            for dec_layer in self.layer_stack:
+                dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
+                    dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
+                dec_slf_attn_list += [dec_slf_attn] if return_attns else []
+                dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+            
+            for k in range(num_passes):
+                # decoderからの出力とtargetをmixing_probに従って混合
+                mixing_prob = torch.zeros_like(target) + mixing_prob
+                judge = torch.bernoulli(mixing_prob)
+                judge[:, :, :k] = 1     # t < kの要素は変更しない
+                target = torch.where(judge == 1, target, dec_output)
+                dec_output = target
+                
+                # decoder layers
+                for dec_layer in self.layer_stack:
+                    dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
+                        dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
+                    dec_slf_attn_list += [dec_slf_attn] if return_attns else []
+                    dec_enc_attn_list += [dec_enc_attn] if return_attns else []
 
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
         dec_output = self.conv_o(dec_output)
@@ -418,8 +445,6 @@ class Decoder(nn.Module):
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
-        # 前時刻の出力
-        self.pre_out = None
         
         # global conditionの結合
         
@@ -467,9 +492,10 @@ class Decoder(nn.Module):
             outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
 
             # 次のループへの入力
+            # 前時刻までの全ての出力にしています
             prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
                 
-        # 各時刻の出力を結合
+        # 各時刻の出力を結合して出力
         outs = torch.cat(outs, dim=2)
         return outs
 
@@ -523,36 +549,8 @@ def main():
     d_k = d_model // n_head
     d_v = d_model // n_head
 
-    # positional encoding
-    posenc = PositionalEncoding(256, 150)
-    posenc_out = posenc(prenet_out.permute(0, -1, -2))
-
-    # encoder
-    encoder = Encoder(n_layers, n_head, d_k, d_v, d_model, d_inner)
-    enc_out = encoder(prenet_out, data_len)   # (B, T, C)
-
-    # prenet
-    prenet = Prenet(in_channels=feature_channels, out_channels=d_model//2)
-    pre_out = prenet(feature)    # (B, C, T)
-
     # mask
     target_mask = get_subsequent_mask(feature)
-
-    # decoder parameter
-    pre_in_channels = feature_channels * 2
-    pre_inner_channels = 32
-    pre_out_channels = d_model
-
-    # decoder
-    decoder = Decoder(
-        n_layers, n_head, d_k, d_v, d_model, d_inner,
-        pre_in_channels, pre_inner_channels, 
-        out_channels=80)
-    dec_out = decoder(enc_out, data_len, feature) 
-
-    # postnet
-    postnet = Postnet(80, 512, 80)
-    postnet_out = postnet(torch.rand(8, 80, 300))
 
 
 if __name__ == "__main__":
