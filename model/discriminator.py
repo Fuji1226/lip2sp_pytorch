@@ -99,7 +99,7 @@ class JCUDiscriminator(nn.Module):
 
 
 class UNetDiscriminator(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels=1, out_channels=1):
         super().__init__()
         """
         原論文が単話者なので、一旦単話者を想定して実装
@@ -173,8 +173,9 @@ class UNetDiscriminator(nn.Module):
 
     def forward(self, x):
         """
-        x : (B, 1, mel_channels, t=300)
+        x : (B, mel_channels, t)
         """
+        x = x.unsqueeze(1)  # (B, mel_channels, t) -> (B, 1, mel_channels, t)
         fmaps_enc = []
         fmaps_dec = []
 
@@ -207,6 +208,9 @@ class UNetDiscriminator(nn.Module):
                 out_dec = layer(out_dec)
                 fmaps_dec.append(out_dec)
 
+        out_dec = torch.cat([out_dec, fmaps_enc[0]], dim=1)
+        out_dec = self.decoder_out(out_dec)
+        
         return out_enc, fmaps_enc, out_dec, fmaps_dec
 
 
@@ -235,9 +239,8 @@ def main():
 
     # U-Netの場合
     print("## U-Net ##")
-    x_add = x.unsqueeze(1)  # (B, mel_channels, t) -> (B, 1, mel_channels, t)
     disc_U = UNetDiscriminator(1, 1)
-    out_enc, fmaps_enc, out_dec, fmaps_dec = disc_U(x_add)
+    out_enc, fmaps_enc, out_dec, fmaps_dec = disc_U(x)
 
     for i in range(len(fmaps_enc)):
         print(f"fmaps_enc[{i}] = {fmaps_enc[i].shape}")

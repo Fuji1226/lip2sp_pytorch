@@ -21,6 +21,7 @@ from model.dataset_remake import KablabDataset
 from hparams import create_hparams
 from model.models import Lip2SP
 from loss import masked_mse
+from model.discriminator import UNetDiscriminator
 
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -67,7 +68,7 @@ def make_test_loader(data_root, hparams, mode):
     return test_loader
 
 
-def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
+def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, loss_f, device):
     epoch_loss = 0
     data_cnt = 0
     for batch in data_loader:
@@ -85,6 +86,9 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
         )                      
         ####################################
 
+        out_enc_f, fmaps_enc_f, out_dec_f, fmaps_dec_f = discriminator(output)
+        out_enc_r, fmaps_enc_r, out_dec_r, fmaps_dec_r = discriminator(target)
+        
         # loss = loss_f(output[:, :, 2:], target[:, :, :-2])  # 未来予測なのでシフトして損失を計算       
         loss = masked_mse(output[:, :, 2:], target[:, :, :-2], data_len, max_len=model.max_len * 2)
         loss.backward()
@@ -144,6 +148,8 @@ def main():
         reduction_factor=hparams.reduction_factor,
         use_gc=hparams.use_gc,
     )
+
+    discriminator = UNetDiscriminator()
     
     optimizer = torch.optim.Adam(
         model.parameters(), lr=hparams.lr, betas=hparams.betas
@@ -159,7 +165,7 @@ def main():
     # training
     for epoch in range(hparams.max_epoch):
         print(f"##### {epoch} #####")
-        epoch_loss = train_one_epoch(model, train_loader, optimizer, loss_f, device)
+        epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device)
         train_loss_list.append(epoch_loss)
         print(f"epoch_loss = {epoch_loss}")
         print(f"train_loss_list = {train_loss_list}")

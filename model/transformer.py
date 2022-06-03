@@ -26,7 +26,7 @@ def get_subsequent_mask(seq):
     return subsequent_mask
 
 
-def make_pad_mask(lengths, maxlen):
+def make_pad_mask(lengths, max_len):
     """
     data_lenが短くて0パディングしたデータに対してのマスク
     maxlenは口唇動画のフレーム数
@@ -43,11 +43,11 @@ def make_pad_mask(lengths, maxlen):
     if not isinstance(lengths, list):
         lengths = lengths.tolist()
     bs = int(len(lengths))
-    if maxlen is None:
-        maxlen = int(max(lengths))
+    if max_len is None:
+        max_len = int(max(lengths))
 
-    seq_range = torch.arange(0, maxlen, dtype=torch.int64)
-    seq_range_expand = seq_range.unsqueeze(0).expand(bs, maxlen)
+    seq_range = torch.arange(0, max_len, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
     mask = seq_range_expand < seq_length_expand     # (B, T=maxlen)
 
