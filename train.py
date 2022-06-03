@@ -3,7 +3,6 @@ user/minami/dataset/lip/lip_cropped
 このディレクトリに口唇部分を切り取った動画と、wavデータを入れておけば動くと思います!
 """
 
-from genericpath import exists
 from pathlib import Path
 import os
 import time
@@ -87,7 +86,7 @@ def train_one_epoch(model: nn.Module, data_loader, optimizer, loss_f, device):
         ####################################
 
         # loss = loss_f(output[:, :, 2:], target[:, :, :-2])  # 未来予測なのでシフトして損失を計算       
-        loss = masked_mse(output[:, :, 2:], target[:, :, :-2], data_len)
+        loss = masked_mse(output[:, :, 2:], target[:, :, :-2], data_len, max_len=model.max_len * 2)
         loss.backward()
         optimizer.step()
 
@@ -136,6 +135,7 @@ def main():
         pre_inner_channels=hparams.pre_inner_channels,
         post_inner_channels=hparams.post_inner_channels,
         n_position=hparams.length,  # 口唇動画に対して長ければいい
+        max_len=hparams.length // 2,
         which_decoder=hparams.which_decoder,
         training_method=hparams.training_method,
         num_passes=hparams.num_passes,

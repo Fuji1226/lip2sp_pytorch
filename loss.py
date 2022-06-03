@@ -6,7 +6,7 @@ import torch
 from model.transformer import make_pad_mask
 
 
-def masked_mse(output, target, data_len, max_len=300-2):
+def masked_mse(output, target, data_len, max_len):
     """
     パディングされた部分を考慮し、損失計算から省く
     output, target : (B, C, T)
@@ -14,7 +14,6 @@ def masked_mse(output, target, data_len, max_len=300-2):
     
     loss = (output - target)**2
     mask = make_pad_mask(data_len, max_len)
-
     mse = 0
     idx = 0
     for i in range(loss.shape[0]):

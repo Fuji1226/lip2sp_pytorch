@@ -1,65 +1,64 @@
-"""
-JCU discriminatorとU-Net discriminator
-"""
-
 import torch 
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 import numpy as np
 
 
-class JCUDiscriminator(nn.Module):
-    def __init__(self, in_channels, out_channels=1, emb_in=10, n_features=16):
+class SimpleDiscriminator(nn.Module):
+    def __init__(self):
         super().__init__()
+
+    def forward(self):
+        return
+
+# 複数話者
+class JCUDiscriminator(nn.Module):
+    def __init__(self, in_channels, out_channels, use_gc=False, emb_in=None, n_features=128, out_features=512):
+        super().__init__()
+        self.use_gc = use_gc
+
         # 共有する層
         self.share = [
             nn.Sequential(
-                nn.Conv1d(in_channels, 64, kernel_size=3, stride=1),
+                nn.Conv1d(in_channels, 64, kernel_size=3, stride=1, padding=1),
                 nn.LeakyReLU(0.2),
             ),
             nn.Sequential(
-                nn.Conv1d(64, 128, kernel_size=5, stride=2),
+                nn.Conv1d(64, 128, kernel_size=4, stride=2, padding=1),
                 nn.LeakyReLU(0.2),
             ),
             nn.Sequential(
-                nn.Conv1d(128, 512, kernel_size=5, stride=2),
+                nn.Conv1d(128, 512, kernel_size=4, stride=2, padding=1),
                 nn.LeakyReLU(0.2),
             ),
         ]
         self.share = nn.ModuleList(self.share)
 
         # unconditional layers
-        self.uncond = [
-            nn.Sequential(
-                nn.Conv1d(512, 128, kernel_size=5, stride=1),
+        self.uncond = nn.Sequential(
+                nn.Conv1d(512, 128, kernel_size=5, stride=1, padding=2),
                 nn.LeakyReLU(0.2),
-            ),
-            nn.Sequential(
-                nn.Conv1d(128, out_channels, kernel_size=3, stride=1),
-                nn.LeakyReLU(0.2),
-            ),
-        ]
-        self.uncond = nn.ModuleList(self.uncond)
+            )
 
         # conditional layers
-        self.embed = nn.Embedding(emb_in, n_features)
-        self.fc = nn.Linear(n_features, out_features=512)
-        self.cond = [
-            nn.Sequential(
-                nn.Conv1d(512, 128, kernel_size=5, stride=1),
-                nn.LeakyReLU(0.2),
-            ),
-            nn.Sequential(
-                nn.Conv1d(128, out_channels, kernel_size=3, stride=1),
-                nn.LeakyReLU(0.2),
-            ),
-        ]
-        self.cond = nn.ModuleList(self.cond)
+        if self.use_gc:
+            self.embed = nn.Embedding(emb_in, n_features)
+            self.fc = nn.Linear(n_features, out_features)
+            self.cond = nn.Sequential(
+                    nn.Conv1d(512 + out_features, 128, kernel_size=5, stride=1, padding=2),
+                    nn.LeakyReLU(0.2),
+                )
 
-    def forward(self, x, s):
+        # 出力層
+        self.out_layer = nn.Sequential(
+                nn.Conv1d(128, out_channels, kernel_size=3, stride=1, padding=1),
+                nn.LeakyReLU(0.2),
+            )
+
+    def forward(self, x, gc=None):
         """
         x : (B, mel_channels, t)
-        s : (B, 1)
+        gc : (B, 1)
         """
         fmaps_share = []
         fmaps_uncond = []
@@ -77,24 +76,26 @@ class JCUDiscriminator(nn.Module):
         out_cond = out_share
         
         # unconditional output
-        for idx, layer in enumerate(self.uncond):
-            out_uncond = layer(out_uncond)
-            fmaps_uncond.append(out_uncond)
-
+        out_uncond = self.uncond(out_uncond)
+        fmaps_uncond.append(out_uncond)
+        out_uncond = self.out_layer(out_uncond)
+        
         # conditional output
-        s = self.embed(s)   # (B, 1) -> (B, 1, n_features)
-        condition = self.fc(s)      # (B, 1, n_features) -> (B, 1, 512)
-        condition = torch.transpose(condition, 1, 2)    # (B, 1, 512) -> (B, 512, 1)
-        # 論文ではconditionを時間方向に拡大すると書いてあったけど、expandを使うということなのかよくわからない
-        # 一応VocGANではconditionであるメルスペクトログラムを時間方向に結合していた
-        # この実装では拡大せずに結合している
-        out_cond = torch.cat([out_cond, condition], dim=2)      # out_condとconditionを時間方向に結合
+        if gc is not None:
+            gc = self.embed(gc)   # (B, 1) -> (B, 1, n_features)
+            gc = self.fc(gc)      # (B, 1, n_features) -> (B, 1, 512)
+            gc = torch.transpose(gc, 1, 2)    # (B, 1, 512) -> (B, 512, 1)
 
-        for idx, layer in enumerate(self.uncond):
-            out_cond = layer(out_cond)
+            # 論文ではconditionを時間方向に拡大すると書いてあったけど、expandを使うということなのかよくわからない
+            # 一応VocGANではconditionであるメルスペクトログラムを時間方向に結合していた
+            gc = gc.expand(out_cond.shape)  # 時間方向に拡大
+            out_cond = torch.cat([out_cond, gc], dim=1)      # out_condとconditionをチャンネル方向に結合　512 -> 1024
+
+            out_cond = self.cond(out_cond)
             fmaps_cond.append(out_cond)
-
-        return out_share, fmaps_share, out_uncond, fmaps_uncond, s, condition, out_cond, fmaps_cond
+            out_cond = self.out_layer(out_cond)
+        
+        return out_share, fmaps_share, out_uncond, fmaps_uncond, out_cond, fmaps_cond
 
 
 class UNetDiscriminator(nn.Module):
@@ -107,7 +108,7 @@ class UNetDiscriminator(nn.Module):
         """
         self.encoder = [
             nn.Sequential(
-                nn.Conv2d(in_channels, 8, kernel_size=3, stride=1, padding=1),
+                weight_norm(nn.Conv2d(in_channels, 8, kernel_size=3, stride=1, padding=1)),
                 nn.LeakyReLU(0.2),
             ),
 
@@ -131,12 +132,12 @@ class UNetDiscriminator(nn.Module):
                 nn.LeakyReLU(0.2),
             ),
 
+            # 学習に使うフレーム数が300だと、一個前の特徴マップがt=75なので、半分にできなくてdecoder側と合わないのでバグる
             nn.Sequential(
                 weight_norm(nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)),
                 nn.LeakyReLU(0.2),
             ),
         ]
-        self.encoder = nn.ModuleList(self.encoder)
         self.encoder_out = nn.Conv2d(256, out_channels, kernel_size=3, stride=1, padding=1)
 
         self.decoder = [
@@ -164,18 +165,18 @@ class UNetDiscriminator(nn.Module):
                 weight_norm(nn.ConvTranspose2d(32, 8, kernel_size=4, stride=2, padding=1)),
                 nn.LeakyReLU(0.2),
             ),
-
-            nn.Sequential(
+        ]
+        self.decoder_out = nn.Sequential(
                 weight_norm(nn.Conv2d(16, out_channels, kernel_size=3, stride=1, padding=1)),
                 nn.LeakyReLU(0.2),
-            ),
-        ]
+            )
 
     def forward(self, x):
         """
-        x : (B, 1, mel_channels, t)
+        x : (B, 1, mel_channels, t=300)
         """
         fmaps_enc = []
+        fmaps_dec = []
 
         # encoder
         for idx, layer in enumerate(self.encoder):
@@ -185,8 +186,9 @@ class UNetDiscriminator(nn.Module):
             else:
                 out_enc = layer(out_enc)
                 fmaps_enc.append(out_enc)
+            
         out_enc = self.encoder_out(out_enc)
-
+        
         # decoder
         for idx, layer in enumerate(self.decoder):
             """
@@ -199,48 +201,48 @@ class UNetDiscriminator(nn.Module):
             """
             if idx == 0:
                 out_dec = layer(fmaps_enc[-1])
+                fmaps_dec.append(out_dec)
             else:
                 out_dec = torch.cat([out_dec, fmaps_enc[-1-idx]], dim=1)    # とりあえずUNetと同様にチャンネル方向に結合している。原論文に詳しく書いていないので一緒かはわからない。
                 out_dec = layer(out_dec)
+                fmaps_dec.append(out_dec)
 
-        return out_enc, fmaps_enc, out_dec
+        return out_enc, fmaps_enc, out_dec, fmaps_dec
 
 
 def main():
-    B = 10
+    B = 8
     mel_channels = 80
-    t = 1000
+    t =400
     global_feature = torch.arange(B).reshape(B, 1)      # 複数話者の場合を想定
     x = torch.rand(B, mel_channels, t)
-
-    """
+    use_gc = True
+    
     # GANSpeechの場合
-    GANSpeech = JCUDiscriminator(in_channels=mel_channels, out_channels=1, emb_in=B)
-    out_share, fmaps_share, out_uncond, fmaps_uncond, s, condition, out_cond, fmaps_cond = GANSpeech(x, global_feature)
-    print(f"out_share.shape = {out_share.shape}")
-    print(f"out_uncond.shape = {out_uncond.shape}")
-    print(f"s.shape = {s.shape}")
-    print(f"condition.shape = {condition.shape}")
-    print(f"out_cond.shape = {out_cond.shape}")
-    """
+    print("## GANSpeech ##")
+    GANSpeech = JCUDiscriminator(in_channels=mel_channels, out_channels=1, use_gc=use_gc, emb_in=B, )
+    out_share, fmaps_share, out_uncond, fmaps_uncond, out_cond, fmaps_cond = GANSpeech(x, global_feature)
+    # out_share, fmaps_share, out_uncond, fmaps_uncond, out_cond, fmaps_cond = GANSpeech(x)
+
+    for i in range(len(fmaps_share)):
+        print(f"fmaps_share[{i}] = {fmaps_share[i].shape}")
+
+    for i in range(len(fmaps_uncond)):
+        print(f"fmaps_uncond[{i}] = {fmaps_uncond[i].shape}")
+        if use_gc:
+            print(f"fmaps_cond[{i}] = {fmaps_cond[i].shape}")
+    
 
     # U-Netの場合
+    print("## U-Net ##")
     x_add = x.unsqueeze(1)  # (B, mel_channels, t) -> (B, 1, mel_channels, t)
     disc_U = UNetDiscriminator(1, 1)
-    out_enc, fmaps_enc, out_dec = disc_U(x_add)
-    print(f"input.size() = {x_add.size()}\n")
+    out_enc, fmaps_enc, out_dec, fmaps_dec = disc_U(x_add)
 
-    print("<encoder>")
-    print(f"out_enc.size() = {out_enc.size()}\n")
-
-    print("<fmaps_enc>")
-    print(f"len(fmaps_enc) = {len(fmaps_enc)}")
-    for idx, fmap in enumerate(fmaps_enc):
-        print(f"fmaps_enc.size()[{idx}] = {fmap.size()}")
-    
-    print("")
-    print("<decoder>")
-    print(f"out_dec.size() = {out_dec.size()}")
+    for i in range(len(fmaps_enc)):
+        print(f"fmaps_enc[{i}] = {fmaps_enc[i].shape}")
+    for i in range(len(fmaps_dec)):
+        print(f"fmaps_dec[{i}] = {fmaps_dec[i].shape}")
     
 
 

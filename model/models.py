@@ -19,12 +19,13 @@ class Lip2SP(nn.Module):
         d_model, n_layers, n_head, d_k, d_v, d_inner,
         glu_inner_channels, glu_layers, 
         pre_in_channels, pre_inner_channels, post_inner_channels,
-        n_position, which_decoder, 
+        n_position, max_len, which_decoder, 
         training_method, num_passes=None, mixing_prob=None,
         dropout=0.1, reduction_factor=2, use_gc=False):
 
         super().__init__()
 
+        self.max_len = max_len
         self.which_decoder = which_decoder
         self.training_method = training_method
         self.num_passes = num_passes
@@ -54,12 +55,12 @@ class Lip2SP(nn.Module):
             # encoder
             lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
-            enc_output = self.transformer_encoder(lip_feature, data_len)    # (B, T, C)
+            enc_output = self.transformer_encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
             
             # decoder
             if self.which_decoder == "transformer":
                 dec_output = self.decoder(
-                    enc_output, data_len, prev, 
+                    enc_output, data_len, self.max_len, prev, 
                     training_method=self.training_method, 
                     num_passes=self.num_passes, 
                     mixing_prob=self.mixing_prob)

@@ -246,13 +246,13 @@ class Encoder(nn.Module):
         self.d_model = d_model
         self.reduction_factor = reduction_factor
     
-    def forward(self, prenet_out, data_len, return_attns=False):
+    def forward(self, prenet_out, data_len, max_len, return_attns=False):
         """
         prenet_out : (B, C, T)
         """
         # get mask
         data_len = torch.div(data_len, self.reduction_factor)
-        mask = make_pad_mask(data_len, maxlen=150)
+        mask = make_pad_mask(data_len, max_len)
         
         # positional encoding
         prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
@@ -344,7 +344,7 @@ class Decoder(nn.Module):
         #     self.proj_gc = nn.Linear()
 
     def forward(
-        self, enc_output, data_len, target=None, gc=None, return_attns=False, 
+        self, enc_output, data_len, max_len, target=None, gc=None, return_attns=False, 
         training_method=None, num_passes=None, mixing_prob=None):
         """
         reduction_factorにより、
@@ -372,8 +372,8 @@ class Decoder(nn.Module):
         
         # get target_mask
         data_len = torch.div(data_len, self.reduction_factor)
-        mask = make_pad_mask(data_len, maxlen=150)
-        target_mask = make_pad_mask(data_len, maxlen=150) & get_subsequent_mask(target) # (B, T, T)
+        mask = make_pad_mask(data_len, max_len)
+        target_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target) # (B, T, T)
         
         # Prenet
         target = self.prenet(target)    # (B, d_model, T=150)

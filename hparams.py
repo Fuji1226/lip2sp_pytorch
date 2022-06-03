@@ -32,7 +32,7 @@ def create_hparams():
         frame_period=10,
 
         # acoutic feature frames in training
-        length=300,
+        length=400,
 
         # reduction factor
         reduction_factor = 2,

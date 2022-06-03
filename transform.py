@@ -348,16 +348,19 @@ def preprocess(
                 # lengthまでの0初期化
                 lip_padded = np.zeros((lip.shape[0], lip.shape[1], lip.shape[2], length // upsample))
                 y_padded = np.zeros((length, y.shape[1]))
+                feat_add_padded = np.zeros((length, feat_add.shape[1]))
 
                 # 代入
                 for i in range(data_len // upsample):
                     lip_padded[..., i] = lip[..., i]
                 for i in range(data_len):
                     y_padded[i, ...] = y[i, ...]
+                    feat_add_padded[i, ...] = feat_add[i, ...]
 
                 # 更新
                 lip = lip_padded
                 y = y_padded
+                feat_add = feat_add_padded
         ########################################
         
         # data_lenがlengthよりも多い時の処理
