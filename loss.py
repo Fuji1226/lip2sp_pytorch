@@ -2,9 +2,10 @@
 損失関数
 """
 
+from shutil import which
 import torch
 from model.transformer import make_pad_mask
-from model.discriminator import UNetDiscriminator
+from model.discriminator import UNetDiscriminator, JCUDiscriminator
 
 
 def masked_mse(output, target, data_len, max_len):
@@ -24,67 +25,141 @@ def masked_mse(output, target, data_len, max_len):
                 idx += 1
             else:
                 break
-    
     mse /= idx
     return mse
 
 
-def ls_loss_Unet(out_enc_f, out_dec_f, out_enc_r, out_dec_r, data_len, max_len, which_loss):
+def ls_loss(out_f, out_r, data_len, max_len, which_d, which_loss):
     """
-    least squares loss for Unet-discriminator
+    least squares loss 
+    discriminator、generator共に用いる
+    
+    which_dは使用したdiscriminator
+    which_lossでdiscriminatorとgeneratorを切り替え
     """
-    assert which_loss == "d" or which_loss == "g", "please set which_loss"
+    assert which_d == "unet" or "jcu", "please set which_d unet or jcu"
+    assert which_loss == "d" or "g", "please set which_loss d or g"
 
     # encoderとdecoderの出力の形状が異なるため、マスクするためのdata_lenをmax_lenとの比率から計算
-    ratio = out_enc_f.shape[-1] / out_dec_f.shape[-1]   # スケールの比率
-    max_len_enc = int(max_len * ratio)
-    data_len_enc = data_len * ratio
-    max_len_dec = max_len
-    data_len_dec = data_len
+    ratios = []
+    for layer in range(len(out_f)):
+        ratios.append(out_f[layer].shape[-1] / max_len)
+    
+    # 各層ごとの比率に合わせて、data_lenをスケーリング
+    max_lens = []
+    data_lens = []
+    for layer in range(len(out_f)):
+        max_lens.append(int(ratios[layer] * max_len))
+        data_lens.append(ratios[layer] * data_len)
 
     # get mask
-    mask_enc = make_pad_mask(data_len_enc, max_len_enc)
-    mask_dec = make_pad_mask(data_len_dec, max_len_dec)
-
+    masks = []
+    for layer in range(len(out_f)):
+        masks.append(make_pad_mask(data_lens[layer], max_lens[layer]))
+    
+    # discriminatorに対する損失を計算する場合
+    losses = []
     if which_loss == "d":
-        # loss calculation
-        loss_enc = (1 - out_enc_r)**2 + out_enc_f**2   # (B, 1, C//8, T//8)
-        loss_dec = (1 - out_dec_r)**2 + out_dec_f**2   # (B, 1, C, T)
-        loss_enc = loss_enc.squeeze(1)  # (B, C//8, T)
-        loss_dec = loss_dec.squeeze(1)  # (B, C, T)
+        # JCU discriminatorかつ、global conditionがある場合
+        if which_d == "jcu" and len(out_f) == 2:
+            losses.append(
+                (out_f[0]**2 + out_f[1]**2) / 2 + ((out_r[0] - 1)**2 + (out_r[1] - 1)**2) / 2
+            )
+        # global conditionがない場合
+        else:
+            for layer in range(len(out_f)):
+                # 実データを1、generatorが生成したデータを0にするように学習（見分けたい）
+                losses.append((1 - out_r[layer])**2 + out_f[layer]**2)
+                if which_d == "unet":
+                    losses[layer] = losses[layer].squeeze(1)    # (B, 1, C, T) -> (B, C, T)
 
-        loss_enc_mean = 0
-        loss_dec_mean = 0
-        idx_enc = 0
-        idx_dec = 0
-        for i in range(loss_enc.shape[0]):
-            for j in range(loss_enc.shape[-1]):
-                if mask_enc[i, :, j]:
-                    loss_enc_mean += torch.mean(loss_enc[i, :, j])
-                    idx_enc += 1
+    # generatorに対する損失を計算する場合
+    else:
+        # JCU discriminatorかつ、global conditionがある場合
+        if which_d == "jcu" and len(out_f) == 2:
+            losses.append(
+                ((out_f[0] - 1)**2 + (out_f[1] - 1)**2) / 2
+            )
+        # global conditionがない場合
+        else:
+            for layer in range(len(out_f)):
+                # generatorが生成したデータを1にするように学習（騙したい）
+                losses.append((1 - out_f[layer])**2)
+                if which_d == "unet":
+                    losses[layer] = losses[layer].squeeze(1)    # (B, 1, C, T) -> (B, C, T)
+
+    # 損失計算
+    losses_mean = []
+    for layer in range(len(losses)):
+        # 層ごとに初期化
+        calc_mean = 0
+        calc_idx = 0
+        for i in range(losses[layer].shape[0]):
+            for j in range(losses[layer].shape[-1]):
+                if masks[layer][i, :, j]:
+                    # 各層、各バッチ、各時刻ごとの平均値
+                    calc_mean += torch.mean(losses[layer][i, :, j])
+                    calc_idx += 1
                 else:
                     break
-        for i in range(loss_dec.shape[0]):
-            for j in range(loss_dec.shape[-1]):
-                if mask_dec[i, :, j]:
-                    loss_dec_mean += torch.mean(loss_dec[i, :, j])
-                    idx_dec += 1
+        # 各層における平均値
+        losses_mean.append(calc_mean / calc_idx)
+
+    return sum(losses_mean)
+
+
+def fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d):
+    """
+    feature matching loss
+    generatorに対してのみ用いる
+    discriminatorの各層における特徴量についての損失
+
+    which_dは使用したdiscriminator
+    """
+    assert which_d == "unet" or "jcu", "please set which_d unet or jcu"
+    # encoder、decoder各層におけるmax_lenに対しての比率を計算
+    ratios = []
+    for layer in range(len(fmaps_f)):
+        ratios.append(fmaps_f[layer].shape[-1] / max_len)
+
+    # 各層ごとの比率に合わせて、data_lenをスケーリング
+    max_lens = []
+    data_lens = []
+    for layer in range(len(fmaps_f)):
+        max_lens.append(int(ratios[layer] * max_len))
+        data_lens.append(ratios[layer] * data_len)
+
+    # 各層の比率にあったマスク行列を生成
+    masks = []
+    for layer in range(len(fmaps_f)):
+        masks.append(make_pad_mask(data_lens[layer], max_lens[layer]))
+
+    # discriminatorの各層における特徴量の誤差を計算
+    losses = []
+    for layer in range(len(fmaps_f)):
+        losses.append(torch.abs(fmaps_f[layer] - fmaps_r[layer]))
+
+    # 各層ごとにマスクされる部分以外から平均を計算
+    losses_mean = []
+    for layer in range(len(losses)):
+        # 層ごとに初期化
+        calc_mean = 0
+        calc_idx = 0
+        for i in range(losses[layer].shape[0]):
+            for j in range(losses[layer].shape[-1]):
+                if masks[layer][i, :, j]:
+                    # 各層、各バッチ、各時刻ごとの平均値
+                    if which_d == "unet":
+                        calc_mean += torch.mean(losses[layer][i, :, :, j])
+                    elif which_d == "jcu":
+                        calc_mean += torch.mean(losses[layer][i, :, j])
+                    calc_idx += 1
                 else:
                     break
-        loss_enc_mean /= idx_enc
-        loss_dec_mean /= idx_dec
+        # 各層における平均値
+        losses_mean.append(calc_mean / calc_idx)
     
-    # else:
-
-    
-    return
-
-
-def fm_loss_Unet(output, target, data_len, max_len):
-    """
-    feature matching loss for Unet-discriminator
-    """
-    return
+    return sum(losses_mean) / len(fmaps_f)  # 全層の平均値
 
 
 def main():
@@ -99,13 +174,45 @@ def main():
     output = torch.rand(B, mel_channels, t)
     target = torch.rand(B, mel_channels, t)
 
-    discriminator = UNetDiscriminator()
-    out_enc_f, fmaps_enc_f, out_dec_f, fmaps_dec_f = discriminator(output)
-    out_enc_r, fmaps_enc_r, out_dec_r, fmaps_dec_r = discriminator(target)
+    gc = torch.arange(B).reshape(B, 1)      # 複数話者の場合を想定
+    use_gc = True
+
+    # ls_lossの切り替え
+    which_loss = "d"
+
+    print("JCU")
+    # JCU discriminator
+    d_J = JCUDiscriminator(mel_channels, 1, use_gc, emb_in=B)
+    if use_gc:
+        out_f, fmaps_f = d_J(output, gc)
+        out_r, fmaps_r = d_J(target, gc)
+    else:
+        out_f, fmaps_f = d_J(output, )
+        out_r, fmaps_r = d_J(target, )
+   
+    # ls_loss
+    ls_jcu = ls_loss(out_f, out_r, data_len, max_len, which_d="jcu", which_loss=which_loss)
+    print(ls_jcu)
+    
+    # fm_loss
+    fm_JCU = fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d="jcu")
+    print(fm_JCU)
+
+
+
+    print("Unet")
+    # U_net discriminator
+    d_U = UNetDiscriminator()
+    out_f, fmaps_f = d_U(output)
+    out_r, fmaps_r = d_U(target)
 
     # ls_loss
-    ls_loss_Unet(out_enc_f, out_dec_f, out_enc_r, out_dec_r, data_len, max_len, which_loss="d")
+    ls_u = ls_loss(out_f, out_r, data_len, max_len, which_d="unet", which_loss=which_loss)
+    print(ls_u)
 
+    # fm_loss
+    fm_unet = fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d="unet")
+    print(fm_unet)
 
 
 if __name__ == "__main__":
