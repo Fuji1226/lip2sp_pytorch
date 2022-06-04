@@ -64,12 +64,13 @@ class Lip2SP(nn.Module):
                     training_method=self.training_method, 
                     num_passes=self.num_passes, 
                     mixing_prob=self.mixing_prob)
+                # postnet
                 out = self.postnet(dec_output)
 
             elif self.which_decoder == "glu":
                 dec_output = self.decoder(enc_output, prev)
                 out = self.postnet(dec_output)
-        return out
+        return out, dec_output  # postnet前後を両方出力
 
     def inference(self, lip=None, data_len=None, prev=None, gc=None):
         if lip is not None:
@@ -81,7 +82,6 @@ class Lip2SP(nn.Module):
             # decoder
             if self.which_decoder == "transformer":
                 dec_output = self.decoder.inference(enc_output, data_len, prev)
-                self.pre = dec_output
                 out = self.postnet(dec_output)
                 
             # elif which_decoder == "glu":

@@ -17,6 +17,7 @@ import numpy as np
 def get_subsequent_mask(seq):
     ''' 
     音響特徴量の未来の値のマスク
+    推論時と条件を合わせるためのdecoderに対する処置
 
     For masking out the subsequent info. 
     '''
@@ -551,7 +552,7 @@ def main():
 
     # mask
     target_mask = get_subsequent_mask(feature)
-
+    print(target_mask)
 
 if __name__ == "__main__":
     main()
