@@ -3,6 +3,7 @@ user/minami/dataset/lip/lip_cropped
 このディレクトリに口唇部分を切り取った動画と、wavデータを入れておけば動くと思います!
 """
 
+from doctest import UnexpectedException
 from pathlib import Path
 import os
 import time
@@ -20,8 +21,8 @@ from get_dir import get_datasetroot, get_data_directory
 from model.dataset_remake import KablabDataset
 from hparams import create_hparams
 from model.models import Lip2SP
-from loss import masked_mse
-from model.discriminator import UNetDiscriminator
+from loss import masked_mse, ls_loss, fm_loss
+from model.discriminator import UNetDiscriminator, JCUDiscriminator
 
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -68,7 +69,7 @@ def make_test_loader(data_root, hparams, mode):
     return test_loader
 
 
-def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, loss_f, device):
+def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, loss_f, device, hparams):
     epoch_loss = 0
     data_cnt = 0
     for batch in data_loader:
@@ -79,21 +80,36 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
         data_cnt += batch_size
         
         ################順伝搬###############
-        output = model(
+        # output : postnet後の出力
+        # dec_output : postnet前の出力
+        output, dec_output = model(
             lip=lip,
             data_len=data_len,
             prev=target,
         )                      
         ####################################
-
-        out_enc_f, fmaps_enc_f, out_dec_f, fmaps_dec_f = discriminator(output)
-        out_enc_r, fmaps_enc_r, out_dec_r, fmaps_dec_r = discriminator(target)
         
-        # loss = loss_f(output[:, :, 2:], target[:, :, :-2])  # 未来予測なのでシフトして損失を計算       
-        loss = masked_mse(output[:, :, 2:], target[:, :, :-2], data_len, max_len=model.max_len * 2)
+        # GAN試し
+        if hparams.which_d is not None:
+            out_f, fmaps_f = discriminator(output[:, :, :-2])
+            out_r, fmaps_r = discriminator(target[:, :, 2:])
+            loss_d = ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=hparams.which_d, which_loss="d")
+            loss_g_ls = ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=hparams.which_d, which_loss="g")
+            loss_g_fm = fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=hparams.which_d)
+            print(loss_d)
+            print(loss_g_ls)
+            print(loss_g_fm)
+        
+        loss_default = loss_f(output[:, :, :-2], target[:, :, 2:]) + loss_f(dec_output[:, :, :-2], target[:, :, 2:])
+        # パディング部分をマスクした損失を計算。postnet前後の出力両方を考慮。
+        loss = masked_mse(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
+            + masked_mse(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
+
+        print(loss_default)
+        print(loss)
+
         loss.backward()
         optimizer.step()
-
         epoch_loss += loss.item()
 
     epoch_loss /= data_cnt
@@ -149,8 +165,21 @@ def main():
         use_gc=hparams.use_gc,
     )
 
-    discriminator = UNetDiscriminator()
+    # discriminator
+    if hparams.which_d is not None:
+        if hparams.which_d == "unet":
+            discriminator = UNetDiscriminator()
+        elif hparams.which_d == "jcu":
+            discriminator = JCUDiscriminator(
+                in_channels=hparams.out_channels,
+                out_channels=1,
+                use_gc=hparams.use_gc,
+                emb_in=hparams.batch_size,
+            )
+    else:
+        discriminator = None
     
+    # optimizer
     optimizer = torch.optim.Adam(
         model.parameters(), lr=hparams.lr, betas=hparams.betas
     )
@@ -159,13 +188,14 @@ def main():
     train_loader = make_train_loader(data_root, hparams, mode="train")
     test_loader = make_test_loader(data_root, hparams, mode="test")
 
+    # 損失関数
     loss_f = nn.MSELoss()
     train_loss_list = []
 
     # training
     for epoch in range(hparams.max_epoch):
         print(f"##### {epoch} #####")
-        epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device)
+        epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device, hparams)
         train_loss_list.append(epoch_loss)
         print(f"epoch_loss = {epoch_loss}")
         print(f"train_loss_list = {train_loss_list}")

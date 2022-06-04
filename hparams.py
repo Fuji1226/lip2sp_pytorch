@@ -20,19 +20,19 @@ def create_hparams():
         n_mel_channels = 80,
 
         # input grayscale.（グレースケールかRGBか）
-        gray=False,
+        gray = False,
 
         # input first and second derivative.（動的特徴量を使うかどうか）
-        delta=True,
+        delta = True,
 
         #####################
         # training settings     
         #####################
         # frame period
-        frame_period=10,
+        frame_period = 10,
 
         # acoutic feature frames in training
-        length=400,
+        length = 402,     # Unet-discriminatorを使用するときは402か202で！
 
         # reduction factor
         reduction_factor = 2,
@@ -55,6 +55,9 @@ def create_hparams():
         # 使用するdecoder（"transformer" or "glu"）
         # gluはできてないので、transformerで
         which_decoder = "transformer",
+
+        # discriminator
+        which_d = None,
 
         # "world" or "mspec"（音響特徴量の選択）
         feature_type = "mspec",
@@ -111,6 +114,10 @@ def create_hparams():
         hparams.out_channels = 29
         hparams.pre_in_channels = hparams.out_channels * 2
 
+    # discrimintorを使用する際のフレーム数の確認
+    if hparams.which_d is not None:
+        assert hparams.length == 202 or 402, "discriminatorを使うときは、lengthを202か402にしてください!"
+    
     return hparams
 
 

@@ -13,7 +13,7 @@ class SimpleDiscriminator(nn.Module):
 
 # 複数話者
 class JCUDiscriminator(nn.Module):
-    def __init__(self, in_channels, out_channels, use_gc=False, emb_in=None, n_features=128, out_features=512):
+    def __init__(self, in_channels, out_channels, use_gc=True, emb_in=None, n_features=128, out_features=512):
         super().__init__()
         self.use_gc = use_gc
 
@@ -60,6 +60,11 @@ class JCUDiscriminator(nn.Module):
         x : (B, mel_channels, t)
         gc : (B, 1)
         """
+        if self.use_gc:
+            assert gc is not None, "please set global condition"
+        else:
+            assert gc is None, "Don't set global condition"
+
         fmaps_share = []
         fmaps_uncond = []
         fmaps_cond = []
@@ -94,8 +99,10 @@ class JCUDiscriminator(nn.Module):
             out_cond = self.cond(out_cond)
             fmaps_cond.append(out_cond)
             out_cond = self.out_layer(out_cond)
-        
-        return out_share, fmaps_share, out_uncond, fmaps_uncond, out_cond, fmaps_cond
+
+            return [out_uncond, out_cond], fmaps_share + fmaps_uncond + fmaps_cond
+
+        return [out_uncond], fmaps_share + fmaps_uncond
 
 
 class UNetDiscriminator(nn.Module):
@@ -211,7 +218,7 @@ class UNetDiscriminator(nn.Module):
         out_dec = torch.cat([out_dec, fmaps_enc[0]], dim=1)
         out_dec = self.decoder_out(out_dec)
         
-        return out_enc, fmaps_enc, out_dec, fmaps_dec
+        return [out_enc, out_dec], fmaps_enc + fmaps_dec
 
 
 def main():
@@ -220,32 +227,28 @@ def main():
     t =400
     global_feature = torch.arange(B).reshape(B, 1)      # 複数話者の場合を想定
     x = torch.rand(B, mel_channels, t)
-    use_gc = True
+    use_gc = False
     
     # GANSpeechの場合
     print("## GANSpeech ##")
     GANSpeech = JCUDiscriminator(in_channels=mel_channels, out_channels=1, use_gc=use_gc, emb_in=B, )
-    out_share, fmaps_share, out_uncond, fmaps_uncond, out_cond, fmaps_cond = GANSpeech(x, global_feature)
-    # out_share, fmaps_share, out_uncond, fmaps_uncond, out_cond, fmaps_cond = GANSpeech(x)
+    out, fmaps = GANSpeech(x)
+    # out, fmaps = GANSpeech(x, global_feature)
 
-    for i in range(len(fmaps_share)):
-        print(f"fmaps_share[{i}] = {fmaps_share[i].shape}")
-
-    for i in range(len(fmaps_uncond)):
-        print(f"fmaps_uncond[{i}] = {fmaps_uncond[i].shape}")
-        if use_gc:
-            print(f"fmaps_cond[{i}] = {fmaps_cond[i].shape}")
-    
+    for i in range(len(fmaps)):
+        print(f"fmaps[{i}] = {fmaps[i].shape}")
 
     # U-Netの場合
     print("## U-Net ##")
     disc_U = UNetDiscriminator(1, 1)
-    out_enc, fmaps_enc, out_dec, fmaps_dec = disc_U(x)
+    out, fmaps = disc_U(x)
 
-    for i in range(len(fmaps_enc)):
-        print(f"fmaps_enc[{i}] = {fmaps_enc[i].shape}")
-    for i in range(len(fmaps_dec)):
-        print(f"fmaps_dec[{i}] = {fmaps_dec[i].shape}")
+    for i in range(len(fmaps)):
+        print(f"fmaps[{i}] = {fmaps[i].shape}")
+    # for i in range(len(fmaps_enc)):
+    #     print(f"fmaps_enc[{i}] = {fmaps_enc[i].shape}")
+    # for i in range(len(fmaps_dec)):
+    #     print(f"fmaps_dec[{i}] = {fmaps_dec[i].shape}")
     
 
 
