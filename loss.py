@@ -2,7 +2,7 @@
 損失関数
 """
 
-from shutil import which
+
 import torch
 from model.transformer import make_pad_mask
 from model.discriminator import UNetDiscriminator, JCUDiscriminator

@@ -32,7 +32,7 @@ def create_hparams():
         frame_period = 10,
 
         # acoutic feature frames in training
-        length = 402,     # Unet-discriminatorを使用するときは402か202で！
+        length = 300,     # Unet-discriminatorを使用するときは402か202で！
 
         # reduction factor
         reduction_factor = 2,
@@ -48,16 +48,17 @@ def create_hparams():
         n_layers = 6,
         d_model = 256,
         n_head = 8,
-        d_k = 32,   # d_model // n_head
-        d_v = 32,   # d_model // n_head
-        d_inner = 1024,
+
+        # 使用するencoder（"transformer" or "conformer"）
+        which_encoder = "conformer",
 
         # 使用するdecoder（"transformer" or "glu"）
         # gluはできてないので、transformerで
         which_decoder = "transformer",
 
-        # discriminator
-        which_d = None,
+        # discriminator（"unet" or "jcu"）
+        # 使わない場合はNone
+        which_d = "jcu",
 
         # "world" or "mspec"（音響特徴量の選択）
         feature_type = "mspec",
@@ -114,9 +115,9 @@ def create_hparams():
         hparams.out_channels = 29
         hparams.pre_in_channels = hparams.out_channels * 2
 
-    # discrimintorを使用する際のフレーム数の確認
-    if hparams.which_d is not None:
-        assert hparams.length == 202 or 402, "discriminatorを使うときは、lengthを202か402にしてください!"
+    # Unet-discrimintorを使用する際のフレーム数の確認
+    if hparams.which_d == "unet":
+        assert hparams.length == 202 or 402, "Unet-discriminatorを使うときは、lengthを202か402にしてください!"
     
     return hparams
 

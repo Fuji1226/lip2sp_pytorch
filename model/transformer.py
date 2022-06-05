@@ -105,7 +105,6 @@ class MultiHeadAttention(nn.Module):
         return
 
         """
-
         d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
         sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
 
@@ -233,13 +232,19 @@ class PositionalEncoding(nn.Module):
 
 class Encoder(nn.Module):
     def __init__(
-        self,n_layers, n_head, d_k, d_v, d_model, d_inner, 
+        self,n_layers, n_head, d_model, 
         n_position, reduction_factor, dropout=0.1):
         super().__init__()
+
+        self.n_head = n_head
+        self.d_k = d_model // n_head
+        self.d_v = d_model // n_head
+        self.d_inner = d_model * 4
+
         self.position_enc = PositionalEncoding(d_model, n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
+            EncoderLayer(d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
             for _ in range(n_layers)
         ])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
@@ -247,36 +252,19 @@ class Encoder(nn.Module):
         self.d_model = d_model
         self.reduction_factor = reduction_factor
     
-    def forward(self, prenet_out, data_len, max_len, return_attns=False):
+    def forward(self, prenet_out, data_len=None, max_len=None, return_attns=False):
         """
         prenet_out : (B, C, T)
         """
-        # get mask
-        data_len = torch.div(data_len, self.reduction_factor)
-        mask = make_pad_mask(data_len, max_len)
+        # get mask（学習時のみ、0パディングされた部分を隠すためのマスクを作成）
+        if data_len is not None:
+            assert max_len is not None
+            data_len = torch.div(data_len, self.reduction_factor)
+            mask = make_pad_mask(data_len, max_len)
+        else:
+            # 推論時はマスクなし
+            mask = None
         
-        # positional encoding
-        prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
-        prenet_out = self.dropout(self.position_enc(prenet_out))
-        enc_outout = self.layer_norm(prenet_out)
-
-        enc_slf_attn_list = []
-        # encoder layers
-        for enc_layer in self.layer_stack:
-            enc_output, enc_slf_attn = enc_layer(enc_outout, slf_attn_mask=mask)
-            enc_slf_attn_list += [enc_slf_attn] if return_attns else []
-
-        if return_attns:
-            return enc_output, enc_slf_attn_list
-        return enc_output
-
-    def inference(self, prenet_out, data_len=None, return_attns=False):
-        """
-        prenet_out : (B, C, T)
-        """
-        # get mask
-        mask = None
-
         # positional encoding
         prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
         prenet_out = self.dropout(self.position_enc(prenet_out))
@@ -318,20 +306,24 @@ class Prenet(nn.Module):
 
 class Decoder(nn.Module):
     def __init__(
-        self, n_layers, n_head, d_k, d_v, d_model, d_inner, 
+        self, n_layers, n_head, d_model, 
         pre_in_channels, pre_inner_channels, out_channels, 
         n_position, reduction_factor, dropout=0.1, use_gc=False):
         super().__init__()
 
+        self.n_head = n_head
+        self.d_k = d_model // n_head
+        self.d_v = d_model // n_head
         self.reduction_factor = reduction_factor
         self.out_channels = out_channels
+        self.d_inner = d_model * 4
 
         self.prenet = Prenet(pre_in_channels, d_model, pre_inner_channels)
 
         self.position_enc = PositionalEncoding(d_model, n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout)
+            DecoderLayer(d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
             for _ in range(n_layers)
         ])
 
@@ -441,7 +433,7 @@ class Decoder(nn.Module):
         enc_output : (B, T, C)
 
         return
-        dec_output : (B, C, T)
+        out : (B, C, T)
         """
         B = enc_output.shape[0]
         T = enc_output.shape[1]
@@ -467,7 +459,7 @@ class Decoder(nn.Module):
 
         # メインループ
         outs = []
-        for _ in range(max_decoder_time_steps):
+        for _ in tqdm(range(max_decoder_time_steps)):
             # Prenet
             pre_out = self.prenet(prev)    # (B, C=d_model, T)
             
@@ -497,8 +489,9 @@ class Decoder(nn.Module):
             prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
                 
         # 各時刻の出力を結合して出力
-        outs = torch.cat(outs, dim=2)
-        return outs
+        out = torch.cat(outs, dim=2)
+        assert out.shape[-1] == T * 2
+        return out
 
 
 class Postnet(nn.Module):
