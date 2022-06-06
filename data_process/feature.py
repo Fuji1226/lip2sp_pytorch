@@ -1,8 +1,12 @@
 """
 mel2wav/feature.py
+
 wav2world、world2wavを追加
+
+メルスペクトログラムから動的特徴量を求めるdelta_featureを追加
 """
 
+from operator import mod
 import numpy as np
 from librosa import filters
 from librosa.util import nnls
@@ -14,6 +18,10 @@ import pyworld
 from pyreaper import reaper
 import pysptk
 from nnmnkwii.postfilters import merlin_post_filter
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 OVERLAP = 4
@@ -244,10 +252,8 @@ def wav2world(
     else:
         clf0 = np.ones_like(f0) * f0_floor
     
-    # code ap
     # これが帯域非周期性指標
-    # 論文では4か5次元の感じだったけど、1次元になってる
-    # どうやって設定する？
+    # 論文では4か5次元の感じだったけど、1次元になってしまう
     cap = pyworld.code_aperiodicity(ap, fs)
     
     # coding sp
@@ -321,3 +327,75 @@ def world2wav(
         wave = wave / scale * 0.99
 
     return wave
+
+##########################################
+# add delta_feature
+##########################################
+def delta_feature(x, order=2, static=True, delta=True, deltadelta=True):
+    """
+    lip2sp/links/modules.pyにて動的特徴量の計算に使用されている、
+    lip2sp/submodules/mychainer/utils/function.pyの関数delta_featureの実装（pytorchでの再現）
+
+    x : (B, C, T)
+
+    return
+    out : (B, 3 * C, T) 
+
+    staticに加えて、delta, deltadelta特徴量が増える分、チャンネル数が3倍になります
+    """
+    x = x.unsqueeze(1)  # (B, 1, C, T)
+
+    # 動的特徴量を求めるためのフィルタを設定
+    ws = []
+    if order == 2:
+        if static:
+            ws.append(torch.tensor((0, 1, 0)))
+        if delta:
+            ws.append(torch.tensor((-1, 0, 1)) / 2)
+        if deltadelta:
+            ws.append(torch.tensor((1.0, -2.0, 1.0)))
+        pad = 1
+
+    elif order == 4:
+        if static:
+            ws.append(torch.tensor((0, 0, 1, 0, 0)))
+        if delta:
+            ws.append(torch.tensor((1, -8, 0, 8, -1)) / 12)
+        if deltadelta:
+            ws.append(torch.tensor((-1, 16, -30, 16, -1)) / 12)
+        pad = 2
+
+    else:
+        raise ValueError(f"order: {order}")
+
+    W = torch.stack(ws, dim=0)  # (3, 3)
+    W = W.unsqueeze(1).unsqueeze(1)     # (3, 1, 1, 3) : (out_channels, in_channels, kernel_size_C, kernel_size_T)
+
+    padding = nn.ReflectionPad2d(pad)
+
+    # チャンネル方向のパディングはいらないので、取り除いてます
+    x = padding(x)[:, :, pad:-1, :]     # (B, 1, C, T + 2)
+
+    # 設定したフィルタでxに対して2次元畳み込みを行い、静的特徴量からdelta, deltadelta特徴量を計算
+    out = F.conv2d(x, W)    # (B, 3, C, T)
+
+    B, T = out.shape[0], out.shape[-1]
+    out = out.view(B, -1, T)    # (B, 3 * C, T)
+
+    return out
+
+
+def main():
+    batch = 1
+    channels = 4
+    frames = 3
+    x = torch.rand(batch, channels, frames)
+    print(x)
+    order = 2
+    out = delta_feature(x, order)
+    print(out)
+    return
+
+
+if __name__ == "__main__":
+    main()

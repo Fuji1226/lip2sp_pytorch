@@ -6,16 +6,21 @@
 import torch
 from model.transformer import make_pad_mask
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
+from data_process.feature import delta_feature
 
 
 def masked_mse(output, target, data_len, max_len):
     """
-    パディングされた部分を考慮し、損失計算から省く
+    パディングされた部分を考慮し、損失計算から省いたMSE loss
     output, target : (B, C, T)
     """
-
+    # マスク作成
     mask = make_pad_mask(data_len, max_len)    
+
+    # 二乗誤差を計算
     loss = (output - target)**2
+
+    # マスクでパディング部分を隠す
     mse = 0
     idx = 0
     for i in range(loss.shape[0]):
@@ -25,6 +30,39 @@ def masked_mse(output, target, data_len, max_len):
                 idx += 1
             else:
                 break
+    # 平均
+    mse /= idx
+    return mse
+
+
+def delta_loss(output, target, data_len, max_len):
+    """
+    音響特徴量の動的特徴量についての損失関数
+    """
+    # マスク
+    mask = make_pad_mask(data_len, max_len)
+
+    # 動的特徴量の計算  (B, C, T) -> (B, 3 * C, T)
+    output = delta_feature(output) 
+    target = delta_feature(target)
+
+    # 各チャンネルごとの標準偏差（ブロードキャストのため次元を増やしてます）
+    target_std = torch.std(target, dim=(0, -1)).unsqueeze(0).unsqueeze(-1)
+
+    # 正規化されたメルスペクトログラムの静的・動的特徴量の二乗誤差
+    loss = ((output - target) / target_std)**2
+    
+    # マスクでパディング部分を隠す
+    mse = 0
+    idx = 0
+    for i in range(loss.shape[0]):
+        for j in range(loss.shape[-1]):
+            if mask[i, :, j]:
+                mse += torch.mean(loss[i, :, j])
+                idx += 1
+            else:
+                break
+    # 平均
     mse /= idx
     return mse
 
@@ -174,6 +212,11 @@ def main():
     output = torch.rand(B, mel_channels, t)
     target = torch.rand(B, mel_channels, t)
 
+    loss_mask = masked_mse(output, target, data_len, max_len)
+    print(f"masked_mse_loss = {loss_mask}")
+    loss_delta = delta_loss(output, target, data_len, max_len)
+    print(f"delta_loss = {loss_delta}")
+
     gc = torch.arange(B).reshape(B, 1)      # 複数話者の場合を想定
     use_gc = True
 
@@ -198,21 +241,19 @@ def main():
     fm_JCU = fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d="jcu")
     print(fm_JCU)
 
+    # print("Unet")
+    # # U_net discriminator
+    # d_U = UNetDiscriminator()
+    # out_f, fmaps_f = d_U(output)
+    # out_r, fmaps_r = d_U(target)
 
+    # # ls_loss
+    # ls_u = ls_loss(out_f, out_r, data_len, max_len, which_d="unet", which_loss=which_loss)
+    # print(ls_u)
 
-    print("Unet")
-    # U_net discriminator
-    d_U = UNetDiscriminator()
-    out_f, fmaps_f = d_U(output)
-    out_r, fmaps_r = d_U(target)
-
-    # ls_loss
-    ls_u = ls_loss(out_f, out_r, data_len, max_len, which_d="unet", which_loss=which_loss)
-    print(ls_u)
-
-    # fm_loss
-    fm_unet = fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d="unet")
-    print(fm_unet)
+    # # fm_loss
+    # fm_unet = fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d="unet")
+    # print(fm_unet)
 
 
 if __name__ == "__main__":
