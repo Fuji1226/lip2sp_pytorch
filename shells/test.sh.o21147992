@@ -1,0 +1,16 @@
+device = cuda
+> /home/usr1/q70261a/lip2sp_pytorch/train.py(192)main()
+-> train_loader = make_train_loader(data_root, hparams, mode="train")
+(Pdb) 
+Traceback (most recent call last):
+  File "train.py", line 210, in <module>
+    main()
+  File "train.py", line 192, in main
+    train_loader = make_train_loader(data_root, hparams, mode="train")
+  File "train.py", line 192, in main
+    train_loader = make_train_loader(data_root, hparams, mode="train")
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 88, in trace_dispatch
+    return self.dispatch_line(frame)
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 113, in dispatch_line
+    if self.quitting: raise BdbQuit
+bdb.BdbQuit

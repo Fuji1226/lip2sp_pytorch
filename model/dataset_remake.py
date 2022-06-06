@@ -9,6 +9,7 @@ import os
 import sys
 
 from matplotlib.pyplot import step
+from yaml import load
 # 親ディレクトリからのimport用
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -21,7 +22,6 @@ from pathlib import Path
 # brew install ffmpeg -> pip install ffmpeg-python
 import ffmpeg   
 import math
-from importlib_metadata import files
 import numpy as np
 import torch
 import torch.nn as nn
@@ -29,12 +29,13 @@ import torchvision
 import torchvision.transforms as transforms
 import torchaudio
 from torch.utils.data import Dataset, DataLoader, get_worker_info
+import librosa
 
 # 自作
 from data_process.audio_process import MelSpectrogram
 from get_dir import get_datasetroot, get_data_directory
 from hparams import create_hparams
-from transform import preprocess
+from transform import preprocess, load_data
 
 
 data_root = Path(get_datasetroot()).expanduser()    
@@ -98,6 +99,28 @@ def get_datasets(data_root, mode):
 #         video_path, audio_path = items[item_idx]
 
 
+def calc_mean_var(items, len):
+    mean = 0
+    var = 0
+    for i in range(len):
+        video_path, audio_path = items[i]
+        (lip, y, feat_add, upsample) = load_data(
+            data_path=Path(video_path),
+            gray=hparams.gray,
+            frame_period=hparams.frame_period,
+            feature_type=hparams.feature_type,
+            nmels=hparams.n_mel_channels,
+            f_min=hparams.f_min,
+            f_max=hparams.f_max,
+        )
+
+        # 時間方向に平均と分散を計算
+        mean += np.mean(y, axis=0)
+        var += np.var(y, axis=0)
+    mean /= len
+    var /= len
+
+    return mean, var
 
 
 class KablabDataset(Dataset):
@@ -116,8 +139,9 @@ class KablabDataset(Dataset):
         # 口唇動画、音声データまでのパス一覧を取得
         self.items = get_datasets(self.data_root, self.mode)
         self.len = len(self.items)
-        # self.duration = duration
-
+        
+        self.mean, self.var = calc_mean_var(self.items, self.len)
+        
         print(f'Size of {type(self).__name__}: {self.len}')
 
         random.shuffle(self.items)
@@ -182,8 +206,8 @@ class KablabDataset(Dataset):
             f_min=hparams.f_min,
             f_max=hparams.f_max,
             length=hparams.length,
-            mean=None,
-            var=None,
+            mean=self.mean,
+            var=self.var,
             mode=self.mode,
         )
 
@@ -212,7 +236,6 @@ class KablabDataset(Dataset):
 def main():
     print("############################ Start!! ############################")
     datasets = KablabDataset(data_root, mode="train")
-    breakpoint()
     # datasets = KablabDataset(data_root, mode="test")
     loader = DataLoader(
         dataset=datasets,
@@ -268,4 +291,3 @@ def main():
 if __name__ == "__main__":
     # print(data_root)
     main()
-    

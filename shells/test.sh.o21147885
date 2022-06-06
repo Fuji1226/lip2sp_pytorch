@@ -1,0 +1,15 @@
+> /home/usr1/q70261a/lip2sp_pytorch/train.py(154)main()
+-> device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+(Pdb) 
+Traceback (most recent call last):
+  File "train.py", line 212, in <module>
+    main()
+  File "train.py", line 154, in main
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  File "train.py", line 154, in main
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 88, in trace_dispatch
+    return self.dispatch_line(frame)
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 113, in dispatch_line
+    if self.quitting: raise BdbQuit
+bdb.BdbQuit

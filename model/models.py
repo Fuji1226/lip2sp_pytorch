@@ -5,57 +5,113 @@
 
 import torch
 import torch.nn as nn
-from .net import ResNet3D
-from .transformer import Postnet, Encoder, Decoder
-from .glu import GLU
+
+try:
+    from .net import ResNet3D
+    from .transformer import Postnet, Encoder, Decoder
+    from .conformer.encoder import Conformer_Encoder
+    from hparams import create_hparams
+    # from .glu import GLU
+except:
+    from net import ResNet3D
+    from transformer import Postnet, Encoder, Decoder
+    from conformer.encoder import Conformer_Encoder
+    from hparams import create_hparams
+    # from glu import GLU
 
 
 class Lip2SP(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers,
-        d_model, n_layers, n_head, d_k, d_v, d_inner,
-        glu_inner_channels, glu_layers,
+        d_model, n_layers, n_head, 
+        glu_inner_channels, glu_layers, 
         pre_in_channels, pre_inner_channels, post_inner_channels,
-        dropout=0.1, n_position=150, reduction_factor=2, use_gc=False):
+        n_position, max_len, which_encoder, which_decoder, 
+        training_method, num_passes=None, mixing_prob=None,
+        dropout=0.1, reduction_factor=2, use_gc=False):
 
         super().__init__()
+        assert d_model % n_head == 0
+
+        self.max_len = max_len
+        self.which_encoder = which_encoder
+        self.which_decoder = which_decoder
+        self.training_method = training_method
+        self.num_passes = num_passes
+        self.mixing_prob = mixing_prob
 
         self.first_batch_norm = nn.BatchNorm3d(in_channels)
         self.ResNet_GAP = ResNet3D(in_channels, d_model, res_layers)
 
-        self.transformer_encoder = Encoder(
-            n_layers, n_head, d_k, d_v, d_model, d_inner, n_position, reduction_factor, dropout)
+        # encoder
+        if self.which_encoder == "transformer":
+            self.transformer_encoder = Encoder(
+                n_layers, n_head, d_model, n_position, reduction_factor, dropout
+            )
+        elif self.which_encoder == "conformer":
+            self.conformer_encoder = Conformer_Encoder(
+                encoder_dim=d_model, num_layers=n_layers, num_attention_heads=n_head, reduction_factor=reduction_factor
+            )
 
-        self.transformer_decoder = Decoder(
-            n_layers, n_head, d_k, d_v, d_model, d_inner, 
-            pre_in_channels, pre_inner_channels, 
-            out_channels, n_position, reduction_factor, dropout, use_gc)
-
-        self.glu_decoder = GLU(
-            glu_inner_channels, out_channels,
-            pre_in_channels, pre_inner_channels,
-            reduction_factor, glu_layers)
+        # decoder
+        if self.which_decoder == "transformer":
+            self.decoder = Decoder(
+                n_layers, n_head, d_model, 
+                pre_in_channels, pre_inner_channels, 
+                out_channels, n_position, reduction_factor, dropout, use_gc
+            )
+        elif self.which_decoder == "glu":
+            self.decoder = GLU(
+                glu_inner_channels, out_channels,
+                pre_in_channels, pre_inner_channels,
+                reduction_factor, glu_layers
+            )
 
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels)
 
-    def forward(self, lip=None, data_len=None, prev=None, gc=None, which_decoder=None):
+    def forward(self, lip=None, data_len=None, prev=None, gc=None):
         if lip is not None:
             # encoder
             lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
-            enc_output = self.transformer_encoder(lip_feature, data_len)    # (B, T, C)
+            if self.which_encoder == "transformer":
+                enc_output = self.transformer_encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+            elif self.which_encoder == "conformer":
+                enc_output = self.conformer_encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
             
             # decoder
-            if which_decoder == "transformer":
-                dec_output = self.transformer_decoder(enc_output, data_len, prev)
-                self.pre = dec_output
-                out = self.postnet(dec_output)
+            if self.which_decoder == "transformer":
+                dec_output = self.decoder(
+                    enc_output, data_len, self.max_len, prev, 
+                    training_method=self.training_method, 
+                    num_passes=self.num_passes, 
+                    mixing_prob=self.mixing_prob)
+            elif self.which_decoder == "glu":
+                dec_output = self.decoder(enc_output, prev)
+                
+            # postnet
+            out = self.postnet(dec_output)
+        return out, dec_output  # postnet前後を両方出力
 
-            elif which_decoder == "glu":
-                dec_output = self.glu_decoder(enc_output, prev)
-                self.pre = dec_output
+    def inference(self, lip=None, data_len=None, prev=None, gc=None):
+        if lip is not None:
+            # encoder
+            lip = self.first_batch_norm(lip)
+            lip_feature = self.ResNet_GAP(lip)
+            if self.which_encoder == "transformer":
+                enc_output = self.transformer_encoder(lip_feature)    # (B, T, C)
+            elif self.which_encoder == "conformer":
+                enc_output = self.conformer_encoder(lip_feature)
+            
+            # decoder
+            if self.which_decoder == "transformer":
+                dec_output = self.decoder.inference(enc_output, data_len, prev)
                 out = self.postnet(dec_output)
-
+                
+            # elif which_decoder == "glu":
+            #     dec_output = self.glu_decoder.inference(enc_output, prev)
+            #     self.pre = dec_output
+            #     out = self.postnet(dec_output)
         return out
 
 
@@ -78,35 +134,49 @@ def main():
     acoustic_feature = torch.rand(batch_size, feature_channels, frames * 2)
 
     # parameter
-    in_channels = lip_channels
-    out_channels = feature_channels
-    res_layers = 5
-    d_model = 256
-    n_layers = 2
-    n_head = 8
-    d_k = d_model // n_head
-    d_v = d_model // n_head
-    d_inner = 512
-    glu_inner_channels = 256
-    glu_layers = 4
-    pre_in_channels = feature_channels * 2
-    pre_inner_channels = 32
-    post_inner_channels = 512
+    hparams = create_hparams()
 
     # build
     net = Lip2SP(
-        in_channels, out_channels, res_layers,
-        d_model, n_layers, n_head, d_k, d_v, d_inner,
-        glu_inner_channels, glu_layers,
-        pre_in_channels, pre_inner_channels, post_inner_channels,
-        dropout=0.1, n_position=frames, reduction_factor=2
+        in_channels=5, 
+        out_channels=hparams.out_channels,
+        res_layers=hparams.res_layers,
+        d_model=hparams.d_model,
+        n_layers=hparams.n_layers,
+        n_head=hparams.n_head,
+        glu_inner_channels=hparams.glu_inner_channels,
+        glu_layers=hparams.glu_layers,
+        pre_in_channels=hparams.pre_in_channels,
+        pre_inner_channels=hparams.pre_inner_channels,
+        post_inner_channels=hparams.post_inner_channels,
+        n_position=hparams.length * 10,  # 口唇動画に対して長ければいい
+        max_len=hparams.length // 2,
+        which_encoder=hparams.which_encoder,
+        which_decoder=hparams.which_decoder,
+        training_method=hparams.training_method,
+        num_passes=hparams.num_passes,
+        mixing_prob=hparams.mixing_prob,
+        dropout=hparams.dropout,
+        reduction_factor=hparams.reduction_factor,
+        use_gc=hparams.use_gc,
     )
 
-    out = net(lip=lip, data_len=data_len, prev=acoustic_feature, which_decoder="transformer")
-    loss_f = nn.MSELoss()
-    loss = loss_f(out, acoustic_feature)
-    breakpoint()
+    # training
+    # outout, dec_output = net(lip=lip, data_len=data_len, prev=acoustic_feature)
+    # loss_f = nn.MSELoss()
+    # loss = loss_f(outout, acoustic_feature)
+    # print(loss)
 
+    # inference
+    # 口唇動画
+    lip_channels = 5
+    width = 48
+    height = 48
+    frames = 56
+    lip = torch.rand(batch_size, lip_channels, width, height, frames)
+    inference_out = net.inference(lip=lip)
+    print(inference_out.shape)
+    
 
 
 
