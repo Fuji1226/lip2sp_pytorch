@@ -2,3 +2,4 @@ fujita/
 .DS_Store
 results/
 shells/
+hparams.py

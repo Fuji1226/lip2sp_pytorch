@@ -2,7 +2,11 @@
 user/minami/dataset/lip/lip_cropped
 このディレクトリに口唇部分を切り取った動画と、wavデータを入れておけば動くと思います!
 """
-
+import wandb
+wandb.init(
+    project='llip2sp_pytorch',
+    name="wandb-test"
+)
 
 from pathlib import Path
 import os
@@ -74,8 +78,13 @@ def make_test_loader(data_root, hparams, mode):
 def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, loss_f, device, hparams):
     epoch_loss = 0
     data_cnt = 0
+    iter_cnt = 0
+    all_iter = len(data_loader)
     for batch in data_loader:
         model.train()
+        model = model.to(device)
+        iter_cnt += 1
+        print(f'iter {iter_cnt}/{all_iter}')
         
         (lip, target, feat_add), data_len = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
@@ -84,14 +93,9 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
         data_cnt += batch_size
         
         ################順伝搬###############
-<<<<<<< HEAD
-        print(f'data_cnt = {data_cnt}')
-        output = model(
-=======
         # output : postnet後の出力
         # dec_output : postnet前の出力
         output, dec_output = model(
->>>>>>> 64ab1c060b106a6b0ce3e77aa8ad23b086acb1f7
             lip=lip,
             data_len=data_len,
             prev=target,
@@ -106,6 +110,7 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
         loss.backward()
         optimizer.step()
         epoch_loss += loss.item()
+        wandb.log({"train_iter_loss": loss.item()})
 
     epoch_loss /= data_cnt
     return epoch_loss
@@ -125,7 +130,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimiz
 
         batch_size = lip.shape[0]
         data_cnt += batch_size
-        
+
         #====================================================
         # discriminatorの最適化
         # generator1回に対して複数回最適化するコードもあり。とりあえず1回で実装。
@@ -297,11 +302,6 @@ def main():
             print(f"train_loss_list = {train_loss_list}")
         
         save_result(train_loss_list, result_path+'/train_loss.png')
-<<<<<<< HEAD
-=======
-
->>>>>>> 64ab1c060b106a6b0ce3e77aa8ad23b086acb1f7
-
 
 if __name__=='__main__':
     main()

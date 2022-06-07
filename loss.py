@@ -15,7 +15,9 @@ def masked_mse(output, target, data_len, max_len):
     output, target : (B, C, T)
     """
     # マスク作成
-    mask = make_pad_mask(data_len, max_len)    
+    mask = make_pad_mask(data_len, max_len) 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    mask = mask.to(device)
 
     # 二乗誤差を計算
     loss = (output - target)**2

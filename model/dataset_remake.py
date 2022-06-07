@@ -56,7 +56,7 @@ def get_datasets(data_root, mode):
         for curDir, Dir, Files in os.walk(data_root):
             for filename in Files:
                 # curDirの末尾がlip_croppedの時
-                if curDir.endswith("lip_cropped"):
+                if curDir.endswith("test"):
                     # filenameの末尾（拡張子）が.mp4の時
                     if filename.endswith(".mp4"):
                         format = ".mp4"
@@ -86,6 +86,7 @@ def get_datasets(data_root, mode):
                             idx += 1
                 else:
                     continue
+    
     return items
 
 
@@ -143,7 +144,6 @@ class KablabDataset(Dataset):
         self.mean, self.var = calc_mean_var(self.items, self.len)
         
         print(f'Size of {type(self).__name__}: {self.len}')
-
         random.shuffle(self.items)
         # イテレータを生成
         #self.item_iter = iter(self.items)

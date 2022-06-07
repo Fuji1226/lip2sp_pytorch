@@ -11,8 +11,6 @@
 
 module load cuda/10.1
 
-export OPENBLAS_NUM_THREADS=1
-
 dir_project="$(dirname $(cd $(dirname $0); pwd))"
 cd "${dir_project}"
 
