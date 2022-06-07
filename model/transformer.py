@@ -53,8 +53,9 @@ def make_pad_mask(lengths, max_len):
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
     mask = seq_range_expand < seq_length_expand     # (B, T=maxlen)
-
-    return mask.unsqueeze(1)    # (B, 1, T)
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    return mask.unsqueeze(1).to(device)    # (B, 1, T)
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -173,10 +174,6 @@ class EncoderLayer(nn.Module):
         self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout)
 
     def forward(self, enc_input, slf_attn_mask=None):
-        print('enc layer')
-        print(f'att_mask {slf_attn_mask}')
-        print(f'slf_attnmask type {type(slf_attn_mask)}')
-        print(f'slf cuda {slf_attn_mask.is_cuda}')
 
         # enc_output : (b, lq, d_model)
         # ouc_slf_attn : (sz_b, n_head, len_q, len_k)
@@ -381,8 +378,8 @@ class Decoder(nn.Module):
         mask = mask.to(device)
         target = target.to(device)
         data_len = data_len.to(device)
-        max_len = max_len.to(device)
-
+        
+        max_len = torch.tensor(max_len).to(device)
         target_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target) # (B, T, T)
         
         # Prenet

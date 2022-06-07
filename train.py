@@ -5,7 +5,7 @@ user/minami/dataset/lip/lip_cropped
 import wandb
 wandb.init(
     project='llip2sp_pytorch',
-    name="wandb-test"
+    name="desk-test"
 )
 
 from pathlib import Path
@@ -80,6 +80,7 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
     data_cnt = 0
     iter_cnt = 0
     all_iter = len(data_loader)
+    print("iter start")
     for batch in data_loader:
         model.train()
         model = model.to(device)

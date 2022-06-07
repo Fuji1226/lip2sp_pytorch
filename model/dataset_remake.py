@@ -56,7 +56,7 @@ def get_datasets(data_root, mode):
         for curDir, Dir, Files in os.walk(data_root):
             for filename in Files:
                 # curDirの末尾がlip_croppedの時
-                if curDir.endswith("test"):
+                if curDir.endswith("F01"):
                     # filenameの末尾（拡張子）が.mp4の時
                     if filename.endswith(".mp4"):
                         format = ".mp4"
@@ -118,6 +118,7 @@ def calc_mean_var(items, len):
         # 時間方向に平均と分散を計算
         mean += np.mean(y, axis=0)
         var += np.var(y, axis=0)
+    
     mean /= len
     var /= len
 
@@ -140,7 +141,7 @@ class KablabDataset(Dataset):
         # 口唇動画、音声データまでのパス一覧を取得
         self.items = get_datasets(self.data_root, self.mode)
         self.len = len(self.items)
-        
+
         self.mean, self.var = calc_mean_var(self.items, self.len)
         
         print(f'Size of {type(self).__name__}: {self.len}')

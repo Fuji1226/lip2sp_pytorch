@@ -3,3 +3,6 @@ fujita/
 results/
 shells/
 hparams.py
+*__pycache__*
+*.pyc
+wandb/
