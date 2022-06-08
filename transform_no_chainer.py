@@ -45,16 +45,16 @@ def get_sp_path(name, path, data_root=ROOT, save_root=None, save_dir="sp"):
 def cals_sp(wave, fs, frame_period, feature_type, path=None, nmels=None, f_min=None, f_max=None):
 
     loaded = False
-    if path is not None:
-        name = get_sp_name(path.stem, feature_type, frame_period, nmels)
-        load_path = get_sp_path(name, path)
+    # if path is not None:
+    #     name = get_sp_name(path.stem, feature_type, frame_period, nmels)
+    #     load_path = get_sp_path(name, path)
 
-        try:
-            y = np.load(load_path, mmap_mode="r", allow_pickle=False)
-            loaded = True
-        except (FileNotFoundError, BadZipFile):
-            pass
-
+    #     try:
+    #         y = np.load(load_path, mmap_mode="r", allow_pickle=False)
+    #         loaded = True
+    #     except (FileNotFoundError, BadZipFile):
+    #         pass
+    
     if not loaded:
         if feature_type == "mspec":
             y = wave2mel(wave, fs, frame_period,
@@ -131,7 +131,7 @@ def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, 
     # f_min = 0
     # f_max = 7600
     upsample = get_upsample(fps, fs, frame_period)
-
+    
     # 音響特徴量への変換
     y = cals_sp(
         wave, fs, frame_period, feature_type,

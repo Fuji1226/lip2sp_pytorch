@@ -4,6 +4,9 @@ user/minami/dataset/lip/lip_cropped
 
 datasetを変更しました
 """
+from omegaconf import DictConfig, OmegaConf
+import hydra
+
 import wandb
 wandb.init(
     project='llip2sp_pytorch',
@@ -48,48 +51,52 @@ def save_checkpoint(model, optimizer, iteration, ckpt_pth):
 				'iteration': iteration}, ckpt_pth)
 
 
-def make_train_loader(data_root, hparams, mode):
-    assert mode == "train"
+def make_train_loader(cfg):
     trans = KablabTransform(
-        length=hparams.length,
-        delta=hparams.delta
+        length=cfg.model.length,
+        delta=cfg.model.delta
     )
-
     datasets = KablabDataset(
-        data_root=data_root,
+        data_root=cfg.model.train_path,
         transforms=trans,
-        hparams=hparams,
-        mode=mode
+        cfg=cfg,
     )
-
     train_loader = DataLoader(
         dataset=datasets,
-        batch_size=hparams.batch_size,   
+        batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=hparams.num_workers,      
+        num_workers=cfg.train.num_workers,      
         pin_memory=False,
         drop_last=True,
         collate_fn=None,
     )
     return train_loader
 
-
-def make_test_loader(data_root, hparams, mode):
-    assert mode == "test"
-    datasets = KablabDataset(data_root, mode)
+# mode=testとかで前処理分岐がいるかも
+# それぞれの関数を定義しているので、内部でmodeを指定してしまって問題ないかも
+def make_test_loader(cfg):
+    trans = KablabTransform(
+        length=cfg.model.length,
+        delta=cfg.model.delta
+    )
+    datasets = KablabDataset(
+        data_root=cfg.model.test_path,
+        transforms=trans,
+        cfg=cfg,
+    )
     test_loader = DataLoader(
         dataset=datasets,
-        batch_size=hparams.batch_size,   
+        batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=hparams.num_workers,      
+        num_workers=cfg.train.num_workers,      
         pin_memory=False,
         drop_last=True,
         collate_fn=None,
     )
     return test_loader
+    
 
-
-def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, loss_f, device, hparams):
+def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, loss_f, device):
     epoch_loss = 0
     data_cnt = 0
     iter_cnt = 0
@@ -131,8 +138,8 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
     return epoch_loss
 
 
-def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimizer, optimizer_d, loss_f, device, hparams):
-    assert hparams.which_d is not None, "discriminatorが設定されていません!"
+def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimizer, optimizer_d, loss_f, device, cfg):
+    assert cfg.model.which_d is not None, "discriminatorが設定されていません!"
 
     epoch_loss = 0
     data_cnt = 0
@@ -171,7 +178,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimiz
             out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
             out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
             # 損失計算
-            loss_d = ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=hparams.which_d, which_loss="d")
+            loss_d = ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
         except Exception:
             print("error")
         
@@ -198,8 +205,8 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimiz
             out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
             out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
             # 損失計算
-            loss_g_ls = ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=hparams.which_d, which_loss="g")
-            loss_g_fm = fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=hparams.which_d)
+            loss_g_ls = ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
+            loss_g_fm = fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
         except Exception:
             print("error")
 
@@ -229,14 +236,13 @@ def save_result(loss_list, save_path):
     plt.savefig(save_path)
 
 
-def main():
+@hydra.main(config_name="config", config_path="conf")
+def main(cfg):
     ###ここにデータセットモデルのインスタンス作成train関数を回す#####
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    # datasetディレクトリまでのパス
-    data_root = Path(get_datasetroot()).expanduser()    # users/minami/dataset
     # パラメータ取得
     hparams = create_hparams()
 
@@ -244,69 +250,90 @@ def main():
     result_path = 'results'
     os.makedirs(result_path, exist_ok=True)
 
-    # tensorboardによる結果の可視化
-    writer = SummaryWriter()
-
     #インスタンス作成
+    # model = Lip2SP(
+    #     in_channels=5, 
+    #     out_channels=hparams.out_channels,
+    #     res_layers=hparams.res_layers,
+    #     d_model=hparams.d_model,
+    #     n_layers=hparams.n_layers,
+    #     n_head=hparams.n_head,
+    #     glu_inner_channels=hparams.glu_inner_channels,
+    #     glu_layers=hparams.glu_layers,
+    #     pre_in_channels=hparams.pre_in_channels,
+    #     pre_inner_channels=hparams.pre_inner_channels,
+    #     post_inner_channels=hparams.post_inner_channels,
+    #     n_position=hparams.length * 10,  # 口唇動画に対して長ければいい
+    #     max_len=hparams.length // 2,
+    #     which_encoder=hparams.which_encoder,
+    #     which_decoder=hparams.which_decoder,
+    #     training_method=hparams.training_method,
+    #     num_passes=hparams.num_passes,
+    #     mixing_prob=hparams.mixing_prob,
+    #     dropout=hparams.dropout,
+    #     reduction_factor=hparams.reduction_factor,
+    #     use_gc=hparams.use_gc,
+    # )
+
     model = Lip2SP(
-        in_channels=5, 
-        out_channels=hparams.out_channels,
-        res_layers=hparams.res_layers,
-        d_model=hparams.d_model,
-        n_layers=hparams.n_layers,
-        n_head=hparams.n_head,
-        glu_inner_channels=hparams.glu_inner_channels,
-        glu_layers=hparams.glu_layers,
-        pre_in_channels=hparams.pre_in_channels,
-        pre_inner_channels=hparams.pre_inner_channels,
-        post_inner_channels=hparams.post_inner_channels,
-        n_position=hparams.length * 10,  # 口唇動画に対して長ければいい
-        max_len=hparams.length // 2,
-        which_encoder=hparams.which_encoder,
-        which_decoder=hparams.which_decoder,
-        training_method=hparams.training_method,
-        num_passes=hparams.num_passes,
-        mixing_prob=hparams.mixing_prob,
-        dropout=hparams.dropout,
-        reduction_factor=hparams.reduction_factor,
-        use_gc=hparams.use_gc,
+        in_channels=cfg.model.in_channels,
+        out_channels=cfg.model.out_channels,
+        res_layers=cfg.model.res_layers,
+        d_model=cfg.model.d_model,
+        n_layers=cfg.model.n_layers,
+        n_head=cfg.model.n_head,
+        glu_inner_channels=cfg.model.glu_inner_channels,
+        glu_layers=cfg.model.glu_layers,
+        pre_in_channels=cfg.model.pre_in_channels,
+        pre_inner_channels=cfg.model.pre_inner_channels,
+        post_inner_channels=cfg.model.post_inner_channels,
+        n_position=cfg.model.length * 5,
+        max_len=cfg.model.length // 2,
+        which_encoder=cfg.model.which_encoder,
+        which_decoder=cfg.model.which_decoder,
+        training_method=cfg.train.training_method,
+        num_passes=cfg.train.num_passes,
+        mixing_prob=cfg.train.mixing_prob,
+        dropout=cfg.train.dropout,
+        reduction_factor=cfg.model.reduction_factor,
+        use_gc=cfg.train.use_gc
     )
     
     # optimizer
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=hparams.lr, betas=hparams.betas
+        model.parameters(), lr=cfg.train.lr, betas=(cfg.train.beta_1, cfg.train.beta_2)
     )
 
     # discriminator
-    if hparams.which_d is not None:
-        if hparams.which_d == "unet":
+    if cfg.model.which_d is not None:
+        if cfg.model.which_d == "unet":
             discriminator = UNetDiscriminator()
-        elif hparams.which_d == "jcu":
+        elif cfg.model.which_d == "jcu":
             discriminator = JCUDiscriminator(
-                in_channels=hparams.out_channels,
+                in_channels=cfg.model.out_channels,
                 out_channels=1,
-                use_gc=hparams.use_gc,
-                emb_in=hparams.batch_size,
+                use_gc=cfg.train.use_gc,
+                emb_in=cfg.train.batch_size,
             )
         optimizer_d = torch.optim.Adam(
-            discriminator.parameters(), lr=hparams.lr, betas=hparams.betas
+            discriminator.parameters(), lr=cfg.train.lr, betas=(cfg.train.beta_1, cfg.train.beta_2)
         )
     else:
         discriminator = None
 
     # Dataloader作成
-    train_loader = make_train_loader(data_root, hparams, mode="train")
-    #test_loader = make_test_loader(data_root, hparams, mode="test")
-
+    train_loader = make_train_loader(cfg)
+    #test_loader = make_test_loader(cfg)
+    ##########################################################################################
     # 損失関数
     loss_f = nn.MSELoss()
     train_loss_list = []
 
     # training
-    if hparams.which_d is None:
-        for epoch in range(hparams.max_epoch):
+    if cfg.model.which_d is None:
+        for epoch in range(cfg.train.max_epoch):
             print(f"##### {epoch} #####")
-            epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device, hparams)
+            epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device)
             train_loss_list.append(epoch_loss)
             print(f"epoch_loss = {epoch_loss}")
             print(f"train_loss_list = {train_loss_list}")
@@ -315,9 +342,9 @@ def main():
         save_result(train_loss_list, result_path+'/train_loss.png')
         
     else:
-        for epoch in range(hparams.max_epoch):
+        for epoch in range(cfg.train.max_epoch):
             print(f"##### {epoch} #####")
-            epoch_loss = train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f, device, hparams)
+            epoch_loss = train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f, device, cfg)
             train_loss_list.append(epoch_loss)
             print(f"epoch_loss = {epoch_loss}")
             print(f"train_loss_list = {train_loss_list}")

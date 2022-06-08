@@ -1,0 +1,3 @@
+defaults:
+  - model: world
+  - train: train_1

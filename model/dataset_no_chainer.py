@@ -4,17 +4,16 @@ chainerを使わない前処理への変更
 
 import os
 import sys
+import glob
 # 親ディレクトリからのimport用
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-import random
 from pathlib import Path
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import torch
 import torch.nn as nn
-import torchvision
 from torchvision import transforms as T
 from torch.utils.data import Dataset, DataLoader
 
@@ -25,51 +24,70 @@ from transform_no_chainer import load_data
 
 
 
-def get_datasets(data_root, mode):
+# def get_datasets(data_root, mode):
+#     """
+#     train用とtest用のデータのディレクトリを分けておいて、modeで分岐させる感じにしてみました
+#     とりあえず
+#     dataset/lip/lip_cropped         にtrain用データ
+#     dataset/lip/lip_cropped_test    にtest用データを適当に置いてやってみて動きました
+#     """
+#     items = dict()
+#     idx = 0
+#     if mode == "train":
+#         for curDir, Dir, Files in os.walk(data_root):
+#             for filename in Files:
+#                 # curDirの末尾がlip_croppedの時
+#                 if curDir.endswith("lip_cropped"):
+#                     # filenameの末尾（拡張子）が.mp4の時
+#                     if filename.endswith(".mp4"):
+#                         format = ".mp4"
+#                         video_path = os.path.join(curDir, filename)
+#                         # 名前を同じにしているので拡張子だけ.wavに変更
+#                         audio_path = os.path.join(curDir, filename.replace(str(format), ".wav"))
+
+#                         if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+#                             items[idx] = [video_path, audio_path]
+#                             idx += 1
+#                 else:
+#                     continue
+#     else:
+#         for curDir, Dir, Files in os.walk(data_root):
+#             for filename in Files:
+#                 # curDirの末尾がlip_cropped_testの時
+#                 if curDir.endswith("lip_cropped_test"):
+#                     # filenameの末尾（拡張子）が.mp4の時
+#                     if filename.endswith(".mp4"):
+#                         format = ".mp4"
+#                         video_path = os.path.join(curDir, filename)
+#                         # 名前を同じにしているので拡張子だけ.wavに変更
+#                         audio_path = os.path.join(curDir, filename.replace(str(format), ".wav"))
+
+#                         if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+#                             items[idx] = [video_path, audio_path]
+#                             idx += 1
+#                 else:
+#                     continue
+#     return items
+
+
+
+def get_datasets(data_root):
     """
-    train用とtest用のデータのディレクトリを分けておいて、modeで分岐させる感じにしてみました
-    とりあえず
-    dataset/lip/lip_cropped         にtrain用データ
-    dataset/lip/lip_cropped_test    にtest用データを適当に置いてやってみて動きました
+    hparams.pyのtrain_path, test_pathからファイルを取ってくる
     """
+    
     items = dict()
     idx = 0
-    if mode == "train":
-        for curDir, Dir, Files in os.walk(data_root):
-            for filename in Files:
-                # curDirの末尾がlip_croppedの時
-                if curDir.endswith("lip_cropped"):
-                    # filenameの末尾（拡張子）が.mp4の時
-                    if filename.endswith(".mp4"):
-                        format = ".mp4"
-                        video_path = os.path.join(curDir, filename)
-                        # 名前を同じにしているので拡張子だけ.wavに変更
-                        audio_path = os.path.join(curDir, filename.replace(str(format), ".wav"))
-
-                        if os.path.isfile(audio_path) and os.path.isfile(audio_path):
-                            items[idx] = [video_path, audio_path]
-                            idx += 1
-                else:
-                    continue
-    else:
-        for curDir, Dir, Files in os.walk(data_root):
-            for filename in Files:
-                # curDirの末尾がlip_cropped_testの時
-                if curDir.endswith("lip_cropped_test"):
-                    # filenameの末尾（拡張子）が.mp4の時
-                    if filename.endswith(".mp4"):
-                        format = ".mp4"
-                        video_path = os.path.join(curDir, filename)
-                        # 名前を同じにしているので拡張子だけ.wavに変更
-                        audio_path = os.path.join(curDir, filename.replace(str(format), ".wav"))
-
-                        if os.path.isfile(audio_path) and os.path.isfile(audio_path):
-                            items[idx] = [video_path, audio_path]
-                            idx += 1
-                else:
-                    continue
+    for curdir, dir, files in os.walk(data_root):
+        for file in files:
+            if file.endswith(".mp4"):
+                format = ".mp4"
+                video_path = os.path.join(curdir, file)
+                audio_path = os.path.join(curdir, file.replace(str(format), ".wav"))
+                if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+                        items[idx] = [video_path, audio_path]
+                        idx += 1
     return items
-
 
 # def normalization(data_root=data_root, mode='train'):
 #     items = get_datasets(data_root, mode)
@@ -81,7 +99,7 @@ def get_datasets(data_root, mode):
 #         video_path, audio_path = items[item_idx]
 
 
-def calc_mean_var(items, len, hparams):
+def calc_mean_var(items, len, cfg):
     lip_mean = 0
     lip_std = 0
     feat_mean = 0
@@ -92,12 +110,12 @@ def calc_mean_var(items, len, hparams):
         video_path, audio_path = items[i]
         (lip, feature, feat_add, upsample), data_len = load_data(
             data_path=Path(video_path),
-            gray=hparams.gray,
-            frame_period=hparams.frame_period,
-            feature_type=hparams.feature_type,
-            nmels=hparams.n_mel_channels,
-            f_min=hparams.f_min,
-            f_max=hparams.f_max,
+            gray=cfg.model.gray,
+            frame_period=cfg.model.frame_period,
+            feature_type=cfg.model.feature_type,
+            nmels=cfg.model.n_mel_channels,
+            f_min=cfg.model.f_min,
+            f_max=cfg.model.f_max,
         )
         
         # 時間方向に平均と分散を計算
@@ -120,19 +138,18 @@ def calc_mean_var(items, len, hparams):
 
 
 class KablabDataset(Dataset):
-    def __init__(self, data_root, transforms, hparams, mode='train',):
+    def __init__(self, data_root, transforms, cfg):
         super().__init__()
-        assert mode in ('train', 'test'), "please set mode train or test"
+        assert data_root is not None, "データまでのパスを設定してください"
         self.data_root = data_root
         self.transforms = transforms
-        self.hparams = hparams
-        self.mode = mode
+        self.cfg = cfg
 
         # 口唇動画、音声データまでのパス一覧を取得
-        self.items = get_datasets(self.data_root, self.mode)
+        self.items = get_datasets(self.data_root)
         self.len = len(self.items)
         
-        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = calc_mean_var(self.items, self.len, self.hparams)
+        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = calc_mean_var(self.items, self.len, self.cfg)
         
         print(f'Size of {type(self).__name__}: {self.len}')
 
@@ -151,12 +168,12 @@ class KablabDataset(Dataset):
         # tensorで返してます
         data, data_len = load_data(
             data_path=Path(video_path),
-            gray=self.hparams.gray,
-            frame_period=self.hparams.frame_period,
-            feature_type=self.hparams.feature_type,
-            nmels=self.hparams.n_mel_channels,
-            f_min=self.hparams.f_min,
-            f_max=self.hparams.f_max,
+            gray=self.cfg.model.gray,
+            frame_period=self.cfg.model.frame_period,
+            feature_type=self.cfg.model.feature_type,
+            nmels=self.cfg.model.n_mel_channels,
+            f_min=self.cfg.model.f_min,
+            f_max=self.cfg.model.f_max,
         )
 
         data = self.transforms(
@@ -284,12 +301,18 @@ class KablabTransform:
         return [lip, feature, feat_add]
 
 
+
+    
+
+            
+
         
 
 def main():
     print("############################ Start!! ############################")
-    data_root = Path(get_datasetroot()).expanduser()    
+    # data_root = Path(get_datasetroot()).expanduser()    
     hparams = create_hparams()
+    data_root = hparams.train_path
 
     trans = KablabTransform(length=hparams.length)
 
@@ -299,7 +322,7 @@ def main():
         hparams=hparams,
         mode='train',
     )
-    # datasets = KablabDataset(data_root, mode="test")
+    # # datasets = KablabDataset(data_root, mode="test")
     loader = DataLoader(
         dataset=datasets,
         batch_size=5,   
@@ -308,28 +331,6 @@ def main():
         pin_memory=False,
         drop_last=True,
     )
-
-    # print(datasets.__len__())
-    # print(datasets.current_item)
-    # print(datasets.reset_item())
-
-    # データ確認用。__getitem__(self, _)を__getitem__(self)に変更すれば見れます！
-    # ただ、そうすると下のresultsの方は見れません。どっちかだけです。
-    # frames, waveform, melspec = datasets.__getitem__()
-    # print("####### type #######")
-    # print(f"type(frames) = {type(frames)}")
-    # print(f"type(waveform) = {type(waveform)}")
-    # print(f"type(melspec) = {type(melspec)}")
-
-    # print("\n####### shape #######")
-    # print(f"frames.shape = {frames.shape}")
-    # print(f"waveform.shape = {waveform.shape}")
-    # print(f"melspec.shape = {melspec.shape}")
-
-    # print("\n####### len #######")
-    # print(f"len(frames) = {len(frames)}")
-    # print(f"len(waveform) = {len(waveform)}")
-    # print(f"len(melspec) = {len(melspec)}")
 
 
     # results
@@ -345,11 +346,6 @@ def main():
             print(f"feat_add = {feat_add.shape}")     # (B, C=3, T=300)
             print(f"data_len = {data_len}")
 
-
-
-
-
-
+    
 if __name__ == "__main__":
-    # print(data_root)
     main()

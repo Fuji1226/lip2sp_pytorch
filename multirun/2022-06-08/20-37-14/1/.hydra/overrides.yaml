@@ -1,0 +1,2 @@
+- model.n_head=2
+- model.n_layers=4

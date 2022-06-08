@@ -1,4 +1,6 @@
 from curses import window
+from omegaconf import DictConfig, OmegaConf
+import hydra
 
 
 def create_hparams():
@@ -6,6 +8,10 @@ def create_hparams():
         #####################
         # data info
         #####################
+        # data path
+        train_path = "/users/minami/dataset/train",
+        test_path = "/users/minami/dataset/test",
+
         # video parameter
         fps = 50,
         video_channels = 3,
