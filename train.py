@@ -72,8 +72,7 @@ def make_train_loader(cfg):
     )
     return train_loader
 
-# mode=testとかで前処理分岐がいるかも
-# それぞれの関数を定義しているので、内部でmodeを指定してしまって問題ないかも
+
 def make_test_loader(cfg):
     trans = KablabTransform(
         length=cfg.model.length,
