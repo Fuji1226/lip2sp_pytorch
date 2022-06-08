@@ -424,7 +424,7 @@ class Decoder(nn.Module):
             return dec_output, dec_slf_attn_list, dec_enc_attn_list
         return dec_output
 
-    def inference(self, enc_output, data_len=None, prev=None, gc=None, return_attns=False):
+    def inference(self, enc_output, max_len, data_len=None, prev=None, gc=None, return_attns=False):
         """
         reduction_factorにより、
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
@@ -485,8 +485,13 @@ class Decoder(nn.Module):
             outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
 
             # 次のループへの入力
-            # 前時刻までの全ての出力にしています
-            prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+            # 前時刻の出力をprevに結合していきますが、学習時の条件と合わせるために、max_lenを上限としています
+            if prev.shape[-1] < max_len:
+                prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+            else:
+                prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+                prev = prev[:, :, 1:]   # max_lenを超えた場合は、最初のフレームを捨てる
+                assert prev.shape[-1] == max_len
                 
         # 各時刻の出力を結合して出力
         out = torch.cat(outs, dim=2)

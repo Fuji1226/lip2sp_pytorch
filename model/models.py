@@ -105,7 +105,7 @@ class Lip2SP(nn.Module):
             
             # decoder
             if self.which_decoder == "transformer":
-                dec_output = self.decoder.inference(enc_output, data_len, prev)
+                dec_output = self.decoder.inference(enc_output, self.max_len, data_len, prev)
                 out = self.postnet(dec_output)
                 
             # elif which_decoder == "glu":
@@ -172,7 +172,7 @@ def main():
     lip_channels = 5
     width = 48
     height = 48
-    frames = 56
+    frames = 45
     lip = torch.rand(batch_size, lip_channels, width, height, frames)
     inference_out = net.inference(lip=lip)
     print(inference_out.shape)

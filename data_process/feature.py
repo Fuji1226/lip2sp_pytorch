@@ -6,7 +6,6 @@ wav2world、world2wavを追加
 メルスペクトログラムから動的特徴量を求めるdelta_featureを追加
 """
 
-from operator import mod
 import numpy as np
 from librosa import filters
 from librosa.util import nnls
@@ -253,7 +252,8 @@ def wav2world(
         clf0 = np.ones_like(f0) * f0_floor
     
     # これが帯域非周期性指標
-    # 論文では4か5次元の感じだったけど、1次元になってしまう
+    # 論文では4か5次元の感じだったけど、1次元になる
+    # pyworld.get_num_aperiodicities(fs)で決まっている？
     cap = pyworld.code_aperiodicity(ap, fs)
     
     # coding sp

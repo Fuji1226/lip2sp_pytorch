@@ -50,7 +50,7 @@ def create_hparams():
         n_head = 8,
 
         # 使用するencoder（"transformer" or "conformer"）
-        which_encoder = "conformer",
+        which_encoder = "transformer",
 
         # 使用するdecoder（"transformer" or "glu"）
         # gluはできてないので、transformerで
@@ -58,7 +58,7 @@ def create_hparams():
 
         # discriminator（"unet" or "jcu"）
         # 使わない場合はNone
-        which_d = "jcu",
+        which_d = None,
 
         # "world" or "mspec"（音響特徴量の選択）
         feature_type = "mspec",
@@ -96,7 +96,7 @@ def create_hparams():
 
         # training
         max_iter = 5,
-        max_epoch = 10,
+        max_epoch = 5,
     )
 
     class HParams:

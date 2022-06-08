@@ -23,7 +23,7 @@ from get_dir import get_datasetroot, get_data_directory
 from model.dataset_remake import KablabDataset
 from hparams import create_hparams
 from model.models import Lip2SP
-from loss import masked_mse, ls_loss, fm_loss
+from loss import masked_mse, delta_loss, ls_loss, fm_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
 
 
@@ -181,11 +181,13 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimiz
         loss_default = loss_f(output[:, :, :-2], target[:, :, 2:]) + loss_f(dec_output[:, :, :-2], target[:, :, 2:])
         loss_mask = masked_mse(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
             + masked_mse(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        loss_delta = delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
 
         # postnet前後のmse_lossと、GAN関連のlossの和（実際は重みづけが必要そう）
         loss = masked_mse(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
             + masked_mse(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
-                + loss_g_ls + loss_g_fm
+                + delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
+                    + loss_g_ls + loss_g_fm
         
         loss.backward()
         optimizer.step()
@@ -217,6 +219,8 @@ def main():
     result_path = 'results'
     os.makedirs(result_path, exist_ok=True)
 
+    # tensorboardによる結果の可視化
+    writer = SummaryWriter()
 
     #インスタンス作成
     model = Lip2SP(
@@ -281,8 +285,10 @@ def main():
             train_loss_list.append(epoch_loss)
             print(f"epoch_loss = {epoch_loss}")
             print(f"train_loss_list = {train_loss_list}")
-            
+
+            # writer.add_scalar("Loss/train", epoch_loss, epoch)    
         save_result(train_loss_list, result_path+'/train_loss.png')
+        
     else:
         for epoch in range(hparams.max_epoch):
             print(f"##### {epoch} #####")
