@@ -1,0 +1,24 @@
+{
+    "os": "Linux-3.10.0-514.26.2.el7.x86_64-x86_64-with-glibc2.17",
+    "python": "3.8.10",
+    "heartbeatAt": "2022-06-06T09:47:25.627936",
+    "startedAt": "2022-06-06T09:47:23.686427",
+    "docker": null,
+    "gpu": "Tesla P100-SXM2-16GB",
+    "gpu_count": 4,
+    "cpu_count": 36,
+    "cuda": "8.0.61.2",
+    "args": [],
+    "state": "running",
+    "program": "train.py",
+    "codePath": "train.py",
+    "git": {
+        "remote": "https://github.com/Fuji1226/lip2sp_pytorch.git",
+        "commit": "51f65e88294600015910e8010115f26c5e14e8e8"
+    },
+    "email": null,
+    "root": "/home/usr1/q70261a/lip2sp_pytorch",
+    "host": "scb0013",
+    "username": "q70261a",
+    "executable": "/home/usr1/q70261a/.pyenv/versions/3.8.10/bin/python"
+}

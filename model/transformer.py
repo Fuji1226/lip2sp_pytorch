@@ -4,6 +4,8 @@ https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
 """
 import os
 import sys
+
+from zmq import device
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from tqdm import tqdm
@@ -51,8 +53,9 @@ def make_pad_mask(lengths, max_len):
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
     mask = seq_range_expand < seq_length_expand     # (B, T=maxlen)
-
-    return mask.unsqueeze(1)    # (B, 1, T)
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    return mask.unsqueeze(1).to(device)    # (B, 1, T)
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -171,6 +174,7 @@ class EncoderLayer(nn.Module):
         self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout)
 
     def forward(self, enc_input, slf_attn_mask=None):
+
         # enc_output : (b, lq, d_model)
         # ouc_slf_attn : (sz_b, n_head, len_q, len_k)
         enc_output, enc_slf_attn = self.slf_attn(
@@ -265,6 +269,9 @@ class Encoder(nn.Module):
             # 推論時はマスクなし
             mask = None
         
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        mask = mask.to(device)
+
         # positional encoding
         prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
         prenet_out = self.dropout(self.position_enc(prenet_out))
@@ -366,6 +373,13 @@ class Decoder(nn.Module):
         # get target_mask
         data_len = torch.div(data_len, self.reduction_factor)
         mask = make_pad_mask(data_len, max_len)
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        mask = mask.to(device)
+        target = target.to(device)
+        data_len = data_len.to(device)
+        
+        max_len = torch.tensor(max_len).to(device)
         target_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target) # (B, T, T)
         
         # Prenet
