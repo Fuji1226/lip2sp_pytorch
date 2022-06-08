@@ -162,10 +162,10 @@ def main():
     )
 
     # training
-    # outout, dec_output = net(lip=lip, data_len=data_len, prev=acoustic_feature)
-    # loss_f = nn.MSELoss()
-    # loss = loss_f(outout, acoustic_feature)
-    # print(loss)
+    outout, dec_output = net(lip=lip, data_len=data_len, prev=acoustic_feature)
+    loss_f = nn.MSELoss()
+    loss = loss_f(outout, acoustic_feature)
+    print(loss)
 
     # inference
     # 口唇動画

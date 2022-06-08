@@ -265,12 +265,11 @@ class Encoder(nn.Module):
             assert max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
             mask = make_pad_mask(data_len, max_len)
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            mask = mask.to(device)
         else:
             # 推論時はマスクなし
             mask = None
-        
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        mask = mask.to(device)
 
         # positional encoding
         prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)

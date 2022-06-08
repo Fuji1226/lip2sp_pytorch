@@ -1,5 +1,5 @@
 """
-
+chainerを使わない前処理への変更
 """
 
 import os
@@ -10,7 +10,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import random
 from pathlib import Path
 
-# brew install ffmpeg -> pip install ffmpeg-python
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import torch
@@ -174,7 +173,7 @@ class KablabDataset(Dataset):
 
 
 class KablabTransform:
-    def __init__(self, length=300, delta=True):
+    def __init__(self, length, delta=True):
         # とりあえず適当に色々使ってみました
         self.lip_transforms = T.Compose([
             T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2),
@@ -259,11 +258,11 @@ class KablabTransform:
         return lip, feature, feat_add
 
     def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
-        lip = data[0]
-        feature = data[1]
-        feat_add = data[2]
+        lip = data[0]   # (C, H, W, T)
+        feature = data[1]   # (T, C)
+        feat_add = data[2]  #(T, C)
         upsample = data[3]
-
+        
         # data augmentation
         lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
         lip = self.lip_transforms(lip)
@@ -280,7 +279,8 @@ class KablabTransform:
         # 口唇動画の動的特徴量の計算
         lip = self.calc_delta(lip)
         
-        
+        feature = feature.permute(-1, 0)    # (C, T)
+        feat_add = feat_add.permute(-1, 0)  # (C, T)
         return [lip, feature, feat_add]
 
 
@@ -291,7 +291,7 @@ def main():
     data_root = Path(get_datasetroot()).expanduser()    
     hparams = create_hparams()
 
-    trans = KablabTransform()
+    trans = KablabTransform(length=hparams.length)
 
     datasets = KablabDataset(
         data_root=data_root,

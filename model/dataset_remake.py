@@ -56,7 +56,8 @@ def get_datasets(data_root, mode):
         for curDir, Dir, Files in os.walk(data_root):
             for filename in Files:
                 # curDirの末尾がlip_croppedの時
-                if curDir.endswith("F01"):
+                # if curDir.endswith("F01"):
+                if curDir.endswith("lip_cropped"):
                     # filenameの末尾（拡張子）が.mp4の時
                     if filename.endswith(".mp4"):
                         format = ".mp4"
@@ -118,7 +119,6 @@ def calc_mean_var(items, len):
         # 時間方向に平均と分散を計算
         mean += np.mean(y, axis=0)
         var += np.var(y, axis=0)
-    
     mean /= len
     var /= len
 
@@ -187,29 +187,6 @@ def main():
         drop_last=True,
         collate_fn=None,
     )
-
-    # print(datasets.__len__())
-    # print(datasets.current_item)
-    # print(datasets.reset_item())
-
-    # データ確認用。__getitem__(self, _)を__getitem__(self)に変更すれば見れます！
-    # ただ、そうすると下のresultsの方は見れません。どっちかだけです。
-    # frames, waveform, melspec = datasets.__getitem__()
-    # print("####### type #######")
-    # print(f"type(frames) = {type(frames)}")
-    # print(f"type(waveform) = {type(waveform)}")
-    # print(f"type(melspec) = {type(melspec)}")
-
-    # print("\n####### shape #######")
-    # print(f"frames.shape = {frames.shape}")
-    # print(f"waveform.shape = {waveform.shape}")
-    # print(f"melspec.shape = {melspec.shape}")
-
-    # print("\n####### len #######")
-    # print(f"len(frames) = {len(frames)}")
-    # print(f"len(waveform) = {len(waveform)}")
-    # print(f"len(melspec) = {len(melspec)}")
-
 
     # results
     for interation in range(hparams.max_iter):
