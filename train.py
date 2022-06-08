@@ -1,6 +1,8 @@
 """
 user/minami/dataset/lip/lip_cropped
 このディレクトリに口唇部分を切り取った動画と、wavデータを入れておけば動くと思います!
+
+datasetを変更しました
 """
 import wandb
 wandb.init(
@@ -24,7 +26,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from model.dataset_remake import KablabDataset
+# from model.dataset_remake import KablabDataset
+from model.dataset_no_chainer import KablabDataset, KablabTransform
 from hparams import create_hparams
 from model.models import Lip2SP
 from loss import masked_mse, delta_loss, ls_loss, fm_loss
@@ -47,7 +50,18 @@ def save_checkpoint(model, optimizer, iteration, ckpt_pth):
 
 def make_train_loader(data_root, hparams, mode):
     assert mode == "train"
-    datasets = KablabDataset(data_root, mode)
+    trans = KablabTransform(
+        length=hparams.length,
+        delta=hparams.delta
+    )
+
+    datasets = KablabDataset(
+        data_root=data_root,
+        transforms=trans,
+        hparams=hparams,
+        mode=mode
+    )
+
     train_loader = DataLoader(
         dataset=datasets,
         batch_size=hparams.batch_size,   
