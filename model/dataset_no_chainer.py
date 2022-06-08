@@ -170,7 +170,7 @@ class KablabDataset(Dataset):
         #############################################
 
 
-        return lip, feature, feat_add, data_len
+        return (lip, feature, feat_add), data_len
 
 
 class KablabTransform:
@@ -335,7 +335,7 @@ def main():
     # results
     for interation in range(1):
         for bdx, batch in enumerate(loader):
-            lip, y, feat_add, data_len = batch
+            (lip, y, feat_add), data_len = batch
             print("################################################")
             print(type(lip))
             print(type(y))
