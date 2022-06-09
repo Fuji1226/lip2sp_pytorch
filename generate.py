@@ -1,3 +1,8 @@
+"""
+lip2sp_pytorch/conf/modelにあるyamlファイルのsave_pathやparam_save_pathを設定してから実行してください!
+
+"""
+
 from omegaconf import DictConfig, OmegaConf
 import hydra
 
@@ -26,18 +31,31 @@ from model.dataset_no_chainer import KablabDataset, KablabTransform
 from model.models import Lip2SP
 from loss import masked_mse, delta_loss, ls_loss, fm_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
-from train import make_test_loader
+from train import make_test_loader, make_train_loader
 from data_process.feature import mel2wave
+from data_check import save_data
 
 
-def generate(model, test_loader, device):
+# 現在時刻を取得
+current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
+
+
+def generate(cfg, model, test_loader, datasets, device, save_path):
     outputs = []
     dec_outputs = []
+    index = 0
+
+    lip_mean = datasets.lip_mean.to(device)
+    lip_std = datasets.lip_std.to(device)
+    feat_mean = datasets.feat_mean.to(device)
+    feat_std = datasets.feat_std.to(device)
+    feat_add_mean = datasets.feat_add_mean.to(device)
+    feat_add_std = datasets.feat_add_std.to(device)
 
     for batch in test_loader:
         model.eval()
 
-        (lip, target, feat_add), data_len = batch
+        (lip, target, feat_add), data_len, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
@@ -46,30 +64,48 @@ def generate(model, test_loader, device):
             )
         outputs.append(output)
         dec_outputs.append(dec_output)
+
+        # ディレクトリ作成
+        try:
+            os.makedirs(f"{save_path}/{label[0]}/input")
+            os.makedirs(f"{save_path}/{label[0]}/output")
+        except FileExistsError:
+            pass
+        input_save_path = f"{save_path}/{label[0]}/input"
+        output_save_path = f"{save_path}/{label[0]}/output"
+        
+        save_data(
+            cfg=cfg,
+            input_save_path=input_save_path,
+            output_save_path=output_save_path,
+            index=index,
+            lip=lip,
+            feature=target,
+            feat_add=feat_add,
+            output=output,
+            dec_output=dec_output,
+            lip_mean=lip_mean,
+            lip_std=lip_std,
+            feat_mean=feat_mean,
+            feat_std=feat_std,
+        )
+
+        index += 1
+
     return outputs, dec_outputs
-
-
-def data_check(test_loader, cfg):
-    save_path = "/users/minami/dataset"
-    idx = 0
-    for batch in test_loader:
-        (lip, target, feat_add), data_len = batch
-        lip = lip.to('cpu').detach().numpy().copy()
-        target = target.to('cpu').detach().numpy().copy()
-        lip = lip.squeeze(0)[:3, ...]
-        target = target.squeeze(0)
-        print(lip.shape)
-        print(target.shape)
-        wav = mel2wave(target, cfg.model.sampling_rate, cfg.model.frame_period)
-        print(wav.shape)
-        write(save_path+f"/out{idx}.wav", rate=cfg.model.sampling_rate, data=wav)
-        idx += 1
 
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    ###ここにデータセットモデルのインスタンス作成train関数を回す#####
-
+    # 保存先
+    save_path = cfg.model.generate_save_path
+    try:
+        os.makedirs(f"{save_path}/{current_time}")
+    except FileExistsError:
+        pass
+    save_path = os.path.join(save_path, current_time)
+    
+    # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
@@ -100,16 +136,20 @@ def main(cfg):
     model = model.to(device)
 
     # 保存したパラメータの読み込み
-    model.load_state_dict(torch.load(cfg.model.save_path+'/model.pth'))
+    model_path = cfg.model.train_save_path+f'/2022:06:09_23-13-18/model_{cfg.model.name}.pth'
+    model.load_state_dict(torch.load(model_path))
 
     # Dataloader作成
-    test_loader = make_test_loader(cfg)
+    test_loader, datasets = make_test_loader(cfg)
 
     # generate
     output, dec_output = generate(
+        cfg=cfg,
         model=model,
         test_loader=test_loader,
+        datasets=datasets,
         device=device,
+        save_path=save_path,
     )
     
 
