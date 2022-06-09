@@ -2,9 +2,11 @@
 chainerを使わない前処理への変更
 """
 
+
 import os
 import sys
 import glob
+
 # 親ディレクトリからのimport用
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -15,14 +17,22 @@ from scipy.ndimage import gaussian_filter
 import torch
 import torch.nn as nn
 from torchvision import transforms as T
+import torchvision
 from torch.utils.data import Dataset, DataLoader
+import librosa
+import librosa.display
+import matplotlib.pyplot as plt
+from scipy.io.wavfile import write
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
 from hparams import create_hparams
 from transform_no_chainer import load_data
+from data_process.feature import world2wav
+from data_check import data_check_trans
 
-
+from omegaconf import DictConfig, OmegaConf
+import hydra
 
 # def get_datasets(data_root, mode):
 #     """
@@ -138,12 +148,14 @@ def calc_mean_var(items, len, cfg):
 
 
 class KablabDataset(Dataset):
-    def __init__(self, data_root, transforms, cfg):
+    def __init__(self, data_root, train, transforms, cfg, visualize=False):
         super().__init__()
         assert data_root is not None, "データまでのパスを設定してください"
         self.data_root = data_root
         self.transforms = transforms
         self.cfg = cfg
+        self.train = train
+        self.visualize = visualize
 
         # 口唇動画、音声データまでのパス一覧を取得
         self.items = get_datasets(self.data_root)
@@ -163,7 +175,9 @@ class KablabDataset(Dataset):
         video_path, audio_path = self.items[index]
         data_path = Path(video_path)
 
-        ############################################
+        ########################################################################################
+        # 処理
+        ########################################################################################
         # data = (lip, y, feat_add, upsample)
         # tensorで返してます
         data, data_len = load_data(
@@ -177,15 +191,29 @@ class KablabDataset(Dataset):
         )
 
         data = self.transforms(
-            data, data_len, self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std
+            data, data_len, self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std, self.train
         )
-
-        lip = data[0]
-        feature = data[1]
-        feat_add = data[2]
-        #############################################
-
-
+        
+        lip = data[0]   # (C, W, H, T)
+        feature = data[1]   # (C, T)
+        feat_add = data[2]  # (C, T)
+        
+        ########################################################################################
+        # 可視化
+        ########################################################################################
+        if self.visualize:
+            data_check_trans(
+                cfg=self.cfg, 
+                index=index, 
+                data=data,
+                lip_mean=self.lip_mean,
+                lip_std=self.lip_std,
+                feat_mean=self.feat_mean,
+                feat_std=self.feat_std,
+                feat_add_mean=self.feat_add_mean,
+                feat_add_std=self.feat_add_std
+            )
+        
         return (lip, feature, feat_add), data_len
 
 
@@ -196,11 +224,11 @@ class KablabTransform:
             T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2),
             T.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 5)),
             T.RandomPerspective(distortion_scale=0.5, p=0.5),
-            T.RandomRotation(degrees=(0, 60)),
-            T.RandomPosterize(bits=3, p=0.5),
+            # T.RandomRotation(degrees=(0, 60)),
+            # T.RandomPosterize(bits=3, p=0.5),
             T.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
-            T.RandomAutocontrast(p=0.5),
-            T.RandomEqualize(p=0.5),
+            # T.RandomAutocontrast(p=0.5),  # 動的特徴量がぐちゃぐちゃになる
+            # T.RandomEqualize(p=0.5),  # 動的特徴量がぐちゃぐちゃになる
             T.RandomHorizontalFlip(p=0.5),
         ])
         self.length = length
@@ -211,7 +239,6 @@ class KablabTransform:
         正規化
         """
         lip = T.functional.normalize(lip.float(), lip_mean, lip_std)
-        # lip = (lip - lip_mean) / lip_std
         feature = (feature - feat_mean) / feat_std
         feat_add = (feat_add - feat_add_mean) / feat_add_std
         return lip, feature, feat_add
@@ -272,26 +299,33 @@ class KablabTransform:
         assert lip.shape[-1] == torch.div(self.length, upsample, rounding_mode="trunc"), "lengthの調整に失敗しました"
         assert feature.shape[0] and feat_add.shape[0] == self.length, "lengthの調整に失敗しました"
         
-        return lip, feature, feat_add
+        return lip, feature.to(torch.float32), feat_add.to(torch.float32)
 
-    def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
+    def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, train):
+        """
+        train=Trueの時、data augmentationとtime_adjustを適用します
+        """
         lip = data[0]   # (C, H, W, T)
         feature = data[1]   # (T, C)
         feat_add = data[2]  #(T, C)
         upsample = data[3]
         
-        # data augmentation
-        lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
-        lip = self.lip_transforms(lip)
-        
+        if train:
+            # data augmentation
+            lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
+            lip = self.lip_transforms(lip)
+        else:
+            lip = lip.permute(-1, 0, 1, 2)
+
         # normalization
         lip, feature, feat_add = self.normalization(
             lip, feature, feat_add, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
         )
         lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
-
-        # フレーム数の調整
-        lip, feature, feat_add = self.time_adjust(lip, feature, feat_add, data_len, upsample)
+    
+        if train:
+            # フレーム数の調整
+            lip, feature, feat_add = self.time_adjust(lip, feature, feat_add, data_len, upsample)
 
         # 口唇動画の動的特徴量の計算
         lip = self.calc_delta(lip)
@@ -307,40 +341,43 @@ class KablabTransform:
             
 
         
-
-def main():
+@hydra.main(config_name="config", config_path="../conf")
+def main(cfg):
     print("############################ Start!! ############################")
     # data_root = Path(get_datasetroot()).expanduser()    
-    hparams = create_hparams()
-    data_root = hparams.train_path
 
-    trans = KablabTransform(length=hparams.length)
-
-    datasets = KablabDataset(
-        data_root=data_root,
-        transforms=trans,
-        hparams=hparams,
-        mode='train',
+    trans = KablabTransform(
+        length=cfg.model.length,
+        delta=cfg.model.delta
     )
-    # # datasets = KablabDataset(data_root, mode="test")
-    loader = DataLoader(
+    datasets = KablabDataset(
+        data_root=cfg.model.train_path,
+        train=True,
+        transforms=trans,
+        cfg=cfg,
+    )
+    train_loader = DataLoader(
         dataset=datasets,
-        batch_size=5,   
+        batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=0,      
+        num_workers=cfg.train.num_workers,      
         pin_memory=False,
         drop_last=True,
+        collate_fn=None,
     )
 
 
     # results
     for interation in range(1):
-        for bdx, batch in enumerate(loader):
+        for bdx, batch in enumerate(train_loader):
             (lip, y, feat_add), data_len = batch
             print("################################################")
             print(type(lip))
             print(type(y))
             print(type(feat_add))
+            print(lip.dtype)
+            print(y.dtype)
+            print(feat_add.dtype)
             print(f"lip = {lip.shape}")  # (B, C=5, W=48, H=48, T=150)
             print(f"y(acoustic features) = {y.shape}") # (B, C, T=300)
             print(f"feat_add = {feat_add.shape}")     # (B, C=3, T=300)
