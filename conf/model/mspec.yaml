@@ -1,5 +1,7 @@
 # @package _group_
 
+name : mspec
+
 #################################
 # data_info
 #################################
@@ -8,7 +10,10 @@ train_path : "/users/minami/dataset/train"
 test_path : "/users/minami/dataset/test"
 
 # save_path
-save_path : "/Users/minami/Documents/python/model_param"
+train_save_path : "/Users/minami/result/train"
+
+# result save_path
+generate_save_path : "/users/minami/result/generate"
 
 # video parameter
 fps : 50

@@ -6,3 +6,6 @@ hparams.py
 *__pycache__*
 *.pyc
 wandb/
+mlruns/
+multirun/
+outputs/

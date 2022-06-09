@@ -174,6 +174,7 @@ class KablabDataset(Dataset):
         #item_idx = next(self.item_iter)
         video_path, audio_path = self.items[index]
         data_path = Path(video_path)
+        label = data_path.stem
 
         ########################################################################################
         # 処理
@@ -214,7 +215,7 @@ class KablabDataset(Dataset):
                 feat_add_std=self.feat_add_std
             )
         
-        return (lip, feature, feat_add), data_len
+        return (lip, feature, feat_add), data_len, label
 
 
 class KablabTransform:

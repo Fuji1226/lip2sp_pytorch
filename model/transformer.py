@@ -495,6 +495,7 @@ class Decoder(nn.Module):
             # dec_output = dec_output.reshape(B, D, -1)   
 
             # 出力を保持
+            # ここが違うかも。max_lenまで見た結果を保持すればいい？
             outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
 
             # 次のループへの入力

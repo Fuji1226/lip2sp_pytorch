@@ -1,11 +1,10 @@
 """
-user/minami/dataset/lip/lip_cropped
-このディレクトリに口唇部分を切り取った動画と、wavデータを入れておけば動くと思います!
-
-datasetを変更しました
+lip2sp_pytorch/conf/modelのpathを設定してから実行してください!
 """
+
 from omegaconf import DictConfig, OmegaConf
 import hydra
+import mlflow
 
 # import wandb
 # wandb.init(
@@ -19,6 +18,7 @@ import time
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn import utils
 
 # pytorch
 import torch
@@ -31,13 +31,14 @@ from model.dataset_no_chainer import KablabDataset, KablabTransform
 from model.models import Lip2SP
 from loss import masked_mse, delta_loss, ls_loss, fm_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
+from mf_writer import MlflowWriter
 
+# 現在時刻を取得
+current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
-current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-
-np.random.seed(0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
+# np.random.seed(0)
+# torch.manual_seed(0)
+# torch.cuda.manual_seed_all(0)
 
 
 # パラメータの保存
@@ -67,7 +68,7 @@ def make_train_loader(cfg):
         drop_last=True,
         collate_fn=None,
     )
-    return train_loader
+    return train_loader, datasets
 
 
 def make_test_loader(cfg):
@@ -91,7 +92,7 @@ def make_test_loader(cfg):
         drop_last=True,
         collate_fn=None,
     )
-    return test_loader
+    return test_loader, datasets
     
 
 def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, loss_f, device):
@@ -106,7 +107,7 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
-        (lip, target, feat_add), data_len = batch
+        (lip, target, feat_add), data_len, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
 
         batch_size = lip.shape[0]
@@ -145,7 +146,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimiz
         model.train()
         discriminator.train()
         
-        (lip, target, feat_add), data_len = batch
+        (lip, target, feat_add), data_len, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
 
         batch_size = lip.shape[0]
@@ -245,10 +246,19 @@ def main(cfg):
     result_path = 'results'
     os.makedirs(result_path, exist_ok=True)
 
-    # モデルのパラメータの保存
-    model_save_path = cfg.model.save_path
-    os.makedirs(model_save_path, exist_ok=True)
+    # mlflowを使ったデータの管理
+    experiment_name = 'test'
+    writer = MlflowWriter(experiment_name)
+    writer.log_params_from_omegaconf_dict(cfg)
 
+    # モデルのパラメータの保存先
+    save_path = cfg.model.train_save_path
+    try:
+        os.makedirs(f"{save_path}/{current_time}")
+    except FileExistsError:
+        pass
+    save_path = os.path.join(save_path, current_time)
+    
     #インスタンス作成
     model = Lip2SP(
         in_channels=cfg.model.in_channels,
@@ -297,35 +307,43 @@ def main(cfg):
         discriminator = None
 
     # Dataloader作成
-    train_loader = make_train_loader(cfg)
-    test_loader = make_test_loader(cfg)
+    train_loader, _ = make_train_loader(cfg)
+    test_loader, _ = make_test_loader(cfg)
     ##########################################################################################
     # 損失関数
     loss_f = nn.MSELoss()
     train_loss_list = []
 
     # training
-    if cfg.model.which_d is None:
-        for epoch in range(cfg.train.max_epoch):
-            print(f"##### {epoch} #####")
-            epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device)
-            train_loss_list.append(epoch_loss)
-            print(f"epoch_loss = {epoch_loss}")
-            print(f"train_loss_list = {train_loss_list}")
+    mlflow.set_tracking_uri('file://' + hydra.utils.get_original_cwd() + '/mlruns')
+    mlflow.set_experiment(cfg.train.runname)
+    with mlflow.start_run():
+        if cfg.model.which_d is None:
+            for epoch in range(cfg.train.max_epoch):
+                print(f"##### {epoch} #####")
+                epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device)
+                train_loss_list.append(epoch_loss)
+                print(f"epoch_loss = {epoch_loss}")
+                print(f"train_loss_list = {train_loss_list}")
+                writer.log_metric("loss", epoch_loss)
 
-        save_result(train_loss_list, result_path+'/train_loss.png')
-        torch.save(model.state_dict(), model_save_path+'/model_world.pth')
-        
-    else:
-        for epoch in range(cfg.train.max_epoch):
-            print(f"##### {epoch} #####")
-            epoch_loss = train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f, device, cfg)
-            train_loss_list.append(epoch_loss)
-            print(f"epoch_loss = {epoch_loss}")
-            print(f"train_loss_list = {train_loss_list}")
-        
-        save_result(train_loss_list, result_path+'/train_loss.png')
-        torch.save(model.state_dict(), model_save_path+'model.pth')
+            save_result(train_loss_list, result_path+'/train_loss.png')
+            torch.save(model.state_dict(), save_path+f'/model_{cfg.model.name}.pth')
+
+            writer.log_artifact(os.path.join(os.getcwd(), 'hydra/config.yaml'))
+            writer.log_artifact(os.path.join(os.getcwd(), 'hydra/hydra.yaml'))
+            writer.log_artifact(os.path.join(os.getcwd(), 'hydra/overrides.yaml'))
+            writer.set_terminated()
+        else:
+            for epoch in range(cfg.train.max_epoch):
+                print(f"##### {epoch} #####")
+                epoch_loss = train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f, device, cfg)
+                train_loss_list.append(epoch_loss)
+                print(f"epoch_loss = {epoch_loss}")
+                print(f"train_loss_list = {train_loss_list}")
+            
+            save_result(train_loss_list, result_path+'/train_loss.png')
+            torch.save(model.state_dict(), save_path+f'/model_{cfg.model.name}_{cfg.model.which_d}.pth')
 
 if __name__=='__main__':
     main()
