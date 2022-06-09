@@ -4,6 +4,8 @@ mel2wav/feature.py
 wav2world、world2wavを追加
 
 メルスペクトログラムから動的特徴量を求めるdelta_featureを追加
+
+wave2mel, mel2wavをlibrosaに変更
 """
 
 import numpy as np
@@ -17,6 +19,7 @@ import pyworld
 from pyreaper import reaper
 import pysptk
 from nnmnkwii.postfilters import merlin_post_filter
+import librosa
 
 import torch
 import torch.nn as nn
@@ -33,18 +36,18 @@ def get_stft_params(fs, frame_period):
     noverlap = nperseg - nshift
     assert signal.check_COLA("hann", nperseg, noverlap)
 
-    return nperseg, noverlap
+    return nshift, nperseg, noverlap
 
 
 def stft(x, fs, frame_period):
-    nperseg, noverlap = get_stft_params(fs, frame_period)
+    _, nperseg, noverlap = get_stft_params(fs, frame_period)
     _, _, Zxx = signal.stft(x, fs=fs, window='hann',
                             nperseg=nperseg, noverlap=noverlap)
     return Zxx
 
 
 def istft(Zxx, fs, frame_period):
-    nperseg, noverlap = get_stft_params(fs, frame_period)
+    _, nperseg, noverlap = get_stft_params(fs, frame_period)
     _, x = signal.istft(Zxx, fs=fs, window='hann',
                         nperseg=nperseg, noverlap=noverlap)
     return x
@@ -89,7 +92,7 @@ def fast_griffin_lim(H, fs, frame_period, alpha=0.99, n_iter=100, initial_phase=
 
 
 def get_melfb(fs, frame_period, n_mels=80, fmin=70, fmax=None):
-    nperseg, _ = get_stft_params(fs, frame_period)
+    _, nperseg, _ = get_stft_params(fs, frame_period)
     if n_mels is None:
         fb = np.eye(nperseg // 2 + 1)
     else:
@@ -107,17 +110,41 @@ def spec2mel(H, mel_fb=None, fs=None, frame_period=None, n_mels=80, fmin=70, fma
     return mel_fb @ H
 
 
-def wave2mel(x, fs, frame_period, n_mels=80, fmin=70, fmax=None, return_linear=False):
-    Zxx = stft(x, fs, frame_period)
-    H = np.abs(Zxx)
-    Hmel = spec2mel(H, fs=fs, frame_period=frame_period,
-                    n_mels=n_mels, fmin=fmin, fmax=fmax)
-    Hmel = log10(Hmel, EPS)
+def wave2mel(wave, fs, frame_period, n_mels=80, fmin=70, fmax=None, return_linear=False):
+    """
+    wave : (T,)
 
-    if return_linear:
-        ret = (Hmel, log10(H, EPS))
-    else:
-        ret = Hmel
+    return
+    ret : (C, T)
+    """
+    # Zxx = stft(wave, fs, frame_period)
+    # H = np.abs(Zxx)
+    # Hmel = spec2mel(H, fs=fs, frame_period=frame_period,
+    #                 n_mels=n_mels, fmin=fmin, fmax=fmax)
+    # Hmel = log10(Hmel, EPS)
+
+    # if return_linear:
+    #     ret = (Hmel, log10(H, EPS))
+    # else:
+    #     ret = Hmel
+
+    ########################################################
+    hop_length, win_length, _ = get_stft_params(fs, frame_period)
+    y = librosa.feature.melspectrogram(
+        y=wave,
+        sr=fs,
+        n_fft=win_length,
+        hop_length=hop_length,
+        win_length=win_length,
+        window="hann",
+        n_mels=n_mels,
+        fmin=fmin,
+        fmax=fmax,
+    )
+    y = librosa.power_to_db(y, ref=np.max)
+    ret = y
+    ########################################################
+
     return ret
 
 
@@ -129,13 +156,25 @@ def mel2wave(
         Hmel, fs, frame_period,
         fmin=70, fmax=None, n_iter=50,
         sharpen=np.sqrt(1.4), eps=EPS):
-    Hmel = 10.0**Hmel
-    Hmel = np.where(Hmel > eps, Hmel, 0)
-    H = melspec2linear(
-        Hmel, 1, fs=fs, frame_period=frame_period, fmin=fmin, fmax=fmax)
-    H **= sharpen
-    wave = griffin_lim(H, fs, frame_period, n_iter=n_iter,
-                       return_waveform=True)
+    # Hmel = 10.0**Hmel
+    # Hmel = np.where(Hmel > eps, Hmel, 0)
+    # H = melspec2linear(
+    #     Hmel, 1, fs=fs, frame_period=frame_period, fmin=fmin, fmax=fmax)
+    # H **= sharpen
+    # wave = griffin_lim(H, fs, frame_period, n_iter=n_iter,
+    #                    return_waveform=True)
+
+    ########################################################
+    hop_length, win_length, _ = get_stft_params(fs, frame_period)
+    spec = librosa.db_to_power(Hmel)
+    wave = librosa.feature.inverse.mel_to_audio(
+        spec,
+        sr=fs,
+        hop_length=hop_length,
+        win_length=win_length,
+        n_iter=n_iter
+    )
+    ########################################################
 
     return wave
 

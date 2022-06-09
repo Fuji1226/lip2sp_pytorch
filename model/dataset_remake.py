@@ -90,6 +90,25 @@ def get_datasets(data_root, mode):
     
     return items
 
+def get_datasets(data_root):
+    """
+    hparams.pyのtrain_path, test_pathからファイルを取ってくる
+    """
+    
+    items = dict()
+    idx = 0
+    for curdir, dir, files in os.walk(data_root):
+        for file in files:
+            if file.endswith(".mp4"):
+                format = ".mp4"
+                video_path = os.path.join(curdir, file)
+                audio_path = os.path.join(curdir, file.replace(str(format), ".wav"))
+                if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+                        items[idx] = [video_path, audio_path]
+                        idx += 1
+    return items
+
+
 
 # def normalization(data_root=data_root, mode='train'):
 #     items = get_datasets(data_root, mode)

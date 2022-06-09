@@ -112,7 +112,7 @@ class Lip2SP(nn.Module):
             #     dec_output = self.glu_decoder.inference(enc_output, prev)
             #     self.pre = dec_output
             #     out = self.postnet(dec_output)
-        return out
+        return out, dec_output
 
 
 def main():

@@ -10,7 +10,7 @@ use_gc : False
 # 学習方法（"tf" or "ss"）
 # tf : teacher forcing
 # ss : scheduled sampling
-training_method : "ss"
+training_method : "tf"
 
 # parameter for scheduled sampling
 num_passes : 1     # 繰り返し回数

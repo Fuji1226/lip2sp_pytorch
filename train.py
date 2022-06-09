@@ -7,11 +7,11 @@ datasetを変更しました
 from omegaconf import DictConfig, OmegaConf
 import hydra
 
-import wandb
-wandb.init(
-    project='llip2sp_pytorch',
-    name="desk-test"
-)
+# import wandb
+# wandb.init(
+#     project='llip2sp_pytorch',
+#     name="desk-test"
+# )
 
 from pathlib import Path
 import os
@@ -25,13 +25,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from torch.utils.tensorboard import SummaryWriter
-
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-# from model.dataset_remake import KablabDataset
 from model.dataset_no_chainer import KablabDataset, KablabTransform
-from hparams import create_hparams
 from model.models import Lip2SP
 from loss import masked_mse, delta_loss, ls_loss, fm_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
@@ -58,6 +54,7 @@ def make_train_loader(cfg):
     )
     datasets = KablabDataset(
         data_root=cfg.model.train_path,
+        train=True,
         transforms=trans,
         cfg=cfg,
     )
@@ -80,12 +77,14 @@ def make_test_loader(cfg):
     )
     datasets = KablabDataset(
         data_root=cfg.model.test_path,
+        train=False,
         transforms=trans,
         cfg=cfg,
     )
     test_loader = DataLoader(
         dataset=datasets,
-        batch_size=cfg.train.batch_size,   
+        # batch_size=cfg.train.batch_size,
+        batch_size=1,   
         shuffle=True,
         num_workers=cfg.train.num_workers,      
         pin_memory=False,
@@ -131,7 +130,7 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
         loss.backward()
         optimizer.step()
         epoch_loss += loss.item()
-        wandb.log({"train_iter_loss": loss.item()})
+        # wandb.log({"train_iter_loss": loss.item()})
 
     epoch_loss /= data_cnt
     return epoch_loss
@@ -242,38 +241,15 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    # パラメータ取得
-    hparams = create_hparams()
-
     #resultの表示
     result_path = 'results'
     os.makedirs(result_path, exist_ok=True)
 
-    #インスタンス作成
-    # model = Lip2SP(
-    #     in_channels=5, 
-    #     out_channels=hparams.out_channels,
-    #     res_layers=hparams.res_layers,
-    #     d_model=hparams.d_model,
-    #     n_layers=hparams.n_layers,
-    #     n_head=hparams.n_head,
-    #     glu_inner_channels=hparams.glu_inner_channels,
-    #     glu_layers=hparams.glu_layers,
-    #     pre_in_channels=hparams.pre_in_channels,
-    #     pre_inner_channels=hparams.pre_inner_channels,
-    #     post_inner_channels=hparams.post_inner_channels,
-    #     n_position=hparams.length * 10,  # 口唇動画に対して長ければいい
-    #     max_len=hparams.length // 2,
-    #     which_encoder=hparams.which_encoder,
-    #     which_decoder=hparams.which_decoder,
-    #     training_method=hparams.training_method,
-    #     num_passes=hparams.num_passes,
-    #     mixing_prob=hparams.mixing_prob,
-    #     dropout=hparams.dropout,
-    #     reduction_factor=hparams.reduction_factor,
-    #     use_gc=hparams.use_gc,
-    # )
+    # モデルのパラメータの保存
+    model_save_path = cfg.model.save_path
+    os.makedirs(model_save_path, exist_ok=True)
 
+    #インスタンス作成
     model = Lip2SP(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
@@ -322,7 +298,7 @@ def main(cfg):
 
     # Dataloader作成
     train_loader = make_train_loader(cfg)
-    #test_loader = make_test_loader(cfg)
+    test_loader = make_test_loader(cfg)
     ##########################################################################################
     # 損失関数
     loss_f = nn.MSELoss()
@@ -337,8 +313,8 @@ def main(cfg):
             print(f"epoch_loss = {epoch_loss}")
             print(f"train_loss_list = {train_loss_list}")
 
-            # writer.add_scalar("Loss/train", epoch_loss, epoch)    
         save_result(train_loss_list, result_path+'/train_loss.png')
+        torch.save(model.state_dict(), model_save_path+'/model_world.pth')
         
     else:
         for epoch in range(cfg.train.max_epoch):
@@ -349,6 +325,7 @@ def main(cfg):
             print(f"train_loss_list = {train_loss_list}")
         
         save_result(train_loss_list, result_path+'/train_loss.png')
+        torch.save(model.state_dict(), model_save_path+'model.pth')
 
 if __name__=='__main__':
     main()
