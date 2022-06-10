@@ -5,9 +5,9 @@ import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
-import chainer
-import chainer.links as L
-import chainer.functions as cF
+# import chainer
+# import chainer.links as L
+# import chainer.functions as cF
 
 def build_frontend(in_channels, out_channels):
     frontend = nn.Sequential(
@@ -54,31 +54,31 @@ class FrontEnd(nn.Module):
 
         return x
 
-class ChainerFrontEnd(chainer.Chain):
-    def __init__(self, in_channels, out_channels) -> None:
-        super().__init__()
+# class ChainerFrontEnd(chainer.Chain):
+#     def __init__(self, in_channels, out_channels) -> None:
+#         super().__init__()
 
-        with self.init_scope():
-            self.conv1 = L.Convolution3D(None, 32, 3, (2, 2, 1), pad=1, nobias=True)
-            self.bn1 = L.BatchNormalization(32)
-            self.conv2 = L.Convolution3D(32, 32, 3, pad=1, nobias=True)
-            self.bn2 = L.BatchNormalization(32)
-            self.conv3 = L.Convolution3D(32, out_channels, 3, pad=1, nobias=True)
-            self.bn3 = L.BatchNormalization(out_channels)
+#         with self.init_scope():
+#             self.conv1 = L.Convolution3D(None, 32, 3, (2, 2, 1), pad=1, nobias=True)
+#             self.bn1 = L.BatchNormalization(32)
+#             self.conv2 = L.Convolution3D(32, 32, 3, pad=1, nobias=True)
+#             self.bn2 = L.BatchNormalization(32)
+#             self.conv3 = L.Convolution3D(32, out_channels, 3, pad=1, nobias=True)
+#             self.bn3 = L.BatchNormalization(out_channels)
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = cF.relu(x)
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = cF.relu(x)
-        x = self.conv3(x)
-        x = self.bn3(x)
-        x = cF.relu(x)
-        x = cF.max_pooling_nd(x, ksize=(3, 3, 1), stride=(2, 2, 1), pad=(1, 1, 0))
+#     def forward(self, x):
+#         x = self.conv1(x)
+#         x = self.bn1(x)
+#         x = cF.relu(x)
+#         x = self.conv2(x)
+#         x = self.bn2(x)
+#         x = cF.relu(x)
+#         x = self.conv3(x)
+#         x = self.bn3(x)
+#         x = cF.relu(x)
+#         x = cF.max_pooling_nd(x, ksize=(3, 3, 1), stride=(2, 2, 1), pad=(1, 1, 0))
 
-        return x
+#         return x
 
 class ResidualBlock3D(nn.Module):
     def __init__(self, in_channels, out_channels, stride=2):

@@ -237,8 +237,9 @@ def save_result(loss_list, save_path):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    ###ここにデータセットモデルのインスタンス作成train関数を回す#####
+    mlflow.set_tracking_uri('file://' + hydra.utils.get_original_cwd() + '/mlruns')
 
+    # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
@@ -247,7 +248,7 @@ def main(cfg):
     os.makedirs(result_path, exist_ok=True)
 
     # mlflowを使ったデータの管理
-    experiment_name = 'test'
+    experiment_name = cfg.train.experiment_name
     writer = MlflowWriter(experiment_name)
     writer.log_params_from_omegaconf_dict(cfg)
 
@@ -309,14 +310,12 @@ def main(cfg):
     # Dataloader作成
     train_loader, _ = make_train_loader(cfg)
     test_loader, _ = make_test_loader(cfg)
-    ##########################################################################################
+    
     # 損失関数
     loss_f = nn.MSELoss()
     train_loss_list = []
-
+    
     # training
-    mlflow.set_tracking_uri('file://' + hydra.utils.get_original_cwd() + '/mlruns')
-    mlflow.set_experiment(cfg.train.runname)
     with mlflow.start_run():
         if cfg.model.which_d is None:
             for epoch in range(cfg.train.max_epoch):
@@ -329,11 +328,7 @@ def main(cfg):
 
             save_result(train_loss_list, result_path+'/train_loss.png')
             torch.save(model.state_dict(), save_path+f'/model_{cfg.model.name}.pth')
-
-            writer.log_artifact(os.path.join(os.getcwd(), 'hydra/config.yaml'))
-            writer.log_artifact(os.path.join(os.getcwd(), 'hydra/hydra.yaml'))
-            writer.log_artifact(os.path.join(os.getcwd(), 'hydra/overrides.yaml'))
-            writer.set_terminated()
+            
         else:
             for epoch in range(cfg.train.max_epoch):
                 print(f"##### {epoch} #####")
@@ -344,6 +339,21 @@ def main(cfg):
             
             save_result(train_loss_list, result_path+'/train_loss.png')
             torch.save(model.state_dict(), save_path+f'/model_{cfg.model.name}_{cfg.model.which_d}.pth')
+    
+    writer.log_torch_model(model)
+    writer.log_artifact(os.path.join(os.getcwd(), '.hydra/config.yaml'))
+    writer.log_artifact(os.path.join(os.getcwd(), '.hydra/hydra.yaml'))
+    writer.log_artifact(os.path.join(os.getcwd(), '.hydra/overrides.yaml'))
+    writer.set_terminated()
+
+@hydra.main(config_name="config", config_path="conf")
+def ml(cfg):
+
+    print(hydra.utils.get_original_cwd())
+    print(os.getcwd())
+
+    return
 
 if __name__=='__main__':
     main()
+    # ml()

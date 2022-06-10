@@ -1,7 +1,7 @@
 # @package _group_
 
 # mlflow
-runname : "test_mlflow"
+experiment_name : "test2"
 
 # dropout
 dropout : 0.1
@@ -12,7 +12,7 @@ use_gc : False
 # 学習方法（"tf" or "ss"）
 # tf : teacher forcing
 # ss : scheduled sampling
-training_method : "tf"
+training_method : "ss"
 
 # parameter for scheduled sampling
 num_passes : 1     # 繰り返し回数
@@ -29,4 +29,4 @@ beta_2 : 0.999
 
 # training
 max_iter : 5
-max_epoch : 2
+max_epoch : 3
