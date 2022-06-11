@@ -5,28 +5,50 @@ Gated Linear Unit
 import os
 os.environ['PYTHONBREAKPOINT'] = ''
 
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 
-from .transformer import Prenet
+try:
+    from .transformer import Prenet
+    import conv
+except:
+    from transformer import Prenet
+    import conv
 
 
 class CausalConv1d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
         super().__init__()
         self.padding = (kernel_size - 1)
-        self.conv = weight_norm(nn.Conv1d(
+        self.conv = weight_norm(conv.Conv1d(
             in_channels, out_channels*2, kernel_size, padding=self.padding, **kwargs))
 
     def forward(self, x):
+        return self._forward(x, False)
+
+    def incremental_forward(self, x):
+        return self._forward(x, True)
+
+    def _forward(self, x, incremental):
+        """
+        ゲート付き活性化関数に通すため、チャンネル数をout_channels*2にしてます
+        """
         # 1 次元畳み込み
-        y = self.conv(x)
-        # 因果性を担保するために、順方向にシフトする
-        if self.padding > 0:
-            y = y[:, :, :-self.padding]
+        if incremental:
+            x = x.permute(0, -1, 1)
+            y = self.conv.incremental_forward(x)
+        else:
+            y = self.conv(x)
+            # 因果性を担保するために、順方向にシフトする
+            if self.padding > 0:
+                y = y[:, :, :-self.padding]
         return y
+
+    def clear_buffer(self):
+        self.conv.clear_buffer()
 
 
 class GLUBlock(nn.Module):
@@ -37,14 +59,27 @@ class GLUBlock(nn.Module):
         self.conv = nn.Conv1d(in_channels, out_channels, kernel_size=1, bias=False)
 
     def forward(self, feature, x):
+        return self._forward(feature, x, False)
+
+    def incremental_forward(self, feature, x):
+        return self._forward(feature, x, True)
+
+    def _forward(self, feature, x, incremental):
         """
         feature（encoderからの特徴量） : (B, C, T)
         x（音響特徴量） : (B, C, T)
         """
         res = x
         y = self.dropout(x)
-        y = self.causal_conv(y)
-        y1, y2 = torch.split(y, y.shape[1] // 2, dim=1)
+        
+        if incremental:
+            split_dim = 1
+            y = self.causal_conv.incremental_forward(y)     # (B, C, T)
+        else:
+            split_dim = 1
+            y = self.causal_conv(y)
+        
+        y1, y2 = torch.split(y, y.shape[split_dim] // 2, dim=split_dim)
 
         feature = F.softsign(self.conv(feature))
         # y2 += feature
@@ -54,6 +89,9 @@ class GLUBlock(nn.Module):
         out += res
         out *= 0.5 ** 0.5
         return out
+
+    def clear_buffer(self):
+        self.causal_conv.clear_buffer()
 
 
 class GLU(nn.Module):
@@ -81,11 +119,11 @@ class GLU(nn.Module):
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
 
         input
-        prev : (B, C, T=300)
-        enc_output : (B, T=150, C)
+        prev : (B, C, T)
+        enc_output : (B, T, C)
 
         return
-        dec_output : (B, C, T=300)
+        dec_output : (B, C, T)
         """
         B = enc_output.shape[0]
         T = enc_output.shape[1]
@@ -137,6 +175,7 @@ class GLU(nn.Module):
         # global conditionの結合
         
         # reshape for reduction factor
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if prev is not None:
             prev = prev.permute(0, -1, -2)
             prev = prev.reshape(B, -1, D * self.reduction_factor)
@@ -144,40 +183,47 @@ class GLU(nn.Module):
         else:
             go_frame = torch.zeros(B, D * self.reduction_factor, 1)
             prev = go_frame
+            prev = prev.to(device)
 
         max_decoder_time_steps = T
-
+    
         # メインループ
         outs = []
         enc_output = enc_output.permute(0, -1, -2)  # (B, C, T)
-        for _ in range(max_decoder_time_steps):
+        for t in tqdm(range(max_decoder_time_steps)):
+            if t > 0:
+                # 最初以外は前時刻の出力を入力する
+                prev = dec_output[:, :, -1].unsqueeze(-1)
+            
             # Prenet
-            pre_out = self.prenet(prev)    # (B, d_model, T=150)
+            pre_out = self.prenet(prev)    # (B, d_model, T=1)
             
             # GLU stack
             dec_output = pre_out
-            breakpoint()
             for layer in self.glu_stack:
-                dec_output = layer(enc_output, dec_output)
+                # 推論時はincrementa_forwardを適用
+                dec_output = layer.incremental_forward(enc_output[:, :, t].unsqueeze(-1), dec_output)
 
             dec_output = self.conv_o(dec_output)
 
             # 出力を保持
             outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
-
-            # 次のループへの入力
-            prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
         
         # 各時刻の出力を結合
         outs = torch.cat(outs, dim=2)
+        self.clear_buffer()
         return outs
+
+    def clear_buffer(self):
+        for layer in self.glu_stack:
+            layer.clear_buffer()
 
 
 def main():
     # 3DResnetからの出力
-    batch = 8
-    channels = 256
-    t = 150
+    batch = 1
+    channels = 4
+    t = 10
     enc_output = torch.rand(batch, channels, t)
     enc_output = enc_output.permute(0, 2, 1)    # (B, T, C)
 
@@ -186,14 +232,15 @@ def main():
     feature = torch.rand(batch, feature_channels, t*2)   # (B, C, T)
 
     # GLU
-    inner_channels = 256
+    inner_channels = channels
     out_channels = feature_channels
     pre_in_channels = feature_channels * 2
     pre_inner_channels = 32
     net = GLU(inner_channels, out_channels, pre_in_channels, pre_inner_channels)
     out = net(enc_output, feature)
-
-
+    net.eval()
+    out = net.inference(enc_output)
+    print(out.shape)
 
 if __name__ == "__main__":
     main()
