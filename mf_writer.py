@@ -31,7 +31,11 @@ class MlflowWriter():
 
     def log_torch_model(self, model):
         with mlflow.start_run(self.run_id):
-            pytorch.log_model(model, 'models')
+            pytorch.log_model(model, 'model')
+
+    def log_torch_state_dict(self, state_dict):
+        with mlflow.start_run(self.run_id):
+            pytorch.log_state_dict(state_dict, 'model_state_dict')
 
     def log_param(self, key, value):
         self.client.log_param(self.run_id, key, value)

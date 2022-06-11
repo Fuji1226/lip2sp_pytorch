@@ -1,5 +1,7 @@
 """
-lip2sp_pytorch/conf/modelのpathを設定してから実行してください!
+lip2sp_pytorch/conf/model
+lip2sp_pytorch/conf/train
+のyamlファイルのpathを設定してから実行してください!
 """
 
 from omegaconf import DictConfig, OmegaConf
@@ -18,7 +20,6 @@ import time
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn import utils
 
 # pytorch
 import torch
@@ -36,9 +37,9 @@ from mf_writer import MlflowWriter
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
-# np.random.seed(0)
-# torch.manual_seed(0)
-# torch.cuda.manual_seed_all(0)
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
 
 
 # パラメータの保存
@@ -102,8 +103,6 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
     all_iter = len(data_loader)
     print("iter start")
     for batch in data_loader:
-        model.train()
-        model = model.to(device)
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
@@ -139,12 +138,15 @@ def train_one_epoch(model: nn.Module, discriminator, data_loader, optimizer, los
 
 def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimizer, optimizer_d, loss_f, device, cfg):
     assert cfg.model.which_d is not None, "discriminatorが設定されていません!"
-
     epoch_loss = 0
+    epoch_loss_d = 0
     data_cnt = 0
+    iter_cnt = 0
+    all_iter = len(data_loader)
+    print("iter start")
     for batch in data_loader:
-        model.train()
-        discriminator.train()
+        iter_cnt += 1
+        print(f'iter {iter_cnt}/{all_iter}')
         
         (lip, target, feat_add), data_len, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
@@ -184,6 +186,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimiz
         # 最適化
         loss_d.backward()
         optimizer_d.step()
+        epoch_loss_d += loss_d.item()
 
         #====================================================
         # generatorの最適化
@@ -226,7 +229,8 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, data_loader, optimiz
 
 
     epoch_loss /= data_cnt
-    return epoch_loss
+    epoch_loss_d /= data_cnt
+    return epoch_loss, epoch_loss_d
 
 
 def save_result(loss_list, save_path):
@@ -268,7 +272,7 @@ def main(cfg):
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
-        glu_inner_channels=cfg.model.glu_inner_channels,
+        glu_inner_channels=cfg.model.d_model,
         glu_layers=cfg.model.glu_layers,
         pre_in_channels=cfg.model.pre_in_channels,
         pre_inner_channels=cfg.model.pre_inner_channels,
@@ -284,6 +288,7 @@ def main(cfg):
         reduction_factor=cfg.model.reduction_factor,
         use_gc=cfg.train.use_gc
     )
+    model = model.to(device)
     
     # optimizer
     optimizer = torch.optim.Adam(
@@ -304,6 +309,7 @@ def main(cfg):
         optimizer_d = torch.optim.Adam(
             discriminator.parameters(), lr=cfg.train.lr, betas=(cfg.train.beta_1, cfg.train.beta_2)
         )
+        discriminator.to(device)
     else:
         discriminator = None
 
@@ -318,36 +324,47 @@ def main(cfg):
     # training
     with mlflow.start_run():
         if cfg.model.which_d is None:
+            model.train()
             for epoch in range(cfg.train.max_epoch):
                 print(f"##### {epoch} #####")
                 epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device)
                 train_loss_list.append(epoch_loss)
                 print(f"epoch_loss = {epoch_loss}")
                 print(f"train_loss_list = {train_loss_list}")
+
                 writer.log_metric("loss", epoch_loss)
 
             save_result(train_loss_list, result_path+'/train_loss.png')
             torch.save(model.state_dict(), save_path+f'/model_{cfg.model.name}.pth')
             
         else:
+            model.train()
+            discriminator.train()
             for epoch in range(cfg.train.max_epoch):
                 print(f"##### {epoch} #####")
-                epoch_loss = train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f, device, cfg)
+                epoch_loss, epoch_loss_d = train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f, device, cfg)
                 train_loss_list.append(epoch_loss)
                 print(f"epoch_loss = {epoch_loss}")
                 print(f"train_loss_list = {train_loss_list}")
+
+                writer.log_metric("loss_generator", epoch_loss)
+                writer.log_metric("loss_discriminator", epoch_loss_d)
             
             save_result(train_loss_list, result_path+'/train_loss.png')
             torch.save(model.state_dict(), save_path+f'/model_{cfg.model.name}_{cfg.model.which_d}.pth')
     
     writer.log_torch_model(model)
+    writer.log_torch_state_dict(model.state_dict())
     writer.log_artifact(os.path.join(os.getcwd(), '.hydra/config.yaml'))
     writer.log_artifact(os.path.join(os.getcwd(), '.hydra/hydra.yaml'))
     writer.log_artifact(os.path.join(os.getcwd(), '.hydra/overrides.yaml'))
     writer.set_terminated()
+    return epoch_loss
+
+
 
 @hydra.main(config_name="config", config_path="conf")
-def ml(cfg):
+def test(cfg):
 
     print(hydra.utils.get_original_cwd())
     print(os.getcwd())
@@ -356,4 +373,4 @@ def ml(cfg):
 
 if __name__=='__main__':
     main()
-    # ml()
+    # test()

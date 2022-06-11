@@ -11,13 +11,13 @@ try:
     from .transformer import Postnet, Encoder, Decoder
     from .conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    # from .glu import GLU
+    from .glu import GLU
 except:
     from net import ResNet3D
     from transformer import Postnet, Encoder, Decoder
     from conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    # from glu import GLU
+    from glu import GLU
 
 
 class Lip2SP(nn.Module):
@@ -45,10 +45,10 @@ class Lip2SP(nn.Module):
 
         # encoder
         if self.which_encoder == "transformer":
-            self.transformer_encoder = Encoder(
+            self.encoder = Encoder(
                 n_layers, n_head, d_model, n_position, reduction_factor, dropout
             )
-        elif self.which_encoder == "conformer":
+        elif self.encoder == "conformer":
             self.conformer_encoder = Conformer_Encoder(
                 encoder_dim=d_model, num_layers=n_layers, num_attention_heads=n_head, reduction_factor=reduction_factor
             )
@@ -75,9 +75,9 @@ class Lip2SP(nn.Module):
             lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
             if self.which_encoder == "transformer":
-                enc_output = self.transformer_encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+                enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
             elif self.which_encoder == "conformer":
-                enc_output = self.conformer_encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+                enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
             
             # decoder
             if self.which_decoder == "transformer":
@@ -99,19 +99,19 @@ class Lip2SP(nn.Module):
             lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
             if self.which_encoder == "transformer":
-                enc_output = self.transformer_encoder(lip_feature)    # (B, T, C)
+                enc_output = self.encoder(lip_feature)    # (B, T, C)
             elif self.which_encoder == "conformer":
-                enc_output = self.conformer_encoder(lip_feature)
+                enc_output = self.encoder(lip_feature)
             
             # decoder
             if self.which_decoder == "transformer":
                 dec_output = self.decoder.inference(enc_output, self.max_len, data_len, prev)
                 out = self.postnet(dec_output)
                 
-            # elif which_decoder == "glu":
-            #     dec_output = self.glu_decoder.inference(enc_output, prev)
-            #     self.pre = dec_output
-            #     out = self.postnet(dec_output)
+            elif self.which_decoder == "glu":
+                dec_output = self.decoder.inference(enc_output, prev)
+                self.pre = dec_output
+                out = self.postnet(dec_output)
         return out, dec_output
 
 

@@ -1,10 +1,11 @@
 """
-lip2sp_pytorch/conf/modelにあるyamlファイルのsave_pathやparam_save_pathを設定してから実行してください!
-
+lip2sp_pytorch/conf/modelにあるyamlファイルのパスや、モデルのパラメータの読み込み先のパスを設定してから実行してください
 """
+
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
+import mlflow
 
 # import wandb
 # wandb.init(
@@ -117,7 +118,7 @@ def main(cfg):
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
-        glu_inner_channels=cfg.model.glu_inner_channels,
+        glu_inner_channels=cfg.model.d_model,
         glu_layers=cfg.model.glu_layers,
         pre_in_channels=cfg.model.pre_in_channels,
         pre_inner_channels=cfg.model.pre_inner_channels,
@@ -136,13 +137,17 @@ def main(cfg):
     model = model.to(device)
 
     # 保存したパラメータの読み込み
-    model_path = cfg.model.train_save_path+f'/2022:06:09_23-13-18/model_{cfg.model.name}.pth'
+    # model_path = cfg.model.train_save_path+f'/2022:06:09_23-13-18/model_{cfg.model.name}.pth'
+
+    # mlflowを利用したモデルの読み込み
+    model_path = cfg.model.train_save_path + "/state_dict.pth"
     model.load_state_dict(torch.load(model_path))
 
     # Dataloader作成
     test_loader, datasets = make_test_loader(cfg)
 
     # generate
+    model.eval()
     output, dec_output = generate(
         cfg=cfg,
         model=model,
@@ -153,9 +158,16 @@ def main(cfg):
     )
     
 
+@hydra.main(config_name="config", config_path="conf")
+def test(cfg):
+    model_uri = 'runs:/665f72b343a34098ad93e82c504b7e03/model'
+    model_path_dir = "model"
+    run_id = "665f72b343a34098ad93e82c504b7e03"
+    loaded_model = mlflow.pytorch.load_model(model_uri)
 
-    
+    return
 
 
 if __name__ == "__main__":
     main()
+    # test()
