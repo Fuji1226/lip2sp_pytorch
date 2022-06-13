@@ -85,9 +85,15 @@ class Lip2SP(nn.Module):
                     enc_output, data_len, self.max_len, prev, 
                     training_method=self.training_method, 
                     num_passes=self.num_passes, 
-                    mixing_prob=self.mixing_prob)
+                    mixing_prob=self.mixing_prob
+                )
             elif self.which_decoder == "glu":
-                dec_output = self.decoder(enc_output, prev)
+                dec_output = self.decoder(
+                    enc_output, prev,
+                    training_method=self.training_method, 
+                    num_passes=self.num_passes, 
+                    mixing_prob=self.mixing_prob
+                )
                 
             # postnet
             out = self.postnet(dec_output)

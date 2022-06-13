@@ -113,13 +113,13 @@ class GLU(nn.Module):
         self.conv_o = weight_norm(nn.Conv1d(
             inner_channels, self.out_channels * self.reduction_factor, kernel_size=1))
 
-    def forward(self, enc_output, prev=None, gc=None):
+    def forward(self, enc_output, target=None, gc=None, training_method=None, num_passes=None, mixing_prob=None):
         """
         reduction_factorにより、
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
 
         input
-        prev : (B, C, T)
+        target : (B, C, T)
         enc_output : (B, T, C)
 
         return
@@ -134,25 +134,45 @@ class GLU(nn.Module):
         # global conditionの結合
         
         # reshape for reduction factor
-        if prev is not None:
-            prev = prev.permute(0, -1, -2)
-            prev = prev.reshape(B, -1, D * self.reduction_factor)
-            prev = prev.permute(0, -1, -2)  
+        if target is not None:
+            target = target.permute(0, -1, -2)
+            target = target.reshape(B, -1, D * self.reduction_factor)
+            target = target.permute(0, -1, -2)  
 
         # Prenet
-        prev = self.prenet(prev)    # (B, d_model, T=150)
-        self.pre_out = prev
+        target = self.prenet(target)    # (B, d_model, T=150)
+        self.pre_out = target
 
         # GLU stack
         enc_output = enc_output.permute(0, -1, -2)  # (B, C, T)
-        dec_output = prev
+        dec_output = target
 
-        for layer in self.glu_stack:
-            dec_output = layer(enc_output, dec_output)
+        # teacher forcing
+        if training_method == "tf":
+            # decoder layer
+            for layer in self.glu_stack:
+                dec_output = layer(enc_output, dec_output)
+        
+        # scheduled sampling
+        elif training_method == "ss":
+            # decoder layer
+            for layer in self.glu_stack:
+                dec_output = layer(enc_output, dec_output)
+
+            for k in range(num_passes):
+                # decoderからの出力とtargetをmixing_probに従って混合
+                mixing_prob = torch.zeros_like(target) + mixing_prob
+                judge = torch.bernoulli(mixing_prob)
+                judge[:, :, :k] = 1     # t < kの要素は変更しない
+                target = torch.where(judge == 1, target, dec_output)
+                dec_output = target
+
+            # decoder layer
+            for layer in self.glu_stack:
+                dec_output = layer(enc_output, dec_output)
 
         dec_output = self.conv_o(dec_output)
         dec_output = dec_output.reshape(B, D, -1)   
-        
         return dec_output   
 
     def inference(self, enc_output, prev=None, gc=None):

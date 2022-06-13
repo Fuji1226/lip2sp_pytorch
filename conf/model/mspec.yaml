@@ -68,7 +68,7 @@ n_head : 2
 which_encoder : "transformer"
 
 # 使用するdecoder（"transformer" or "glu"）
-which_decoder : "transformer"
+which_decoder : "glu"
 
 # discriminator（"unet" or "jcu"）
 # 使わない場合は何も書かない（Noneもいらないです）
