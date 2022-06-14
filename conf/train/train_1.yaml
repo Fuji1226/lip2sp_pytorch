@@ -1,0 +1,32 @@
+# @package _group_
+
+# mlflow
+experiment_name : "test"
+
+# dropout
+dropout : 0.1
+
+# global condition
+use_gc : False
+
+# 学習方法（"tf" or "ss"）
+# tf : teacher forcing
+# ss : scheduled sampling
+training_method : "ss"
+
+# parameter for scheduled sampling
+num_passes : 1     # 繰り返し回数
+mixing_prob : 0.5  # 混合率
+
+# dataloader
+batch_size : 5
+num_workers : 0
+
+# optimizer
+lr : 0.001
+beta_1 : 0.9
+beta_2 : 0.999
+
+# training
+max_iter : 5
+max_epoch : 1

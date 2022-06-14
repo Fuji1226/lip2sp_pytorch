@@ -56,7 +56,8 @@ def get_datasets(data_root, mode):
         for curDir, Dir, Files in os.walk(data_root):
             for filename in Files:
                 # curDirの末尾がlip_croppedの時
-                if curDir.endswith("F01"):
+                # if curDir.endswith("F01"):
+                if curDir.endswith("lip_cropped"):
                     # filenameの末尾（拡張子）が.mp4の時
                     if filename.endswith(".mp4"):
                         format = ".mp4"
@@ -89,6 +90,25 @@ def get_datasets(data_root, mode):
     
     return items
 
+def get_datasets(data_root):
+    """
+    hparams.pyのtrain_path, test_pathからファイルを取ってくる
+    """
+    
+    items = dict()
+    idx = 0
+    for curdir, dir, files in os.walk(data_root):
+        for file in files:
+            if file.endswith(".mp4"):
+                format = ".mp4"
+                video_path = os.path.join(curdir, file)
+                audio_path = os.path.join(curdir, file.replace(str(format), ".wav"))
+                if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+                        items[idx] = [video_path, audio_path]
+                        idx += 1
+    return items
+
+
 
 # def normalization(data_root=data_root, mode='train'):
 #     items = get_datasets(data_root, mode)
@@ -118,7 +138,6 @@ def calc_mean_var(items, len):
         # 時間方向に平均と分散を計算
         mean += np.mean(y, axis=0)
         var += np.var(y, axis=0)
-    
     mean /= len
     var /= len
 
@@ -130,7 +149,6 @@ class KablabDataset(Dataset):
         super().__init__()
         assert mode in ('train', 'test')
         self.data_root = data_root
-        # self.spec = MelSpectrogram()
         self.mode = mode
 
         # self.trans = transforms.Compose([
@@ -146,50 +164,10 @@ class KablabDataset(Dataset):
         
         print(f'Size of {type(self).__name__}: {self.len}')
         random.shuffle(self.items)
-        # イテレータを生成
-        #self.item_iter = iter(self.items)
-
-        # self.current_item = None
-        # self.current_item_attributes = dict()
 
     def __len__(self):
         return self.len
 
-    # def reset_item(self):
-    #     print("# reset_item ... #")
-    #     self.current_item = None
-    #     return self['item']
-
-    # def get_item(self):
-    #     print("# get_item ... #")
-    #     try:
-    #         # イテレータの次の要素を受け取る
-    #         item_idx = next(self.item_iter)
-    #     except StopIteration:
-    #         # nextでもうなかったときはitemsをシャッフルしてイテレータを作り直す
-    #         random.shuffle(self.items)
-    #         self.item_iter = iter(self.items)
-    #         item_idx = next(self.item_iter)
-
-    #     worker_info = get_worker_info()
-    #     if worker_info:
-    #         item_idx = (item_idx + worker_info.id) % len(self.items)
-        
-    #     video_path, audio_path = self.items[item_idx]
-
-    #     try:
-    #         video_info = ffmpeg.probe(video_path)["format"]
-    #     except:
-    #         return self.get_item()
-
-    #     self.current_item = self.items[item_idx] 
-    #     self.current_item_attributes = {
-    #         'start_time': 0,
-    #         'end_time': x_round(float(video_info['duration']))
-    #     }
-    #     return self.current_item
-
-    # __getitem__()の挙動が見たい時は (self, _) -> (self)で一応見れます
     def __getitem__(self, index):
         #item_idx = next(self.item_iter)
         video_path, audio_path = self.items[index]
@@ -212,25 +190,6 @@ class KablabDataset(Dataset):
             mode=self.mode,
         )
 
-        # overlap = 0.1
-        # start_time = max(self.current_item_attributes['start_time'] - overlap, 0)
-        # print(start_time)
-        # end_time = self.current_item_attributes['end_time']
-
-        # # start_timeからend_time-1の間で、0.5秒ずつ刻んだランダムなタイミングをstart_timeに設定
-        # # 1秒間のデータを取りたいのでend_time-1しています
-        # # get_timing_step = 0.5
-        # # start_time = random.choice(np.arange(start_time, end_time-1, get_timing_step))
-
-        # if start_time > end_time:
-        #     return self.reset_item()
-
-        # # データの時間を3つの選択肢からランダムに選ぶ
-        # # duration = random.choice(np.arange(0.5, self.duration + overlap, overlap))
-        # duration = self.duration    # 1秒
-        # # 取った1秒分足しておく
-        # self.current_item_attributes['start_time'] += duration
-
         return ret, data_len
         
 
@@ -248,40 +207,17 @@ def main():
         collate_fn=None,
     )
 
-    # print(datasets.__len__())
-    # print(datasets.current_item)
-    # print(datasets.reset_item())
-
-    # データ確認用。__getitem__(self, _)を__getitem__(self)に変更すれば見れます！
-    # ただ、そうすると下のresultsの方は見れません。どっちかだけです。
-    # frames, waveform, melspec = datasets.__getitem__()
-    # print("####### type #######")
-    # print(f"type(frames) = {type(frames)}")
-    # print(f"type(waveform) = {type(waveform)}")
-    # print(f"type(melspec) = {type(melspec)}")
-
-    # print("\n####### shape #######")
-    # print(f"frames.shape = {frames.shape}")
-    # print(f"waveform.shape = {waveform.shape}")
-    # print(f"melspec.shape = {melspec.shape}")
-
-    # print("\n####### len #######")
-    # print(f"len(frames) = {len(frames)}")
-    # print(f"len(waveform) = {len(waveform)}")
-    # print(f"len(melspec) = {len(melspec)}")
-
-
     # results
     for interation in range(hparams.max_iter):
         for bdx, batch in enumerate(loader):
-            ret, data_len = batch    
+            (lip, y, feat_add), data_len = batch
             print("################################################")
-            print(type(ret[0]))
-            print(type(ret[1]))
-            print(type(ret[2]))
-            print(f"lip = {ret[0].shape}")  # (B, C=5, W=48, H=48, T=150)
-            print(f"y(acoustic features) = {ret[1].shape}") # (B, C, T=300)
-            print(f"feat_add = {ret[2].shape}")     # (B, C=3, T=300)
+            print(type(lip))
+            print(type(y))
+            print(type(feat_add))
+            print(f"lip = {lip.shape}")  # (B, C=5, W=48, H=48, T=150)
+            print(f"y(acoustic features) = {y.shape}") # (B, C, T=300)
+            print(f"feat_add = {feat_add.shape}")     # (B, C=3, T=300)
             print(f"data_len = {data_len}")
 
 

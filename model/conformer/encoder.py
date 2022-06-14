@@ -183,7 +183,9 @@ class Conformer_Encoder(nn.Module):
         if data_len is not None:
             assert max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             mask = make_pad_mask(data_len, max_len)
+            mask = mask.to(device)
         else:
             # 推論時はマスクなし
             mask = None

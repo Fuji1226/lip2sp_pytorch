@@ -5,4 +5,7 @@ shells/
 hparams.py
 *__pycache__*
 *.pyc
+mlruns/
+multirun/
+outputs/
 wandb/

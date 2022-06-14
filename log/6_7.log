@@ -1,0 +1,814 @@
+wandb: W&B API key is configured. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.12.17
+wandb: Run data is saved locally in /home/naoaki/python/lip2sp_pytorch/wandb/run-20220608_040500-36w17v93
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run desk-test-desk
+wandb: ⭐️ View project at https://wandb.ai/naoaki/llip2sp_pytorch
+wandb: 🚀 View run at https://wandb.ai/naoaki/llip2sp_pytorch/runs/36w17v93
+device = cuda
+Size of KablabDataset: 367
+##### 0 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 3.212631829797405
+train_loss_list = [3.212631829797405]
+##### 1 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 1.3662772701211172
+train_loss_list = [3.212631829797405, 1.3662772701211172]
+##### 2 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.9802857346730689
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689]
+##### 3 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.46922411069478076
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689, 0.46922411069478076]
+##### 4 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.4283798430063953
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689, 0.46922411069478076, 0.4283798430063953]
+##### 5 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.39568269546717816
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689, 0.46922411069478076, 0.4283798430063953, 0.39568269546717816]
+##### 6 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.4174923240321956
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689, 0.46922411069478076, 0.4283798430063953, 0.39568269546717816, 0.4174923240321956]
+##### 7 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.5405622384319567
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689, 0.46922411069478076, 0.4283798430063953, 0.39568269546717816, 0.4174923240321956, 0.5405622384319567]
+##### 8 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+/home/naoaki/env/lib/python3.8/site-packages/cupy/_environment.py:399: UserWarning: 
+nccl library could not be loaded.
+
+Reason: ImportError (libnccl.so.2: cannot open shared object file: No such file or directory)
+
+You can install the library by:
+
+  $ python -m cupyx.tools.install_library --library nccl --cuda 11.3
+
+  warnings.warn(msg)
+/home/naoaki/env/lib/python3.8/site-packages/chainer/_environment_check.py:72: UserWarning: 
+--------------------------------------------------------------------------------
+CuPy (cupy-cuda113) version 10.3.1 may not be compatible with this version of Chainer.
+Please consider installing the supported version by running:
+  $ pip install 'cupy-cuda113>=7.7.0,<8.0.0'
+
+See the following page for more details:
+  https://docs.cupy.dev/en/latest/install.html
+--------------------------------------------------------------------------------
+
+  warnings.warn(msg.format(
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.5876273958650354
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689, 0.46922411069478076, 0.4283798430063953, 0.39568269546717816, 0.4174923240321956, 0.5405622384319567, 0.5876273958650354]
+##### 9 #####
+iter start
+iter 1/73
+iter 2/73
+iter 3/73
+iter 4/73
+iter 5/73
+iter 6/73
+iter 7/73
+iter 8/73
+iter 9/73
+iter 10/73
+iter 11/73
+iter 12/73
+iter 13/73
+iter 14/73
+iter 15/73
+iter 16/73
+iter 17/73
+iter 18/73
+iter 19/73
+iter 20/73
+iter 21/73
+iter 22/73
+iter 23/73
+iter 24/73
+iter 25/73
+iter 26/73
+iter 27/73
+iter 28/73
+iter 29/73
+iter 30/73
+iter 31/73
+iter 32/73
+iter 33/73
+iter 34/73
+iter 35/73
+iter 36/73
+iter 37/73
+iter 38/73
+iter 39/73
+iter 40/73
+iter 41/73
+iter 42/73
+iter 43/73
+iter 44/73
+iter 45/73
+iter 46/73
+iter 47/73
+iter 48/73
+iter 49/73
+iter 50/73
+iter 51/73
+iter 52/73
+iter 53/73
+iter 54/73
+iter 55/73
+iter 56/73
+iter 57/73
+iter 58/73
+iter 59/73
+iter 60/73
+iter 61/73
+iter 62/73
+iter 63/73
+iter 64/73
+iter 65/73
+iter 66/73
+iter 67/73
+iter 68/73
+iter 69/73
+iter 70/73
+iter 71/73
+iter 72/73
+iter 73/73
+epoch_loss = 0.548398962412795
+train_loss_list = [3.212631829797405, 1.3662772701211172, 0.9802857346730689, 0.46922411069478076, 0.4283798430063953, 0.39568269546717816, 0.4174923240321956, 0.5405622384319567, 0.5876273958650354, 0.548398962412795]
+wandb: Waiting for W&B process to finish... (success).
+wandb: - 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: / 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: - 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: \ 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb: | 0.014 MB of 0.014 MB uploaded (0.000 MB deduped)wandb:                                                                                
+wandb: 
+wandb: Run history:
+wandb: train_epoch_loss █▃▂▁▁▁▁▁▁▁
+wandb:  train_iter_loss ▁▆█▆▄▄▃▂▃▃▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb: train_epoch_loss 0.5484
+wandb:  train_iter_loss 2.47551
+wandb: 
+wandb: Synced desk-test-desk: https://wandb.ai/naoaki/llip2sp_pytorch/runs/36w17v93
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20220608_040500-36w17v93/logs

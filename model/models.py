@@ -11,13 +11,13 @@ try:
     from .transformer import Postnet, Encoder, Decoder
     from .conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    # from .glu import GLU
+    from .glu import GLU
 except:
     from net import ResNet3D
     from transformer import Postnet, Encoder, Decoder
     from conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    # from glu import GLU
+    from glu import GLU
 
 
 class Lip2SP(nn.Module):
@@ -45,10 +45,10 @@ class Lip2SP(nn.Module):
 
         # encoder
         if self.which_encoder == "transformer":
-            self.transformer_encoder = Encoder(
+            self.encoder = Encoder(
                 n_layers, n_head, d_model, n_position, reduction_factor, dropout
             )
-        elif self.which_encoder == "conformer":
+        elif self.encoder == "conformer":
             self.conformer_encoder = Conformer_Encoder(
                 encoder_dim=d_model, num_layers=n_layers, num_attention_heads=n_head, reduction_factor=reduction_factor
             )
@@ -75,9 +75,9 @@ class Lip2SP(nn.Module):
             lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
             if self.which_encoder == "transformer":
-                enc_output = self.transformer_encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+                enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
             elif self.which_encoder == "conformer":
-                enc_output = self.conformer_encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+                enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
             
             # decoder
             if self.which_decoder == "transformer":
@@ -85,9 +85,15 @@ class Lip2SP(nn.Module):
                     enc_output, data_len, self.max_len, prev, 
                     training_method=self.training_method, 
                     num_passes=self.num_passes, 
-                    mixing_prob=self.mixing_prob)
+                    mixing_prob=self.mixing_prob
+                )
             elif self.which_decoder == "glu":
-                dec_output = self.decoder(enc_output, prev)
+                dec_output = self.decoder(
+                    enc_output, prev,
+                    training_method=self.training_method, 
+                    num_passes=self.num_passes, 
+                    mixing_prob=self.mixing_prob
+                )
                 
             # postnet
             out = self.postnet(dec_output)
@@ -99,20 +105,20 @@ class Lip2SP(nn.Module):
             lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
             if self.which_encoder == "transformer":
-                enc_output = self.transformer_encoder(lip_feature)    # (B, T, C)
+                enc_output = self.encoder(lip_feature)    # (B, T, C)
             elif self.which_encoder == "conformer":
-                enc_output = self.conformer_encoder(lip_feature)
+                enc_output = self.encoder(lip_feature)
             
             # decoder
             if self.which_decoder == "transformer":
-                dec_output = self.decoder.inference(enc_output, data_len, prev)
+                dec_output = self.decoder.inference(enc_output, self.max_len, data_len, prev)
                 out = self.postnet(dec_output)
                 
-            # elif which_decoder == "glu":
-            #     dec_output = self.glu_decoder.inference(enc_output, prev)
-            #     self.pre = dec_output
-            #     out = self.postnet(dec_output)
-        return out
+            elif self.which_decoder == "glu":
+                dec_output = self.decoder.inference(enc_output, prev)
+                self.pre = dec_output
+                out = self.postnet(dec_output)
+        return out, dec_output
 
 
 def main():
@@ -162,17 +168,17 @@ def main():
     )
 
     # training
-    # outout, dec_output = net(lip=lip, data_len=data_len, prev=acoustic_feature)
-    # loss_f = nn.MSELoss()
-    # loss = loss_f(outout, acoustic_feature)
-    # print(loss)
+    outout, dec_output = net(lip=lip, data_len=data_len, prev=acoustic_feature)
+    loss_f = nn.MSELoss()
+    loss = loss_f(outout, acoustic_feature)
+    print(loss)
 
     # inference
     # 口唇動画
     lip_channels = 5
     width = 48
     height = 48
-    frames = 56
+    frames = 45
     lip = torch.rand(batch_size, lip_channels, width, height, frames)
     inference_out = net.inference(lip=lip)
     print(inference_out.shape)

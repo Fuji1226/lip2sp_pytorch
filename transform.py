@@ -25,11 +25,18 @@ from pyreaper import reaper
 import pysptk
 from pysptk import swipe
 
-from get_dir import get_data_directory
-from utils import get_sp_name, get_upsample
-from data_process.feature import wave2mel, wav2world
-from data_process.color_jitter import color_jitter
-from hparams import create_hparams
+try:
+    from get_dir import get_data_directory
+    from utils import get_sp_name, get_upsample
+    from data_process.feature import wave2mel, wav2world
+    from data_process.color_jitter import color_jitter
+    from hparams import create_hparams
+except:
+    from .get_dir import get_data_directory
+    from .utils import get_sp_name, get_upsample
+    from .data_process.feature import wave2mel, wav2world
+    from .data_process.color_jitter import color_jitter
+    from .hparams import create_hparams
 
 # 一旦chainerを使って同じ処理を行い、最後にtensorに型変換する感じでやってます
 from chainercv.transforms import random_crop, random_flip
@@ -213,7 +220,7 @@ def load_mp4(path, gray=False):
     return mov, fps
 
 
-def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None):
+def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True):
     """
     先輩のコードはlabel, label_nameを取得していて、それをget_dvectorとかに使用している
     おそらく捜索した時のファイル名とかを取ってくる感じだと思うのですが、一旦スルーしてます
@@ -278,7 +285,8 @@ def preprocess(
     y = y[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
-    
+
+
     # 学習時の処理
     # 口唇動画のデータ拡張
     if mode == "train":
