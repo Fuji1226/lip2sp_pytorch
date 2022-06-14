@@ -290,6 +290,8 @@ def main():
             print(f"##### {epoch} #####")
             epoch_loss = train_one_epoch(model, discriminator, train_loader, optimizer, loss_f, device, hparams)
             train_loss_list.append(epoch_loss)
+            wandb.log({"train_epoch_loss": epoch_loss}, step=epoch)
+
             print(f"epoch_loss = {epoch_loss}")
             print(f"train_loss_list = {train_loss_list}")
             

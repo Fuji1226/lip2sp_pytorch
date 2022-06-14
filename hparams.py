@@ -96,7 +96,7 @@ def create_hparams():
 
         # training
         max_iter = 5,
-        max_epoch = 10,
+        max_epoch = 100,
     )
 
     class HParams:
