@@ -414,7 +414,7 @@ def delta_feature(x, order=2, static=True, delta=True, deltadelta=True):
 
     # チャンネル方向のパディングはいらないので、取り除いてます
     x = padding(x)[:, :, pad:-1, :]     # (B, 1, C, T + 2)
-
+    
     # 設定したフィルタでxに対して2次元畳み込みを行い、静的特徴量からdelta, deltadelta特徴量を計算
     out = F.conv2d(x, W)    # (B, 3, C, T)
 

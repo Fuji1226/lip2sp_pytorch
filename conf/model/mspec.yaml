@@ -70,7 +70,7 @@ which_encoder : "transformer"
 # 使用するdecoder（"transformer" or "glu"）
 which_decoder : "glu"
 
-# discriminator（"unet" or "jcu"）
+# discriminator（"unet" or "jcu" ） 
 # 使わない場合は何も書かない（Noneもいらないです）
 which_d : 
 

@@ -81,11 +81,7 @@ import hydra
 
 
 
-def get_datasets(data_root):
-    """
-    hparams.pyのtrain_path, test_pathからファイルを取ってくる
-    """
-    
+def get_datasets(data_root):    
     items = dict()
     idx = 0
     for curdir, dir, files in os.walk(data_root):
@@ -94,19 +90,10 @@ def get_datasets(data_root):
                 format = ".mp4"
                 video_path = os.path.join(curdir, file)
                 audio_path = os.path.join(curdir, file.replace(str(format), ".wav"))
-                if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+                if os.path.isfile(video_path) and os.path.isfile(audio_path):
                         items[idx] = [video_path, audio_path]
                         idx += 1
     return items
-
-# def normalization(data_root=data_root, mode='train'):
-#     items = get_datasets(data_root, mode)
-#     data_len = len(items)
-#     item_iter = iter(items)
-#     item_idx = next(item_iter)
-
-#     while item_idx:
-#         video_path, audio_path = items[item_idx]
 
 
 def calc_mean_var(items, len, cfg):
@@ -300,7 +287,7 @@ class KablabTransform:
         assert lip.shape[-1] == torch.div(self.length, upsample, rounding_mode="trunc"), "lengthの調整に失敗しました"
         assert feature.shape[0] and feat_add.shape[0] == self.length, "lengthの調整に失敗しました"
         
-        return lip, feature.to(torch.float32), feat_add.to(torch.float32)
+        return lip, feature, feat_add
 
     def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, train):
         """
@@ -333,7 +320,7 @@ class KablabTransform:
         
         feature = feature.permute(-1, 0)    # (C, T)
         feat_add = feat_add.permute(-1, 0)  # (C, T)
-        return [lip, feature, feat_add]
+        return [lip, feature.to(torch.float32), feat_add.to(torch.float32)]
 
 
 

@@ -448,6 +448,7 @@ class Decoder(nn.Module):
         return
         out : (B, C, T)
         """
+        breakpoint()
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
@@ -509,7 +510,7 @@ class Decoder(nn.Module):
                     prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
                     prev = prev[:, :, 1:]   # max_lenを超えた場合は、最初のフレームを捨てる
                     assert prev.shape[-1] == max_len
-        breakpoint()
+        
         # 各時刻の出力を結合して出力
         out = torch.cat(outs, dim=2)
         assert out.shape[-1] == T * 2
