@@ -250,7 +250,7 @@ def main(cfg):
     #resultの表示
     result_path = 'results'
     os.makedirs(result_path, exist_ok=True)
-
+    #breakpoint()
     # mlflowを使ったデータの管理
     experiment_name = cfg.train.experiment_name
     writer = MlflowWriter(experiment_name)
@@ -263,7 +263,7 @@ def main(cfg):
     except FileExistsError:
         pass
     save_path = os.path.join(save_path, current_time)
-    
+    print('test')
     #インスタンス作成
     model = Lip2SP(
         in_channels=cfg.model.in_channels,
@@ -316,11 +316,11 @@ def main(cfg):
     # Dataloader作成
     train_loader, _ = make_train_loader(cfg)
     #est_loader, _ = make_test_loader(cfg)
-    
+    breakpoint()
     # 損失関数
     loss_f = nn.MSELoss()
     train_loss_list = []
-    
+    print('fujita')
     # training
     with mlflow.start_run():
         if cfg.model.which_d is None:

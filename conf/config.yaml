@@ -3,8 +3,6 @@ defaults:
   - train: train_1
   - hydra/sweeper: optuna
 
-
-
 optuna_config:
   direction: minimize
   study_name: test
