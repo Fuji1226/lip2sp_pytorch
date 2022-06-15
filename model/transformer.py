@@ -448,7 +448,6 @@ class Decoder(nn.Module):
         return
         out : (B, C, T)
         """
-        breakpoint()
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
