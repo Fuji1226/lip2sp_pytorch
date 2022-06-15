@@ -15,6 +15,9 @@ train_save_path : "/Users/minami/Documents/python/lip2sp_pytorch/mlruns/2/5d1344
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 generate_save_path : "/users/minami/result/generate"
 
+# 平均、標準偏差を保存するディレクトリまでのパス
+mean_std_path : "/users/minami/dataset/mean_std"
+
 # video parameter
 fps : 50
 video_channels : 3
