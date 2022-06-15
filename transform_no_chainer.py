@@ -135,54 +135,66 @@ def load_mp4(path, gray=False):
     return lip_resize, fps
 
 
-def load_data(data_path, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True, return_wave=False):
-    """
-    先輩のコードはlabel, label_nameを取得していて、それをget_dvectorとかに使用している
-    おそらく捜索した時のファイル名とかを取ってくる感じだと思うのですが、一旦スルーしてます
-    lip2sp/submodules/mychainerutils/dataset.py 128行目からのPathDatasetクラスが関係してそうです
+def load_data(train, data_path, cfg, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True, return_wave=False):
+    try:
+        # ファイルがある場合、それを読み込む
+        if train:
+            npz_key = np.load(f'{cfg.train.train_pre_loaded_path}/{cfg.model.name}/{data_path.stem}_{cfg.model.name}.npz')
+            lip = torch.from_numpy(npz_key['lip'])
+            feature = torch.from_numpy(npz_key['feature'])
+            feat_add = torch.from_numpy(npz_key['feat_add'])
+            upsample = torch.from_numpy(npz_key['upsample'])
+            data_len = torch.from_numpy(npz_key['data_len'])
+        else:
+            npz_key = np.load(f'{cfg.train.test_pre_loaded_path}/{cfg.model.name}/{data_path.stem}_{cfg.model.name}.npz')
+            lip = torch.from_numpy(npz_key['lip'])
+            feature = torch.from_numpy(npz_key['feature'])
+            feat_add = torch.from_numpy(npz_key['feat_add'])
+            upsample = torch.from_numpy(npz_key['upsample'])
+            data_len = torch.from_numpy(npz_key['data_len'])
 
-    これは一旦使えそう
-    """
-    lip, fps = load_mp4(str(data_path), gray)   # lipはtensor
-    sppath = Path(data_path)
-    sppath = sppath.parent / (sppath.stem + ".wav")
-    wave, fs = librosa.load(str(sppath), sr=None, mono=None)
-    wave = wave[:int(lip.shape[-1]/fps*1.2*fs)]
-    upsample = get_upsample(fps, fs, frame_period)
-    
-    # 音響特徴量への変換
-    y = cals_sp(
-        wave, fs, frame_period, feature_type,
-        path=data_path, nmels=nmels, f_min=f_min, f_max=f_max)
-    hop_length = fs * frame_period // 1000  # 160
-    
-    power = librosa.feature.rms(wave, frame_length=hop_length*2,
-                hop_length=hop_length).squeeze()
-    power = fill_nan(power)
-    f0 = swipe(wave.astype("float64"), fs, hop_length,
-               min=70.0, otype='f0').squeeze()
+        ret = (lip, feature, feat_add, upsample)
+    except:
+        lip, fps = load_mp4(str(data_path), gray)   # lipはtensor
+        sppath = Path(data_path)
+        sppath = sppath.parent / (sppath.stem + ".wav")
+        wave, fs = librosa.load(str(sppath), sr=None, mono=None)
+        wave = wave[:int(lip.shape[-1]/fps*1.2*fs)]
+        upsample = get_upsample(fps, fs, frame_period)
+        
+        # 音響特徴量への変換
+        y = cals_sp(
+            wave, fs, frame_period, feature_type,
+            path=data_path, nmels=nmels, f_min=f_min, f_max=f_max)
+        hop_length = fs * frame_period // 1000  # 160
+        
+        power = librosa.feature.rms(wave, frame_length=hop_length*2,
+                    hop_length=hop_length).squeeze()
+        power = fill_nan(power)
+        f0 = swipe(wave.astype("float64"), fs, hop_length,
+                min=70.0, otype='f0').squeeze()
 
-    f0, vuv = continuous_f0(f0)
-    T = min(power.size, f0.size, y.shape[0])
-    
-    feat_add = np.vstack((f0[:T], vuv[:T], power[:T])).T
-    feat_add = np.log(np.maximum(feat_add, 1.0e-7))
-    y = y[:T]
+        f0, vuv = continuous_f0(f0)
+        T = min(power.size, f0.size, y.shape[0])
+        
+        feat_add = np.vstack((f0[:T], vuv[:T], power[:T])).T
+        feat_add = np.log(np.maximum(feat_add, 1.0e-7))
+        y = y[:T]
 
-    data_len = min(len(y) // upsample * upsample,  lip.shape[-1] * upsample)
-    y = y[:data_len]
-    feat_add = feat_add[:data_len]
-    lip = lip[..., :data_len // upsample]
+        data_len = min(len(y) // upsample * upsample,  lip.shape[-1] * upsample)
+        y = y[:data_len]
+        feat_add = feat_add[:data_len]
+        lip = lip[..., :data_len // upsample]
 
-    # lip = torch.from_numpy(lip)
-    y = torch.from_numpy(y)
-    feat_add = torch.from_numpy(feat_add)
-    data_len = torch.tensor(data_len)
-    upsample = torch.tensor(upsample)
+        # lip = torch.from_numpy(lip)
+        y = torch.from_numpy(y)
+        feat_add = torch.from_numpy(feat_add)
+        data_len = torch.tensor(data_len)
+        upsample = torch.tensor(upsample)
 
-    ret = (
-        lip, y, feat_add, upsample
-    )
+        ret = (
+            lip, y, feat_add, upsample
+        )
 
     if return_wave:
         return ret, data_len, wave

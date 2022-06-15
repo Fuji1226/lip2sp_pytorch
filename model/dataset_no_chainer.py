@@ -81,7 +81,6 @@ import hydra
 #     return items
 
 
-
 def get_datasets(data_root):    
     items = dict()
     idx = 0
@@ -97,17 +96,27 @@ def get_datasets(data_root):
     return items
 
 
-def calc_mean_std(items, len, cfg):
+def calc_mean_std(items, len, cfg, train):
     try:
         # ファイルがあれば計算せず読み込む
-        npz_key = np.load(f'{cfg.model.mean_std_path}/{cfg.model.name}.npz')
-        lip_mean = torch.from_numpy(npz_key['lip_mean'])
-        lip_std = torch.from_numpy(npz_key['lip_std'])
-        feat_mean = torch.from_numpy(npz_key['feat_mean'])
-        feat_std = torch.from_numpy(npz_key['feat_std'])
-        feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
-        feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
+        if train:
+            npz_key = np.load(f'{cfg.train.train_mean_std_path}/{cfg.model.name}.npz')
+            lip_mean = torch.from_numpy(npz_key['lip_mean'])
+            lip_std = torch.from_numpy(npz_key['lip_std'])
+            feat_mean = torch.from_numpy(npz_key['feat_mean'])
+            feat_std = torch.from_numpy(npz_key['feat_std'])
+            feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
+            feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
+        else:
+            npz_key = np.load(f'{cfg.train.test_mean_std_path}/{cfg.model.name}.npz')
+            lip_mean = torch.from_numpy(npz_key['lip_mean'])
+            lip_std = torch.from_numpy(npz_key['lip_std'])
+            feat_mean = torch.from_numpy(npz_key['feat_mean'])
+            feat_std = torch.from_numpy(npz_key['feat_std'])
+            feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
+            feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
     except:
+        # ファイルがなかった場合は読み込んで、平均、標準偏差を求める。その後、ファイルを保存する。
         lip_mean = 0
         lip_std = 0
         feat_mean = 0
@@ -118,7 +127,9 @@ def calc_mean_std(items, len, cfg):
         for i in tqdm(range(len)):
             video_path, audio_path = items[i]
             (lip, feature, feat_add, upsample), data_len = load_data(
+                train=train,
                 data_path=Path(video_path),
+                cfg=cfg,
                 gray=cfg.model.gray,
                 frame_period=cfg.model.frame_period,
                 feature_type=cfg.model.feature_type,
@@ -126,7 +137,7 @@ def calc_mean_std(items, len, cfg):
                 f_min=cfg.model.f_min,
                 f_max=cfg.model.f_max,
             )
-            
+
             # 時間方向に平均と分散を計算
             lip_mean += torch.mean(lip.float(), dim=(1, 2, 3))
             lip_std += torch.mean(lip.float(), dim=(1, 2, 3))
@@ -134,6 +145,32 @@ def calc_mean_std(items, len, cfg):
             feat_std += torch.std(feature, dim=0)
             feat_add_mean += torch.mean(feat_add, dim=0)
             feat_add_std += torch.std(feat_add, dim=0)
+
+            # 読み込んだデータをnumpyのファイルで保存
+            lip = lip.to('cpu').detach().numpy().copy()
+            feature = feature.to('cpu').detach().numpy().copy()
+            feat_add = feat_add.to('cpu').detach().numpy().copy()
+            upsample = upsample.to('cpu').detach().numpy().copy()
+            data_len = data_len.to('cpu').detach().numpy().copy()
+            
+            if train:
+                np.savez(
+                    f'{cfg.train.train_pre_loaded_path}/{cfg.model.name}/{Path(video_path).stem}_{cfg.model.name}',
+                    lip=lip,
+                    feature=feature,
+                    feat_add=feat_add,
+                    upsample=upsample,
+                    data_len=data_len
+                )
+            else:
+                np.savez(
+                    f'{cfg.train.test_pre_loaded_path}/{cfg.model.name}/{Path(video_path).stem}_{cfg.model.name}',
+                    lip=lip,
+                    feature=feature,
+                    feat_add=feat_add,
+                    upsample=upsample,
+                    data_len=data_len
+                )
         
         # データ全体の平均、分散を計算 (C,) チャンネルごと
         lip_mean /= len     
@@ -150,15 +187,26 @@ def calc_mean_std(items, len, cfg):
         feat_add_mean = feat_add_mean.to('cpu').detach().numpy().copy()
         feat_add_std = feat_add_std.to('cpu').detach().numpy().copy()
         
-        np.savez(
-            f'{cfg.model.mean_std_path}/{cfg.model.name}', 
-            lip_mean=lip_mean, 
-            lip_std=lip_std, 
-            feat_mean=feat_mean, 
-            feat_std=feat_std, 
-            feat_add_mean=feat_add_mean, 
-            feat_add_std=feat_add_std
-        )
+        if train:
+            np.savez(
+                f'{cfg.train.train_mean_std_path}/{cfg.model.name}', 
+                lip_mean=lip_mean, 
+                lip_std=lip_std, 
+                feat_mean=feat_mean, 
+                feat_std=feat_std, 
+                feat_add_mean=feat_add_mean, 
+                feat_add_std=feat_add_std
+            )
+        else:
+            np.savez(
+                f'{cfg.train.test_mean_std_path}/{cfg.model.name}', 
+                lip_mean=lip_mean, 
+                lip_std=lip_std, 
+                feat_mean=feat_mean, 
+                feat_std=feat_std, 
+                feat_add_mean=feat_add_mean, 
+                feat_add_std=feat_add_std
+            )
     return lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
 
 
@@ -176,7 +224,7 @@ class KablabDataset(Dataset):
         self.items = get_datasets(self.data_root)
         self.len = len(self.items)
         
-        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = calc_mean_std(self.items, self.len, self.cfg)
+        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = calc_mean_std(self.items, self.len, self.cfg, self.train)
         
         print(f'Size of {type(self).__name__}: {self.len}')
 
@@ -197,7 +245,9 @@ class KablabDataset(Dataset):
         # data = (lip, y, feat_add, upsample)
         # tensorで返してます
         data, data_len = load_data(
+            train=self.train,
             data_path=Path(video_path),
+            cfg=self.cfg,   # pre_loaded_path用
             gray=self.cfg.model.gray,
             frame_period=self.cfg.model.frame_period,
             feature_type=self.cfg.model.feature_type,
