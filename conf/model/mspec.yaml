@@ -15,6 +15,9 @@ train_save_path : "/home/naoaki/lip2sp_pytorchtest"
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 generate_save_path : "/home/naoaki/lip2sp_pytorchtest"
 
+# 平均、標準偏差を保存するディレクトリまでのパス
+mean_std_path : "/users/minami/dataset/mean_std"
+
 # video parameter
 fps : 50
 video_channels : 3
@@ -70,7 +73,7 @@ which_encoder : "transformer"
 # 使用するdecoder（"transformer" or "glu"）
 which_decoder : "glu"
 
-# discriminator（"unet" or "jcu"）
+# discriminator（"unet" or "jcu" ） 
 # 使わない場合は何も書かない（Noneもいらないです）
 which_d : 
 

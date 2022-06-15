@@ -23,6 +23,7 @@ import librosa
 import librosa.display
 import matplotlib.pyplot as plt
 from scipy.io.wavfile import write
+from tqdm import tqdm
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
@@ -81,11 +82,7 @@ import hydra
 
 
 
-def get_datasets(data_root):
-    """
-    hparams.pyのtrain_path, test_pathからファイルを取ってくる
-    """
-    
+def get_datasets(data_root):    
     items = dict()
     idx = 0
     for curdir, dir, files in os.walk(data_root):
@@ -94,56 +91,74 @@ def get_datasets(data_root):
                 format = ".mp4"
                 video_path = os.path.join(curdir, file)
                 audio_path = os.path.join(curdir, file.replace(str(format), ".wav"))
-                if os.path.isfile(audio_path) and os.path.isfile(audio_path):
+                if os.path.isfile(video_path) and os.path.isfile(audio_path):
                         items[idx] = [video_path, audio_path]
                         idx += 1
     return items
 
-# def normalization(data_root=data_root, mode='train'):
-#     items = get_datasets(data_root, mode)
-#     data_len = len(items)
-#     item_iter = iter(items)
-#     item_idx = next(item_iter)
 
-#     while item_idx:
-#         video_path, audio_path = items[item_idx]
-
-
-def calc_mean_var(items, len, cfg):
-    lip_mean = 0
-    lip_std = 0
-    feat_mean = 0
-    feat_std = 0
-    feat_add_mean = 0
-    feat_add_std = 0
-    for i in range(len):
-        video_path, audio_path = items[i]
-        (lip, feature, feat_add, upsample), data_len = load_data(
-            data_path=Path(video_path),
-            gray=cfg.model.gray,
-            frame_period=cfg.model.frame_period,
-            feature_type=cfg.model.feature_type,
-            nmels=cfg.model.n_mel_channels,
-            f_min=cfg.model.f_min,
-            f_max=cfg.model.f_max,
-        )
+def calc_mean_std(items, len, cfg):
+    try:
+        # ファイルがあれば計算せず読み込む
+        npz_key = np.load(f'{cfg.model.mean_std_path}/{cfg.model.name}.npz')
+        lip_mean = torch.from_numpy(npz_key['lip_mean'])
+        lip_std = torch.from_numpy(npz_key['lip_std'])
+        feat_mean = torch.from_numpy(npz_key['feat_mean'])
+        feat_std = torch.from_numpy(npz_key['feat_std'])
+        feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
+        feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
+    except:
+        lip_mean = 0
+        lip_std = 0
+        feat_mean = 0
+        feat_std = 0
+        feat_add_mean = 0
+        feat_add_std = 0
+        print("--- calc mean and std ---")
+        for i in tqdm(range(len)):
+            video_path, audio_path = items[i]
+            (lip, feature, feat_add, upsample), data_len = load_data(
+                data_path=Path(video_path),
+                gray=cfg.model.gray,
+                frame_period=cfg.model.frame_period,
+                feature_type=cfg.model.feature_type,
+                nmels=cfg.model.n_mel_channels,
+                f_min=cfg.model.f_min,
+                f_max=cfg.model.f_max,
+            )
+            
+            # 時間方向に平均と分散を計算
+            lip_mean += torch.mean(lip.float(), dim=(1, 2, 3))
+            lip_std += torch.mean(lip.float(), dim=(1, 2, 3))
+            feat_mean += torch.mean(feature, dim=0)
+            feat_std += torch.std(feature, dim=0)
+            feat_add_mean += torch.mean(feat_add, dim=0)
+            feat_add_std += torch.std(feat_add, dim=0)
         
-        # 時間方向に平均と分散を計算
-        lip_mean += torch.mean(lip.float(), dim=(1, 2, 3))
-        lip_std += torch.mean(lip.float(), dim=(1, 2, 3))
-        feat_mean += torch.mean(feature, dim=0)
-        feat_std += torch.std(feature, dim=0)
-        feat_add_mean += torch.mean(feat_add, dim=0)
-        feat_add_std += torch.std(feat_add, dim=0)
-    
-    # データ全体の平均、分散を計算 (C,)
-    lip_mean /= len     
-    lip_std /= len      
-    feat_mean /= len    
-    feat_std /= len     
-    feat_add_mean /= len
-    feat_add_std /= len
+        # データ全体の平均、分散を計算 (C,) チャンネルごと
+        lip_mean /= len     
+        lip_std /= len      
+        feat_mean /= len    
+        feat_std /= len     
+        feat_add_mean /= len
+        feat_add_std /= len
 
+        lip_mean = lip_mean.to('cpu').detach().numpy().copy()
+        lip_std = lip_std.to('cpu').detach().numpy().copy()
+        feat_mean = feat_mean.to('cpu').detach().numpy().copy()
+        feat_std = feat_std.to('cpu').detach().numpy().copy()
+        feat_add_mean = feat_add_mean.to('cpu').detach().numpy().copy()
+        feat_add_std = feat_add_std.to('cpu').detach().numpy().copy()
+        
+        np.savez(
+            f'{cfg.model.mean_std_path}/{cfg.model.name}', 
+            lip_mean=lip_mean, 
+            lip_std=lip_std, 
+            feat_mean=feat_mean, 
+            feat_std=feat_std, 
+            feat_add_mean=feat_add_mean, 
+            feat_add_std=feat_add_std
+        )
     return lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
 
 
@@ -161,7 +176,7 @@ class KablabDataset(Dataset):
         self.items = get_datasets(self.data_root)
         self.len = len(self.items)
         
-        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = calc_mean_var(self.items, self.len, self.cfg)
+        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = calc_mean_std(self.items, self.len, self.cfg)
         
         print(f'Size of {type(self).__name__}: {self.len}')
 
@@ -300,7 +315,7 @@ class KablabTransform:
         assert lip.shape[-1] == torch.div(self.length, upsample, rounding_mode="trunc"), "lengthの調整に失敗しました"
         assert feature.shape[0] and feat_add.shape[0] == self.length, "lengthの調整に失敗しました"
         
-        return lip, feature.to(torch.float32), feat_add.to(torch.float32)
+        return lip, feature, feat_add
 
     def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, train):
         """
@@ -333,7 +348,7 @@ class KablabTransform:
         
         feature = feature.permute(-1, 0)    # (C, T)
         feat_add = feat_add.permute(-1, 0)  # (C, T)
-        return [lip, feature, feat_add]
+        return [lip, feature.to(torch.float32), feat_add.to(torch.float32)]
 
 
 
@@ -357,32 +372,42 @@ def main(cfg):
         transforms=trans,
         cfg=cfg,
     )
-    train_loader = DataLoader(
-        dataset=datasets,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=False,
-        drop_last=True,
-        collate_fn=None,
-    )
+    # train_loader = DataLoader(
+    #     dataset=datasets,
+    #     batch_size=cfg.train.batch_size,   
+    #     shuffle=True,
+    #     num_workers=cfg.train.num_workers,      
+    #     pin_memory=False,
+    #     drop_last=True,
+    #     collate_fn=None,
+    # )
+
+    # # results
+    # for interation in range(1):
+    #     for bdx, batch in enumerate(train_loader):
+    #         (lip, y, feat_add), data_len = batch
+    #         print("################################################")
+    #         print(type(lip))
+    #         print(type(y))
+    #         print(type(feat_add))
+    #         print(lip.dtype)
+    #         print(y.dtype)
+    #         print(feat_add.dtype)
+    #         print(f"lip = {lip.shape}")  # (B, C=5, W=48, H=48, T=150)
+    #         print(f"y(acoustic features) = {y.shape}") # (B, C, T=300)
+    #         print(f"feat_add = {feat_add.shape}")     # (B, C=3, T=300)
+    #         print(f"data_len = {data_len}")
 
 
-    # results
-    for interation in range(1):
-        for bdx, batch in enumerate(train_loader):
-            (lip, y, feat_add), data_len = batch
-            print("################################################")
-            print(type(lip))
-            print(type(y))
-            print(type(feat_add))
-            print(lip.dtype)
-            print(y.dtype)
-            print(feat_add.dtype)
-            print(f"lip = {lip.shape}")  # (B, C=5, W=48, H=48, T=150)
-            print(f"y(acoustic features) = {y.shape}") # (B, C, T=300)
-            print(f"feat_add = {feat_add.shape}")     # (B, C=3, T=300)
-            print(f"data_len = {data_len}")
+    # npz_key = np.load(f'{cfg.model.mean_std_path}/{cfg.model.name}.npz')
+    # breakpoint()
+    # lip_mean = torch.from_numpy(npz_key['lip_mean'])
+    # lip_std = torch.from_numpy(npz_key['lip_std'])
+    # feat_mean = torch.from_numpy(npz_key['feat_mean'])
+    # feat_std = torch.from_numpy(npz_key['feat_std'])
+    # feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
+    # feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
+    # print(lip_mean)
 
     
 if __name__ == "__main__":

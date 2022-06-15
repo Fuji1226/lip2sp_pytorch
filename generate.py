@@ -158,16 +158,6 @@ def main(cfg):
     )
     
 
-@hydra.main(config_name="config", config_path="conf")
-def test(cfg):
-    model_uri = 'runs:/665f72b343a34098ad93e82c504b7e03/model'
-    model_path_dir = "model"
-    run_id = "665f72b343a34098ad93e82c504b7e03"
-    loaded_model = mlflow.pytorch.load_model(model_uri)
-
-    return
-
-
 if __name__ == "__main__":
     main()
     # test()
