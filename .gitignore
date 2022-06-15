@@ -9,3 +9,4 @@ mlruns/
 multirun/
 outputs/
 wandb/
+conf/

@@ -285,7 +285,7 @@ class KablabTransform:
         # data_lenが短い場合、0パディング
         if data_len <= self.length:
             # length分の0初期化
-            lip_padded = torch.zeros(lip.shape[0], lip.shape[1], lip.shape[2], self.length // upsample)
+            lip_padded = torch.zeros(lip.shape[0], lip.shape[1], lip.shape[2], self.length // int(upsample))
             feature_padded = torch.zeros(self.length, feature.shape[1])
             feat_add_padded = torch.zeros(self.length, feat_add.shape[1])
 
@@ -293,7 +293,7 @@ class KablabTransform:
             for i in range(data_len // upsample):
                 lip_padded[..., i] = lip[..., i]
             for i in range(data_len):
-                feature_padded[i, ...] = feature[..., i]
+                feature_padded[i, ...] = feature[i, ...]
                 feat_add_padded[i, ...] = feat_add[i, ...]
     
             lip = lip_padded
