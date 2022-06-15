@@ -5,19 +5,6 @@ name : mspec
 #################################
 # data_info
 #################################
-# データを置いているディレクトリまでのパス
-train_path : "/users/minami/dataset/train"
-test_path : "/users/minami/dataset/test"
-
-# 学習したモデルのパラメータを保存するディレクトリまでのパス
-train_save_path : "/Users/minami/Documents/python/lip2sp_pytorch/mlruns/2/5d13447ad7e440a4a5ed3783859e38e3/artifacts/model_state_dict"
-
-# generate.pyを実行したときのデータを保存するディレクトリまでのパス
-generate_save_path : "/users/minami/result/generate"
-
-# 平均、標準偏差を保存するディレクトリまでのパス
-mean_std_path : "/users/minami/dataset/mean_std"
-
 # video parameter
 fps : 50
 video_channels : 3
@@ -71,7 +58,7 @@ n_head : 2
 which_encoder : "transformer"
 
 # 使用するdecoder（"transformer" or "glu"）
-which_decoder : "glu"
+which_decoder : "transformer"
 
 # discriminator（"unet" or "jcu" ） 
 # 使わない場合は何も書かない（Noneもいらないです）

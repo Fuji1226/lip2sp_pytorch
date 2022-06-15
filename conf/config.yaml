@@ -1,5 +1,5 @@
 defaults:
-  - model: mspec
+  - model: world
   - train: train_1
   - hydra/sweeper: optuna
 

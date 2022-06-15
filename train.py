@@ -5,6 +5,10 @@ lip2sp_pytorch/conf/train
 
 <追記>
 損失関数の中でバッチに対して既に平均を計算していたので、lossをdata_cntではなく、iter_cntで割るように変更しました
+
+pathの管理がmspecとworldで同じだったので、trainで一括管理するように変更しました
+
+dataset_no_chainerで、平均と標準偏差を保存するついでに口唇動画や音響特徴量も保存しておくように変更しました
 """
 
 from omegaconf import DictConfig, OmegaConf
@@ -60,7 +64,7 @@ def make_train_loader(cfg):
         delta=cfg.model.delta
     )
     datasets = KablabDataset(
-        data_root=cfg.model.train_path,
+        data_root=cfg.train.train_path,
         train=True,
         transforms=trans,
         cfg=cfg,
@@ -83,7 +87,7 @@ def make_test_loader(cfg):
         delta=cfg.model.delta
     )
     datasets = KablabDataset(
-        data_root=cfg.model.test_path,
+        data_root=cfg.train.test_path,
         train=False,
         transforms=trans,
         cfg=cfg,
@@ -352,7 +356,7 @@ def main(cfg):
     writer.log_params_from_omegaconf_dict(cfg)
 
     # モデルのパラメータの保存先
-    save_path = cfg.model.train_save_path
+    save_path = cfg.train.train_save_path
     try:
         os.makedirs(f"{save_path}/{current_time}")
     except FileExistsError:
