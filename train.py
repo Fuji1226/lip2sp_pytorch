@@ -147,7 +147,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_
 
         loss.backward()
 
-        # gradient clipping
+        # gradient clipping（max_norm=3.0）
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
 
         optimizer.step()
@@ -405,14 +405,14 @@ def main(cfg):
         model.parameters(), 
         lr=cfg.train.lr, 
         betas=(cfg.train.beta_1, cfg.train.beta_2),
-        weight_decay=cfg.train.weight_decay
+        weight_decay=cfg.train.weight_decay     # 1.0e-6
     )
 
     # schedular
     scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer, 
         step_size=cfg.train.max_epoch // 4, 
-        gamma=cfg.train.lr_decay_rate
+        gamma=cfg.train.lr_decay_rate       # 0.5
     )
 
     # discriminator
