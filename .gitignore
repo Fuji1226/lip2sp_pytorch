@@ -1,0 +1,13 @@
+fujita/
+.DS_Store
+results/
+shells/
+hparams.py
+*__pycache__*
+*.pyc
+mlruns/
+multirun/
+outputs/
+wandb/
+conf/
+datasets_check.ipynb
