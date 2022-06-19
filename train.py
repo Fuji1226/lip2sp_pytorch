@@ -21,11 +21,10 @@ configのtrainにparameterを追加して実行してください（gitignoreで
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import mlflow
-
-# import wandb
+import wandb
 # wandb.init(
-#     project='llip2sp_pytorch',
-#     name="desk-test"
+#     project='lip2sp_pytorch',
+#     name="test"
 # )
 
 from pathlib import Path
@@ -40,6 +39,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
+import torchaudio
+from speechbrain.pretrained import EncoderClassifier
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
@@ -112,7 +113,7 @@ def make_test_loader(cfg):
     return test_loader, datasets
     
 
-def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_f_train, device, cfg):
+def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_f_train, device, cfg, writer):
     epoch_loss = 0
     data_cnt = 0
     iter_cnt = 0
@@ -152,6 +153,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_
 
         optimizer.step()
         epoch_loss += loss.item()
+        writer.log_metric("train_iter_loss", loss.item())
         # wandb.log({"train_iter_loss": loss.item()})
     
     # epoch_loss /= data_cnt
@@ -259,7 +261,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
     return epoch_loss, epoch_loss_d
 
 
-def calc_test_loss(model: nn.Module, test_loader, loss_f_test, device, cfg):
+def calc_test_loss(model: nn.Module, test_loader, loss_f_test, device, cfg, writer):
     epoch_loss = 0
     data_cnt = 0
     iter_cnt = 0
@@ -286,6 +288,9 @@ def calc_test_loss(model: nn.Module, test_loader, loss_f_test, device, cfg):
             + loss_f_test.mse_loss(dec_output, target, data_len, max_len=model.max_len * 2) \
                 + loss_f_test.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
         epoch_loss += loss.item()
+
+        writer.log_metric("val_iter_loss", loss.item())
+        # wandb.log({"val_iter_loss": loss.item()})
     
     # epoch_loss /= data_cnt
     epoch_loss /= iter_cnt
@@ -449,14 +454,14 @@ def main(cfg):
         if cfg.model.which_d is None:
             for epoch in range(cfg.train.max_epoch):
                 print(f"##### {epoch} #####")
-                epoch_loss = train_one_epoch(model, train_loader, optimizer, loss_f_mse, loss_f_train, device, cfg)
+                epoch_loss = train_one_epoch(model, train_loader, optimizer, loss_f_mse, loss_f_train, device, cfg, writer)
                 train_loss_list.append(epoch_loss)
                 print(f"epoch_loss = {epoch_loss}")
                 print(f"train_loss_list = {train_loss_list}")
                 writer.log_metric("loss", epoch_loss)
 
                 if epoch % cfg.train.display_test_loss_step == 0:
-                    epoch_loss_test = calc_test_loss(model, test_loader, loss_f_test, device, cfg)
+                    epoch_loss_test = calc_test_loss(model, test_loader, loss_f_test, device, cfg, writer)
                     print(f"epoch_loss_test = {epoch_loss_test}")
                     writer.log_metric("test_loss", epoch_loss_test)
                 
@@ -497,14 +502,5 @@ def main(cfg):
 
 
 
-@hydra.main(config_name="config", config_path="conf")
-def test(cfg):
-
-    print(hydra.utils.get_original_cwd())
-    print(os.getcwd())
-
-    return
-
 if __name__=='__main__':
     main()
-    # test()
