@@ -48,8 +48,8 @@ class Lip2SP(nn.Module):
             self.encoder = Encoder(
                 n_layers, n_head, d_model, n_position, reduction_factor, dropout
             )
-        elif self.encoder == "conformer":
-            self.conformer_encoder = Conformer_Encoder(
+        elif self.which_encoder == "conformer":
+            self.encoder = Conformer_Encoder(
                 encoder_dim=d_model, num_layers=n_layers, num_attention_heads=n_head, reduction_factor=reduction_factor
             )
 

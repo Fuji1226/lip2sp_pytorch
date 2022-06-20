@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_pytorch
+    entity:
+    mode: online
+    name : wandb_test_d
+watch:
+    log: all
+    log_freq: 100

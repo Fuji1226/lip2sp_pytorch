@@ -318,6 +318,7 @@ class Decoder(nn.Module):
         super().__init__()
 
         self.n_head = n_head
+        self.d_model = d_model
         self.d_k = d_model // n_head
         self.d_v = d_model // n_head
         self.reduction_factor = reduction_factor
@@ -336,7 +337,6 @@ class Decoder(nn.Module):
         self.conv_o = weight_norm(nn.Conv1d(d_model, self.out_channels * self.reduction_factor, kernel_size=1))
 
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
-        self.d_model = d_model
 
         # self.proj_pre = nn.Conv1d(d_model, d_model, kernel_size=1, bias=False)
         # if use_gc:

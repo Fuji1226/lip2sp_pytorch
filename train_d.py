@@ -30,7 +30,8 @@ from model.models import Lip2SP
 from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
 from mf_writer import MlflowWriter
-from data_process.feature import delta_feature
+from data_process.feature import world2wav_direct
+
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -122,12 +123,16 @@ def make_test_loader(cfg):
     return test_loader, dataset
 
 
-def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimizer, optimizer_d, loss_f_mse, loss_f_train, device, cfg):
+def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, dataset, optimizer, optimizer_d, loss_f_mse, loss_f_train, device, cfg):
     epoch_loss = 0
     epoch_loss_d = 0
     data_cnt = 0
     iter_cnt = 0
     all_iter = len(train_loader)
+
+    feat_mean = dataset.feat_mean.to(device)
+    feat_std = dataset.feat_std.to(device)
+
     print("iter start")
     model.train()
     discriminator.train()
@@ -137,7 +142,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
         
         (lip, target, feat_add), data_len, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
-
+        
         batch_size = lip.shape[0]
         data_cnt += batch_size
 
@@ -149,7 +154,6 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
         for param in discriminator.parameters():
             param.requires_grad = True
 
-        ################順伝搬###############
         # output : postnet後の出力
         # dec_output : postnet前の出力
         # generatorのパラメータが更新されないように設定
@@ -159,7 +163,12 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
                 data_len=data_len,
                 prev=target,
             )                      
-        ####################################
+        
+        ############################################
+        wav_target = world2wav_direct(target, feat_mean, feat_std, cfg)
+        wav_output = world2wav_direct(output, feat_mean, feat_std, cfg)
+        ############################################
+        
         
         # discriminatorへ入力
         try:
@@ -305,7 +314,7 @@ def main(cfg):
     
     # Dataloader作成
     # train_loader, val_loader, _ = make_train_val_loader(cfg)
-    train_loader, _ = make_train_val_loader(cfg)
+    train_loader, dataset = make_train_val_loader(cfg)
     test_loader, _ = make_test_loader(cfg)
     
     # 損失関数
@@ -386,7 +395,18 @@ def main(cfg):
         # training
         for epoch in range(cfg.train.max_epoch):
             print(f"##### {epoch} #####")
-            epoch_loss, epoch_loss_d = train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f_mse, loss_f_train, device, cfg)
+            epoch_loss, epoch_loss_d = train_one_epoch_with_d(
+                model=model, 
+                discriminator=discriminator, 
+                train_loader=train_loader, 
+                dataset=dataset,
+                optimizer=optimizer, 
+                optimizer_d=optimizer_d, 
+                loss_f_mse=loss_f_mse, 
+                loss_f_train=loss_f_train, 
+                device=device, 
+                cfg=cfg
+            )
             train_loss_list.append(epoch_loss)
             print(f"epoch_loss = {epoch_loss}")
             print(f"epoch_loss_d = {epoch_loss_d}")

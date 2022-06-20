@@ -367,6 +367,50 @@ def world2wav(
 
     return wave
 
+
+def world2wav_direct(feature, feat_mean, feat_std, cfg):
+    """
+    train_d.pyで使用
+    tensorで渡してこの中で変換
+    tensorでwavを返す
+    """
+    batch, c, t = feature.shape
+    feature = feature.to('cpu').detach().numpy().copy()
+    feat_mean = feat_mean.unsqueeze(1).to('cpu').detach().numpy().copy()
+    feat_std = feat_std.unsqueeze(1).to('cpu').detach().numpy().copy()
+    
+    # 正規化したので元のスケールに直す
+    feature *= feat_std
+    feature += feat_mean
+
+    # wav_save = np.zeros((batch, cfg.model))
+    wav_save = []
+    breakpoint()
+    for i in range(batch):
+        f = feature[i]
+        f = f.T
+        mcep = f[:, :-3]
+        clf0 = f[:, -3]
+        vuv = f[:, -2]
+        cap = f[:, -1]
+        wav = world2wav(
+            sp=mcep,
+            clf0=clf0,
+            vuv=vuv,
+            cap=cap,
+            fs=cfg.model.sampling_rate,
+            fbin=513,
+            frame_period=cfg.model.frame_period,
+            mcep_postfilter=True,
+        )
+        # wav_save[i] = wav
+        wav_save.append(wav)
+    wav = np.array(wav_save)
+    breakpoint()
+    wav = torch.from_numpy(wav_save)
+    return wav
+
+
 ##########################################
 # add delta_feature
 ##########################################

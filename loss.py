@@ -122,9 +122,13 @@ class masked_loss:
                 data_lens.append(ratios[layer] * data_len)
 
             # get mask
+            # masks = []
+            # for layer in range(len(out_f)):
+            #     masks.append(make_pad_mask(data_lens[layer], max_lens[layer]))
+
             masks = []
-            for layer in range(len(out_f)):
-                masks.append(make_pad_mask(data_lens[layer], max_lens[layer]))
+            for d_len, m_len in zip(data_lens, max_lens):
+                masks.append(make_pad_mask(d_len, m_len))
         
         # discriminatorに対する損失を計算する場合
         losses = []
@@ -209,10 +213,14 @@ class masked_loss:
                 data_lens.append(ratios[layer] * data_len)
 
             # 各層の比率にあったマスク行列を生成
+            # masks = []
+            # for layer in range(len(fmaps_f)):
+            #     masks.append(make_pad_mask(data_lens[layer], max_lens[layer]))
+        
             masks = []
-            for layer in range(len(fmaps_f)):
-                masks.append(make_pad_mask(data_lens[layer], max_lens[layer]))
-
+            for d_len, m_len in zip(data_lens, max_lens):
+                masks.append(make_pad_mask(d_len, m_len))
+                
         # discriminatorの各層における特徴量の誤差を計算
         losses = []
         for layer in range(len(fmaps_f)):
@@ -250,6 +258,8 @@ class masked_loss:
         loss = sum(losses_mean) / len(fmaps_f)
 
         return loss
+
+
 
 
 def main():
