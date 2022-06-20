@@ -134,6 +134,7 @@ def calc_mean_std(items, len, cfg):
             feat_std += torch.std(feature, dim=0)
             feat_add_mean += torch.mean(feat_add, dim=0)
             feat_add_std += torch.std(feat_add, dim=0)
+            
         
         # データ全体の平均、分散を計算 (C,) チャンネルごと
         lip_mean /= len     
@@ -150,6 +151,7 @@ def calc_mean_std(items, len, cfg):
         feat_add_mean = feat_add_mean.to('cpu').detach().numpy().copy()
         feat_add_std = feat_add_std.to('cpu').detach().numpy().copy()
         
+        os.makedirs(cfg.model.mean_std_path, exist_ok=True)
         np.savez(
             f'{cfg.model.mean_std_path}/{cfg.model.name}', 
             lip_mean=lip_mean, 
@@ -285,15 +287,15 @@ class KablabTransform:
         # data_lenが短い場合、0パディング
         if data_len <= self.length:
             # length分の0初期化
-            lip_padded = torch.zeros(lip.shape[0], lip.shape[1], lip.shape[2], self.length // upsample)
+            lip_padded = torch.zeros(lip.shape[0], lip.shape[1], lip.shape[2], self.length // int(upsample))
             feature_padded = torch.zeros(self.length, feature.shape[1])
             feat_add_padded = torch.zeros(self.length, feat_add.shape[1])
 
             # 代入
-            for i in range(data_len // upsample):
+            for i in range(int(data_len) // int(upsample)):
                 lip_padded[..., i] = lip[..., i]
             for i in range(data_len):
-                feature_padded[i, ...] = feature[..., i]
+                feature_padded[i, ...] = feature[i, ...]
                 feat_add_padded[i, ...] = feat_add[i, ...]
     
             lip = lip_padded

@@ -11,11 +11,11 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 import mlflow
 
-# import wandb
-# wandb.init(
-#     project='llip2sp_pytorch',
-#     name="desk-test"
-# )
+import wandb
+wandb.init(
+    project='llip2sp_pytorch',
+    name="desk-615_2"
+)
 
 from pathlib import Path
 import os
@@ -137,7 +137,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_
         loss.backward()
         optimizer.step()
         epoch_loss += loss.item()
-        # wandb.log({"train_iter_loss": loss.item()})
+        wandb.log({"train_iter_loss": loss.item()})
     
     # epoch_loss /= data_cnt
     epoch_loss /= iter_cnt
@@ -411,7 +411,7 @@ def main(cfg):
     # Dataloader作成
     train_loader, _ = make_train_loader(cfg)
     #est_loader, _ = make_test_loader(cfg)
-    breakpoint()
+
     # 損失関数
     loss_f_mse = nn.MSELoss()
     loss_f_mae = nn.L1Loss()
@@ -426,14 +426,15 @@ def main(cfg):
                 print(f"##### {epoch} #####")
                 epoch_loss = train_one_epoch(model, train_loader, optimizer, loss_f_mse, loss_f_train, device)
                 train_loss_list.append(epoch_loss)
+                wandb.log({'epoch_loss': epoch_loss}, step=epoch)
                 print(f"epoch_loss = {epoch_loss}")
                 print(f"train_loss_list = {train_loss_list}")
                 writer.log_metric("loss", epoch_loss)
 
-                if epoch % cfg.train.display_test_loss_step == 0:
-                    epoch_loss_test = calc_test_loss(model, test_loader, loss_f_test, device, cfg)
-                    print(f"epoch_loss_test = {epoch_loss_test}")
-                    writer.log_metric("test_loss", epoch_loss_test)
+                # if epoch % cfg.train.display_test_loss_step == 0:
+                #     epoch_loss_test = calc_test_loss(model, test_loader, loss_f_test, device, cfg)
+                #     print(f"epoch_loss_test = {epoch_loss_test}")
+                #     writer.log_metric("test_loss", epoch_loss_test)
 
             save_result(train_loss_list, result_path+'/train_loss.png')
             torch.save(model.state_dict(), save_path+f'/model_{cfg.model.name}.pth')

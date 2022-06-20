@@ -16,7 +16,7 @@ train_save_path : "/home/naoaki/lip2sp_pytorchtest"
 generate_save_path : "/home/naoaki/lip2sp_pytorchtest"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
-mean_std_path : "/users/minami/dataset/mean_std"
+mean_std_path : "/home/naoaki/dataset/mean_std"
 
 # video parameter
 fps : 50

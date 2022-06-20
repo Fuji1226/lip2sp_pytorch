@@ -414,10 +414,12 @@ def delta_feature(x, order=2, static=True, delta=True, deltadelta=True):
 
     # チャンネル方向のパディングはいらないので、取り除いてます
     x = padding(x)[:, :, pad:-1, :]     # (B, 1, C, T + 2)
-    
+   
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    W = W.to(device)
     # 設定したフィルタでxに対して2次元畳み込みを行い、静的特徴量からdelta, deltadelta特徴量を計算
     out = F.conv2d(x, W)    # (B, 3, C, T)
-
+   
     B, T = out.shape[0], out.shape[-1]
     out = out.view(B, -1, T)    # (B, 3 * C, T)
 

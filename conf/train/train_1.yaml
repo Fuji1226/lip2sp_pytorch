@@ -29,7 +29,7 @@ beta_2 : 0.999
 
 # training
 max_iter : 5
-max_epoch : 5
+max_epoch : 50
 
 # test lossを計算する間隔
 display_test_loss_step : 4
