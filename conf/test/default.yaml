@@ -1,0 +1,20 @@
+---
+
+# データを置いているディレクトリまでのパス
+data_path : "/home/usr4/r70264c/dataset/lip/lip_cropped"
+
+# 学習したモデルのパラメータを保存するディレクトリまでのパス
+train_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/train"
+
+# check point path
+ckpt_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/check_point"
+ckpt_step : 5
+
+# generate.pyを実行したときのデータを保存するディレクトリまでのパス
+generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate"
+
+# 平均、標準偏差を保存するディレクトリまでのパス
+mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
+
+# 口唇動画、音響特徴量を保存するディレクトリまでのパス
+pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/test"
