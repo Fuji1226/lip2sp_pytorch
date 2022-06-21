@@ -1,7 +1,7 @@
 ---
 
 # データを置いているディレクトリまでのパス
-train_path : "/home/usr4/r70264c/dataset/lip"
+train_path : "/home/usr4/r70264c/dataset/lip/lip_cropped"
 test_path : "/home/usr4/r70264c/dataset/lip"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
@@ -15,12 +15,12 @@ ckpt_step : 5
 generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
-train_mean_std_path : "/home/usr4/r70264c/dataset/np_files/mean_std"
-test_mean_std_path : "/home/usr4/r70264c/dataset/np_files/mean_std"
+train_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
+test_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
 
 # 口唇動画、音響特徴量を保存するディレクトリまでのパス
-train_pre_loaded_path : "/home/usr4/r70264c/dataset/np_files"
-test_pre_loaded_path : "/home/usr4/r70264c/dataset/np_files"
+train_pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/train"
+test_pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/test"
 
 # mlflowの保存先
 experiment_name : "test"

@@ -1,6 +1,7 @@
 defaults:
   - model: mspec
-  - train: not_cropped
+  - train: train_1
+  - test : default
   - wandb_conf : defaults
 #   - hydra/sweeper: optuna
 

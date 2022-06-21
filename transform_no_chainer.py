@@ -246,18 +246,18 @@ def load_data(train, data_path, cfg, gray, frame_period, feature_type, nmels, f_
         return ret, data_len
 
 
-def load_data_for_npz(data_path, cfg, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True, return_wave=False):
-    lip, fps = load_mp4(str(data_path), gray)   # lipはtensor
-    sppath = Path(data_path)
-    sppath = sppath.parent / (sppath.stem + ".wav")
-    wave, fs = librosa.load(str(sppath), sr=None, mono=None)
+def load_data_for_npz(video_path, audio_path, cfg, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True, return_wave=False):
+    lip, fps = load_mp4(str(video_path), gray)   # lipはtensor
+    # sppath = audio_path
+    # sppath = sppath.parent / (sppath.stem + ".wav")
+    wave, fs = librosa.load(str(audio_path), sr=None, mono=None)
     wave = wave[:int(lip.shape[-1]/fps*1.2*fs)]
     upsample = get_upsample(fps, fs, frame_period)
     
     # 音響特徴量への変換
     feature = cals_sp(
         wave, fs, frame_period, feature_type,
-        path=data_path, nmels=nmels, f_min=f_min, f_max=f_max)
+        path=audio_path, nmels=nmels, f_min=f_min, f_max=f_max)
     hop_length = fs * frame_period // 1000  # 160
     
     power = librosa.feature.rms(wave, frame_length=hop_length*2,
@@ -282,34 +282,34 @@ def load_data_for_npz(data_path, cfg, gray, frame_period, feature_type, nmels, f
 
     ret = (lip, feature, feat_add, upsample)
 
-    if cfg.model.name == "world":
-        feature = feature.T
-        mcep = feature[:, :-3]
-        clf0 = feature[:, -3]
-        vuv = feature[:, -2]
-        cap = feature[:, -1]
-        wav = world2wav(
-            sp=mcep,
-            clf0=clf0,
-            vuv=vuv,
-            cap=cap,
-            fs=cfg.model.sampling_rate,
-            fbin=513,
-            frame_period=cfg.model.frame_period,
-            mcep_postfilter=True,
-        )
+    # if cfg.model.name == "world":
+    #     feature = feature.T
+    #     mcep = feature[:, :-3]
+    #     clf0 = feature[:, -3]
+    #     vuv = feature[:, -2]
+    #     cap = feature[:, -1]
+    #     wav = world2wav(
+    #         sp=mcep,
+    #         clf0=clf0,
+    #         vuv=vuv,
+    #         cap=cap,
+    #         fs=cfg.model.sampling_rate,
+    #         fbin=513,
+    #         frame_period=cfg.model.frame_period,
+    #         mcep_postfilter=True,
+    #     )
 
-    elif cfg.model.name == "mspec":
-        wav = librosa.feature.inverse.mel_to_audio(
-            librosa.db_to_power(feature),
-            sr=cfg.model.sampling_rate,
-            n_fft=cfg.model.n_fft,
-            hop_length=cfg.model.hop_length,
-            win_length=cfg.model.win_length,
-            n_iter=50,
-        )
+    # elif cfg.model.name == "mspec":
+    #     wav = librosa.feature.inverse.mel_to_audio(
+    #         librosa.db_to_power(feature),
+    #         sr=cfg.model.sampling_rate,
+    #         n_fft=cfg.model.n_fft,
+    #         hop_length=cfg.model.hop_length,
+    #         win_length=cfg.model.win_length,
+    #         n_iter=50,
+    #     )
 
-    return ret, data_len, wav
+    return ret, data_len
 
 
 ########################################################################################################
