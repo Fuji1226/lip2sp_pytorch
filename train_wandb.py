@@ -31,6 +31,9 @@ from model.discriminator import UNetDiscriminator, JCUDiscriminator
 from mf_writer import MlflowWriter
 from data_process.feature import delta_feature
 
+# wandbへのログイン
+wandb.login(key="ba729c3f218d8441552752401f49ba3c0c0e2b9f")
+
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
@@ -39,11 +42,15 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
 
-# パラメータの保存
-def save_checkpoint(model, optimizer, iteration, ckpt_pth):
+# check pointでの保存
+def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
 	torch.save({'model': model.state_dict(),
 				'optimizer': optimizer.state_dict(),
-				'iteration': iteration}, ckpt_pth)
+                'schedular': schedular.state_dict(),
+                "np_random": np.random.get_state(), 
+                "torch": torch.get_rng_state(),
+                "torch_random": torch.random.get_rng_state(),
+				'epoch': epoch}, ckpt_path)
 
 
 def make_train_loader(cfg):
@@ -345,7 +352,11 @@ def main(cfg):
 
     #resultの表示
     result_path = 'results'
-    os.makedirs(result_path, exist_ok=True)
+    # os.makedirs(result_path, exist_ok=True)
+
+    # check point
+    ckpt_path = os.path.join(cfg.train.ckpt_path, current_time)
+    os.makedirs(ckpt_path, exist_ok=True)
 
     # モデルパラメータの保存先を指定
     save_path = os.path.join(cfg.train.train_save_path, current_time)
@@ -363,7 +374,7 @@ def main(cfg):
     train_loss_list = []
     
     # training
-    with wandb.init(**cfg.wandb.setup, config=wandb_cfg) as run:
+    with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg) as run:
         #インスタンス作成
         model = Lip2SP(
             in_channels=cfg.model.in_channels,
@@ -422,7 +433,7 @@ def main(cfg):
         else:
             discriminator = None
 
-        wandb.watch(model, **cfg.wandb.watch)
+        wandb.watch(model, **cfg.wandb_conf.watch)
 
         if cfg.model.which_d is None:
             for epoch in range(cfg.train.max_epoch):
@@ -432,6 +443,7 @@ def main(cfg):
                 print(f"epoch_loss = {epoch_loss}")
                 print(f"train_loss_list = {train_loss_list}")
 
+                # 検証用データ
                 if epoch % cfg.train.display_test_loss_step == 0:
                     epoch_loss_test = calc_test_loss(model, test_loader, loss_f_test, device, cfg)
                     print(f"epoch_loss_test = {epoch_loss_test}")
@@ -439,11 +451,24 @@ def main(cfg):
                 # 学習率の更新
                 scheduler.step()
 
+                # check point
+                if epoch % cfg.train.ckpt_step == 0:
+                    save_checkpoint(
+                        model=model,
+                        optimizer=optimizer,
+                        schedular=scheduler,
+                        epoch=epoch,
+                        ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt")
+                    )
+                    artifact_ckpt = wandb.Artifact('ckpt', type='ckpt')
+                    artifact_ckpt.add_file(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
+                    wandb.log_artifact(artifact_ckpt)
+
             # モデルの保存
             torch.save(model.state_dict(), os.path.join(save_path, f"model_{cfg.model.name}.pth"))
-            artifact = wandb.Artifact('model', type='model')
-            artifact.add_file(os.path.join(save_path, f"model_{cfg.model.name}.pth"))
-            wandb.log_artifact(artifact)
+            artifact_model = wandb.Artifact('model', type='model')
+            artifact_model.add_file(os.path.join(save_path, f"model_{cfg.model.name}.pth"))
+            wandb.log_artifact(artifact_model)
             
         else:
             for epoch in range(cfg.train.max_epoch):

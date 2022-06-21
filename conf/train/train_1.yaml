@@ -1,22 +1,26 @@
 ---
 
 # データを置いているディレクトリまでのパス
-train_path : "/users/minami/dataset/train"
-test_path : "/users/minami/dataset/test"
+train_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/train"
+test_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/test"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-train_save_path : "/Users/minami/result/lip2sp/train"
+train_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/train"
+
+# check point path
+ckpt_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/check_point"
+ckpt_step : 5
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-generate_save_path : "/users/minami/result/generate"
+generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
-train_mean_std_path : "/users/minami/dataset/np_files/mean_std/train"
-test_mean_std_path : "/users/minami/dataset/np_files/mean_std/test"
+train_mean_std_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/mean_std/train"
+test_mean_std_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/mean_std/test"
 
 # 口唇動画、音響特徴量を保存するディレクトリまでのパス
-train_pre_loaded_path : "/users/minami/dataset/np_files/data/train"
-test_pre_loaded_path : "/users/minami/dataset/np_files/data/test"
+train_pre_loaded_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/data/train"
+test_pre_loaded_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/data/test"
 
 # mlflowの保存先
 experiment_name : "test"
@@ -29,7 +33,7 @@ use_gc : False
 
 # dataloader
 batch_size : 5
-num_workers : 0
+num_workers : 2
 
 # optimizer
 lr : 0.001
@@ -39,10 +43,10 @@ weight_decay : 1.0e-6
 
 # training
 max_iter : 5
-max_epoch : 5
+max_epoch : 20
 
 # test lossを計算する間隔
-display_test_loss_step : 4
+display_test_loss_step : 5
 
 # 学習率の減衰
 lr_decay_rate : 0.5

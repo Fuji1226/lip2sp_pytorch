@@ -1,17 +1,22 @@
 """
 最終的なモデル
 """
+import os
+import sys
+import glob
 
+# 親ディレクトリからのimport用
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import torch
 import torch.nn as nn
 
 try:
-    from .net import ResNet3D
-    from .transformer import Postnet, Encoder, Decoder
-    from .conformer.encoder import Conformer_Encoder
+    from model.net import ResNet3D
+    from model.transformer import Postnet, Encoder, Decoder
+    from model.conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    from .glu import GLU
+    from model.glu import GLU
 except:
     from net import ResNet3D
     from transformer import Postnet, Encoder, Decoder

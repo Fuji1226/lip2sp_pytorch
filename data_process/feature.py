@@ -451,7 +451,7 @@ def delta_feature(x, order=2, static=True, delta=True, deltadelta=True):
     else:
         raise ValueError(f"order: {order}")
 
-    W = torch.stack(ws, dim=0)  # (3, 3)
+    W = torch.stack(ws, dim=0).to(device=x.device)  # (3, 3)
     W = W.unsqueeze(1).unsqueeze(1)     # (3, 1, 1, 3) : (out_channels, in_channels, kernel_size_C, kernel_size_T)
 
     padding = nn.ReflectionPad2d(pad)

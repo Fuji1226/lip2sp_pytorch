@@ -62,7 +62,7 @@ which_decoder : "transformer"
 
 # discriminator（"unet" or "jcu" ） 
 # 使わない場合は何も書かない（Noneもいらないです）
-which_d : "jcu"
+which_d : 
 
 # out_channels
 out_channels : 80  # 音響特徴量から計算します

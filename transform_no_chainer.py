@@ -2,9 +2,14 @@
 データのロード、前処理
 """
 
+import os
+import sys
+import glob
+
+# 親ディレクトリからのimport用
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 import wave
-import skvideo
-from skvideo.io import vread
 from pathlib import Path
 import cv2
 import numpy as np
@@ -21,26 +26,26 @@ try:
     from data_process.feature import wave2mel, wav2world
     from hparams import create_hparams
 except:
-    from .get_dir import get_data_directory
-    from .utils import get_sp_name, get_upsample
-    from .data_process.feature import wave2mel, wav2world
-    from .hparams import create_hparams
+    from lip2sp_pytorch.get_dir import get_data_directory
+    from lip2sp_pytorch.utils import get_sp_name, get_upsample
+    from lip2sp_pytorch.data_process.feature import wave2mel, wav2world
+    from lip2sp_pytorch.hparams import create_hparams
 
 
-ROOT = Path(get_data_directory())
+# ROOT = Path(get_data_directory())
 
 
-def get_sp_path(name, path, data_root=ROOT, save_root=None, save_dir="sp"):
-    relpath = Path(path).relative_to(data_root)
+# def get_sp_path(name, path, data_root=ROOT, save_root=None, save_dir="sp"):
+#     relpath = Path(path).relative_to(data_root)
 
-    if save_root is None:
-        save_root = data_root
+#     if save_root is None:
+#         save_root = data_root
 
-    world_dir = Path(save_root) / save_dir
-    ret_path = world_dir.joinpath(
-        *relpath.parent.parts[1:]) / (name + ".npy")
+#     world_dir = Path(save_root) / save_dir
+#     ret_path = world_dir.joinpath(
+#         *relpath.parent.parts[1:]) / (name + ".npy")
 
-    return ret_path
+#     return ret_path
 
 
 def cals_sp(wave, fs, frame_period, feature_type, path=None, nmels=None, f_min=None, f_max=None):
@@ -228,201 +233,201 @@ def load_data(train, data_path, cfg, gray, frame_period, feature_type, nmels, f_
 
 ########################################################################################################
 # 可視化用
-import hydra
-from data_process.feature import mel2wave, world2wav
-from scipy.io.wavfile import write
-import matplotlib.pyplot as plt
-import librosa.display
+# import hydra
+# from data_process.feature import mel2wave, world2wav
+# from scipy.io.wavfile import write
+# import matplotlib.pyplot as plt
+# import librosa.display
 
-@hydra.main(config_name="config", config_path="conf")
-def main(cfg):
-    video_path = "/users/minami/dataset/train/atr503_j01_0.mp4"
-    save_path = "/users/minami/dataset/after_load_data"
+# @hydra.main(config_name="config", config_path="conf")
+# def main(cfg):
+#     video_path = "/users/minami/dataset/train/atr503_j01_0.mp4"
+#     save_path = "/users/minami/dataset/after_load_data"
 
-    # 使うときはload_dataの返り値にwaveを追加してください
-    data, data_len, wave = load_data(
-        data_path=Path(video_path),
-        gray=cfg.model.gray,
-        frame_period=cfg.model.frame_period,
-        feature_type=cfg.model.feature_type,
-        nmels=cfg.model.n_mel_channels,
-        f_min=cfg.model.f_min,
-        f_max=cfg.model.f_max,
-        return_wave=True
-    )
-    lip = data[0]
-    feature = data[1]
-    feat_add = data[2]
-    lip = lip.to('cpu').detach().numpy().copy()
-    feature = feature.to('cpu').detach().numpy().copy()
-    feat_add = feat_add.to('cpu').detach().numpy().copy()
+#     # 使うときはload_dataの返り値にwaveを追加してください
+#     data, data_len, wave = load_data(
+#         data_path=Path(video_path),
+#         gray=cfg.model.gray,
+#         frame_period=cfg.model.frame_period,
+#         feature_type=cfg.model.feature_type,
+#         nmels=cfg.model.n_mel_channels,
+#         f_min=cfg.model.f_min,
+#         f_max=cfg.model.f_max,
+#         return_wave=True
+#     )
+#     lip = data[0]
+#     feature = data[1]
+#     feat_add = data[2]
+#     lip = lip.to('cpu').detach().numpy().copy()
+#     feature = feature.to('cpu').detach().numpy().copy()
+#     feat_add = feat_add.to('cpu').detach().numpy().copy()
 
-    feature = feature.transpose(1, 0)
+#     feature = feature.transpose(1, 0)
 
-    # 原音声
-    write(save_path+f"/original.wav", rate=cfg.model.sampling_rate, data=wave)
+#     # 原音声
+#     write(save_path+f"/original.wav", rate=cfg.model.sampling_rate, data=wave)
     
-    if cfg.model.feature_type == "mspec":
-        # 音声合成
-        wav = mel2wave(feature, cfg.model.sampling_rate, cfg.model.frame_period)
-        write(save_path+f"/mel2wav.wav", rate=cfg.model.sampling_rate, data=wav)
+#     if cfg.model.feature_type == "mspec":
+#         # 音声合成
+#         wav = mel2wave(feature, cfg.model.sampling_rate, cfg.model.frame_period)
+#         write(save_path+f"/mel2wav.wav", rate=cfg.model.sampling_rate, data=wav)
         
-        # メルスペクトログラム
-        fig, ax = plt.subplots()
-        img = librosa.display.specshow(
-            data=feature,
-            x_axis='time',
-            y_axis='mel',
-            sr=cfg.model.sampling_rate,
-            fmax=cfg.model.f_max,
-            fmin=cfg.model.f_min,
-            n_fft=cfg.model.n_fft,
-            hop_length=cfg.model.hop_length,
-            win_length=cfg.model.win_length,
-        )
-        fig.colorbar(img, ax=ax, format='%+2.0f dB')
-        ax.set(title='Mel-frequency spectrogram')
-        plt.savefig(save_path+"/mel.png")
+#         # メルスペクトログラム
+#         fig, ax = plt.subplots()
+#         img = librosa.display.specshow(
+#             data=feature,
+#             x_axis='time',
+#             y_axis='mel',
+#             sr=cfg.model.sampling_rate,
+#             fmax=cfg.model.f_max,
+#             fmin=cfg.model.f_min,
+#             n_fft=cfg.model.n_fft,
+#             hop_length=cfg.model.hop_length,
+#             win_length=cfg.model.win_length,
+#         )
+#         fig.colorbar(img, ax=ax, format='%+2.0f dB')
+#         ax.set(title='Mel-frequency spectrogram')
+#         plt.savefig(save_path+"/mel.png")
 
-        # 原音声から求めたメルスペクトログラム
-        S = librosa.feature.melspectrogram(
-            y=wave, sr=cfg.model.sampling_rate, n_mels=cfg.model.n_mel_channels, fmax=cfg.model.f_max,
-            n_fft=cfg.model.n_fft, hop_length=cfg.model.hop_length, win_length=cfg.model.win_length)
-        S = S[:, :-1]
-        fig, ax = plt.subplots()
-        S_dB = librosa.power_to_db(S, ref=np.max)
+#         # 原音声から求めたメルスペクトログラム
+#         S = librosa.feature.melspectrogram(
+#             y=wave, sr=cfg.model.sampling_rate, n_mels=cfg.model.n_mel_channels, fmax=cfg.model.f_max,
+#             n_fft=cfg.model.n_fft, hop_length=cfg.model.hop_length, win_length=cfg.model.win_length)
+#         S = S[:, :-1]
+#         fig, ax = plt.subplots()
+#         S_dB = librosa.power_to_db(S, ref=np.max)
 
-        img = librosa.display.specshow(
-            data=S_dB,
-            x_axis='time',
-            y_axis='mel',
-            sr=cfg.model.sampling_rate,
-            fmax=cfg.model.f_max,
-            fmin=cfg.model.f_min,
-            n_fft=cfg.model.n_fft,
-            hop_length=cfg.model.hop_length,
-            win_length=cfg.model.win_length,
-        )
-        fig.colorbar(img, ax=ax, format='%+2.0f dB')
-        ax.set(title='Mel-frequency spectrogram')
-        plt.savefig(save_path+"/mel_LIBROSA.png")
+#         img = librosa.display.specshow(
+#             data=S_dB,
+#             x_axis='time',
+#             y_axis='mel',
+#             sr=cfg.model.sampling_rate,
+#             fmax=cfg.model.f_max,
+#             fmin=cfg.model.f_min,
+#             n_fft=cfg.model.n_fft,
+#             hop_length=cfg.model.hop_length,
+#             win_length=cfg.model.win_length,
+#         )
+#         fig.colorbar(img, ax=ax, format='%+2.0f dB')
+#         ax.set(title='Mel-frequency spectrogram')
+#         plt.savefig(save_path+"/mel_LIBROSA.png")
 
-        # 原音声から求めたメルスペクトログラムから、音声合成
-        audio = librosa.feature.inverse.mel_to_audio(
-            librosa.db_to_power(S_dB),
-            sr=16000,
-            n_fft=cfg.model.n_fft,
-            hop_length=cfg.model.hop_length,
-            win_length=cfg.model.win_length,
-            n_iter=50,
-        )
-        write(save_path+"/out_librosa.wav", rate=cfg.model.sampling_rate, data=audio)
+#         # 原音声から求めたメルスペクトログラムから、音声合成
+#         audio = librosa.feature.inverse.mel_to_audio(
+#             librosa.db_to_power(S_dB),
+#             sr=16000,
+#             n_fft=cfg.model.n_fft,
+#             hop_length=cfg.model.hop_length,
+#             win_length=cfg.model.win_length,
+#             n_iter=50,
+#         )
+#         write(save_path+"/out_librosa.wav", rate=cfg.model.sampling_rate, data=audio)
 
-    elif cfg.model.feature_type == "world":
-        # 音声合成
-        data, data_len, wave = load_data(
-            data_path=Path(video_path),
-            gray=cfg.model.gray,
-            frame_period=cfg.model.frame_period,
-            feature_type=cfg.model.feature_type,
-            nmels=cfg.model.n_mel_channels,
-            f_min=cfg.model.f_min,
-            f_max=cfg.model.f_max,
-            return_wave=True
-        )
-        feature = data[1].to('cpu').detach().numpy().copy()
+#     elif cfg.model.feature_type == "world":
+#         # 音声合成
+#         data, data_len, wave = load_data(
+#             data_path=Path(video_path),
+#             gray=cfg.model.gray,
+#             frame_period=cfg.model.frame_period,
+#             feature_type=cfg.model.feature_type,
+#             nmels=cfg.model.n_mel_channels,
+#             f_min=cfg.model.f_min,
+#             f_max=cfg.model.f_max,
+#             return_wave=True
+#         )
+#         feature = data[1].to('cpu').detach().numpy().copy()
         
-        mcep = feature[:, :-3]
-        clf0 = feature[:, -3]
-        vuv = feature[:, -2]
-        cap = feature[:, -1]
-        wav = world2wav(
-            sp=mcep,
-            clf0=clf0,
-            vuv=vuv,
-            cap=cap,
-            fs=cfg.model.sampling_rate,
-            fbin=513,
-            frame_period=cfg.model.frame_period,
-            mcep_postfilter=True,
-        )
-        write(save_path+"/out_world.wav", rate=cfg.model.sampling_rate, data=wav)
+#         mcep = feature[:, :-3]
+#         clf0 = feature[:, -3]
+#         vuv = feature[:, -2]
+#         cap = feature[:, -1]
+#         wav = world2wav(
+#             sp=mcep,
+#             clf0=clf0,
+#             vuv=vuv,
+#             cap=cap,
+#             fs=cfg.model.sampling_rate,
+#             fbin=513,
+#             frame_period=cfg.model.frame_period,
+#             mcep_postfilter=True,
+#         )
+#         write(save_path+"/out_world.wav", rate=cfg.model.sampling_rate, data=wav)
 
-        # メルスペクトログラム
-        S = librosa.feature.melspectrogram(
-            y=wav, sr=cfg.model.sampling_rate, n_mels=cfg.model.n_mel_channels, fmax=cfg.model.f_max,
-            n_fft=cfg.model.n_fft, hop_length=cfg.model.hop_length, win_length=cfg.model.win_length)
-        fig, ax = plt.subplots()
-        S_dB = librosa.power_to_db(S, ref=np.max)
-        img = librosa.display.specshow(
-            data=S_dB,
-            x_axis='time',
-            y_axis='mel',
-            sr=cfg.model.sampling_rate,
-            fmax=cfg.model.f_max,
-            fmin=cfg.model.f_min,
-            n_fft=cfg.model.n_fft,
-            hop_length=cfg.model.hop_length,
-            win_length=cfg.model.win_length,
-        )
-        fig.colorbar(img, ax=ax, format='%+2.0f dB')
-        ax.set(title='Mel-frequency spectrogram')
-        plt.savefig(save_path+"/mel_world.png")
+#         # メルスペクトログラム
+#         S = librosa.feature.melspectrogram(
+#             y=wav, sr=cfg.model.sampling_rate, n_mels=cfg.model.n_mel_channels, fmax=cfg.model.f_max,
+#             n_fft=cfg.model.n_fft, hop_length=cfg.model.hop_length, win_length=cfg.model.win_length)
+#         fig, ax = plt.subplots()
+#         S_dB = librosa.power_to_db(S, ref=np.max)
+#         img = librosa.display.specshow(
+#             data=S_dB,
+#             x_axis='time',
+#             y_axis='mel',
+#             sr=cfg.model.sampling_rate,
+#             fmax=cfg.model.f_max,
+#             fmin=cfg.model.f_min,
+#             n_fft=cfg.model.n_fft,
+#             hop_length=cfg.model.hop_length,
+#             win_length=cfg.model.win_length,
+#         )
+#         fig.colorbar(img, ax=ax, format='%+2.0f dB')
+#         ax.set(title='Mel-frequency spectrogram')
+#         plt.savefig(save_path+"/mel_world.png")
 
-        # world特徴量の可視化
-        x = np.arange(feature.shape[0])
-        # メルケプストラム
-        mcep = mcep.T
-        fig, ax = plt.subplots()
-        img = librosa.display.specshow(
-            data=mcep, 
-            sr=cfg.model.sampling_rate,
-            x_axis='time',
-            fmax=cfg.model.f_max,
-            fmin=cfg.model.f_min,
-            n_fft=cfg.model.n_fft,
-            hop_length=cfg.model.hop_length,
-            win_length=cfg.model.win_length,
-        )
-        fig.colorbar(img, ax=ax, format='%+2.0f dB')
-        ax.set(title='mel cepstrum')
-        plt.savefig(save_path+"/world_mcep.png")
+#         # world特徴量の可視化
+#         x = np.arange(feature.shape[0])
+#         # メルケプストラム
+#         mcep = mcep.T
+#         fig, ax = plt.subplots()
+#         img = librosa.display.specshow(
+#             data=mcep, 
+#             sr=cfg.model.sampling_rate,
+#             x_axis='time',
+#             fmax=cfg.model.f_max,
+#             fmin=cfg.model.f_min,
+#             n_fft=cfg.model.n_fft,
+#             hop_length=cfg.model.hop_length,
+#             win_length=cfg.model.win_length,
+#         )
+#         fig.colorbar(img, ax=ax, format='%+2.0f dB')
+#         ax.set(title='mel cepstrum')
+#         plt.savefig(save_path+"/world_mcep.png")
 
-        # 連続対数F0
-        fig = plt.figure(figsize=(8, 6))
-        ax = fig.add_subplot(1,1,1)
-        ax.plot(x, clf0)
-        plt.savefig(save_path+"/world_clf0.png")
+#         # 連続対数F0
+#         fig = plt.figure(figsize=(8, 6))
+#         ax = fig.add_subplot(1,1,1)
+#         ax.plot(x, clf0)
+#         plt.savefig(save_path+"/world_clf0.png")
 
-        # 有声/無声判定
-        fig = plt.figure(figsize=(8, 6))
-        ax = fig.add_subplot(1,1,1)
-        ax.plot(x, vuv)
-        plt.savefig(save_path+"/world_vuv.png")
+#         # 有声/無声判定
+#         fig = plt.figure(figsize=(8, 6))
+#         ax = fig.add_subplot(1,1,1)
+#         ax.plot(x, vuv)
+#         plt.savefig(save_path+"/world_vuv.png")
 
-        # 帯域非周期性指標
-        # ここはうまくいってません…
-        cap = cap[np.newaxis, :]
-        fig, ax = plt.subplots()
-        img = librosa.display.specshow(
-            data=cap, 
-            sr=cfg.model.sampling_rate,
-            x_axis='time',
-            fmax=cfg.model.f_max,
-            fmin=cfg.model.f_min,
-            n_fft=cfg.model.n_fft,
-            hop_length=cfg.model.hop_length,
-            win_length=cfg.model.win_length,
-        )
-        fig.colorbar(img, ax=ax, format='%+2.0f dB')
-        ax.set(title='aperiodicity')
-        # fig = plt.figure(figsize=(8, 6))
-        # ax = fig.add_subplot(1,1,1)
-        # ax.plot(x, cap)
-        plt.savefig(save_path+"/world_cap.png")
-########################################################################################################
+#         # 帯域非周期性指標
+#         # ここはうまくいってません…
+#         cap = cap[np.newaxis, :]
+#         fig, ax = plt.subplots()
+#         img = librosa.display.specshow(
+#             data=cap, 
+#             sr=cfg.model.sampling_rate,
+#             x_axis='time',
+#             fmax=cfg.model.f_max,
+#             fmin=cfg.model.f_min,
+#             n_fft=cfg.model.n_fft,
+#             hop_length=cfg.model.hop_length,
+#             win_length=cfg.model.win_length,
+#         )
+#         fig.colorbar(img, ax=ax, format='%+2.0f dB')
+#         ax.set(title='aperiodicity')
+#         # fig = plt.figure(figsize=(8, 6))
+#         # ax = fig.add_subplot(1,1,1)
+#         # ax.plot(x, cap)
+#         plt.savefig(save_path+"/world_cap.png")
+# ########################################################################################################
 
 
-# check
-if __name__ == "__main__":
-    main()
+# # check
+# if __name__ == "__main__":
+#     main()

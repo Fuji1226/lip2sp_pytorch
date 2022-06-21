@@ -5,7 +5,6 @@ https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
 import os
 import sys
 
-from zmq import device
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from tqdm import tqdm
