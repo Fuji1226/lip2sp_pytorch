@@ -53,27 +53,44 @@ def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
 				'epoch': epoch}, ckpt_path)
 
 
-def make_train_loader(cfg):
+def make_train_val_loader(cfg):
     trans = KablabTransform(
         length=cfg.model.length,
         delta=cfg.model.delta
     )
-    datasets = KablabDataset(
+    dataset = KablabDataset(
         data_root=cfg.train.train_path,
         train=True,
         transforms=trans,
         cfg=cfg,
     )
+
+    # 学習用と検証用にデータセットを分割
+    n_samples = len(dataset)
+    train_size = int(n_samples * 0.95)
+    val_size = n_samples - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    val_dataset.train = False
+
     train_loader = DataLoader(
-        dataset=datasets,
+        dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
         num_workers=cfg.train.num_workers,      
-        pin_memory=False,
+        pin_memory=True,
         drop_last=True,
         collate_fn=None,
     )
-    return train_loader, datasets
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return train_loader, val_loader, dataset
 
 
 def make_test_loader(cfg):
@@ -346,6 +363,10 @@ def main(cfg):
         cfg, resolve=True, throw_on_missing=True,
     )
 
+    # debugがTrueの時はmax_epochを小さくするようにしました
+    if cfg.train.debug:
+        cfg.train.max_epoch = 2
+
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
@@ -363,8 +384,8 @@ def main(cfg):
     os.makedirs(save_path, exist_ok=True)
     
     # Dataloader作成
-    train_loader, _ = make_train_loader(cfg)
-    test_loader, _ = make_test_loader(cfg)
+    train_loader, val_loader, _ = make_train_val_loader(cfg)
+    # test_loader, _ = make_test_loader(cfg)
     
     # 損失関数
     loss_f_mse = nn.MSELoss()
@@ -445,7 +466,7 @@ def main(cfg):
 
                 # 検証用データ
                 if epoch % cfg.train.display_test_loss_step == 0:
-                    epoch_loss_test = calc_test_loss(model, test_loader, loss_f_test, device, cfg)
+                    epoch_loss_test = calc_test_loss(model, val_loader, loss_f_test, device, cfg)
                     print(f"epoch_loss_test = {epoch_loss_test}")
                 
                 # 学習率の更新
@@ -480,7 +501,7 @@ def main(cfg):
                 print(f"train_loss_list = {train_loss_list}")
 
                 if epoch % cfg.train.display_test_loss_step == 0:
-                    epoch_loss_test, epoch_loss_d_test = calc_test_loss_with_d(model, discriminator, test_loader, loss_f_test, device, cfg)
+                    epoch_loss_test, epoch_loss_d_test = calc_test_loss_with_d(model, discriminator, val_loader, loss_f_test, device, cfg)
                     print(f"epoch_loss_test = {epoch_loss_test}")
                     print(f"epoch_loss_d_test = {epoch_loss_d_test}")
             

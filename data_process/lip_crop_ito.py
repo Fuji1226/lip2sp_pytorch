@@ -20,6 +20,7 @@ import glob
 import cv2
 import dlib
 import numpy as np
+from sqlalchemy import desc
 
 
 def get_datasetroot():
@@ -40,8 +41,7 @@ def get_data_directory():
 # data_root = Path(get_data_directory()).expanduser()     # /Users/minami/dataset/lip/cropped
 data_root = Path("/home/usr4/r70264c/dataset/lip/cropped")
 save_dir = "/home/usr4/r70264c/dataset/lip/lip_cropped"      # 変えてください
-
-
+txt_path = "/home/usr4/r70264c/dataset/lip/cropped_error_data.txt"      # エラーしたデータの書き込み用
 
 
 # 口唇のランドマーク検出
@@ -79,7 +79,11 @@ def main():
         # print(data_path)
         data_name = Path(data_path)
         data_name = data_name.stem      # 保存する口唇動画の名前に使用
-        # print(data_name)
+    
+        # 既にある場合はスルー
+        check_path = Path(f"{save_dir}/{data_name}_crop.mp4")
+        if check_path.exists():
+            continue
         
         # 動画読み込み
         movie = cv2.VideoCapture(data_path)
@@ -94,7 +98,16 @@ def main():
         # 顔検出
         detector = dlib.get_frontal_face_detector()
         dets = detector(frame, 1)
-        assert len(dets) == 1
+        # assert len(dets) == 1
+
+        ########################################
+        # できないやつをスキップし，txtデータに書き込んでおく
+        if len(dets) != 1:
+            with open(txt_path, mode="a") as f:
+                f.write(f"{data_name}\n")
+            continue
+        ########################################
+
         det = dets[0]
         face_area = [det.top(), det.bottom(), det.left(), det.right()]
         face = frame[face_area[0]:face_area[1], face_area[2]:face_area[3]]
@@ -102,7 +115,7 @@ def main():
         # 口唇抽出
         im_size, mouth_area = Lip_Cropping(frame, det)
         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-        out = cv2.VideoWriter(f"{data_name}.mp4", int(fourcc), fps, (int(im_size[1]), int(im_size[0])))
+        out = cv2.VideoWriter(f"{save_dir}/{data_name}_crop.mp4", int(fourcc), fps, (int(im_size[1]), int(im_size[0])))
         if movie.isOpened() == True:
             ret, frame = movie.read()
         else:

@@ -28,7 +28,7 @@ try:
 except:
     from lip2sp_pytorch.get_dir import get_data_directory
     from lip2sp_pytorch.utils import get_sp_name, get_upsample
-    from lip2sp_pytorch.data_process.feature import wave2mel, wav2world
+    from lip2sp_pytorch.data_process.feature import wave2mel, wav2world, mel2wave, world2wav
     from lip2sp_pytorch.hparams import create_hparams
 
 
@@ -142,21 +142,28 @@ def load_mp4(path, gray=False):
 
 def load_data(train, data_path, cfg, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True, return_wave=False):
     try:
+        npz_key = np.load(f'{cfg.train.test_pre_loaded_path}/{cfg.model.name}/{data_path.stem}.npz')
+        lip = torch.from_numpy(npz_key['lip'])
+        feature = torch.from_numpy(npz_key['feature'])
+        feat_add = torch.from_numpy(npz_key['feat_add'])
+        upsample = torch.from_numpy(npz_key['upsample'])
+        data_len = torch.from_numpy(npz_key['data_len'])
+
         # ファイルがある場合、それを読み込む
-        if train:
-            npz_key = np.load(f'{cfg.train.train_pre_loaded_path}/{cfg.model.name}/{data_path.stem}.npz')
-            lip = torch.from_numpy(npz_key['lip'])
-            feature = torch.from_numpy(npz_key['feature'])
-            feat_add = torch.from_numpy(npz_key['feat_add'])
-            upsample = torch.from_numpy(npz_key['upsample'])
-            data_len = torch.from_numpy(npz_key['data_len'])
-        else:
-            npz_key = np.load(f'{cfg.train.test_pre_loaded_path}/{cfg.model.name}/{data_path.stem}.npz')
-            lip = torch.from_numpy(npz_key['lip'])
-            feature = torch.from_numpy(npz_key['feature'])
-            feat_add = torch.from_numpy(npz_key['feat_add'])
-            upsample = torch.from_numpy(npz_key['upsample'])
-            data_len = torch.from_numpy(npz_key['data_len'])
+        # if train:
+        #     npz_key = np.load(f'{cfg.train.train_pre_loaded_path}/{cfg.model.name}/{data_path.stem}.npz')
+        #     lip = torch.from_numpy(npz_key['lip'])
+        #     feature = torch.from_numpy(npz_key['feature'])
+        #     feat_add = torch.from_numpy(npz_key['feat_add'])
+        #     upsample = torch.from_numpy(npz_key['upsample'])
+        #     data_len = torch.from_numpy(npz_key['data_len'])
+        # else:
+        #     npz_key = np.load(f'{cfg.train.test_pre_loaded_path}/{cfg.model.name}/{data_path.stem}.npz')
+        #     lip = torch.from_numpy(npz_key['lip'])
+        #     feature = torch.from_numpy(npz_key['feature'])
+        #     feat_add = torch.from_numpy(npz_key['feat_add'])
+        #     upsample = torch.from_numpy(npz_key['upsample'])
+        #     data_len = torch.from_numpy(npz_key['data_len'])
 
         ret = (lip, feature, feat_add, upsample)
     except:
@@ -194,24 +201,33 @@ def load_data(train, data_path, cfg, gray, frame_period, feature_type, nmels, f_
         # 読み込んだデータをnumpyファイルで保存
         lip = lip.to('cpu').detach().numpy().copy()
 
-        if train:
-                np.savez(
-                    f'{cfg.train.train_pre_loaded_path}/{cfg.model.name}/{Path(data_path).stem}',
-                    lip=lip,
-                    feature=feature,
-                    feat_add=feat_add,
-                    upsample=upsample,
-                    data_len=data_len
-                )
-        else:
-            np.savez(
-                f'{cfg.train.test_pre_loaded_path}/{cfg.model.name}/{Path(data_path).stem}',
-                lip=lip,
-                feature=feature,
-                feat_add=feat_add,
-                upsample=upsample,
-                data_len=data_len
-            )
+        # if train:
+        #     np.savez(
+        #         f'{cfg.train.train_pre_loaded_path}/{cfg.model.name}/{Path(data_path).stem}',
+        #         lip=lip,
+        #         feature=feature,
+        #         feat_add=feat_add,
+        #         upsample=upsample,
+        #         data_len=data_len
+        #     )
+        # else:
+        #     np.savez(
+        #         f'{cfg.train.test_pre_loaded_path}/{cfg.model.name}/{Path(data_path).stem}',
+        #         lip=lip,
+        #         feature=feature,
+        #         feat_add=feat_add,
+        #         upsample=upsample,
+        #         data_len=data_len
+        #     )
+
+        np.savez(
+            f'{cfg.train.train_pre_loaded_path}/{cfg.model.name}/{Path(data_path).stem}',
+            lip=lip,
+            feature=feature,
+            feat_add=feat_add,
+            upsample=upsample,
+            data_len=data_len
+        )
 
         # numpy -> tensor
         lip = torch.from_numpy(lip)
@@ -229,6 +245,71 @@ def load_data(train, data_path, cfg, gray, frame_period, feature_type, nmels, f_
     else:
         return ret, data_len
 
+
+def load_data_for_npz(data_path, cfg, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True, return_wave=False):
+    lip, fps = load_mp4(str(data_path), gray)   # lipはtensor
+    sppath = Path(data_path)
+    sppath = sppath.parent / (sppath.stem + ".wav")
+    wave, fs = librosa.load(str(sppath), sr=None, mono=None)
+    wave = wave[:int(lip.shape[-1]/fps*1.2*fs)]
+    upsample = get_upsample(fps, fs, frame_period)
+    
+    # 音響特徴量への変換
+    feature = cals_sp(
+        wave, fs, frame_period, feature_type,
+        path=data_path, nmels=nmels, f_min=f_min, f_max=f_max)
+    hop_length = fs * frame_period // 1000  # 160
+    
+    power = librosa.feature.rms(wave, frame_length=hop_length*2,
+                hop_length=hop_length).squeeze()
+    power = fill_nan(power)
+    f0 = swipe(wave.astype("float64"), fs, hop_length,
+            min=70.0, otype='f0').squeeze()
+
+    f0, vuv = continuous_f0(f0)
+    T = min(power.size, f0.size, feature.shape[0])
+    
+    feat_add = np.vstack((f0[:T], vuv[:T], power[:T])).T
+    feat_add = np.log(np.maximum(feat_add, 1.0e-7))
+    feature = feature[:T]
+
+    data_len = min(len(feature) // upsample * upsample,  lip.shape[-1] * upsample)
+    feature = feature[:data_len]
+    feat_add = feat_add[:data_len]
+    lip = lip[..., :data_len // upsample]
+
+    lip = lip.to('cpu').detach().numpy().copy()
+
+    ret = (lip, feature, feat_add, upsample)
+
+    if cfg.model.name == "world":
+        feature = feature.T
+        mcep = feature[:, :-3]
+        clf0 = feature[:, -3]
+        vuv = feature[:, -2]
+        cap = feature[:, -1]
+        wav = world2wav(
+            sp=mcep,
+            clf0=clf0,
+            vuv=vuv,
+            cap=cap,
+            fs=cfg.model.sampling_rate,
+            fbin=513,
+            frame_period=cfg.model.frame_period,
+            mcep_postfilter=True,
+        )
+
+    elif cfg.model.name == "mspec":
+        wav = librosa.feature.inverse.mel_to_audio(
+            librosa.db_to_power(feature),
+            sr=cfg.model.sampling_rate,
+            n_fft=cfg.model.n_fft,
+            hop_length=cfg.model.hop_length,
+            win_length=cfg.model.win_length,
+            n_iter=50,
+        )
+
+    return ret, data_len, wav
 
 
 ########################################################################################################

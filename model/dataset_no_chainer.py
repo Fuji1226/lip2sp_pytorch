@@ -98,23 +98,31 @@ def get_datasets(data_root):
 
 def calc_mean_std(items, len, cfg, train):
     try:
+        npz_key = np.load(f'{cfg.train.train_mean_std_path}/{cfg.model.name}.npz')
+        lip_mean = torch.from_numpy(npz_key['lip_mean'])
+        lip_std = torch.from_numpy(npz_key['lip_std'])
+        feat_mean = torch.from_numpy(npz_key['feat_mean'])
+        feat_std = torch.from_numpy(npz_key['feat_std'])
+        feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
+        feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
         # ファイルがあれば計算せず読み込む
-        if train:
-            npz_key = np.load(f'{cfg.train.train_mean_std_path}/{cfg.model.name}.npz')
-            lip_mean = torch.from_numpy(npz_key['lip_mean'])
-            lip_std = torch.from_numpy(npz_key['lip_std'])
-            feat_mean = torch.from_numpy(npz_key['feat_mean'])
-            feat_std = torch.from_numpy(npz_key['feat_std'])
-            feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
-            feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
-        else:
-            npz_key = np.load(f'{cfg.train.test_mean_std_path}/{cfg.model.name}.npz')
-            lip_mean = torch.from_numpy(npz_key['lip_mean'])
-            lip_std = torch.from_numpy(npz_key['lip_std'])
-            feat_mean = torch.from_numpy(npz_key['feat_mean'])
-            feat_std = torch.from_numpy(npz_key['feat_std'])
-            feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
-            feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
+        # if train:
+        #     npz_key = np.load(f'{cfg.train.train_mean_std_path}/{cfg.model.name}.npz')
+        #     lip_mean = torch.from_numpy(npz_key['lip_mean'])
+        #     lip_std = torch.from_numpy(npz_key['lip_std'])
+        #     feat_mean = torch.from_numpy(npz_key['feat_mean'])
+        #     feat_std = torch.from_numpy(npz_key['feat_std'])
+        #     feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
+        #     feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
+        # else:
+        #     npz_key = np.load(f'{cfg.train.test_mean_std_path}/{cfg.model.name}.npz')
+        #     lip_mean = torch.from_numpy(npz_key['lip_mean'])
+        #     lip_std = torch.from_numpy(npz_key['lip_std'])
+        #     feat_mean = torch.from_numpy(npz_key['feat_mean'])
+        #     feat_std = torch.from_numpy(npz_key['feat_std'])
+        #     feat_add_mean = torch.from_numpy(npz_key['feat_add_mean'])
+        #     feat_add_std = torch.from_numpy(npz_key['feat_add_std'])
+        
     except:
         # ファイルがなかった場合は読み込んで、平均、標準偏差を求める。その後、ファイルを保存する。
         lip_mean = 0
@@ -161,26 +169,35 @@ def calc_mean_std(items, len, cfg, train):
         feat_add_mean = feat_add_mean.to('cpu').detach().numpy().copy()
         feat_add_std = feat_add_std.to('cpu').detach().numpy().copy()
         
-        if train:
-            np.savez(
-                f'{cfg.train.train_mean_std_path}/{cfg.model.name}', 
-                lip_mean=lip_mean, 
-                lip_std=lip_std, 
-                feat_mean=feat_mean, 
-                feat_std=feat_std, 
-                feat_add_mean=feat_add_mean, 
-                feat_add_std=feat_add_std
-            )
-        else:
-            np.savez(
-                f'{cfg.train.test_mean_std_path}/{cfg.model.name}', 
-                lip_mean=lip_mean, 
-                lip_std=lip_std, 
-                feat_mean=feat_mean, 
-                feat_std=feat_std, 
-                feat_add_mean=feat_add_mean, 
-                feat_add_std=feat_add_std
-            )
+        # if train:
+        #     np.savez(
+        #         f'{cfg.train.train_mean_std_path}/{cfg.model.name}', 
+        #         lip_mean=lip_mean, 
+        #         lip_std=lip_std, 
+        #         feat_mean=feat_mean, 
+        #         feat_std=feat_std, 
+        #         feat_add_mean=feat_add_mean, 
+        #         feat_add_std=feat_add_std
+        #     )
+        # else:
+        #     np.savez(
+        #         f'{cfg.train.test_mean_std_path}/{cfg.model.name}', 
+        #         lip_mean=lip_mean, 
+        #         lip_std=lip_std, 
+        #         feat_mean=feat_mean, 
+        #         feat_std=feat_std, 
+        #         feat_add_mean=feat_add_mean, 
+        #         feat_add_std=feat_add_std
+        #     )
+        np.savez(
+            f'{cfg.train.train_mean_std_path}/{cfg.model.name}', 
+            lip_mean=lip_mean, 
+            lip_std=lip_std, 
+            feat_mean=feat_mean, 
+            feat_std=feat_std, 
+            feat_add_mean=feat_add_mean, 
+            feat_add_std=feat_add_std
+        )
     return lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
 
 

@@ -1,8 +1,8 @@
 ---
 
 # データを置いているディレクトリまでのパス
-train_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/train"
-test_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/test"
+train_path : "/home/usr4/r70264c/dataset/lip"
+test_path : "/home/usr4/r70264c/dataset/lip"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 train_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/train"
@@ -15,12 +15,12 @@ ckpt_step : 5
 generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
-train_mean_std_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/mean_std/train"
-test_mean_std_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/mean_std/test"
+train_mean_std_path : "/home/usr4/r70264c/dataset/np_files/mean_std"
+test_mean_std_path : "/home/usr4/r70264c/dataset/np_files/mean_std"
 
 # 口唇動画、音響特徴量を保存するディレクトリまでのパス
-train_pre_loaded_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/data/train"
-test_pre_loaded_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/dataset/np_files/data/test"
+train_pre_loaded_path : "/home/usr4/r70264c/dataset/np_files"
+test_pre_loaded_path : "/home/usr4/r70264c/dataset/np_files"
 
 # mlflowの保存先
 experiment_name : "test"
@@ -63,5 +63,5 @@ training_method : "ss"
 num_passes : 1     # 繰り返し回数
 mixing_prob : 0.5  # 混合率
 
-
-
+# debug
+debug : True
