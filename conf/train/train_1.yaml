@@ -1,5 +1,8 @@
 ---
 
+# デバッグ
+debug : True
+
 # データを置いているディレクトリまでのパス
 train_path : "/home/usr4/r70264c/dataset/lip/lip_cropped"
 test_path : "/home/usr4/r70264c/dataset/lip"
@@ -15,15 +18,22 @@ ckpt_step : 5
 generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
-train_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
-test_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
+mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std/train"
+# test_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
 
 # 口唇動画、音響特徴量を保存するディレクトリまでのパス
-train_pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/train"
-test_pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/test"
+pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/train"
+# test_pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/test"
 
 # mlflowの保存先
 experiment_name : "test"
+
+# training
+max_iter : 5
+max_epoch : 20
+
+# validation lossを計算する間隔
+display_test_loss_step : 5
 
 # dropout
 dropout : 0.1
@@ -32,7 +42,7 @@ dropout : 0.1
 use_gc : False
 
 # dataloader
-batch_size : 5
+batch_size : 8
 num_workers : 2
 
 # optimizer
@@ -40,13 +50,6 @@ lr : 0.001
 beta_1 : 0.9
 beta_2 : 0.999
 weight_decay : 1.0e-6
-
-# training
-max_iter : 5
-max_epoch : 20
-
-# test lossを計算する間隔
-display_test_loss_step : 5
 
 # 学習率の減衰
 lr_decay_rate : 0.5
@@ -62,6 +65,3 @@ training_method : "ss"
 # parameter for scheduled sampling
 num_passes : 1     # 繰り返し回数
 mixing_prob : 0.5  # 混合率
-
-# debug
-debug : True

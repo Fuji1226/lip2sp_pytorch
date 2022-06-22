@@ -1,11 +1,18 @@
 """
 事前にnpzファイルを作るためのコード
-F01_kablabなど話者ごとにディレクトリを分けて，その中にmp4とwavがあることを想定しています
-また，学習用データとテスト用データも分かれていることを想定しています
+F01_kablabなど話者ごとにディレクトリを分けて,その中にmp4とwavがあることを想定しています
+dataset/lip/lip_cropped/F01_kablab
 
-dataset/lip/lip_cropped/train/F01_kablab
-dataset/lip/lip_cropped/test/F01_kablab
-こんな感じです
+実行すると
+平均,標準偏差が下の2つに
+dataset/lip/np_files/mean_std/F01_kablab/train
+dataset/lip/np_files/mean_std/F01_kablab/test
+
+データを読み込んだ結果が下の2つに保存されるはずです
+dataset/lip/np_files/train/F01_kablab
+dataset/lip/np_files/test/F01_kablab
+
+このディレクトリ構造になることを前提にdataset_npz.pyを書いているので,使用する場合は揃えてほしいです!
 """
 
 from email.mime import audio
@@ -66,20 +73,6 @@ def get_dataset(data_root):
                     video_path = os.path.join(curdir, f"{Path(file).stem}_crop.mp4")
                     if os.path.isfile(video_path) and os.path.isfile(audio_path):
                             train_items.append([video_path, audio_path])
-
-            # if file.endswith(".mp4"):
-            #     if '_j' in Path(file).stem:
-            #         format = ".mp4"
-            #         video_path = os.path.join(curdir, file)
-            #         audio_path = os.path.join(curdir, file.replace(str(format), ".wav"))
-            #         if os.path.isfile(video_path) and os.path.isfile(audio_path):
-            #                 test_items.append([video_path, audio_path])
-            #     else:
-            #         format = ".mp4"
-            #         video_path = os.path.join(curdir, file)
-            #         audio_path = os.path.join(curdir, file.replace(str(format), ".wav"))
-            #         if os.path.isfile(video_path) and os.path.isfile(audio_path):
-            #                 train_items.append([video_path, audio_path])
     return train_items, test_items
 
 
@@ -254,8 +247,8 @@ def main(cfg):
         items=train_items,
         len=n_data_train,
         cfg=cfg,
-        data_save_path=cfg.train.train_pre_loaded_path,
-        mean_std_save_path=cfg.train.train_mean_std_path,
+        data_save_path=cfg.train.pre_loaded_path,
+        mean_std_save_path=cfg.train.mean_std_path,
         device=device,
     )
 

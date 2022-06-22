@@ -4,18 +4,8 @@ lip2sp_pytorch/conf/train
 のyamlファイルのpathを設定してから実行してください!
 
 <追記>
-損失関数の中でバッチに対して既に平均を計算していたので、lossをdata_cntではなく、iter_cntで割るように変更しました
-
-pathの管理がmspecとworldで同じだったので、trainで一括管理するように変更しました
-
-dataset_no_chainerで、平均と標準偏差を保存するついでに口唇動画や音響特徴量も保存しておくように変更しました
-
-
-optimizerにweight_decayを追加
-学習にgradient_clippingを追加
-学習率を変化させるschedularを追加。最大エポック数の1/4行ったら学習率を1/2にするように設定しています（多分田口さんと同じ）
-
-configのtrainにparameterを追加して実行してください（gitignoreできたので）
+最近はtrain_wandb.pyを使ってて，こっちをいじってません
+動かなくなってるかもしれません
 """
 
 from omegaconf import DictConfig, OmegaConf
