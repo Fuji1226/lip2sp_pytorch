@@ -1,5 +1,14 @@
 """
 wandbを使って記録するバージョン
+
+最近はこっちをメインで使ってます
+train.pyはあまり触ってません
+また,こっちもdiscriminatorはいじってません
+分岐が多くなってごちゃごちゃしてきたので,こっちはdiscriminatorを使わない場合のtrain,使う場合はtrain_d.pyを使用するようにしていこうと考えてます
+
+datasetを作成するとき,事前に作ったnpzファイルを読み込むように変更しました
+なので,data_process/make_npz.pyでnpzを作ってから出ないと実行できなくなっていると思います
+KablabDatasetのdata_root,mean_std_pathです
 """
 
 from omegaconf import DictConfig, OmegaConf
@@ -24,7 +33,8 @@ from speechbrain.pretrained import EncoderClassifier
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from model.dataset_no_chainer import KablabDataset, KablabTransform
+# from model.dataset_no_chainer import KablabDataset, KablabTransform
+from model.dataset_npz import KablabDataset, KablabTransform
 from model.models import Lip2SP
 from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
@@ -59,10 +69,14 @@ def make_train_val_loader(cfg):
         delta=cfg.model.delta
     )
     dataset = KablabDataset(
-        data_root=cfg.train.train_path,
+        # data_root=cfg.train.train_path,
+        data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
+        mean_std_path=cfg.train.mean_std_path,
+        name=cfg.model.name,
         train=True,
         transforms=trans,
         cfg=cfg,
+        debug=cfg.train.debug
     )
 
     # 学習用と検証用にデータセットを分割
@@ -93,28 +107,28 @@ def make_train_val_loader(cfg):
     return train_loader, val_loader, dataset
 
 
-def make_test_loader(cfg):
-    trans = KablabTransform(
-        length=cfg.model.length,
-        delta=cfg.model.delta
-    )
-    datasets = KablabDataset(
-        data_root=cfg.train.test_path,
-        train=False,
-        transforms=trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=datasets,
-        # batch_size=cfg.train.batch_size,
-        batch_size=1,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=False,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, datasets
+# def make_test_loader(cfg):
+#     trans = KablabTransform(
+#         length=cfg.model.length,
+#         delta=cfg.model.delta
+#     )
+#     datasets = KablabDataset(
+#         data_root=cfg.train.test_path,
+#         train=False,
+#         transforms=trans,
+#         cfg=cfg,
+#     )
+#     test_loader = DataLoader(
+#         dataset=datasets,
+#         # batch_size=cfg.train.batch_size,
+#         batch_size=1,   
+#         shuffle=True,
+#         num_workers=cfg.train.num_workers,      
+#         pin_memory=False,
+#         drop_last=True,
+#         collate_fn=None,
+#     )
+#     return test_loader, datasets
     
 
 def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_f_train, device, cfg):
@@ -193,7 +207,6 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
         for param in discriminator.parameters():
             param.requires_grad = True
 
-        ################順伝搬###############
         # output : postnet後の出力
         # dec_output : postnet前の出力
         # generatorのパラメータが更新されないように設定
@@ -203,7 +216,6 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
                 data_len=data_len,
                 prev=target,
             )                      
-        ####################################
         
         # discriminatorへ入力
         try:
@@ -287,7 +299,6 @@ def calc_test_loss(model: nn.Module, test_loader, loss_f_test, device, cfg):
                 lip=lip,
             )                      
         
-        # マスクしていないので通常のmse_lossで計算
         loss = loss_f_test.mse_loss(output, target, data_len, max_len=model.max_len * 2) \
             + loss_f_test.mse_loss(dec_output, target, data_len, max_len=model.max_len * 2) \
                 + loss_f_test.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
@@ -363,9 +374,8 @@ def main(cfg):
         cfg, resolve=True, throw_on_missing=True,
     )
 
-    # debugがTrueの時はmax_epochを小さくするようにしました
     if cfg.train.debug:
-        cfg.train.max_epoch = 2
+        cfg.train.max_epoch = 10
 
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
