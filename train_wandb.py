@@ -51,7 +51,6 @@ np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
-
 # check pointでの保存
 def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
 	torch.save({'model': model.state_dict(),
@@ -137,8 +136,8 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start")
+    model.train()
     for batch in train_loader:
-        model.train()
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
@@ -148,7 +147,6 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_
         batch_size = lip.shape[0]
         data_cnt += batch_size
         
-        ################順伝搬###############
         # output : postnet後の出力
         # dec_output : postnet前の出力
         output, dec_output = model(
@@ -156,7 +154,6 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_
             data_len=data_len,
             prev=target,
         )                      
-        ####################################
         
         loss_default = loss_f_mse(output[:, :, :-2], target[:, :, 2:]) + loss_f_mse(dec_output[:, :, :-2], target[:, :, 2:])
         # パディング部分をマスクした損失を計算。postnet前後の出力両方を考慮。
@@ -277,14 +274,14 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
     return epoch_loss, epoch_loss_d
 
 
-def calc_test_loss(model: nn.Module, test_loader, loss_f_test, device, cfg):
+def calc_val_loss(model: nn.Module, val_loader, loss_f_test, device, cfg):
     epoch_loss = 0
     data_cnt = 0
     iter_cnt = 0
-    all_iter = len(test_loader)
+    all_iter = len(val_loader)
     print("calc test loss")
-    for batch in test_loader:
-        model.eval()
+    model.eval()
+    for batch in val_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
@@ -380,6 +377,7 @@ def main(cfg):
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
+    print(os.cpu_count())
 
     #resultの表示
     result_path = 'results'
@@ -405,6 +403,7 @@ def main(cfg):
     train_loss_list = []
     
     # training
+    cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg) as run:
         #インスタンス作成
         model = Lip2SP(
@@ -475,8 +474,8 @@ def main(cfg):
                 print(f"train_loss_list = {train_loss_list}")
 
                 # 検証用データ
-                if epoch % cfg.train.display_test_loss_step == 0:
-                    epoch_loss_test = calc_test_loss(model, val_loader, loss_f_test, device, cfg)
+                if epoch % cfg.train.display_val_loss_step == 0:
+                    epoch_loss_test = calc_val_loss(model, val_loader, loss_f_test, device, cfg)
                     print(f"epoch_loss_test = {epoch_loss_test}")
                 
                 # 学習率の更新

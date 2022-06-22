@@ -2,6 +2,7 @@
 
 # デバッグ
 debug : True
+debug_data_len : 1000
 
 # データを置いているディレクトリまでのパス
 train_path : "/home/usr4/r70264c/dataset/lip/lip_cropped"
@@ -18,7 +19,7 @@ ckpt_step : 5
 generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
-mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std/train"
+mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
 # test_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"
 
 # 口唇動画、音響特徴量を保存するディレクトリまでのパス
@@ -33,7 +34,7 @@ max_iter : 5
 max_epoch : 20
 
 # validation lossを計算する間隔
-display_test_loss_step : 5
+display_val_loss_step : 5
 
 # dropout
 dropout : 0.1
@@ -42,8 +43,8 @@ dropout : 0.1
 use_gc : False
 
 # dataloader
-batch_size : 8
-num_workers : 2
+batch_size : 16
+num_workers : 8
 
 # optimizer
 lr : 0.001

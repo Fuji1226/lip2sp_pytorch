@@ -472,7 +472,7 @@ class Decoder(nn.Module):
         # メインループ
         outs = []
         with torch.no_grad():
-            for _ in tqdm(range(max_decoder_time_steps)):
+            for _ in range(max_decoder_time_steps):
                 # マスクの更新（prevが長くなるので、その度に作る）
                 target_mask = get_subsequent_mask(prev)
                 

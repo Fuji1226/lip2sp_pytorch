@@ -40,7 +40,7 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 
 
-def get_datasets(data_root, name, debug):    
+def get_datasets(data_root, name, debug, debug_data_len):    
     """
     npzファイルのパス取得
     """
@@ -55,7 +55,7 @@ def get_datasets(data_root, name, debug):
                         if os.path.isfile(data_path):
                             items.append(data_path)
                             # デバッグなのでデータ数を制限
-                            if len(items) > 100:
+                            if len(items) > debug_data_len:
                                 break
     else:
         for curdir, dir, files in os.walk(data_root):
@@ -85,13 +85,15 @@ def load_mean_std(mean_std_path, name):
         for file in files:
             if file.endswith('.npz'):
                 if f"{name}" in Path(file).stem:
-                    npz_key = np.load(os.path.join(curdir, file))
-                    each_lip_mean.append(torch.from_numpy(npz_key['lip_mean']))
-                    each_lip_std.append(torch.from_numpy(npz_key['lip_std']))
-                    each_feat_mean.append(torch.from_numpy(npz_key['feat_mean']))
-                    each_feat_std.append(torch.from_numpy(npz_key['feat_std']))
-                    each_feat_add_mean.append(torch.from_numpy(npz_key['feat_add_mean']))
-                    each_feat_add_std.append(torch.from_numpy(npz_key['feat_add_std']))
+                    if f"train" in Path(file).stem:
+                        # mean_std_pathにtrainとtestのディレクトリを作っていないので，一旦無理やりパスを通す
+                        npz_key = np.load(os.path.join(curdir, file))
+                        each_lip_mean.append(torch.from_numpy(npz_key['lip_mean']))
+                        each_lip_std.append(torch.from_numpy(npz_key['lip_std']))
+                        each_feat_mean.append(torch.from_numpy(npz_key['feat_mean']))
+                        each_feat_std.append(torch.from_numpy(npz_key['feat_std']))
+                        each_feat_add_mean.append(torch.from_numpy(npz_key['feat_add_mean']))
+                        each_feat_add_std.append(torch.from_numpy(npz_key['feat_add_std']))
     
     # 話者人数で割って平均
     lip_mean = sum(each_lip_mean) / len(each_lip_mean)
@@ -117,12 +119,13 @@ class KablabDataset(Dataset):
         self.cfg = cfg
         self.train = train
         self.debug = debug
+        self.debug_data_len = cfg.train.debug_data_len
         self.visualize = visualize
 
         # 口唇動画、音声データまでのパス一覧を取得
-        self.items = get_datasets(self.data_root, name, debug)
+        self.items = get_datasets(data_root, name, debug, self.debug_data_len)
         self.len = len(self.items)
-        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(self.items, self.len, self.cfg, self.train)
+        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, name)
         
         print(f'Size of {type(self).__name__}: {self.len}')
 
@@ -242,7 +245,7 @@ class KablabTransform:
             feat_add_padded = torch.zeros(self.length, feat_add.shape[1])
 
             # 代入
-            for i in range(data_len // upsample):
+            for i in range(data_len // int(upsample)):
                 lip_padded[..., i] = lip[..., i]
             for i in range(data_len):
                 feature_padded[i, ...] = feature[i, ...]
