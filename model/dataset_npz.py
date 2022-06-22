@@ -245,7 +245,8 @@ class KablabTransform:
             feat_add_padded = torch.zeros(self.length, feat_add.shape[1])
 
             # 代入
-            for i in range(data_len // int(upsample)):
+            # for i in range(data_len // int(upsample)):
+            for i in range(torch.div(data_len, upsample, rounding_mode='trunc')):
                 lip_padded[..., i] = lip[..., i]
             for i in range(data_len):
                 feature_padded[i, ...] = feature[i, ...]

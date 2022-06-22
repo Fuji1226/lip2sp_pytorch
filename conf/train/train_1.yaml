@@ -1,8 +1,8 @@
 ---
 
 # デバッグ
-debug : True
-debug_data_len : 1000
+debug : False
+debug_data_len : 500
 
 # データを置いているディレクトリまでのパス
 train_path : "/home/usr4/r70264c/dataset/lip/lip_cropped"
@@ -44,7 +44,7 @@ use_gc : False
 
 # dataloader
 batch_size : 16
-num_workers : 8
+num_workers : 16
 
 # optimizer
 lr : 0.001

@@ -40,6 +40,7 @@ from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
 from mf_writer import MlflowWriter
 from data_process.feature import delta_feature
+from data_check import save_mspec, save_world
 
 # wandbへのログイン
 wandb.login(key="ba729c3f218d8441552752401f49ba3c0c0e2b9f")
@@ -302,6 +303,14 @@ def calc_val_loss(model: nn.Module, val_loader, loss_f_test, device, cfg):
         epoch_loss += loss.item()
 
         wandb.log({"val_iter_loss": loss.item()})
+
+        # if iter_cnt == 1:
+        #     if cfg.model.name == "mspec":
+        #         save_mspec(
+        #             cfg=cfg,
+        #             index=None,
+        #             save_path=
+        #         )
     
     # epoch_loss /= data_cnt
     epoch_loss /= iter_cnt
@@ -490,9 +499,10 @@ def main(cfg):
                         epoch=epoch,
                         ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt")
                     )
-                    artifact_ckpt = wandb.Artifact('ckpt', type='ckpt')
-                    artifact_ckpt.add_file(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
-                    wandb.log_artifact(artifact_ckpt)
+                    wandb.save(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
+                    # artifact_ckpt = wandb.Artifact('ckpt', type='ckpt')
+                    # artifact_ckpt.add_file(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
+                    # wandb.log_artifact(artifact_ckpt)
 
             # モデルの保存
             torch.save(model.state_dict(), os.path.join(save_path, f"model_{cfg.model.name}.pth"))
