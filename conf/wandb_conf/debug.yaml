@@ -1,7 +1,7 @@
 ---
 
 setup:
-    project: lip2sp_pytorch
+    project: debug
     entity:
     mode: online
     name : val_loss_change

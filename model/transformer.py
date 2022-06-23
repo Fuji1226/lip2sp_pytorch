@@ -472,13 +472,13 @@ class Decoder(nn.Module):
         # メインループ
         outs = []
         with torch.no_grad():
-            for _ in range(max_decoder_time_steps):
+            for _ in range(max_decoder_time_steps - 1):
                 # マスクの更新（prevが長くなるので、その度に作る）
                 target_mask = get_subsequent_mask(prev)
                 
                 # Prenet
                 pre_out = self.prenet(prev)    # (B, C=d_model, T)
-                
+            
                 # positional encoding
                 pre_out = pre_out.permute(0, -1, -2)  # (B, T, C)
                 dec_output = self.dropout(self.position_enc(pre_out))
@@ -502,15 +502,18 @@ class Decoder(nn.Module):
 
                 # 次のループへの入力
                 # 前時刻の出力をprevに結合していきますが、学習時の条件と合わせるために、max_lenを上限としています
-                if prev.shape[-1] < max_len:
-                    prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
-                else:
-                    prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
-                    prev = prev[:, :, 1:]   # max_lenを超えた場合は、最初のフレームを捨てる
-                    assert prev.shape[-1] == max_len
+                # 変更：口唇動画も150フレームではないので，制限を無くしました
+                prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+                # if prev.shape[-1] < max_len:
+                #     prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+                # else:
+                #     prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+                #     prev = prev[:, :, 1:]   # max_lenを超えた場合は、最初のフレームを捨てる
+                #     assert prev.shape[-1] == max_len
         
-        # 各時刻の出力を結合して出力
-        out = torch.cat(outs, dim=2)
+        # out = torch.cat(outs, dim=2)
+        # out = dec_output.reshape(B, D, -1)
+        out = prev.reshape(B, D, -1)
         assert out.shape[-1] == T * 2
         return out
 

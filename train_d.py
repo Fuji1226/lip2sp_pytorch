@@ -1,5 +1,7 @@
 """
 discriminatorを使うtrainを分けました
+
+こっちは事前にモデルを学習しておき，それをロードしてから学習を開始する
 """
 
 from omegaconf import DictConfig, OmegaConf
@@ -25,7 +27,7 @@ from speechbrain.pretrained import EncoderClassifier
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from model.dataset_no_chainer import KablabDataset, KablabTransform
+from model.dataset_npz import KablabDataset, KablabTransform
 from model.models import Lip2SP
 from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
@@ -41,11 +43,16 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 
 
-# パラメータの保存
-def save_checkpoint(model, optimizer, iteration, ckpt_pth):
+# check pointでの保存
+def save_checkpoint(model, discriminator, optimizer, schedular, epoch, ckpt_path):
 	torch.save({'model': model.state_dict(),
+                'discriminator': discriminator.state_dict(),
 				'optimizer': optimizer.state_dict(),
-				'iteration': iteration}, ckpt_pth)
+                'schedular': schedular.state_dict(),
+                "np_random": np.random.get_state(), 
+                "torch": torch.get_rng_state(),
+                "torch_random": torch.random.get_rng_state(),
+				'epoch': epoch}, ckpt_path)
 
 
 def make_train_val_loader(cfg):
@@ -54,84 +61,97 @@ def make_train_val_loader(cfg):
         delta=cfg.model.delta
     )
     dataset = KablabDataset(
-        data_root=cfg.train.train_path,
+        data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
+        mean_std_path=cfg.train.mean_std_path,
+        name=cfg.model.name,
         train=True,
+        val=True,
         transforms=trans,
         cfg=cfg,
+        debug=cfg.train.debug
     )
 
     # 学習用と検証用にデータセットを分割
-    # n_samples = len(dataset)
-    # train_size = int(n_samples * 0.95)
-    # val_size = n_samples - train_size
-    # train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-    # val_dataset.train = False
+    n_samples = len(dataset)
+    train_size = int(n_samples * 0.95)
+    val_size = n_samples - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    val_dataset.train = False
 
-    # train_loader = DataLoader(
-    #     dataset=train_dataset,
-    #     batch_size=cfg.train.batch_size,   
-    #     shuffle=True,
-    #     num_workers=cfg.train.num_workers,      
-    #     pin_memory=False,
-    #     drop_last=True,
-    #     collate_fn=None,
-    # )
-    # val_loader = DataLoader(
-    #     dataset=val_dataset,
-    #     batch_size=1,
-    #     shuffle=False,
-    #     num_workers=cfg.train.num_workers,      
-    #     pin_memory=False,
-    #     drop_last=True,
-    #     collate_fn=None,
-    # )
-    # return train_loader, val_loader, dataset
-    
     train_loader = DataLoader(
-        dataset=dataset,
+        dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=False,
+        num_workers=os.cpu_count(),      
+        pin_memory=True,
         drop_last=True,
         collate_fn=None,
     )
-    return train_loader, dataset
-
-
-def make_test_loader(cfg):
-    trans = KablabTransform(
-        length=cfg.model.length,
-        delta=cfg.model.delta
-    )
-    dataset = KablabDataset(
-        data_root=cfg.train.test_path,
-        train=False,
-        transforms=trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=dataset,
-        # batch_size=cfg.train.batch_size,
-        batch_size=1,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=False,
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=False,
+        num_workers=os.cpu_count(),      
+        pin_memory=True,
         drop_last=True,
         collate_fn=None,
     )
-    return test_loader, dataset
+    return train_loader, val_loader, dataset
+
+def make_model(cfg, device):
+    """
+    モデル作成
+    """
+    model = Lip2SP(
+            in_channels=cfg.model.in_channels,
+            out_channels=cfg.model.out_channels,
+            res_layers=cfg.model.res_layers,
+            d_model=cfg.model.d_model,
+            n_layers=cfg.model.n_layers,
+            n_head=cfg.model.n_head,
+            glu_inner_channels=cfg.model.d_model,
+            glu_layers=cfg.model.glu_layers,
+            pre_in_channels=cfg.model.pre_in_channels,
+            pre_inner_channels=cfg.model.pre_inner_channels,
+            post_inner_channels=cfg.model.post_inner_channels,
+            n_position=cfg.model.length * 5,
+            max_len=cfg.model.length // 2,
+            which_encoder=cfg.model.which_encoder,
+            which_decoder=cfg.model.which_decoder,
+            training_method=cfg.train.training_method,
+            num_passes=cfg.train.num_passes,
+            mixing_prob=cfg.train.mixing_prob,
+            dropout=cfg.train.dropout,
+            reduction_factor=cfg.model.reduction_factor,
+            use_gc=cfg.train.use_gc
+        ).to(device)
+    return model
 
 
-def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, dataset, optimizer, optimizer_d, loss_f_mse, loss_f_train, device, cfg):
+def make_discriminator(cfg, device):
+    assert cfg.model.which_d == "jcu" or "unet", print('discriminatorを設定してください!')
+    if cfg.model.which_d == "unet":
+        discriminator = UNetDiscriminator()
+    elif cfg.model.which_d == "jcu":
+        discriminator = JCUDiscriminator(
+            in_channels=cfg.model.out_channels,
+            out_channels=1,
+            use_gc=cfg.train.use_gc,
+            emb_in=cfg.train.batch_size,
+        )
+    discriminator.to(device)
+    return discriminator
+
+
+def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimizer, optimizer_d, loss_f_train, device, cfg):
     epoch_loss = 0
     epoch_loss_d = 0
     data_cnt = 0
     iter_cnt = 0
     all_iter = len(train_loader)
 
-    feat_mean = dataset.feat_mean.to(device)
-    feat_std = dataset.feat_std.to(device)
+    # feat_mean = dataset.feat_mean.to(device)
+    # feat_std = dataset.feat_std.to(device)
 
     print("iter start")
     model.train()
@@ -140,7 +160,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, datase
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
-        (lip, target, feat_add), data_len, label = batch
+        (lip, target, feat_add), data_len, speaker, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
         
         batch_size = lip.shape[0]
@@ -164,26 +184,27 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, datase
                 prev=target,
             )                      
         
-        ############################################
-        wav_target = world2wav_direct(target, feat_mean, feat_std, cfg)
-        wav_output = world2wav_direct(output, feat_mean, feat_std, cfg)
-        ############################################
-        
+        # 音声波形のdiscriminatorは一旦放置
+        # wav_target = world2wav_direct(target, feat_mean, feat_std, cfg)
+        # wav_output = world2wav_direct(output, feat_mean, feat_std, cfg)
         
         # discriminatorへ入力
-        try:
-            out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
-            out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
-            # 損失計算
-            loss_d = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
-        except Exception:
-            print("error")
-        
+        out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
+        out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
+
+        # 損失計算
+        loss_d = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
+
+        # 勾配初期化
+        optimizer_d.zero_grad()
         loss_d.backward()
+
         # gradient clipping
         clip_grad_norm_(discriminator.parameters(), cfg.train.max_norm)
+
         optimizer_d.step()
         epoch_loss_d += loss_d.item()
+        wandb.log({"train_loss_disc": loss_d.item()})
 
         #====================================================
         # generatorの最適化
@@ -200,34 +221,37 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, datase
         )
 
         # discriminatorへ入力
-        try:
-            out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
-            out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
-            # 損失計算
-            loss_g_ls = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
-            loss_g_fm = loss_f_train.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
-        except Exception:
-            print("error")
-
-        # loss_default = loss_f_mse(output[:, :, :-2], target[:, :, 2:]) + loss_f_mse(dec_output[:, :, :-2], target[:, :, 2:])
-        # loss_mask = loss_f_train.masked_mse(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
-        #     + loss_f_train.masked_mse(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        # loss_delta = loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
+        out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
+        loss_g_ls = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
+        loss_g_fm = loss_f_train.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
 
         # postnet前後のmse_lossと、GAN関連のlossの和（実際は重みづけが必要そう）
-        loss = loss_f_train.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
-            + loss_f_train.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
-                + loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) \
-                    + loss_g_ls + loss_g_fm
-        
+        output_loss = loss_f_train.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        delta_loss = loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        loss_recon = output_loss + dec_output_loss + delta_loss
+
+        # GANspeechのscaled feature matching lossを使用
+        co_fm = loss_recon / loss_g_fm
+
+        loss = loss_recon + loss_g_ls + co_fm * loss_g_fm
+
+        # 勾配初期化
+        optimizer.zero_grad()
         loss.backward()
+
         # gradient clipping
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
         epoch_loss += loss.item()
 
-        wandb.log({"train_iter_loss_disc": loss_d.item()})
-        wandb.log({"train_iter_loss_gen": loss.item()})
+        wandb.log({"train_gen_ls_loss": loss_g_ls.item()})
+        wandb.log({"train_gen_fm_loss": loss_g_fm.item()})
+        wandb.log({"train_output_loss": output_loss.item()})
+        wandb.log({"train_dec_output_loss": dec_output_loss.item()})
+        wandb.log({"train_delta_loss": delta_loss.item()})
+        wandb.log({"train_loss_gen": loss.item()})
     
     # epoch_loss /= data_cnt
     # epoch_loss_d /= data_cnt
@@ -236,50 +260,57 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, datase
     return epoch_loss, epoch_loss_d
 
 
-def calc_test_loss_with_d(model: nn.Module, discriminator, test_loader, loss_f_val, device, cfg):
+def calc_test_loss_with_d(model: nn.Module, discriminator, val_loader, loss_f_train, device, cfg):
     epoch_loss = 0
     epoch_loss_d = 0
     data_cnt = 0
     iter_cnt = 0
-    all_iter = len(test_loader)
+    all_iter = len(val_loader)
     print("calc test loss")
     model.eval()
     discriminator.eval()
-    for batch in test_loader:
+    for batch in val_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
 
-        (lip, target, feat_add), data_len, label = batch
+        (lip, target, feat_add), data_len, speaker, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
         batch_size = lip.shape[0]
         data_cnt += batch_size
 
         # generatorでデータ生成
         with torch.no_grad():
-            output, dec_output = model.inference(
+            # output, dec_output = model.inference(
+            #     lip=lip,
+            # )   
+            output, dec_output = model(
                 lip=lip,
-            )    
+                data_len=data_len,
+                prev=target,
+            ) 
     
         # discriminatorへ入力
-        try:
-            out_f, fmaps_f = discriminator(output)   # 生成データを入力
-            out_r, fmaps_r = discriminator(target)    # 実データを入力
-            loss_d = loss_f_val.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
-            loss_g_ls = loss_f_val.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
-            loss_g_fm = loss_f_val.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
-        except Exception:
-            print("error")
+        out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
+        out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
+        loss_d = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
+        loss_g_ls = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
+        loss_g_fm = loss_f_train.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
 
-        loss = loss_f_val.mse_loss(output, target, data_len, max_len=model.max_len * 2) \
-            + loss_f_val.mse_loss(dec_output, target, data_len, max_len=model.max_len * 2) \
-                + loss_f_val.delta_loss(output, target, data_len, max_len=model.max_len * 2) \
-                    + loss_g_ls + loss_g_fm
+        output_loss = loss_f_train.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        delta_loss = loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+
+        loss = output_loss + dec_output_loss + delta_loss + loss_g_ls + loss_g_fm
 
         epoch_loss += loss.item()
         epoch_loss_d += loss_d.item()
 
-        wandb.log({"val_iter_loss_disc": loss_d.item()})
-        wandb.log({"val_iter_loss_gen": loss.item()})
+        wandb.log({"val_gen_ls_loss": loss_g_ls.item()})
+        wandb.log({"val_gen_fm_loss": loss_g_fm.item()})
+        wandb.log({"val_output_loss": output_loss.item()})
+        wandb.log({"val_dec_output_loss": dec_output_loss.item()})
+        wandb.log({"val_delta_loss": delta_loss.item()})
+        wandb.log({"val_loss_gen": loss.item()})
     
     # epoch_loss /= data_cnt
     # epoch_loss_d /= data_cnt
@@ -304,64 +335,32 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    #resultの表示
-    result_path = 'results'
-    os.makedirs(result_path, exist_ok=True)
+    print(os.cpu_count())
+    torch.backends.cudnn.benchmark = True
+
+    # check point
+    ckpt_path = os.path.join(cfg.train.ckpt_path, current_time)
+    os.makedirs(ckpt_path, exist_ok=True)
 
     # モデルパラメータの保存先を指定
     save_path = os.path.join(cfg.train.train_save_path, current_time)
     os.makedirs(save_path, exist_ok=True)
     
     # Dataloader作成
-    # train_loader, val_loader, _ = make_train_val_loader(cfg)
-    train_loader, dataset = make_train_val_loader(cfg)
-    test_loader, _ = make_test_loader(cfg)
+    train_loader, val_loader, _ = make_train_val_loader(cfg)
     
     # 損失関数
-    loss_f_mse = nn.MSELoss()
-    loss_f_mae = nn.L1Loss()
     loss_f_train = masked_loss(train=True)
-    loss_f_val = masked_loss(train=False)
+    # loss_f_val = masked_loss(train=False)
     train_loss_list = []
-    
-    with wandb.init(**cfg.wandb.setup, config=wandb_cfg) as run:
+
+    cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
+    with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg) as run:
         # model
-        model = Lip2SP(
-            in_channels=cfg.model.in_channels,
-            out_channels=cfg.model.out_channels,
-            res_layers=cfg.model.res_layers,
-            d_model=cfg.model.d_model,
-            n_layers=cfg.model.n_layers,
-            n_head=cfg.model.n_head,
-            glu_inner_channels=cfg.model.d_model,
-            glu_layers=cfg.model.glu_layers,
-            pre_in_channels=cfg.model.pre_in_channels,
-            pre_inner_channels=cfg.model.pre_inner_channels,
-            post_inner_channels=cfg.model.post_inner_channels,
-            n_position=cfg.model.length * 5,
-            max_len=cfg.model.length // 2,
-            which_encoder=cfg.model.which_encoder,
-            which_decoder=cfg.model.which_decoder,
-            training_method=cfg.train.training_method,
-            num_passes=cfg.train.num_passes,
-            mixing_prob=cfg.train.mixing_prob,
-            dropout=cfg.train.dropout,
-            reduction_factor=cfg.model.reduction_factor,
-            use_gc=cfg.train.use_gc
-        ).to(device)
+        model =make_model(cfg, device)
 
         # discriminator
-        assert cfg.model.which_d == "jcu" or "unet", print('discriminatorを設定してください!')
-        if cfg.model.which_d == "unet":
-            discriminator = UNetDiscriminator()
-        elif cfg.model.which_d == "jcu":
-            discriminator = JCUDiscriminator(
-                in_channels=cfg.model.out_channels,
-                out_channels=1,
-                use_gc=cfg.train.use_gc,
-                emb_in=cfg.train.batch_size,
-            )
-        discriminator.to(device)
+        discriminator = make_discriminator(cfg, device)
         
         # optimizer
         optimizer = torch.optim.Adam(
@@ -389,20 +388,23 @@ def main(cfg):
             gamma=cfg.train.lr_decay_rate      
         )
 
-        wandb.watch(model, **cfg.wandb.watch)
-        wandb.watch(discriminator, **cfg.wandb.watch)
+        wandb.watch(model, **cfg.wandb_conf.watch)
+        wandb.watch(discriminator, **cfg.wandb_conf.watch)
+
+        if cfg.train.debug:
+            max_epoch = cfg.train.debug_max_epoch
+        else:
+            max_epoch = cfg.train.max_epoch
             
         # training
-        for epoch in range(cfg.train.max_epoch):
+        for epoch in range(max_epoch):
             print(f"##### {epoch} #####")
             epoch_loss, epoch_loss_d = train_one_epoch_with_d(
                 model=model, 
                 discriminator=discriminator, 
                 train_loader=train_loader, 
-                dataset=dataset,
                 optimizer=optimizer, 
                 optimizer_d=optimizer_d, 
-                loss_f_mse=loss_f_mse, 
                 loss_f_train=loss_f_train, 
                 device=device, 
                 cfg=cfg
@@ -412,14 +414,32 @@ def main(cfg):
             print(f"epoch_loss_d = {epoch_loss_d}")
             print(f"train_loss_list = {train_loss_list}")
 
-            if epoch % cfg.train.display_test_loss_step == 0:
-                epoch_loss_test, epoch_loss_d_test = calc_test_loss_with_d(model, discriminator, test_loader, loss_f_val, device, cfg)
+            if epoch % cfg.train.display_val_loss_step == 0:
+                epoch_loss_test, epoch_loss_d_test = calc_test_loss_with_d(
+                    model=model, 
+                    discriminator=discriminator, 
+                    val_loader=val_loader, 
+                    loss_f_train=loss_f_train, 
+                    device=device, 
+                    cfg=cfg,
+                )
                 print(f"epoch_loss_test = {epoch_loss_test}")
                 print(f"epoch_loss_d_test = {epoch_loss_d_test}")
             
             # 学習率の更新
             scheduler.step()
             scheduler_d.step()
+
+            # check point
+            if epoch % cfg.train.ckpt_step == 0:
+                save_checkpoint(
+                    model=model,
+                    discriminator=discriminator,
+                    optimizer=optimizer,
+                    schedular=scheduler,
+                    epoch=epoch,
+                    ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_d_{epoch}.ckpt")
+                )
 
         # モデルの保存
         torch.save(model.state_dict(), os.path.join(save_path, f"model_{cfg.model.name}_d.pth"))

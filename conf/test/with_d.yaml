@@ -11,7 +11,7 @@ data_path : "/home/usr4/r70264c/dataset/lip/lip_cropped"
 model_save_path : "/home/usr4/r70264c/lip2sp_pytorch/check_point/2022:06:23_10-07-13"
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-generate_save_path : "/home/usr4/r70264c/lip2sp_pytorch/result/default/generate"
+generate_save_path : "/home/usr4/r70264c/lip2sp_pytorch/result/with_d/generate"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
 mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"

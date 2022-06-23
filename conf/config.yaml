@@ -1,5 +1,5 @@
 defaults:
-  - model: world
+  - model: mspec
   - train: train_1
   - test : default
   - wandb_conf : defaults

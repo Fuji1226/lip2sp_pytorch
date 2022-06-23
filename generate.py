@@ -7,11 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 import mlflow
 
-# import wandb
-# wandb.init(
-#     project='llip2sp_pytorch',
-#     name="desk-test"
-# )
+import wandb
 
 from pathlib import Path
 import os
@@ -28,17 +24,52 @@ from torch.utils.data import DataLoader
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from model.dataset_no_chainer import KablabDataset, KablabTransform
+from model.dataset_npz import KablabDataset, KablabTransform
 from model.models import Lip2SP
-from loss import masked_mse, delta_loss, ls_loss, fm_loss
-from model.discriminator import UNetDiscriminator, JCUDiscriminator
-from train import make_test_loader, make_train_loader
-from data_process.feature import mel2wave
 from data_check import save_data
 
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
+
+
+def make_test_loader(cfg):
+    trans = KablabTransform(
+        length=cfg.model.length,
+        delta=cfg.model.delta
+    )
+    dataset = KablabDataset(
+        data_root=cfg.test.pre_loaded_path,    # npzファイルまでのパス
+        mean_std_path=cfg.test.mean_std_path,
+        name=cfg.model.name,
+        train=False,
+        val=False,
+        transforms=trans,
+        cfg=cfg,
+        debug=cfg.test.debug
+    )
+    # 学習用データで確認するとき用
+    # dataset = KablabDataset(
+    #     data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
+    #     mean_std_path=cfg.train.mean_std_path,
+    #     name=cfg.model.name,
+    #     train=True,
+    #     val=False,
+    #     transforms=trans,
+    #     cfg=cfg,
+    #     debug=cfg.test.debug
+    # )
+    # dataset.train = False
+    test_loader = DataLoader(
+        dataset=dataset,
+        batch_size=1,   
+        shuffle=True,
+        num_workers=os.cpu_count(),      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return test_loader, dataset
 
 
 def generate(cfg, model, test_loader, datasets, device, save_path):
@@ -56,7 +87,7 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
     for batch in test_loader:
         model.eval()
 
-        (lip, target, feat_add), data_len, label = batch
+        (lip, target, feat_add), data_len, speaker, label = batch
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
@@ -67,13 +98,10 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
         dec_outputs.append(dec_output)
 
         # ディレクトリ作成
-        try:
-            os.makedirs(f"{save_path}/{label[0]}/input")
-            os.makedirs(f"{save_path}/{label[0]}/output")
-        except FileExistsError:
-            pass
-        input_save_path = f"{save_path}/{label[0]}/input"
-        output_save_path = f"{save_path}/{label[0]}/output"
+        input_save_path = os.path.join(save_path, label[0], 'input')
+        output_save_path = os.path.join(save_path, label[0], 'output')
+        os.makedirs(input_save_path, exist_ok=True)
+        os.makedirs(output_save_path, exist_ok=True)
         
         save_data(
             cfg=cfg,
@@ -93,19 +121,9 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
 
         index += 1
 
-    return outputs, dec_outputs
-
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    # 保存先
-    save_path = cfg.model.generate_save_path
-    try:
-        os.makedirs(f"{save_path}/{current_time}")
-    except FileExistsError:
-        pass
-    save_path = os.path.join(save_path, current_time)
-    
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
@@ -136,19 +154,24 @@ def main(cfg):
     )
     model = model.to(device)
 
-    # 保存したパラメータの読み込み
-    # model_path = cfg.model.train_save_path+f'/2022:06:09_23-13-18/model_{cfg.model.name}.pth'
+    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/2022:06:24_00-42-24/mspec_20.ckpt"
+    model.load_state_dict(torch.load(model_path)['model'])
 
-    # mlflowを利用したモデルの読み込み
-    model_path = cfg.model.train_save_path + "/state_dict.pth"
-    model.load_state_dict(torch.load(model_path))
+    # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/train/2022:06:23_10-07-13/model_mspec.pth"
+    # model.load_state_dict(torch.load(model_path))
+
+    # 保存先
+    save_path = cfg.test.generate_save_path
+    # save_path = os.path.join(save_path, Path(cfg.test.model_save_path).name)
+    save_path = os.path.join(save_path, Path(model_path).parents[0].name, Path(model_path).stem)
+    os.makedirs(save_path, exist_ok=True)
 
     # Dataloader作成
     test_loader, datasets = make_test_loader(cfg)
 
     # generate
     model.eval()
-    output, dec_output = generate(
+    generate(
         cfg=cfg,
         model=model,
         test_loader=test_loader,

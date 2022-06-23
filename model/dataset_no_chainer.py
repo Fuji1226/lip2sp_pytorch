@@ -7,7 +7,6 @@ import os
 import sys
 import glob
 
-# 親ディレクトリからのimport用
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from pathlib import Path

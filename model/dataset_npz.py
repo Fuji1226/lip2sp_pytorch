@@ -69,6 +69,35 @@ def get_datasets(data_root, name, debug, debug_data_len):
     return items
 
 
+def get_datasets_test(data_root, name, debug, debug_data_len):    
+    """
+    npzファイルのパス取得
+    """
+    items = []
+    if debug:
+        for curdir, dir, files in os.walk(data_root):
+            for file in files:
+                if file.endswith(".npz"):
+                    # mspecかworldかの分岐
+                    if f"{name}" in Path(file).stem:
+                        data_path = os.path.join(curdir, file)
+                        if os.path.isfile(data_path):
+                            items.append(data_path)
+                            # デバッグなのでデータ数を制限
+                            if len(items) > debug_data_len:
+                                break
+    else:
+        for curdir, dir, files in os.walk(data_root):
+            for file in files:
+                if file.endswith(".npz"):
+                    # mspecかworldかの分岐
+                    if f"{name}" in Path(file).stem:
+                        data_path = os.path.join(curdir, file)
+                        if os.path.isfile(data_path):
+                            items.append(data_path)
+    return items
+
+
 def load_mean_std(mean_std_path, name):
     """
     一応複数話者の場合は全話者の平均にできるようにやってみました
@@ -106,8 +135,45 @@ def load_mean_std(mean_std_path, name):
     return lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
 
 
+def load_mean_std_test(mean_std_path, name):
+    """
+    一応複数話者の場合は全話者の平均にできるようにやってみました
+    """
+    each_lip_mean = []
+    each_lip_std = []
+    each_feat_mean = []
+    each_feat_std = []
+    each_feat_add_mean = []
+    each_feat_add_std = []
+
+    # 話者ごとにリスト
+    for curdir, dirs, files in os.walk(mean_std_path):
+        for file in files:
+            if file.endswith('.npz'):
+                if f"{name}" in Path(file).stem:
+                    if f"test" in Path(file).stem:
+                        # mean_std_pathにtrainとtestのディレクトリを作っていないので，一旦無理やりパスを通す
+                        npz_key = np.load(os.path.join(curdir, file))
+                        each_lip_mean.append(torch.from_numpy(npz_key['lip_mean']))
+                        each_lip_std.append(torch.from_numpy(npz_key['lip_std']))
+                        each_feat_mean.append(torch.from_numpy(npz_key['feat_mean']))
+                        each_feat_std.append(torch.from_numpy(npz_key['feat_std']))
+                        each_feat_add_mean.append(torch.from_numpy(npz_key['feat_add_mean']))
+                        each_feat_add_std.append(torch.from_numpy(npz_key['feat_add_std']))
+    
+    # 話者人数で割って平均
+    lip_mean = sum(each_lip_mean) / len(each_lip_mean)
+    lip_std = sum(each_lip_std) / len(each_lip_std)
+    feat_mean = sum(each_feat_mean) / len(each_feat_mean)
+    feat_std = sum(each_feat_std) / len(each_feat_std)
+    feat_add_mean = sum(each_feat_add_mean) / len(each_feat_add_mean)
+    feat_add_std = sum(each_feat_add_std) / len(each_feat_add_std)
+
+    return lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
+
+
 class KablabDataset(Dataset):
-    def __init__(self, data_root, mean_std_path, name, train, transforms, cfg, debug, visualize=False):
+    def __init__(self, data_root, mean_std_path, name, train, val, transforms, cfg, debug, visualize=False):
         super().__init__()
         assert data_root is not None, "データまでのパスを設定してください"
         assert mean_std_path is not None, "平均，標準偏差までのパスを設定してください"
@@ -118,14 +184,19 @@ class KablabDataset(Dataset):
         self.transforms = transforms
         self.cfg = cfg
         self.train = train
+        self.val = val
         self.debug = debug
-        self.debug_data_len = cfg.train.debug_data_len
         self.visualize = visualize
 
         # 口唇動画、音声データまでのパス一覧を取得
-        self.items = get_datasets(data_root, name, debug, self.debug_data_len)
-        self.len = len(self.items)
-        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, name)
+        if train:
+            self.items = get_datasets(data_root, name, debug, cfg.train.debug_data_len)
+            self.len = len(self.items)
+            self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, name)
+        else:
+            self.items = get_datasets_test(data_root, name, debug, cfg.test.debug_data_len)
+            self.len = len(self.items)
+            self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std_test(mean_std_path, name)
         
         print(f'Size of {type(self).__name__}: {self.len}')
 
@@ -133,25 +204,9 @@ class KablabDataset(Dataset):
         return self.len
 
     def __getitem__(self, index):
-         # video_path, audio_path = self.items[index]
-        # data_path = Path(video_path)
-        # label = data_path.stem
-
-        # tensor返し
-        # data, data_len = load_data(
-        #     train=self.train,
-        #     data_path=Path(video_path),
-        #     cfg=self.cfg,   # pre_loaded_path用
-        #     gray=self.cfg.model.gray,
-        #     frame_period=self.cfg.model.frame_period,
-        #     feature_type=self.cfg.model.feature_type,
-        #     nmels=self.cfg.model.n_mel_channels,
-        #     f_min=self.cfg.model.f_min,
-        #     f_max=self.cfg.model.f_max,
-        # )
-
         data_path = self.items[index]
         speaker = Path(data_path).parents[0].name
+        label = Path(data_path).stem
 
         npz_key = np.load(data_path)
         lip = torch.from_numpy(npz_key['lip'])
@@ -162,7 +217,16 @@ class KablabDataset(Dataset):
         data = [lip, feature, feat_add, upsample]
 
         data = self.transforms(
-            data, data_len, self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std, self.train
+            data=data, 
+            data_len=data_len, 
+            lip_mean=self.lip_mean, 
+            lip_std=self.lip_std, 
+            feat_mean=self.feat_mean, 
+            feat_std=self.feat_std, 
+            feat_add_mean=self.feat_add_mean, 
+            feat_add_std=self.feat_add_std, 
+            train=self.train, 
+            val=self.val
         )
         
         lip = data[0]   # (C, W, H, T)
@@ -185,16 +249,15 @@ class KablabDataset(Dataset):
                 feat_add_std=self.feat_add_std
             )
         
-        return (lip, feature, feat_add), data_len, speaker
+        return (lip, feature, feat_add), data_len, speaker, label
 
 
 class KablabTransform:
     def __init__(self, length, delta=True):
-        # とりあえず適当に色々使ってみました
         self.lip_transforms = T.Compose([
-            T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2),
+            T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2),    
             T.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 5)),
-            T.RandomPerspective(distortion_scale=0.5, p=0.5),
+            # T.RandomPerspective(distortion_scale=0.5, p=0.5),
             # T.RandomRotation(degrees=(0, 60)),
             # T.RandomPosterize(bits=3, p=0.5),
             T.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
@@ -273,9 +336,10 @@ class KablabTransform:
         
         return lip, feature, feat_add
 
-    def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, train):
+    def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, train, val):
         """
-        train=Trueの時、data augmentationとtime_adjustを適用します
+        train=True,val=Trueの時、data augmentationとtime_adjustを適用します
+        train=False,val=Trueの時,time_adjustのみを適用します(損失計算の並列化のため)
         """
         lip = data[0]   # (C, H, W, T)
         feature = data[1]   # (T, C)
@@ -283,7 +347,7 @@ class KablabTransform:
         upsample = data[3]
         
         if train:
-            # data augmentation
+            # data augmentation(学習時のみ)
             lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
             lip = self.lip_transforms(lip)
         else:
@@ -295,8 +359,8 @@ class KablabTransform:
         )
         lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
     
-        if train:
-            # フレーム数の調整
+        if train or val:
+            # フレーム数の調整(学習時と検証時)
             lip, feature, feat_add = self.time_adjust(lip, feature, feat_add, data_len, upsample)
 
         # 口唇動画の動的特徴量の計算

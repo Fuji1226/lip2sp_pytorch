@@ -2,25 +2,22 @@
 
 # デバッグ
 debug : False
-debug_data_len : 1000
-debug_max_epoch : 100
-
-# checkpointから再開する場合
-check_point_start : False
+debug_data_len : 500
+debug_max_epoch : 20
 
 # データを置いているディレクトリまでのパス
 train_path : "/home/usr4/r70264c/dataset/lip/lip_cropped"
 test_path : "/home/usr4/r70264c/dataset/lip"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-train_save_path : "/home/usr4/r70264c/lip2sp_pytorch/result/default/train"
+train_save_path : "/home/usr4/r70264c/lip2sp_pytorch/result/with_d/train"
 
 # check point path
-ckpt_path : "/home/usr4/r70264c/lip2sp_pytorch/check_point/default"
+ckpt_path : "/home/usr4/r70264c/lip2sp_pytorch/check_point/with_d"
 ckpt_step : 10
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/default/generate"
+generate_save_path : "/home/usr4/r70264c/Projects/lip2sp_pytorch/result/with_d/generate"
 
 # 平均、標準偏差を保存するディレクトリまでのパス
 mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/mean_std"

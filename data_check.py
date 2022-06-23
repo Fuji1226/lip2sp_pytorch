@@ -244,6 +244,7 @@ def save_lip_video(cfg, index, save_path, file_name, lip, lip_mean, lip_std):
     lip_orig = torch.mul(lip_orig, lip_std)
     lip_orig = torch.add(lip_orig, lip_mean)
     lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
+    lip_orig = lip_orig.to('cpu')
     torchvision.io.write_video(
         filename=save_path+f"/lip.mp4",
         video_array=lip_orig,
@@ -265,6 +266,9 @@ def save_lip_video(cfg, index, save_path, file_name, lip, lip_mean, lip_std):
 
     lip_delta = lip_delta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
     lip_deltadelta = lip_deltadelta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
+
+    lip_delta = lip_delta.to('cpu')
+    lip_deltadelta = lip_deltadelta.to('cpu')
     
     torchvision.io.write_video(
         filename=save_path+f"/lip_d.mp4",
