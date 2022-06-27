@@ -4,7 +4,7 @@ setup:
     project: debug
     entity:
     mode: online
-    name : val_loss_change
+    name : collate
 watch:
     log: all
     log_freq: 100

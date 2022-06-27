@@ -24,6 +24,7 @@ import librosa
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from zmq import device
 
 
 OVERLAP = 4
@@ -468,6 +469,55 @@ def delta_feature(x, order=2, static=True, delta=True, deltadelta=True):
     return out
 
 
+##########################################
+# add blur_pooling
+##########################################
+def blur_pooling2D(x, device, ksize=3, stride=1):
+    """
+    input
+    x : (B, C, T)
+
+    return
+    out :(B, C, T)
+    """
+
+    x = x.unsqueeze(1)
+
+    # pad_sizes = [(int(1.*(ksize-1)/2), int(np.ceil(1.*(ksize-1)/2))),
+    #              (int(1.*(ksize-1)/2), int(np.ceil(1.*(ksize-1)/2)))]
+    # pad_width = [(0, 0), (0, 0)] + pad_sizes
+
+    # if ksize == 1:
+    #     a = torch.tensor([1., ])
+    # elif ksize == 2:
+    #     a = torch.tensor([1., 1.])
+    if ksize == 3:
+        a = torch.tensor([1., 2., 1.])
+    # elif ksize == 4:
+    #     a = torch.tensor([1., 3., 3., 1.])
+    # elif ksize == 5:
+    #     a = torch.tensor([1., 4., 6., 4., 1.])
+    # elif ksize == 6:
+    #     a = torch.tensor([1., 5., 10., 10., 5., 1.])
+    # elif ksize == 7:
+    #     a = torch.tensor([1., 6., 15., 20., 15., 6., 1.])
+    else:
+        raise NotImplementedError(f"ksize: {ksize}")
+
+    filt = a.unsqueeze(1) * a.unsqueeze(0)
+    filt /= filt.sum()
+    filt = filt.unsqueeze(0).unsqueeze(0)
+    filt = filt.repeat(x.shape[1], 1, 1, 1).to(device)
+    padding = nn.ReflectionPad2d(1)
+    x = padding(x)
+
+    out = F.conv2d(x, filt, stride=(stride, stride), groups=x.shape[1])
+    out = out.squeeze(1)
+    return out
+
+
+
+
 def main():
     batch = 1
     channels = 4
@@ -477,6 +527,10 @@ def main():
     order = 2
     out = delta_feature(x, order)
     print(out)
+
+    x = torch.rand(batch, channels, frames)
+    x = x.unsqueeze(1)
+    blur_pooling2D(x)
     return
 
 

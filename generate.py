@@ -1,5 +1,8 @@
 """
 lip2sp_pytorch/conf/modelにあるyamlファイルのパスや、モデルのパラメータの読み込み先のパスを設定してから実行してください
+
+とりあえず適当に使っているだけなので，まだ整備できてません
+150行目あたりにパスを設定するところがあるので,そこを変更してください
 """
 
 
@@ -38,28 +41,25 @@ def make_test_loader(cfg):
         length=cfg.model.length,
         delta=cfg.model.delta
     )
-    dataset = KablabDataset(
-        data_root=cfg.test.pre_loaded_path,    # npzファイルまでのパス
-        mean_std_path=cfg.test.mean_std_path,
-        name=cfg.model.name,
-        train=False,
-        val=False,
-        transforms=trans,
-        cfg=cfg,
-        debug=cfg.test.debug
-    )
-    # 学習用データで確認するとき用
     # dataset = KablabDataset(
-    #     data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
-    #     mean_std_path=cfg.train.mean_std_path,
+    #     data_root=cfg.test.pre_loaded_path,    # npzファイルまでのパス
+    #     mean_std_path=cfg.test.mean_std_path,
     #     name=cfg.model.name,
-    #     train=True,
-    #     val=False,
-    #     transforms=trans,
+    #     train=False,
+    #     transform=trans,
     #     cfg=cfg,
     #     debug=cfg.test.debug
     # )
-    # dataset.train = False
+    # 学習用データで確認するとき用
+    dataset = KablabDataset(
+        data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
+        mean_std_path=cfg.train.mean_std_path,
+        name=cfg.model.name,
+        train=True,
+        transform=trans,
+        cfg=cfg,
+        debug=cfg.test.debug
+    )
     test_loader = DataLoader(
         dataset=dataset,
         batch_size=1,   
@@ -87,8 +87,8 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
     for batch in test_loader:
         model.eval()
 
-        (lip, target, feat_add), data_len, speaker, label = batch
-        lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
             output, dec_output = model.inference(
@@ -109,7 +109,7 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
             output_save_path=output_save_path,
             index=index,
             lip=lip,
-            feature=target,
+            feature=feature,
             feat_add=feat_add,
             output=output,
             dec_output=dec_output,
@@ -154,7 +154,7 @@ def main(cfg):
     )
     model = model.to(device)
 
-    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/2022:06:24_00-42-24/mspec_20.ckpt"
+    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/2022:06:26_23-59-56/mspec_70.ckpt"
     model.load_state_dict(torch.load(model_path)['model'])
 
     # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/train/2022:06:23_10-07-13/model_mspec.pth"

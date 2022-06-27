@@ -1,15 +1,16 @@
 """
 損失関数
 
-クラスにしました
+delta lossを田口さんのものに近づけました
 """
 
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from model.transformer import make_pad_mask
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
-from data_process.feature import delta_feature
+from data_process.feature import delta_feature, blur_pooling2D
 
 
 class masked_loss:
@@ -56,13 +57,27 @@ class masked_loss:
             mse = F.mse_loss(output, target)
         return mse
 
-    def delta_loss(self, output, target, data_len, max_len):
+    def delta_loss(self, output, target, data_len, max_len, device):
         """
         音響特徴量の動的特徴量についての損失関数
         """
+        #######################################################
+        # 田口さんのやつに変更
+        # 微妙だったので戻した
+        B, C, T = output.shape
+        # output = blur_pooling2D(output, device)
+        # target = blur_pooling2D(target, device)
+
         # 動的特徴量の計算  (B, C, T) -> (B, 3 * C, T)
         output = delta_feature(output) 
         target = delta_feature(target)
+
+        # bn = nn.BatchNorm2d(3).to(device)
+        # output = bn(output.reshape(B, 3, -1, T))
+        # target = bn(target.reshape(B, 3, -1, T))
+        # output = output.reshape(B, -1, T)
+        # target = target.reshape(B, -1, T)
+        #######################################################
 
         # 各チャンネルごとの標準偏差（ブロードキャストのため次元を増やしてます）
         target_std = torch.std(target, dim=(0, -1)).unsqueeze(0).unsqueeze(-1)
@@ -76,6 +91,7 @@ class masked_loss:
 
             # 正規化されたメルスペクトログラムの静的・動的特徴量の二乗誤差
             loss = ((output - target) / target_std)**2
+            # loss = (output - target) ** 2
             
             # マスクでパディング部分を隠す
             mse = 0
@@ -95,6 +111,7 @@ class masked_loss:
         ########################
         else:
             mse = F.mse_loss(output / target_std, target / target_std)
+            # mse = F.mse_loss(output, target)
         return mse
 
     def ls_loss(self, out_f, out_r, data_len, max_len, which_d, which_loss):
@@ -258,8 +275,6 @@ class masked_loss:
         loss = sum(losses_mean) / len(fmaps_f)
 
         return loss
-
-
 
 
 def main():

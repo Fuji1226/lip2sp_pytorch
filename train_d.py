@@ -13,6 +13,7 @@ from pathlib import Path
 from tqdm import tqdm
 import os
 import time
+import random
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,12 +28,10 @@ from speechbrain.pretrained import EncoderClassifier
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from model.dataset_npz import KablabDataset, KablabTransform
-from model.models import Lip2SP
 from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
-from mf_writer import MlflowWriter
 from data_process.feature import world2wav_direct
+from train_wandb import save_checkpoint, make_train_val_loader, make_model
 
 
 # 現在時刻を取得
@@ -41,91 +40,7 @@ current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
-
-
-# check pointでの保存
-def save_checkpoint(model, discriminator, optimizer, schedular, epoch, ckpt_path):
-	torch.save({'model': model.state_dict(),
-                'discriminator': discriminator.state_dict(),
-				'optimizer': optimizer.state_dict(),
-                'schedular': schedular.state_dict(),
-                "np_random": np.random.get_state(), 
-                "torch": torch.get_rng_state(),
-                "torch_random": torch.random.get_rng_state(),
-				'epoch': epoch}, ckpt_path)
-
-
-def make_train_val_loader(cfg):
-    trans = KablabTransform(
-        length=cfg.model.length,
-        delta=cfg.model.delta
-    )
-    dataset = KablabDataset(
-        data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
-        mean_std_path=cfg.train.mean_std_path,
-        name=cfg.model.name,
-        train=True,
-        val=True,
-        transforms=trans,
-        cfg=cfg,
-        debug=cfg.train.debug
-    )
-
-    # 学習用と検証用にデータセットを分割
-    n_samples = len(dataset)
-    train_size = int(n_samples * 0.95)
-    val_size = n_samples - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-    val_dataset.train = False
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=os.cpu_count(),      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=False,
-        num_workers=os.cpu_count(),      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return train_loader, val_loader, dataset
-
-def make_model(cfg, device):
-    """
-    モデル作成
-    """
-    model = Lip2SP(
-            in_channels=cfg.model.in_channels,
-            out_channels=cfg.model.out_channels,
-            res_layers=cfg.model.res_layers,
-            d_model=cfg.model.d_model,
-            n_layers=cfg.model.n_layers,
-            n_head=cfg.model.n_head,
-            glu_inner_channels=cfg.model.d_model,
-            glu_layers=cfg.model.glu_layers,
-            pre_in_channels=cfg.model.pre_in_channels,
-            pre_inner_channels=cfg.model.pre_inner_channels,
-            post_inner_channels=cfg.model.post_inner_channels,
-            n_position=cfg.model.length * 5,
-            max_len=cfg.model.length // 2,
-            which_encoder=cfg.model.which_encoder,
-            which_decoder=cfg.model.which_decoder,
-            training_method=cfg.train.training_method,
-            num_passes=cfg.train.num_passes,
-            mixing_prob=cfg.train.mixing_prob,
-            dropout=cfg.train.dropout,
-            reduction_factor=cfg.model.reduction_factor,
-            use_gc=cfg.train.use_gc
-        ).to(device)
-    return model
+random.seed(0)
 
 
 def make_discriminator(cfg, device):
@@ -338,7 +253,7 @@ def main(cfg):
     print(os.cpu_count())
     torch.backends.cudnn.benchmark = True
 
-    # check point
+    # check pointの保存先を指定
     ckpt_path = os.path.join(cfg.train.ckpt_path, current_time)
     os.makedirs(ckpt_path, exist_ok=True)
 
@@ -351,7 +266,6 @@ def main(cfg):
     
     # 損失関数
     loss_f_train = masked_loss(train=True)
-    # loss_f_val = masked_loss(train=False)
     train_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"

@@ -9,15 +9,12 @@ train.pyはあまり触ってません
 datasetを作成するとき,事前に作ったnpzファイルを読み込むように変更しました
 なので,data_process/make_npz.pyでnpzを作ってから出ないと実行できなくなっていると思います
 KablabDatasetのdata_root,mean_std_pathです
-
-configにdebugの設定を追加しました
-TrueにするとDatasetでとるデータ数を制限し,max_epochも制限します
 """
 
-from importlib.util import decode_source
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import mlflow
+from pyparsing import col
 import wandb
 import copy
 from pathlib import Path
@@ -26,18 +23,18 @@ import time
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 # pytorch
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
-import torchaudio
-from speechbrain.pretrained import EncoderClassifier
+from torch.autograd import detect_anomaly
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from model.dataset_npz import KablabDataset, KablabTransform
+from model.dataset_npz import KablabDataset, KablabTransform, KablabTransform_val,  MySubset, collate_fn_padding
 from model.models import Lip2SP
 from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
@@ -54,12 +51,14 @@ current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
+random.seed(0)
 
-# check pointでの保存
+
 def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
 	torch.save({'model': model.state_dict(),
 				'optimizer': optimizer.state_dict(),
                 'schedular': schedular.state_dict(),
+                "random": random.getstate(),
                 "np_random": np.random.get_state(), 
                 "torch": torch.get_rng_state(),
                 "torch_random": torch.random.get_rng_state(),
@@ -68,33 +67,48 @@ def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
 
 
 def make_train_val_loader(cfg):
-    trans = KablabTransform(
+    """
+    pytorchのrandom_splitとかで分けると元のデータセットのtransformを共有してしまうので,Subsetを作ります
+    学習用データにはdata augmentationとtime adjust
+    検証用データにはtime adjustのみを適用しています(損失計算の並列化のため)
+    """
+    # 学習用，検証用それぞれに対してtransformを作成
+    trans_train = KablabTransform(
         length=cfg.model.length,
         delta=cfg.model.delta
     )
+    trans_val = KablabTransform_val(
+        length=cfg.model.length,
+        delta=cfg.model.delta
+    )
+
+    # 元となるデータセットの作成(transformは必ずNoneでお願いします)
     dataset = KablabDataset(
         data_root=cfg.train.pre_loaded_path,    
         mean_std_path=cfg.train.mean_std_path,
         name=cfg.model.name,
         train=True,
-        val=True,
-        transforms=trans,
         cfg=cfg,
-        debug=cfg.train.debug
+        debug=cfg.train.debug,
+        transform=None,
     )
 
     # 学習用と検証用にデータセットを分割
     n_samples = len(dataset)
     train_size = int(n_samples * 0.95)
-    val_size = n_samples - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    indices = np.arange(n_samples)
+    train_dataset = MySubset(
+        dataset=dataset,
+        indices=indices[:train_size],
+        transform=trans_train,
+    )
+    val_dataset = MySubset(
+        dataset=dataset,
+        indices=indices[train_size:],
+        transform=trans_val,
+    )
 
-    # validationでは計算の並列化のため，time_adjustだけを適用
-    # train=True,val=True -> data augmentation & time adjust
-    # Train=False,val=True -> time adjust
-    val_dataset.train = False
-    assert val_dataset.train == False
-
+    # それぞれのdata loaderを作成
     train_loader = DataLoader(
         dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
@@ -106,7 +120,7 @@ def make_train_val_loader(cfg):
     )
     val_loader = DataLoader(
         dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
+        batch_size=1,   
         shuffle=False,
         num_workers=os.cpu_count(),      
         pin_memory=True,
@@ -117,9 +131,6 @@ def make_train_val_loader(cfg):
 
 
 def make_model(cfg, device):
-    """
-    モデル作成
-    """
     model = Lip2SP(
             in_channels=cfg.model.in_channels,
             out_channels=cfg.model.out_channels,
@@ -133,6 +144,7 @@ def make_model(cfg, device):
             pre_inner_channels=cfg.model.pre_inner_channels,
             post_inner_channels=cfg.model.post_inner_channels,
             n_position=cfg.model.length * 5,
+            # n_position=cfg.model.length,
             max_len=cfg.model.length // 2,
             which_encoder=cfg.model.which_encoder,
             which_decoder=cfg.model.which_decoder,
@@ -144,7 +156,6 @@ def make_model(cfg, device):
             use_gc=cfg.train.use_gc
         ).to(device)
     return model
-        
     
 
 def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, device, cfg):
@@ -153,13 +164,17 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start")
+    # with detect_anomaly():
     model.train()
     for batch in train_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
-        (lip, target, feat_add), data_len, speaker, label = batch
-        lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
+        # lip, feature, feat_add, data_len, speaker, label, max_len = batch
+        # lip, feature, feat_add, data_len, max_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), max_len.to(device)
+
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
 
         batch_size = lip.shape[0]
         data_cnt += batch_size
@@ -169,23 +184,56 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
         output, dec_output = model(
             lip=lip,
             data_len=data_len,
-            prev=target,
-        )                      
+            prev=feature,
+        )                
+
+        rf = cfg.model.reduction_factor      
         
         # パディング部分をマスクした損失を計算。postnet前後の出力両方を考慮。
-        output_loss = loss_f_train.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        delta_loss = loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        loss = output_loss + dec_output_loss + delta_loss
+        # output_loss = loss_f_train.mse_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        # dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        # delta_loss = loss_f_train.delta_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2)
+            
+        #  decoderは自己回帰なのでずらすけど，outputはpostnetを通すだけなのでずらしちゃだめだったかも
+        # output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * 2) 
+        # dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        # delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * 2)
 
-        # lossがnanになる時があるので，その対策
-        # nanだった場合は最適化せず，一つ前の状態に戻す
-        # optimizer.zero_grad()を忘れていたので，lossがnanになったのはそれが原因かも？
+        # transformerのdecoder出力の時点でシフトすることにより，最終的な損失ではシフトしないでいいようにした
+        # output_loss = loss_f_train.mse_loss(output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf) 
+        # dec_output_loss = loss_f_train.mse_loss(dec_output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf) 
+        # delta_loss = loss_f_train.delta_loss(output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf)
+
+        # transformerのget_subsequent_maskで対角成分をFalseにしておくことで，損失計算でシフトする必要性を解消した
+        output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 
+        dec_output_loss = loss_f_train.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
+        delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device)
+
+        loss = output_loss + dec_output_loss + delta_loss
+        
         # if torch.isnan(loss):
+        #     print("loss is nan!")
+        #     if torch.isnan(output_loss):
+        #         print("output_loss is nan!")
+        #     if torch.isnan(dec_output_loss):
+        #         print("dec_output_loss is nan!")
+        #     if torch.isnan(delta_loss):
+        #         print("delta_loss is nan!")
+        #     if torch.isnan(output):
+        #         print("output is nan!")
+        #     if torch.isnan(feature):
+        #         print("feature is nan!")
+        #     if torch.isnan(data_len):
+        #         print("data_len is nan!")
+        #     if torch.isnan(lip):
+        #         print("lip is nan!")
+
+        #     assert loss is not None
         #     model = make_model(cfg, device)
         #     model.load_state_dict(prev_model)
         #     optimizer = torch.optim.Adam(model.parameters())
         #     optimizer.load_state_dict(prev_optimizer)
+            
         # else:
         #     prev_model = model.state_dict()
         #     prev_optimizer = optimizer.state_dict()
@@ -200,18 +248,18 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
 
         optimizer.step()
         epoch_loss += loss.item()
-            
+        
         wandb.log({"train_output_loss": output_loss.item()})
         wandb.log({"train_dec_output_loss": dec_output_loss.item()})
         wandb.log({"train_delta_loss": delta_loss.item()})
         wandb.log({"train_total_loss": loss.item()})
-    
+
     # epoch_loss /= data_cnt
     epoch_loss /= iter_cnt
     return epoch_loss
 
 
-def calc_val_loss(model: nn.Module, val_loader, loss_f_train, device, cfg):
+def calc_val_loss(model: nn.Module, val_loader, loss_f_val, device, cfg):
     epoch_loss = 0
     data_cnt = 0
     iter_cnt = 0
@@ -222,30 +270,30 @@ def calc_val_loss(model: nn.Module, val_loader, loss_f_train, device, cfg):
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
-        (lip, target, feat_add), data_len, speaker, label = batch
-        lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+        if iter_cnt == 1:
+            print(lip.shape)
+            print(feature.shape)
 
         batch_size = lip.shape[0]
         data_cnt += batch_size
         
         with torch.no_grad():
-            # output, dec_output = model.inference(
-            #     lip=lip,
-            # )            
-            output, dec_output = model(
+            output, dec_output = model.inference(
                 lip=lip,
-                data_len=data_len,
-                prev=target,
             )            
 
-        output_loss = loss_f_train.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        delta_loss = loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        rf = cfg.model.reduction_factor
+        output_loss = loss_f_val.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 
+        dec_output_loss = loss_f_val.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
+        delta_loss = loss_f_val.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device)
+
+        # output_loss = loss_f_val.mse_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        # dec_output_loss = loss_f_val.mse_loss(dec_output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
+        # delta_loss = loss_f_val.delta_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
         loss = output_loss + dec_output_loss + delta_loss
         
-        # loss = loss_f_test.mse_loss(output, target, data_len, max_len=model.max_len * 2) \
-        #     + loss_f_test.mse_loss(dec_output, target, data_len, max_len=model.max_len * 2) \
-        #         + loss_f_test.delta_loss(output, target, data_len, max_len=model.max_len * 2) 
         epoch_loss += loss.item()
 
         wandb.log({"val_output_loss": output_loss.item()})
@@ -281,13 +329,13 @@ def main(cfg):
     result_path = 'results'
     # os.makedirs(result_path, exist_ok=True)
 
-    # check point
-    ckpt_path = os.path.join(cfg.train.ckpt_path, current_time)
-    os.makedirs(ckpt_path, exist_ok=True)
+    # # check point
+    # ckpt_path = os.path.join(cfg.train.ckpt_path, current_time)
+    # os.makedirs(ckpt_path, exist_ok=True)
 
-    # モデルパラメータの保存先を指定
-    save_path = os.path.join(cfg.train.train_save_path, current_time)
-    os.makedirs(save_path, exist_ok=True)
+    # # モデルパラメータの保存先を指定
+    # save_path = os.path.join(cfg.train.train_save_path, current_time)
+    # os.makedirs(save_path, exist_ok=True)
     
     # Dataloader作成
     train_loader, val_loader, _ = make_train_val_loader(cfg)
@@ -295,7 +343,7 @@ def main(cfg):
     
     # 損失関数
     loss_f_train = masked_loss(train=True)
-    # loss_f_test = masked_loss(train=False)
+    loss_f_val = masked_loss(train=False)
     train_loss_list = []
     
     # training
@@ -320,14 +368,16 @@ def main(cfg):
         )
 
         if cfg.train.check_point_start:
-            checkpoint_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/2022:06:23_14-03-27/world_30.ckpt"
+            checkpoint_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/2022:06:24_10-36-39/mspec_40.ckpt"
             checkpoint = torch.load(checkpoint_path)
             model.load_state_dict(checkpoint["model"])
             optimizer.load_state_dict(checkpoint["optimizer"])
             scheduler.load_state_dict(checkpoint["schedular"])
+            random.setstate(checkpoint["random"])
             np.random.set_state(checkpoint["np_random"])
             torch.set_rng_state(checkpoint["torch"])
             torch.random.set_rng_state(checkpoint["torch_random"])
+            torch.cuda.set_rng_state(checkpoint["cuda_random"])
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
@@ -336,6 +386,7 @@ def main(cfg):
         else:
             max_epoch = cfg.train.max_epoch
 
+        
         for epoch in range(max_epoch):
             print(f"##### {epoch} #####")
             epoch_loss = train_one_epoch(model, train_loader, optimizer, loss_f_train, device, cfg)
@@ -345,33 +396,32 @@ def main(cfg):
 
             # 検証用データ
             if epoch % cfg.train.display_val_loss_step == 0:
-                epoch_loss_test = calc_val_loss(model, val_loader, loss_f_train, device, cfg)
+                epoch_loss_test = calc_val_loss(model, val_loader, loss_f_val, device, cfg)
                 print(f"epoch_loss_test = {epoch_loss_test}")
             
             # 学習率の更新
             scheduler.step()
 
             # check point
-            if epoch % cfg.train.ckpt_step == 0:
-                save_checkpoint(
-                    model=model,
-                    optimizer=optimizer,
-                    schedular=scheduler,
-                    epoch=epoch,
-                    ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.ckpt")
-                )
-                # wandb.save(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"), base_path="/check_point")
-                # artifact_ckpt = wandb.Artifact('ckpt', type='ckpt')
-                # artifact_ckpt.add_file(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
-                # wandb.log_artifact(artifact_ckpt)
+        #     if epoch % cfg.train.ckpt_step == 0:
+        #         save_checkpoint(
+        #             model=model,
+        #             optimizer=optimizer,
+        #             schedular=scheduler,
+        #             epoch=epoch,
+        #             ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.ckpt")
+        #         )
+        #         # wandb.save(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"), base_path="/check_point")
+        #         # artifact_ckpt = wandb.Artifact('ckpt', type='ckpt')
+        #         # artifact_ckpt.add_file(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
+        #         # wandb.log_artifact(artifact_ckpt)
                 
-        # モデルの保存(wandbのartifactはうまくいってません)
-        torch.save(model.state_dict(), os.path.join(save_path, f"model_{cfg.model.name}.pth"))
-        artifact_model = wandb.Artifact('model', type='model')
-        artifact_model.add_file(os.path.join(save_path, f"model_{cfg.model.name}.pth"))
-        wandb.log_artifact(artifact_model)
+        # # モデルの保存(wandbのartifactはうまくいってません)
+        # torch.save(model.state_dict(), os.path.join(save_path, f"model_{cfg.model.name}.pth"))
+        # artifact_model = wandb.Artifact('model', type='model')
+        # artifact_model.add_file(os.path.join(save_path, f"model_{cfg.model.name}.pth"))
+        # wandb.log_artifact(artifact_model)
             
-
     wandb.finish()
 
 

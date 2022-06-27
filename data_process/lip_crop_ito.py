@@ -12,6 +12,7 @@ lip2sp/notebook/lip.ipynbを参考にしています
 
 44行目のpredicter_Pathを変更（shape_predictor_68_face_landmarks.datまでのパス）
 
+ITO上で使ったやつです
 """
 
 import os

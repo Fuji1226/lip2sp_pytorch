@@ -2,6 +2,7 @@
 reference
 https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
 """
+
 import os
 import sys
 
@@ -23,8 +24,11 @@ def get_subsequent_mask(seq):
     For masking out the subsequent info. 
     '''
     len_s = seq.size()[-1]
+    # subsequent_mask = (1 - torch.triu(
+    #     torch.ones((1, len_s, len_s), device=seq.device), diagonal=1)).bool()
+
     subsequent_mask = (1 - torch.triu(
-        torch.ones((1, len_s, len_s), device=seq.device), diagonal=1)).bool()
+        torch.ones((1, len_s, len_s), device=seq.device), diagonal=0)).bool()
     return subsequent_mask
 
 
@@ -195,6 +199,7 @@ class DecoderLayer(nn.Module):
     def forward(
             self, dec_input, enc_output,
             slf_attn_mask=None, dec_enc_attn_mask=None):
+            
         dec_output, dec_slf_attn = self.slf_attn(
             dec_input, dec_input, dec_input, mask=slf_attn_mask)
         
@@ -290,15 +295,19 @@ class Prenet(nn.Module):
     def __init__(self, in_channels, out_channels, inner_channels=32, dropout=0.5):
         super().__init__()
         self.fc = nn.Sequential(
-            weight_norm(nn.Linear(in_channels, inner_channels)),
+            # weight_norm(nn.Linear(in_channels, inner_channels)),
+            nn.Linear(in_channels, inner_channels),
             nn.ReLU(),
             nn.Dropout(p=dropout),
-            weight_norm(nn.Linear(inner_channels, out_channels)),
+            # weight_norm(nn.Linear(inner_channels, out_channels)),
+            nn.Linear(inner_channels, out_channels),
             nn.ReLU(),
         )
 
     def forward(self, x):
         """
+        音響特徴量をtransformer内の次元に調整する役割
+
         x : (B, C=feature channels, T)
 
         return
@@ -333,7 +342,8 @@ class Decoder(nn.Module):
             for _ in range(n_layers)
         ])
 
-        self.conv_o = weight_norm(nn.Conv1d(d_model, self.out_channels * self.reduction_factor, kernel_size=1))
+        # self.conv_o = weight_norm(nn.Conv1d(d_model, self.out_channels * self.reduction_factor, kernel_size=1))
+        self.conv_o = nn.Conv1d(d_model, self.out_channels * self.reduction_factor, kernel_size=1)
 
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
@@ -363,8 +373,9 @@ class Decoder(nn.Module):
         # global conditionの結合
         
         # reshape for reduction factor
+        # この順番で処理するのがめっちゃ大事です！
         if target is not None:
-            target = target.permute(0, -1, -2)
+            target = target.permute(0, -1, -2)  # (B, C, T)
             target = target.reshape(B, -1, D * self.reduction_factor)
             target = target.permute(0, -1, -2)  
         
@@ -430,13 +441,25 @@ class Decoder(nn.Module):
 
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
         dec_output = self.conv_o(dec_output)
-        dec_output = dec_output.reshape(B, D, -1)   
-        
+
+        # reduction factorを利用して求めているので，元に戻す
+        # ここも順番がめっちゃ大事です！
+        dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
+        dec_output = dec_output.reshape(B, -1, D)   
+        dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)   
+
+        # 未来予測で最適化するため，損失計算に使わない最後の2フレームを捨てる
+        # dec_output = dec_output[..., :-2]
+        # assert dec_output.shape == (B, D, self.reduction_factor * T - self.reduction_factor)
+
+        # get_subsequent_maskで対角成分もFalseにしてしまうことで，シフトする必要性を解消した
+        assert dec_output.shape == (B, D, T * self.reduction_factor)
+
         if return_attns:
             return dec_output, dec_slf_attn_list, dec_enc_attn_list
         return dec_output
 
-    def inference(self, enc_output, max_len, data_len=None, prev=None, gc=None, return_attns=False):
+    def inference(self, enc_output, max_len=None, data_len=None, prev=None, gc=None, return_attns=False):
         """
         reduction_factorにより、
         口唇動画のフレームの、reduction_factor倍のフレームを同時に出力する
@@ -455,14 +478,13 @@ class Decoder(nn.Module):
         
         # reshape for reduction factor
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        if prev is not None:
-            prev = prev.permute(0, -1, -2)
-            prev = prev.reshape(B, -1, D * self.reduction_factor)
-            prev = prev.permute(0, -1, -2)
-        else:
-            go_frame = torch.zeros(B, D * self.reduction_factor, 1)
-            prev = go_frame.to(device)
-        prev = prev.to(device)
+        # if prev is not None:
+        #     prev = prev.permute(0, -1, -2)
+        #     prev = prev.reshape(B, -1, D * self.reduction_factor)
+        #     prev = prev.permute(0, -1, -2)
+        # else:
+        go_frame = torch.zeros(B, D * self.reduction_factor, 1).to(device)
+        prev = go_frame.to(device)
         max_decoder_time_steps = T
 
         # get target_mask
@@ -470,9 +492,19 @@ class Decoder(nn.Module):
         target_mask = None
         
         # メインループ
-        outs = []
+        dec_outs = [go_frame]
+        dec_slf_attn_list = []
+        dec_enc_attn_list = []
         with torch.no_grad():
-            for _ in range(max_decoder_time_steps - 1):
+            for t in range(max_decoder_time_steps - 1):
+                # 出力の保持
+                # if t == 0:
+                #     dec_outs.append(go_frame)
+                # else:
+                #     # dec_outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
+                #     dec_outs.append(dec_output[:, :, -1:])
+                #     prev = torch.cat(dec_outs, dim=2)
+
                 # マスクの更新（prevが長くなるので、その度に作る）
                 target_mask = get_subsequent_mask(prev)
                 
@@ -482,9 +514,11 @@ class Decoder(nn.Module):
                 # positional encoding
                 pre_out = pre_out.permute(0, -1, -2)  # (B, T, C)
                 dec_output = self.dropout(self.position_enc(pre_out))
-                dec_output = self.layer_norm(dec_output)
-                dec_slf_attn_list = []
-                dec_enc_attn_list = []
+
+                # dropoutはmodel.eval()でやられなくなるので別にいらない
+                dec_output = self.dropout(pre_out)
+
+                dec_output = self.layer_norm(dec_output)    
 
                 # decoder layers
                 for dec_layer in self.layer_stack:
@@ -494,26 +528,42 @@ class Decoder(nn.Module):
                     dec_enc_attn_list += [dec_enc_attn] if return_attns else []
 
                 dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
+
+                # transformer内部の次元d_modelから音響特徴量のチャンネル数にもどす
                 dec_output = self.conv_o(dec_output)
-                # dec_output = dec_output.reshape(B, D, -1)   
 
                 # 出力を保持
-                outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
+                # outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
+
+                # prevの更新
+                dec_outs.append(dec_output[:, :, -1:])
+                prev = torch.cat(dec_outs, dim=2)
 
                 # 次のループへの入力
                 # 前時刻の出力をprevに結合していきますが、学習時の条件と合わせるために、max_lenを上限としています
                 # 変更：口唇動画も150フレームではないので，制限を無くしました
-                prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+                # prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
+
+                # 変更：上のprevの定義だと，自己回帰の過程で何度もprenetやpositional encodingを通ってしまうので学習時と異なっている
+                # 初期のgo_frameと各時点でのdec_outputを結合することで，出力は各モジュールを一回だけ通ることになり，学習時と条件が揃うはず
+                # prev = torch.cat((go_frame, dec_output), dim=2)
+
                 # if prev.shape[-1] < max_len:
                 #     prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
                 # else:
                 #     prev = torch.cat((prev, dec_output[:, :, -1].unsqueeze(-1)), dim=2)
                 #     prev = prev[:, :, 1:]   # max_lenを超えた場合は、最初のフレームを捨てる
                 #     assert prev.shape[-1] == max_len
-        
+
+        dec_outs = torch.cat(dec_outs, dim=2)
+        dec_outs = dec_outs.permute(0, -1, -2)  # (B, T, C)
+        dec_outs = dec_outs.reshape(B, -1, D)
+        dec_outs = dec_outs.permute(0, -1, -2)  # (B, C, T)
+        out = dec_outs
         # out = torch.cat(outs, dim=2)
-        # out = dec_output.reshape(B, D, -1)
-        out = prev.reshape(B, D, -1)
+        # print(f"out = {out.shape}")
+        # out = out.reshape(B, D, -1)
+        # out = prev.reshape(B, D, -1)
         assert out.shape[-1] == T * 2
         return out
 
@@ -535,7 +585,8 @@ class Postnet(nn.Module):
             conv.append(nn.BatchNorm1d(inner_channels))
             conv.append(nn.Tanh())
             conv.append(nn.Dropout(p=dropout))
-        conv.append(weight_norm(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=5//2)))
+        # conv.append(weight_norm(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=5//2)))
+        conv.append(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=5//2))
         self.conv = conv
 
     def forward(self, x):
@@ -570,6 +621,8 @@ def main():
     # mask
     target_mask = get_subsequent_mask(feature)
     print(target_mask)
+
+
 
 if __name__ == "__main__":
     main()

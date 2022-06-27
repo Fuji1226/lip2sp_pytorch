@@ -2,8 +2,6 @@
 Gated Linear Unit
 """
 
-import os
-os.environ['PYTHONBREAKPOINT'] = ''
 
 from tqdm import tqdm
 import torch
@@ -167,9 +165,9 @@ class GLU(nn.Module):
                 target = torch.where(judge == 1, target, dec_output)
                 dec_output = target
 
-            # decoder layer
-            for layer in self.glu_stack:
-                dec_output = layer(enc_output, dec_output)
+                # decoder layer
+                for layer in self.glu_stack:
+                    dec_output = layer(enc_output, dec_output)
 
         dec_output = self.conv_o(dec_output)
         dec_output = dec_output.reshape(B, D, -1)   
@@ -210,7 +208,7 @@ class GLU(nn.Module):
         # メインループ
         outs = []
         enc_output = enc_output.permute(0, -1, -2)  # (B, C, T)
-        for t in tqdm(range(max_decoder_time_steps)):
+        for t in range(max_decoder_time_steps):
             if t > 0:
                 # 最初以外は前時刻の出力を入力する
                 prev = dec_output[:, :, -1].unsqueeze(-1)
@@ -231,6 +229,7 @@ class GLU(nn.Module):
         
         # 各時刻の出力を結合
         outs = torch.cat(outs, dim=2)
+        assert outs.shape[-1] == T * 2
         self.clear_buffer()
         return outs
 

@@ -1,5 +1,7 @@
 """
 最終的なモデル
+
+最終出力はpostnet出力とdecoder出力の和だったので変更
 """
 import os
 import sys
@@ -74,7 +76,7 @@ class Lip2SP(nn.Module):
 
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels)
 
-    def forward(self, lip=None, data_len=None, prev=None, gc=None):
+    def forward(self, lip, data_len, prev, max_len=None, gc=None):
         if lip is not None:
             # encoder
             lip = self.first_batch_norm(lip)
@@ -101,10 +103,10 @@ class Lip2SP(nn.Module):
                 )
                 
             # postnet
-            out = self.postnet(dec_output)
+            out = self.postnet(dec_output) 
         return out, dec_output  # postnet前後を両方出力
 
-    def inference(self, lip=None, data_len=None, prev=None, gc=None):
+    def inference(self, lip, data_len=None, max_len=None, prev=None, gc=None):
         if lip is not None:
             # encoder
             lip = self.first_batch_norm(lip)
@@ -116,13 +118,13 @@ class Lip2SP(nn.Module):
             
             # decoder
             if self.which_decoder == "transformer":
-                dec_output = self.decoder.inference(enc_output, self.max_len, data_len, prev)
-                out = self.postnet(dec_output)
+                dec_output = self.decoder.inference(enc_output, prev)
+                out = self.postnet(dec_output) 
                 
             elif self.which_decoder == "glu":
                 dec_output = self.decoder.inference(enc_output, prev)
                 self.pre = dec_output
-                out = self.postnet(dec_output)
+                out = self.postnet(dec_output) 
         return out, dec_output
 
 

@@ -4,7 +4,7 @@ setup:
     project: lip2sp_pytorch
     entity:
     mode: online
-    name : val_loss_change
+    name : remove_weight_norm_no_anomaly
 watch:
     log: all
     log_freq: 100
