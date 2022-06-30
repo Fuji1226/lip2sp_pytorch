@@ -47,7 +47,7 @@ txt_path = "/home/usr4/r70264c/dataset/lip/cropped_error_data.txt"      # エラ
 
 # 口唇のランドマーク検出
 def Lip_Cropping(frame, det):
-    im_size = (96, 128)
+    im_size = (96, 128)     # (96,96)でもいいかも…？
     predicter_Path = "/home/usr4/r70264c/Projects/lip2sp_pytorch/shape_predictor_68_face_landmarks.dat"     # 変えてください
     predictor = dlib.shape_predictor(predicter_Path)
     shape = predictor(frame, det)

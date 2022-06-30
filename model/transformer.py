@@ -417,14 +417,16 @@ class Decoder(nn.Module):
 
         # scheduled sampling
         elif training_method == "ss":
-            # decoder layers
-            for dec_layer in self.layer_stack:
-                dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
-                    dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
-                dec_slf_attn_list += [dec_slf_attn] if return_attns else []
-                dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+            with torch.no_grad():
+                # decoder layers
+                for dec_layer in self.layer_stack:
+                    dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
+                        dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
+                    dec_slf_attn_list += [dec_slf_attn] if return_attns else []
+                    dec_enc_attn_list += [dec_enc_attn] if return_attns else []
             
-            for k in range(num_passes):
+            # for k in range(num_passes):
+            for k in range(1):
                 # decoderからの出力とtargetをmixing_probに従って混合
                 mixing_prob = torch.zeros_like(target) + mixing_prob
                 judge = torch.bernoulli(mixing_prob)

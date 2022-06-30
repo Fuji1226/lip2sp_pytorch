@@ -177,12 +177,12 @@ def load_mean_std_test(mean_std_path, name):
 
 
 class KablabDataset(Dataset):
-    def __init__(self, data_root, mean_std_path, name, train, cfg, debug, transform=None, visualize=False):
+    def __init__(self, data_path, mean_std_path, name, train, cfg, debug, transform=None, visualize=False):
         super().__init__()
-        assert data_root is not None, "データまでのパスを設定してください"
+        assert data_path is not None, "データまでのパスを設定してください"
         assert mean_std_path is not None, "平均，標準偏差までのパスを設定してください"
 
-        self.data_root = data_root
+        self.data_path = data_path
         self.mean_std_path = mean_std_path
         self.name = name
         self.cfg = cfg
@@ -192,14 +192,18 @@ class KablabDataset(Dataset):
         self.visualize = visualize
 
         # 口唇動画、音声データまでのパス一覧を取得
-        if train:
-            self.items = get_datasets(data_root, name, debug, cfg.train.debug_data_len)
-            self.len = len(self.items)
-            self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, name)
-        else:
-            self.items = get_datasets_test(data_root, name, debug, cfg.test.debug_data_len)
-            self.len = len(self.items)
-            self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std_test(mean_std_path, name)
+        # if train:
+        #     self.items = get_datasets(data_path, name, debug, cfg.train.debug_data_len)
+        #     self.len = len(self.items)
+        #     self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, name)
+        # else:
+        #     self.items = get_datasets_test(data_path, name, debug, cfg.test.debug_data_len)
+        #     self.len = len(self.items)
+        #     self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std_test(mean_std_path, name)
+
+        self.items = get_datasets(data_path, name, debug, cfg.train.debug_data_len)
+        self.len = len(self.items)
+        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, name)
 
         random.shuffle(self.items)
         print(f'Size of {type(self).__name__}: {self.len}')
@@ -210,13 +214,14 @@ class KablabDataset(Dataset):
     def get_item(self, data_path, transform=None):
         speaker = Path(data_path).parents[0].name
         label = Path(data_path).stem
-        npz_key = np.load(data_path)
 
+        npz_key = np.load(data_path)
         lip = torch.from_numpy(npz_key['lip'])
         feature = torch.from_numpy(npz_key['feature'])
         feat_add = torch.from_numpy(npz_key['feat_add'])
         upsample = torch.from_numpy(npz_key['upsample'])
         data_len = torch.from_numpy(npz_key['data_len'])
+
         data = [lip, feature, feat_add, upsample]
 
         if self.transform is not None:
@@ -317,8 +322,6 @@ class KablabTransform:
         """
         フレーム数の調整
         """
-        print(f"data_len = {data_len}, {data_len.shape}, {type(data_len)}, {data_len.dtype}")
-        print(f"self.length = {self.length}")
         # data_lenが短い場合、0パディング
         if data_len <= self.length:
             # length分の0初期化

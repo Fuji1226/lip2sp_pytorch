@@ -19,6 +19,7 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io.wavfile import write
+import random
 
 # pytorch
 import torch
@@ -30,36 +31,41 @@ from get_dir import get_datasetroot, get_data_directory
 from model.dataset_npz import KablabDataset, KablabTransform
 from model.models import Lip2SP
 from data_check import save_data
+from train_wandb import make_model
 
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+random.seed(0)
 
-def make_test_loader(cfg):
+def make_test_loader(cfg, data_path, mean_std_path):
     trans = KablabTransform(
         length=cfg.model.length,
         delta=cfg.model.delta
     )
-    # dataset = KablabDataset(
-    #     data_root=cfg.test.pre_loaded_path,    # npzファイルまでのパス
-    #     mean_std_path=cfg.test.mean_std_path,
-    #     name=cfg.model.name,
-    #     train=False,
-    #     transform=trans,
-    #     cfg=cfg,
-    #     debug=cfg.test.debug
-    # )
-    # 学習用データで確認するとき用
     dataset = KablabDataset(
-        data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
-        mean_std_path=cfg.train.mean_std_path,
+        data_path=data_path,
+        mean_std_path=mean_std_path,
         name=cfg.model.name,
-        train=True,
+        train=False,
         transform=trans,
         cfg=cfg,
         debug=cfg.test.debug
     )
+    # 学習用データで確認するとき用
+    # dataset = KablabDataset(
+    #     data_root=cfg.train.pre_loaded_path,    # npzファイルまでのパス
+    #     mean_std_path=cfg.train.mean_std_path,
+    #     name=cfg.model.name,
+    #     train=True,
+    #     transform=trans,
+    #     cfg=cfg,
+    #     debug=cfg.test.debug
+    # )
     test_loader = DataLoader(
         dataset=dataset,
         batch_size=1,   
@@ -118,6 +124,8 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
             feat_mean=feat_mean,
             feat_std=feat_std,
         )
+        if index > 3:
+            break
 
         index += 1
 
@@ -128,33 +136,25 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    #インスタンス作成
-    model = Lip2SP(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        res_layers=cfg.model.res_layers,
-        d_model=cfg.model.d_model,
-        n_layers=cfg.model.n_layers,
-        n_head=cfg.model.n_head,
-        glu_inner_channels=cfg.model.d_model,
-        glu_layers=cfg.model.glu_layers,
-        pre_in_channels=cfg.model.pre_in_channels,
-        pre_inner_channels=cfg.model.pre_inner_channels,
-        post_inner_channels=cfg.model.post_inner_channels,
-        n_position=cfg.model.length * 5,
-        max_len=cfg.model.length // 2,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        training_method=cfg.train.training_method,
-        num_passes=cfg.train.num_passes,
-        mixing_prob=cfg.train.mixing_prob,
-        dropout=cfg.train.dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        use_gc=cfg.train.use_gc
-    )
-    model = model.to(device)
+    # 口唇動画か顔かの選択
+    lip_or_face = cfg.test.face_or_lip
+    assert lip_or_face == "face" or "lip"
+    if lip_or_face == "face":
+        data_path = cfg.test.face_pre_loaded_path
+        mean_std_path = cfg.test.face_mean_std_path
+    elif lip_or_face == "lip":
+        data_path = cfg.test.lip_pre_loaded_path
+        mean_std_path = cfg.test.lip_mean_std_path
 
-    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/2022:06:26_23-59-56/mspec_70.ckpt"
+    print("--- data directory check ---")
+    print(f"data_path = {data_path}")
+    print(f"mean_std_path = {mean_std_path}")
+
+    #インスタンス作成
+    model = make_model(cfg, device)
+
+    # パラメータのロード
+    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:06:30_15-44-39/mspec_50.ckpt"
     model.load_state_dict(torch.load(model_path)['model'])
 
     # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/train/2022:06:23_10-07-13/model_mspec.pth"
@@ -163,11 +163,11 @@ def main(cfg):
     # 保存先
     save_path = cfg.test.generate_save_path
     # save_path = os.path.join(save_path, Path(cfg.test.model_save_path).name)
-    save_path = os.path.join(save_path, Path(model_path).parents[0].name, Path(model_path).stem)
+    save_path = os.path.join(save_path, lip_or_face, Path(model_path).parents[0].name, Path(model_path).stem)
     os.makedirs(save_path, exist_ok=True)
 
     # Dataloader作成
-    test_loader, datasets = make_test_loader(cfg)
+    test_loader, datasets = make_test_loader(cfg, data_path, mean_std_path)
 
     # generate
     model.eval()

@@ -66,7 +66,7 @@ def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
 				'epoch': epoch}, ckpt_path)
 
 
-def make_train_val_loader(cfg):
+def make_train_val_loader(cfg, data_path, mean_std_path):
     """
     pytorchのrandom_splitとかで分けると元のデータセットのtransformを共有してしまうので,Subsetを作ります
     学習用データにはdata augmentationとtime adjust
@@ -84,8 +84,8 @@ def make_train_val_loader(cfg):
 
     # 元となるデータセットの作成(transformは必ずNoneでお願いします)
     dataset = KablabDataset(
-        data_root=cfg.train.pre_loaded_path,    
-        mean_std_path=cfg.train.mean_std_path,
+        data_path=data_path,    
+        mean_std_path=mean_std_path,
         name=cfg.model.name,
         train=True,
         cfg=cfg,
@@ -138,6 +138,8 @@ def make_model(cfg, device):
             d_model=cfg.model.d_model,
             n_layers=cfg.model.n_layers,
             n_head=cfg.model.n_head,
+            dec_n_layers=cfg.model.dec_n_layers,
+            dec_d_model=cfg.model.dec_d_model,
             glu_inner_channels=cfg.model.d_model,
             glu_layers=cfg.model.glu_layers,
             pre_in_channels=cfg.model.pre_in_channels,
@@ -151,14 +153,15 @@ def make_model(cfg, device):
             training_method=cfg.train.training_method,
             num_passes=cfg.train.num_passes,
             mixing_prob=cfg.train.mixing_prob,
+            apply_first_bn=cfg.train.apply_first_bn,
             dropout=cfg.train.dropout,
             reduction_factor=cfg.model.reduction_factor,
-            use_gc=cfg.train.use_gc
+            use_gc=cfg.train.use_gc,
         ).to(device)
     return model
     
 
-def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, device, cfg):
+def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, device, cfg, training_method):
     epoch_loss = 0
     data_cnt = 0
     iter_cnt = 0
@@ -185,6 +188,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
             lip=lip,
             data_len=data_len,
             prev=feature,
+            training_method=training_method,
         )                
 
         rf = cfg.model.reduction_factor      
@@ -207,7 +211,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
         # transformerのget_subsequent_maskで対角成分をFalseにしておくことで，損失計算でシフトする必要性を解消した
         output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 
         dec_output_loss = loss_f_train.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
-        delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device)
+        delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur)
 
         loss = output_loss + dec_output_loss + delta_loss
         
@@ -287,7 +291,7 @@ def calc_val_loss(model: nn.Module, val_loader, loss_f_val, device, cfg):
         rf = cfg.model.reduction_factor
         output_loss = loss_f_val.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 
         dec_output_loss = loss_f_val.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
-        delta_loss = loss_f_val.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device)
+        delta_loss = loss_f_val.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur)
 
         # output_loss = loss_f_val.mse_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
         # dec_output_loss = loss_f_val.mse_loss(dec_output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
@@ -314,6 +318,8 @@ def save_result(loss_list, save_path):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
+    assert cfg.model.which_d is None
+
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
@@ -322,23 +328,37 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    print(os.cpu_count())
+    print(f"cpu_num = {os.cpu_count()}")
     torch.backends.cudnn.benchmark = True
+
+    # 口唇動画か顔かの選択
+    lip_or_face = cfg.train.face_or_lip
+    assert lip_or_face == "face" or "lip"
+    if lip_or_face == "face":
+        data_path = cfg.train.face_pre_loaded_path
+        mean_std_path = cfg.train.face_mean_std_path
+    elif lip_or_face == "lip":
+        data_path = cfg.train.lip_pre_loaded_path
+        mean_std_path = cfg.train.lip_mean_std_path
+
+    print("--- data directory check ---")
+    print(f"data_path = {data_path}")
+    print(f"mean_std_path = {mean_std_path}")
 
     #resultの表示
     result_path = 'results'
     # os.makedirs(result_path, exist_ok=True)
 
-    # # check point
-    # ckpt_path = os.path.join(cfg.train.ckpt_path, current_time)
-    # os.makedirs(ckpt_path, exist_ok=True)
+    # check point
+    ckpt_path = os.path.join(cfg.train.ckpt_path, lip_or_face, current_time)
+    os.makedirs(ckpt_path, exist_ok=True)
 
-    # # モデルパラメータの保存先を指定
-    # save_path = os.path.join(cfg.train.train_save_path, current_time)
-    # os.makedirs(save_path, exist_ok=True)
+    # モデルパラメータの保存先を指定
+    save_path = os.path.join(cfg.train.train_save_path, lip_or_face, current_time)
+    os.makedirs(save_path, exist_ok=True)
     
     # Dataloader作成
-    train_loader, val_loader, _ = make_train_val_loader(cfg)
+    train_loader, val_loader, _ = make_train_val_loader(cfg, data_path, mean_std_path)
     # test_loader, _ = make_test_loader(cfg)
     
     # 損失関数
@@ -386,41 +406,64 @@ def main(cfg):
         else:
             max_epoch = cfg.train.max_epoch
 
+        # teacher forcingとscheduled samplingの切り替え(田口さんがやっていた)
+        training_method_change_step = max_epoch * cfg.train.tm_change_step
         
         for epoch in range(max_epoch):
             print(f"##### {epoch} #####")
-            epoch_loss = train_one_epoch(model, train_loader, optimizer, loss_f_train, device, cfg)
+
+            if epoch < training_method_change_step:
+                training_method = "tf"  # teacher forcing
+            else:
+                training_method = "ss"  # scheduled sampling
+            print(f"training_method : {training_method}")
+
+            epoch_loss = train_one_epoch(
+                model=model, 
+                train_loader=train_loader, 
+                optimizer=optimizer, 
+                loss_f_train=loss_f_train, 
+                device=device, 
+                cfg=cfg, 
+                training_method=training_method,
+            )
             train_loss_list.append(epoch_loss)
             print(f"epoch_loss = {epoch_loss}")
             print(f"train_loss_list = {train_loss_list}")
 
             # 検証用データ
             if epoch % cfg.train.display_val_loss_step == 0:
-                epoch_loss_test = calc_val_loss(model, val_loader, loss_f_val, device, cfg)
+                epoch_loss_test = calc_val_loss(
+                    model=model, 
+                    val_loader=val_loader, 
+                    loss_f_val=loss_f_val, 
+                    device=device, 
+                    cfg=cfg,
+                )
                 print(f"epoch_loss_test = {epoch_loss_test}")
             
             # 学習率の更新
             scheduler.step()
 
             # check point
-        #     if epoch % cfg.train.ckpt_step == 0:
-        #         save_checkpoint(
-        #             model=model,
-        #             optimizer=optimizer,
-        #             schedular=scheduler,
-        #             epoch=epoch,
-        #             ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.ckpt")
-        #         )
-        #         # wandb.save(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"), base_path="/check_point")
-        #         # artifact_ckpt = wandb.Artifact('ckpt', type='ckpt')
-        #         # artifact_ckpt.add_file(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
-        #         # wandb.log_artifact(artifact_ckpt)
+            if epoch % cfg.train.ckpt_step == 0:
+                save_checkpoint(
+                    model=model,
+                    optimizer=optimizer,
+                    schedular=scheduler,
+                    epoch=epoch,
+                    ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.ckpt")
+                )
+                # wandb.save(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"), base_path="/check_point")
+                # artifact_ckpt = wandb.Artifact('ckpt', type='ckpt')
+                # artifact_ckpt.add_file(os.path.join(ckpt_path, f"{cfg.model.name}_{epoch}.cpt"))
+                # wandb.log_artifact(artifact_ckpt)
                 
-        # # モデルの保存(wandbのartifactはうまくいってません)
-        # torch.save(model.state_dict(), os.path.join(save_path, f"model_{cfg.model.name}.pth"))
-        # artifact_model = wandb.Artifact('model', type='model')
-        # artifact_model.add_file(os.path.join(save_path, f"model_{cfg.model.name}.pth"))
-        # wandb.log_artifact(artifact_model)
+        # モデルの保存(wandbのartifactはうまくいってません)
+        torch.save(model.state_dict(), os.path.join(save_path, f"model_{cfg.model.name}.pth"))
+        artifact_model = wandb.Artifact('model', type='model')
+        artifact_model.add_file(os.path.join(save_path, f"model_{cfg.model.name}.pth"))
+        wandb.log_artifact(artifact_model)
             
     wandb.finish()
 

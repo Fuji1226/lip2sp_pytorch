@@ -48,7 +48,7 @@ except:
 #     return ret_path
 
 
-def cals_sp(wave, fs, frame_period, feature_type, path=None, nmels=None, f_min=None, f_max=None):
+def cals_sp(wave, fs, frame_period, feature_type, cfg, path=None, nmels=None, f_min=None, f_max=None):
 
     loaded = False
     # if path is not None:
@@ -72,7 +72,7 @@ def cals_sp(wave, fs, frame_period, feature_type, path=None, nmels=None, f_min=N
             # 元々こうなっていましたが、wav2worldの引数が6つでバグったので合わせました。
             # 先輩のが謎です
             mcep, clf0, vuv, cap, fbin, _ = wav2world(
-                wave, fs, frame_period=frame_period)
+                wave, fs, frame_period=frame_period, comp_mode=cfg.model.comp_mode)
             y = np.hstack([mcep, clf0.reshape(-1, 1),
                            vuv.reshape(-1, 1), cap])
         else:
@@ -246,7 +246,8 @@ def load_data(train, data_path, cfg, gray, frame_period, feature_type, nmels, f_
         return ret, data_len
 
 
-def load_data_for_npz(video_path, audio_path, cfg, gray, frame_period, feature_type, nmels, f_min, f_max, mode=None, delta=True, return_wave=False):
+def load_data_for_npz(video_path, audio_path, cfg, gray, frame_period, feature_type, nmels, f_min, f_max, comp_mode=None, delta=True, return_wave=False):
+
     lip, fps = load_mp4(str(video_path), gray)   # lipはtensor
     # sppath = audio_path
     # sppath = sppath.parent / (sppath.stem + ".wav")
@@ -256,7 +257,7 @@ def load_data_for_npz(video_path, audio_path, cfg, gray, frame_period, feature_t
     
     # 音響特徴量への変換
     feature = cals_sp(
-        wave, fs, frame_period, feature_type,
+        wave, fs, frame_period, feature_type, cfg,
         path=audio_path, nmels=nmels, f_min=f_min, f_max=f_max)
     hop_length = fs * frame_period // 1000  # 160
     

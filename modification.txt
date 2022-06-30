@@ -13,7 +13,44 @@ delta_lossの変更
     wandbのproject名
     delta_loss_blur_bn
     delta_loss_blur_only
-    ここはあまり効果的ではなさそうなので，最初に戻しました
+    
+    結果
+    blurをかけたほうがdelta lossの挙動が安定する気がします
+    どちらがいいか断言はできません…
 
 data augmentaionの追加
     chainerを使わないでやりたいという思いから田口さんのおこなっていた時間方向のaugmentationを使っていませんでしたが，validationのlossが下がらないことから，使ってみることにしました
+    また，モデルのd_modelとsceduled samplingをmixing probもいくつか試してみました
+    加えて，delta lossの挙動が激しいので，blurをもう一度適用
+
+    project name
+        data_augmentation_128_0.5
+        data_augmentation_256_0.5
+        data_augmentation_128_0.25
+        data_augmentation_256_0.25
+        data_augmentation_256_0.25_blur
+
+decoderのパラメータ
+    田口さんのコードを見ていると，encoderとdecoderのtransformerの層数が違うことに気づき，真似してみました
+    reg_layers = 4
+    reg_d_model=256
+    batch_size=16
+
+sceduled sampling
+    田口さんは学習の初期はteacher forcingを行い，max iterationの15%を行った段階からsceduled samplingを開始している
+    ここは実装できた
+    切り替わるタイミングで損失が大きくなることが確認できた
+
+データ
+    田口さんのlipを確認したところ，顔でした
+    なので，口唇動画に加えて顔動画のnpzファイルを作成し，そちらも学習を回してみます
+    現在進行中
+
+first_batch_norm
+    田口さんは口唇動画を標準化しておらず，代替手段として一番最初にbatch_normalizationを適用していた
+    今回は標準化をおこなっているので，ここをやらないパターンも試してみました
+    おそらくどっちでもいい…
+
+sceduled samplingのミスの修正
+    sceduled samplingを行う際，torch.no_grad()を行なっていませんでした
+    なので，おそらくこれまでは無駄に損失が流れてしまっており，これを修正しました

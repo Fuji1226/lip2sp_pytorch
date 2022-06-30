@@ -57,7 +57,7 @@ class masked_loss:
             mse = F.mse_loss(output, target)
         return mse
 
-    def delta_loss(self, output, target, data_len, max_len, device):
+    def delta_loss(self, output, target, data_len, max_len, device, blur):
         """
         音響特徴量の動的特徴量についての損失関数
         """
@@ -65,8 +65,9 @@ class masked_loss:
         # 田口さんのやつに変更
         # 微妙だったので戻した
         B, C, T = output.shape
-        # output = blur_pooling2D(output, device)
-        # target = blur_pooling2D(target, device)
+        if blur:
+            output = blur_pooling2D(output, device)
+            target = blur_pooling2D(target, device)
 
         # 動的特徴量の計算  (B, C, T) -> (B, 3 * C, T)
         output = delta_feature(output) 

@@ -31,7 +31,7 @@ from get_dir import get_datasetroot, get_data_directory
 from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
 from data_process.feature import world2wav_direct
-from train_wandb import save_checkpoint, make_train_val_loader, make_model
+from train_wandb import make_train_val_loader, make_model
 
 
 # 現在時刻を取得
@@ -41,6 +41,21 @@ np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 random.seed(0)
+
+
+def save_checkpoint(model, discriminator, optimizer, optimizer_d, schedular, schedular_d, epoch, ckpt_path):
+	torch.save({'model': model.state_dict(),
+                'discriminator': discriminator.state_dict(),
+				'optimizer': optimizer.state_dict(),
+                'optimizer_d': optimizer_d.state_dict(),
+                'schedular': schedular.state_dict(),
+                'schedular_d': schedular_d.state_dict(),
+                "random": random.getstate(),
+                "np_random": np.random.get_state(), 
+                "torch": torch.get_rng_state(),
+                "torch_random": torch.random.get_rng_state(),
+                'cuda_random' : torch.cuda.get_rng_state(),
+				'epoch': epoch}, ckpt_path)
 
 
 def make_discriminator(cfg, device):
@@ -175,7 +190,7 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
     return epoch_loss, epoch_loss_d
 
 
-def calc_test_loss_with_d(model: nn.Module, discriminator, val_loader, loss_f_train, device, cfg):
+def calc_test_loss_with_d(model: nn.Module, discriminator, val_loader, loss_f_val, device, cfg):
     epoch_loss = 0
     epoch_loss_d = 0
     data_cnt = 0
@@ -207,13 +222,13 @@ def calc_test_loss_with_d(model: nn.Module, discriminator, val_loader, loss_f_tr
         # discriminatorへ入力
         out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
         out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
-        loss_d = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
-        loss_g_ls = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
-        loss_g_fm = loss_f_train.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
+        loss_d = loss_f_val.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
+        loss_g_ls = loss_f_val.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
+        loss_g_fm = loss_f_val.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
 
-        output_loss = loss_f_train.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
-        dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
-        delta_loss = loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        output_loss = loss_f_val.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        dec_output_loss = loss_f_val.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        delta_loss = loss_f_val.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
 
         loss = output_loss + dec_output_loss + delta_loss + loss_g_ls + loss_g_fm
 
@@ -242,6 +257,8 @@ def save_result(loss_list, save_path):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
+    assert cfg.train == 'with_d'
+
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
@@ -250,15 +267,29 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    print(os.cpu_count())
+    print(f"cpu_num = {os.cpu_count()}")
     torch.backends.cudnn.benchmark = True
 
+    # 口唇動画か顔かの選択
+    lip_or_face = cfg.train.face_or_lip
+    assert lip_or_face == "face" or "lip"
+    if lip_or_face == "face":
+        data_path = cfg.train.face_pre_loaded_path
+        mean_std_path = cfg.train.face_mean_std_path
+    elif lip_or_face == "lip":
+        data_path = cfg.train.lip_pre_loaded_path
+        mean_std_path = cfg.train.lip_mean_std_path
+    
+    print("--- data directory check ---")
+    print(f"data_path = {data_path}")
+    print(f"mean_std_path = {mean_std_path}")
+
     # check pointの保存先を指定
-    ckpt_path = os.path.join(cfg.train.ckpt_path, current_time)
+    ckpt_path = os.path.join(cfg.train.ckpt_path, lip_or_face, current_time)
     os.makedirs(ckpt_path, exist_ok=True)
 
     # モデルパラメータの保存先を指定
-    save_path = os.path.join(cfg.train.train_save_path, current_time)
+    save_path = os.path.join(cfg.train.train_save_path, lip_or_face, current_time)
     os.makedirs(save_path, exist_ok=True)
     
     # Dataloader作成
@@ -266,6 +297,7 @@ def main(cfg):
     
     # 損失関数
     loss_f_train = masked_loss(train=True)
+    loss_f_val = masked_loss(train=False)
     train_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
@@ -302,6 +334,21 @@ def main(cfg):
             gamma=cfg.train.lr_decay_rate      
         )
 
+        if cfg.train.check_point_start:
+            checkpoint_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/2022:06:24_10-36-39/mspec_40.ckpt"
+            checkpoint = torch.load(checkpoint_path)
+            model.load_state_dict(checkpoint["model"])
+            discriminator.load_state_dict(checkpoint["discriminator"])
+            optimizer.load_state_dict(checkpoint["optimizer"])
+            optimizer_d.load_state_dict(checkpoint["optimizer_d"])
+            scheduler.load_state_dict(checkpoint["schedular"])
+            scheduler_d.load_state_dict(checkpoint["schedular_d"])
+            random.setstate(checkpoint["random"])
+            np.random.set_state(checkpoint["np_random"])
+            torch.set_rng_state(checkpoint["torch"])
+            torch.random.set_rng_state(checkpoint["torch_random"])
+            torch.cuda.set_rng_state(checkpoint["cuda_random"])
+
         wandb.watch(model, **cfg.wandb_conf.watch)
         wandb.watch(discriminator, **cfg.wandb_conf.watch)
 
@@ -309,10 +356,20 @@ def main(cfg):
             max_epoch = cfg.train.debug_max_epoch
         else:
             max_epoch = cfg.train.max_epoch
+
+        # teacher forcingとscheduled samplingの切り替え(田口さんがやっていた)
+        training_method_change_step = max_epoch * cfg.train.tm_change_step
             
         # training
         for epoch in range(max_epoch):
             print(f"##### {epoch} #####")
+
+            if epoch < training_method_change_step:
+                training_method = "tf"  # teacher forcing
+            else:
+                training_method = "ss"  # scheduled sampling
+            print(f"training_method : {training_method}")
+            
             epoch_loss, epoch_loss_d = train_one_epoch_with_d(
                 model=model, 
                 discriminator=discriminator, 
@@ -333,7 +390,7 @@ def main(cfg):
                     model=model, 
                     discriminator=discriminator, 
                     val_loader=val_loader, 
-                    loss_f_train=loss_f_train, 
+                    loss_f_val=loss_f_val, 
                     device=device, 
                     cfg=cfg,
                 )
@@ -350,7 +407,9 @@ def main(cfg):
                     model=model,
                     discriminator=discriminator,
                     optimizer=optimizer,
+                    optimizer_d=optimizer_d,
                     schedular=scheduler,
+                    schedular_d=scheduler_d,
                     epoch=epoch,
                     ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_d_{epoch}.ckpt")
                 )

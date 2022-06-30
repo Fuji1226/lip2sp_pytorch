@@ -229,9 +229,10 @@ def wav2world(
         mcep_order=26, f0_smoothing=0,
         ap_smoothing=0, sp_smoothing=0,
         frame_period=None, f0_floor=None, f0_ceil=None,
-        f0_mode="harvest", sp_type="mcep"):
+        f0_mode="harvest", sp_type="mcep", comp_mode='melfb'):
     # setup default values
     wave = wave.astype('float64')
+    assert comp_mode == 'default' or 'melfb'
 
     frame_period = pyworld.default_frame_period \
         if frame_period is None else frame_period
@@ -291,10 +292,12 @@ def wav2world(
     else:
         clf0 = np.ones_like(f0) * f0_floor
     
-    # これが帯域非周期性指標
-    # 論文では4か5次元の感じだったけど、1次元になる
-    # pyworld.get_num_aperiodicities(fs)で決まっている？
-    cap = pyworld.code_aperiodicity(ap, fs)
+    if comp_mode == 'default':
+        cap = pyworld.code_aperiodicity(ap, fs)
+    elif comp_mode == 'melfb':
+        # 江崎さん処理
+        melfb = librosa.filters.mel(sr=fs, n_fft=1024, n_mels=4, fmin=0, fmax=7600)
+        cap = np.matmul(melfb, ap.T).T  # (T, C)
     
     # coding sp
     if sp_type == "spec":
@@ -323,7 +326,12 @@ def wav2world(
 def world2wav(
         sp, clf0, vuv, cap, fs, fbin,
         frame_period=None, mcep_postfilter=False,
-        sp_type="mcep", vuv_thr=0.5):
+        sp_type="mcep", vuv_thr=0.5, comp_mode='melfb'):
+    """
+    input 
+    all feature : (T, C)
+    """
+    assert comp_mode == 'melfb' or 'default'
 
     # setup
     frame_period = pyworld.default_frame_period \
@@ -339,12 +347,18 @@ def world2wav(
     f0 = np.squeeze(np.exp(clf0)) * np.squeeze(vuv)
 
     # cap 2 ap
-    cap = np.minimum(cap, 0.0)
-    if cap.ndim != 2:
-        cap = np.expand_dims(cap, 1)
-    ap = pyworld.decode_aperiodicity(cap, fs, fft_len)
-    ap -= ap.min()
-    ap /= ap.max()
+    if comp_mode == 'default':
+        cap = np.minimum(cap, 0.0)
+        if cap.ndim != 2:
+            cap = np.expand_dims(cap, 1)
+        ap = pyworld.decode_aperiodicity(cap, fs, fft_len)
+        ap -= ap.min()
+        ap /= ap.max()
+    elif comp_mode == 'melfb':
+        melfb = librosa.filters.mel(sr=fs, n_fft=1024, n_mels=4, fmin=0, fmax=7600)
+        melfb = np.ascontiguousarray(melfb.astype('float64'))
+        ap = librosa.util.nnls(melfb, cap.T).T  # (T, C)
+        ap = np.ascontiguousarray(ap.astype('float64'))
 
     # mcep 2 sp
     if sp_type == "spec":

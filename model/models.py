@@ -30,11 +30,11 @@ except:
 class Lip2SP(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers,
-        d_model, n_layers, n_head, 
+        d_model, n_layers, n_head, dec_n_layers, dec_d_model,
         glu_inner_channels, glu_layers, 
         pre_in_channels, pre_inner_channels, post_inner_channels,
         n_position, max_len, which_encoder, which_decoder, 
-        training_method, num_passes=None, mixing_prob=None,
+        training_method, num_passes, mixing_prob, apply_first_bn,
         dropout=0.1, reduction_factor=2, use_gc=False):
 
         super().__init__()
@@ -46,8 +46,11 @@ class Lip2SP(nn.Module):
         self.training_method = training_method
         self.num_passes = num_passes
         self.mixing_prob = mixing_prob
+        self.apply_first_bn = apply_first_bn
 
-        self.first_batch_norm = nn.BatchNorm3d(in_channels)
+        if apply_first_bn:
+            self.first_batch_norm = nn.BatchNorm3d(in_channels)
+
         self.ResNet_GAP = ResNet3D(in_channels, d_model, res_layers)
 
         # encoder
@@ -63,7 +66,7 @@ class Lip2SP(nn.Module):
         # decoder
         if self.which_decoder == "transformer":
             self.decoder = Decoder(
-                n_layers, n_head, d_model, 
+                dec_n_layers, n_head, dec_d_model, 
                 pre_in_channels, pre_inner_channels, 
                 out_channels, n_position, reduction_factor, dropout, use_gc
             )
@@ -76,11 +79,16 @@ class Lip2SP(nn.Module):
 
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels)
 
-    def forward(self, lip, data_len, prev, max_len=None, gc=None):
+    def forward(self, lip, data_len, prev, max_len=None, gc=None, training_method=None):
+        """
+        teacher forcingとscheduled samplingが途中で切り替わるように変更
+        """
         if lip is not None:
             # encoder
-            lip = self.first_batch_norm(lip)
+            if self.apply_first_bn:
+                lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
+
             if self.which_encoder == "transformer":
                 enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
             elif self.which_encoder == "conformer":
@@ -90,14 +98,14 @@ class Lip2SP(nn.Module):
             if self.which_decoder == "transformer":
                 dec_output = self.decoder(
                     enc_output, data_len, self.max_len, prev, 
-                    training_method=self.training_method, 
+                    training_method=training_method, 
                     num_passes=self.num_passes, 
                     mixing_prob=self.mixing_prob
                 )
             elif self.which_decoder == "glu":
                 dec_output = self.decoder(
                     enc_output, prev,
-                    training_method=self.training_method, 
+                    training_method=training_method, 
                     num_passes=self.num_passes, 
                     mixing_prob=self.mixing_prob
                 )
@@ -109,8 +117,10 @@ class Lip2SP(nn.Module):
     def inference(self, lip, data_len=None, max_len=None, prev=None, gc=None):
         if lip is not None:
             # encoder
-            lip = self.first_batch_norm(lip)
+            if self.apply_first_bn:
+                lip = self.first_batch_norm(lip)
             lip_feature = self.ResNet_GAP(lip)
+            
             if self.which_encoder == "transformer":
                 enc_output = self.encoder(lip_feature)    # (B, T, C)
             elif self.which_encoder == "conformer":

@@ -4,15 +4,24 @@ F01_kablabなど話者ごとにディレクトリを分けて,その中にmp4と
 dataset/lip/lip_cropped/F01_kablab
 
 実行すると
-平均,標準偏差が下の2つに
-dataset/lip/np_files/mean_std/F01_kablab/train
-dataset/lip/np_files/mean_std/F01_kablab/test
+平均,標準偏差が下のディレクトリに
+dataset/lip/np_files/face/mean_std
 
-データを読み込んだ結果が下の2つに保存されるはずです
-dataset/lip/np_files/train/F01_kablab
-dataset/lip/np_files/test/F01_kablab
+データを読み込んだ結果が下の2つに保存されるはずです(事前にconfigのtrain,testのpathを設定してください)
+dataset/lip/np_files/face/train/F01_kablab
+dataset/lip/np_files/face/test/F01_kablab
 
 このディレクトリ構造になることを前提にdataset_npz.pyを書いているので,使用する場合は揃えてほしいです!
+
+顔でやる場合はcroppedまでのパスを通してください(FACE_PATH)
+口唇動画でやる場合は先にdata_process/lip_crop_ito.pyで口唇動画を作成してください(LIP_PATH)
+
+実行はshellのmake_npz.shでお願いします
+model=
+    mspec 
+    world 
+    world_melfb
+で，それぞれいけます
 """
 
 from email.mime import audio
@@ -42,8 +51,11 @@ import hydra
 
 from transform_no_chainer import load_data_for_npz
 
+LIP_PATH = "/home/usr4/r70264c/dataset/lip/lip_cropped"     # 変更
+FACE_PATH = "/home/usr4/r70264c/dataset/lip/cropped"        # 変更
 
-def get_dataset(data_root):    
+
+def get_dataset_lip(data_root):    
     """
     mp4, wavまでのパス取得
     mp4とwavが同じディレクトリに入っている状態を想定
@@ -54,14 +66,14 @@ def get_dataset(data_root):
     for curdir, dir, files in os.walk(data_root):
         for file in files:
             if file.endswith(".wav"):
-                if Path(file).stem == "BASIC5000_0944_0":
-                    print("----- file -----")
-                    audio_path = os.path.join(curdir, file)
-                    video_path = os.path.join(curdir, f"{Path(file).stem}_crop.mp4")
-                    print(audio_path)
-                    print(video_path)
-                    if os.path.isfile(video_path) and os.path.isfile(audio_path):
-                            train_items.append([video_path, audio_path])
+                # if Path(file).stem == "BASIC5000_0944_0":
+                #     print("----- file -----")
+                #     audio_path = os.path.join(curdir, file)
+                #     video_path = os.path.join(curdir, f"{Path(file).stem}_crop.mp4")
+                #     print(audio_path)
+                #     print(video_path)
+                #     if os.path.isfile(video_path) and os.path.isfile(audio_path):
+                #             train_items.append([video_path, audio_path])
 
                 if '_j' in Path(file).stem:
                     audio_path = os.path.join(curdir, file)
@@ -73,6 +85,43 @@ def get_dataset(data_root):
                     video_path = os.path.join(curdir, f"{Path(file).stem}_crop.mp4")
                     if os.path.isfile(video_path) and os.path.isfile(audio_path):
                             train_items.append([video_path, audio_path])
+    return train_items, test_items
+
+
+def get_dataset_face(data_root):    
+    """
+    mp4, wavまでのパス取得
+    mp4とwavが同じディレクトリに入っている状態を想定
+    """
+    train_items = []
+    test_items = []
+    print(f"data_root = {data_root}")
+    for curdir, dir, files in os.walk(data_root):
+        for file in files:
+            if file.endswith(".wav"):
+                if '_norm.wav' in Path(file).stem:
+                    continue
+
+                else:
+                    # if Path(file).stem == "BASIC5000_0944_0":
+                    #     print("----- file -----")
+                    #     audio_path = os.path.join(curdir, file)
+                    #     video_path = os.path.join(curdir, f"{Path(file).stem}.mp4")
+                    #     print(audio_path)
+                    #     print(video_path)
+                    #     if os.path.isfile(video_path) and os.path.isfile(audio_path):
+                    #             train_items.append([video_path, audio_path])
+
+                    if '_j' in Path(file).stem:
+                        audio_path = os.path.join(curdir, file)
+                        video_path = os.path.join(curdir, f"{Path(file).stem}.mp4")
+                        if os.path.isfile(video_path) and os.path.isfile(audio_path):
+                                test_items.append([video_path, audio_path])
+                    else:
+                        audio_path = os.path.join(curdir, file)
+                        video_path = os.path.join(curdir, f"{Path(file).stem}.mp4")
+                        if os.path.isfile(video_path) and os.path.isfile(audio_path):
+                                train_items.append([video_path, audio_path])
     return train_items, test_items
 
 
@@ -106,6 +155,14 @@ def save_data_train(items, len, cfg, data_save_path, mean_std_save_path, device)
             f_min=cfg.model.f_min,
             f_max=cfg.model.f_max,
         )
+
+        if cfg.model.name == "mspec":
+            assert feature.shape[-1] == 80
+        elif cfg.model.name == "world":
+            assert feature.shape[-1] == 29
+        elif cfg.model.name == "world_melfb":
+            assert feature.shape[-1] == 32
+        
         
         # データの保存
         os.makedirs(os.path.join(data_save_path, speaker), exist_ok=True)
@@ -234,11 +291,43 @@ def save_data_test(items, len, cfg, data_save_path, mean_std_save_path, device):
 
 @hydra.main(config_name="config", config_path="../conf")
 def main(cfg):
+    """
+    顔をやるか口唇切り取ったやつをやるかでpathを変更してください
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    train_items, test_items = get_dataset(
-        data_root=cfg.train.train_path,
+    # 顔
+    # print("--- face data processing ---")
+    # train_items, test_items = get_dataset_face(
+    #     data_root=FACE_PATH,    # 変更
+    # )
+    # n_data_train = len(train_items)
+    # n_data_test = len(test_items)
+
+    # save_data_train(
+    #     items=train_items,
+    #     len=n_data_train,
+    #     cfg=cfg,
+    #     data_save_path=cfg.train.face_pre_loaded_path,      # 変更
+    #     mean_std_save_path=cfg.train.face_mean_std_path,    # 変更
+    #     device=device,
+    # )
+
+    # save_data_test(
+    #     items=test_items,
+    #     len=n_data_test,
+    #     cfg=cfg,
+    #     data_save_path=cfg.test.face_pre_loaded_path,   # 変更
+    #     mean_std_save_path=cfg.test.face_mean_std_path, # 変更
+    #     device=device,
+    # )
+
+    # print("Done")
+    print("--- lip data processing ---")
+    # 口唇切り取った動画
+    train_items, test_items = get_dataset_lip(
+        data_root=LIP_PATH,
     )
     n_data_train = len(train_items)
     n_data_test = len(test_items)
@@ -247,8 +336,8 @@ def main(cfg):
         items=train_items,
         len=n_data_train,
         cfg=cfg,
-        data_save_path=cfg.train.pre_loaded_path,
-        mean_std_save_path=cfg.train.mean_std_path,
+        data_save_path=cfg.train.lip_pre_loaded_path,
+        mean_std_save_path=cfg.train.lip_mean_std_path,
         device=device,
     )
 
@@ -256,10 +345,12 @@ def main(cfg):
         items=test_items,
         len=n_data_test,
         cfg=cfg,
-        data_save_path=cfg.test.pre_loaded_path,
-        mean_std_save_path=cfg.test.mean_std_path,
+        data_save_path=cfg.test.lip_pre_loaded_path,
+        mean_std_save_path=cfg.test.lip_mean_std_path,
         device=device,
     )
+    print("Done")
+
 
 
 def test():
