@@ -15,13 +15,13 @@ import torch.nn as nn
 
 try:
     from model.net import ResNet3D
-    from model.transformer import Postnet, Encoder, Decoder
+    from model.transformer_taguchi import Postnet, Encoder, Decoder
     from model.conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
     from model.glu import GLU
 except:
     from net import ResNet3D
-    from transformer import Postnet, Encoder, Decoder
+    from transformer_taguchi import Postnet, Encoder, Decoder
     from conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
     from glu import GLU
@@ -56,7 +56,12 @@ class Lip2SP(nn.Module):
         # encoder
         if self.which_encoder == "transformer":
             self.encoder = Encoder(
-                n_layers, n_head, d_model, n_position, reduction_factor, dropout
+                n_layers=n_layers, 
+                n_head=n_head, 
+                d_model=d_model, 
+                n_position=n_position, 
+                reduction_factor=reduction_factor, 
+                dropout=dropout,
             )
         elif self.which_encoder == "conformer":
             self.encoder = Conformer_Encoder(
@@ -66,9 +71,16 @@ class Lip2SP(nn.Module):
         # decoder
         if self.which_decoder == "transformer":
             self.decoder = Decoder(
-                dec_n_layers, n_head, dec_d_model, 
-                pre_in_channels, pre_inner_channels, 
-                out_channels, n_position, reduction_factor, dropout, use_gc
+                dec_n_layers=dec_n_layers, 
+                n_head=n_head, 
+                dec_d_model=dec_d_model, 
+                pre_in_channels=pre_in_channels, 
+                pre_inner_channels=pre_inner_channels, 
+                out_channels=out_channels, 
+                n_position=n_position, 
+                reduction_factor=reduction_factor, 
+                dropout=dropout, 
+                use_gc=use_gc,
             )
         elif self.which_decoder == "glu":
             self.decoder = GLU(
@@ -79,25 +91,26 @@ class Lip2SP(nn.Module):
 
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels)
 
-    def forward(self, lip, data_len, prev, max_len=None, gc=None, training_method=None):
+    def forward(self, lip, prev=None, data_len=None, max_len=None, gc=None, training_method=None):
         """
         teacher forcingとscheduled samplingが途中で切り替わるように変更
         """
-        if lip is not None:
-            # encoder
-            if self.apply_first_bn:
-                lip = self.first_batch_norm(lip)
-            lip_feature = self.ResNet_GAP(lip)
+        self.reset_state()
+        # encoder
+        if self.apply_first_bn:
+            lip = self.first_batch_norm(lip)
+        lip_feature = self.ResNet_GAP(lip)
 
-            if self.which_encoder == "transformer":
-                enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
-            elif self.which_encoder == "conformer":
-                enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
-            
-            # decoder
+        if self.which_encoder == "transformer":
+            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+        elif self.which_encoder == "conformer":
+            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+        
+        # decoder
+        if prev is not None:
             if self.which_decoder == "transformer":
                 dec_output = self.decoder(
-                    enc_output, data_len, self.max_len, prev, 
+                    enc_output, prev, data_len, self.max_len, 
                     training_method=training_method, 
                     num_passes=self.num_passes, 
                     mixing_prob=self.mixing_prob
@@ -109,33 +122,46 @@ class Lip2SP(nn.Module):
                     num_passes=self.num_passes, 
                     mixing_prob=self.mixing_prob
                 )
-                
-            # postnet
-            out = self.postnet(dec_output) 
-        return out, dec_output  # postnet前後を両方出力
+        else:
+            dec_outputs = []
+            # max_decoder_time_steps = enc_output.shape[1]
+            max_decoder_time_steps = enc_output.shape[-1]       # 田口さんは(B, C, T)
+            dec_output = self.decoder(enc_output)
+            dec_outputs.append(dec_output)
+            for _ in range(max_decoder_time_steps - 1):
+                dec_output = self.decoder(enc_output, dec_output)
+                dec_outputs.append(dec_output)
+            dec_output = torch.cat(dec_outputs, dim=-1)
+            assert dec_output.shape[-1] == max_decoder_time_steps * 2
+
+        # postnet
+        out = self.postnet(dec_output) 
+        return out, dec_output, enc_output
 
     def inference(self, lip, data_len=None, max_len=None, prev=None, gc=None):
-        if lip is not None:
-            # encoder
-            if self.apply_first_bn:
-                lip = self.first_batch_norm(lip)
-            lip_feature = self.ResNet_GAP(lip)
+        # encoder
+        if self.apply_first_bn:
+            lip = self.first_batch_norm(lip)
+        lip_feature = self.ResNet_GAP(lip)
+        
+        if self.which_encoder == "transformer":
+            enc_output = self.encoder(lip_feature)    # (B, T, C)
+        elif self.which_encoder == "conformer":
+            enc_output = self.encoder(lip_feature)
+        
+        # decoder
+        if self.which_decoder == "transformer":
+            dec_output = self.decoder.inference(enc_output, prev)
+            out = self.postnet(dec_output) 
             
-            if self.which_encoder == "transformer":
-                enc_output = self.encoder(lip_feature)    # (B, T, C)
-            elif self.which_encoder == "conformer":
-                enc_output = self.encoder(lip_feature)
-            
-            # decoder
-            if self.which_decoder == "transformer":
-                dec_output = self.decoder.inference(enc_output, prev)
-                out = self.postnet(dec_output) 
-                
-            elif self.which_decoder == "glu":
-                dec_output = self.decoder.inference(enc_output, prev)
-                self.pre = dec_output
-                out = self.postnet(dec_output) 
-        return out, dec_output
+        elif self.which_decoder == "glu":
+            dec_output = self.decoder.inference(enc_output, prev)
+            self.pre = dec_output
+            out = self.postnet(dec_output) 
+        return out, dec_output, enc_output
+
+    def reset_state(self):
+        self.decoder.reset_state()
 
 
 def main():

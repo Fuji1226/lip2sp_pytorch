@@ -69,8 +69,8 @@ def make_test_loader(cfg, data_path, mean_std_path):
     test_loader = DataLoader(
         dataset=dataset,
         batch_size=1,   
-        shuffle=True,
-        num_workers=os.cpu_count(),      
+        shuffle=False,
+        num_workers=2,      
         pin_memory=True,
         drop_last=True,
         collate_fn=None,
@@ -79,8 +79,6 @@ def make_test_loader(cfg, data_path, mean_std_path):
 
 
 def generate(cfg, model, test_loader, datasets, device, save_path):
-    outputs = []
-    dec_outputs = []
     index = 0
 
     lip_mean = datasets.lip_mean.to(device)
@@ -92,17 +90,32 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
 
     for batch in test_loader:
         model.eval()
+        index += 1
 
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
-            output, dec_output = model.inference(
-                lip=lip
-            )
-        outputs.append(output)
-        dec_outputs.append(dec_output)
+            # output, dec_output, enc_output_inf = model.inference(
+            #     lip=lip
+            # )
+            # output, dec_output, enc_output = model(
+            #     lip=lip,
+            #     prev=feature,
+            #     training_method='ss',
+            # )                
+            output, dec_output, enc_output = model(lip)
 
+            # print(f"enc_output.shape = {enc_output.shape}")
+            # count = 0
+            # for i in range(enc_output.shape[0]):
+            #     for j in range(enc_output.shape[1]):
+            #         for k in range(enc_output.shape[2]):
+            #             if enc_output[i, j, k] == enc_output_inf[i, j, k]:
+            #                 count += 1
+            # print("encoder out check")
+            # print(enc_output.numel() == count)
+            
         # ディレクトリ作成
         input_save_path = os.path.join(save_path, label[0], 'input')
         output_save_path = os.path.join(save_path, label[0], 'output')
@@ -117,17 +130,15 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
             lip=lip,
             feature=feature,
             feat_add=feat_add,
-            output=output,
+            output=dec_output,
             dec_output=dec_output,
             lip_mean=lip_mean,
             lip_std=lip_std,
             feat_mean=feat_mean,
             feat_std=feat_std,
         )
-        if index > 3:
+        if index > 1:
             break
-
-        index += 1
 
 
 @hydra.main(config_name="config", config_path="conf")
@@ -139,12 +150,21 @@ def main(cfg):
     # 口唇動画か顔かの選択
     lip_or_face = cfg.test.face_or_lip
     assert lip_or_face == "face" or "lip"
-    if lip_or_face == "face":
-        data_path = cfg.test.face_pre_loaded_path
-        mean_std_path = cfg.test.face_mean_std_path
-    elif lip_or_face == "lip":
-        data_path = cfg.test.lip_pre_loaded_path
-        mean_std_path = cfg.test.lip_mean_std_path
+    if cfg.test.which_data == "test":
+        if lip_or_face == "face":
+            data_path = cfg.test.face_pre_loaded_path
+            mean_std_path = cfg.test.face_mean_std_path
+        elif lip_or_face == "lip":
+            data_path = cfg.test.lip_pre_loaded_path
+            mean_std_path = cfg.test.lip_mean_std_path
+
+    elif cfg.test.which_data == "train":
+        if lip_or_face == "face":
+            data_path = cfg.train.face_pre_loaded_path
+            mean_std_path = cfg.train.face_mean_std_path
+        elif lip_or_face == "lip":
+            data_path = cfg.train.lip_pre_loaded_path
+            mean_std_path = cfg.train.lip_mean_std_path
 
     print("--- data directory check ---")
     print(f"data_path = {data_path}")
@@ -154,7 +174,7 @@ def main(cfg):
     model = make_model(cfg, device)
 
     # パラメータのロード
-    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:06:30_15-44-39/mspec_50.ckpt"
+    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:03_18-48-47/mspec_90.ckpt"
     model.load_state_dict(torch.load(model_path)['model'])
 
     # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/train/2022:06:23_10-07-13/model_mspec.pth"
@@ -163,7 +183,7 @@ def main(cfg):
     # 保存先
     save_path = cfg.test.generate_save_path
     # save_path = os.path.join(save_path, Path(cfg.test.model_save_path).name)
-    save_path = os.path.join(save_path, lip_or_face, Path(model_path).parents[0].name, Path(model_path).stem)
+    save_path = os.path.join(save_path, lip_or_face, Path(model_path).parents[0].name, Path(model_path).stem, cfg.test.which_data)
     os.makedirs(save_path, exist_ok=True)
 
     # Dataloader作成

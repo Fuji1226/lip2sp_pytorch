@@ -5,13 +5,14 @@ https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
 
 import os
 import sys
+from turtle import position
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 import numpy as np
 
@@ -61,6 +62,16 @@ def make_pad_mask(lengths, max_len):
     return mask.unsqueeze(1).to(device)    # (B, 1, T)
 
 
+def shift(x, n_shift, mode):
+    if mode == 'orig':
+        pad = (n_shift, 0)
+        x = F.pad(x, pad, mode="replicate")[:, :, :-n_shift]
+    elif mode == "reduction":
+        pad = (0, 0, 1, 0)
+        x = F.pad(x, pad, mode="replicate")[:, :-1, :]
+    return x
+
+
 class ScaledDotProductAttention(nn.Module):
     ''' Scaled Dot-Product Attention '''
 
@@ -73,10 +84,11 @@ class ScaledDotProductAttention(nn.Module):
     def forward(self, q, k, v, mask=None):
         # tempratureは√d_k
         attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
-        if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e9)    # maskがFalseのところを-infに変更
+
         # attn = self.dropout(F.softmax(attn, dim=-1))
         attn = self.dropout(self.softmax(attn))
+        if mask is not None:
+            attn = attn.masked_fill(mask == 0, 0)    # maskがFalseのところを-infに変更
         output = torch.matmul(attn, v)
 
         return output, attn
@@ -124,10 +136,10 @@ class MultiHeadAttention(nn.Module):
 
         # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
-
+        print(f"mask = {mask.shape}")
         if mask is not None:
             mask = mask.unsqueeze(1)   # For head axis broadcasting.
-
+        print(f"mask_after_unsqueeze = {mask.shape}")
         q, attn = self.attention(q, k, v, mask=mask)
         # q -> (sz_b, n_head, len_q, d_v)
         # attn -> (sz_b, n_head, len_q, len_k)
@@ -198,16 +210,36 @@ class DecoderLayer(nn.Module):
 
     def forward(
             self, dec_input, enc_output,
-            slf_attn_mask=None, dec_enc_attn_mask=None):
-            
-        dec_output, dec_slf_attn = self.slf_attn(
+            slf_attn_mask=None, dec_enc_attn_mask=None, mode=None):
+
+        if mode == "inference":
+            if self.prev is None:
+                self.prev = dec_input
+            else:
+                self.prev = torch.cat([self.prev, dec_input], dim=1)
+
+            dec_output, dec_slf_attn = self.slf_attn(
+            self.prev, self.prev, self.prev, mask=slf_attn_mask)
+        
+            # 2層目のattentionでは、decoder1層目からの出力をquery、encoderからの出力をkey、valueとする。
+            dec_output, dec_enc_attn = self.enc_attn(
+                dec_output, enc_output, enc_output, mask=dec_enc_attn_mask)
+
+            dec_output = self.pos_ffn(dec_output[:, -1:, :])
+
+        else:
+            dec_output, dec_slf_attn = self.slf_attn(
             dec_input, dec_input, dec_input, mask=slf_attn_mask)
         
-        # 2層目のattentionでは、decoder1層目からの出力をquery、encoderからの出力をkey、valueとする。
-        dec_output, dec_enc_attn = self.enc_attn(
-            dec_output, enc_output, enc_output, mask=dec_enc_attn_mask)
-        dec_output = self.pos_ffn(dec_output)
+            # 2層目のattentionでは、decoder1層目からの出力をquery、encoderからの出力をkey、valueとする。
+            dec_output, dec_enc_attn = self.enc_attn(
+                dec_output, enc_output, enc_output, mask=dec_enc_attn_mask)
+
+            dec_output = self.pos_ffn(dec_output)
         return dec_output, dec_slf_attn, dec_enc_attn
+
+    def reset_state(self):
+        self.prev = None
 
 
 class PositionalEncoding(nn.Module):
@@ -238,6 +270,24 @@ class PositionalEncoding(nn.Module):
         return x + self.pos_table[:, :x.size(1)].clone().detach()   
 
 
+def posenc(x, device, start_index=0):
+    x = x.to('cpu').detach().numpy().copy()
+    _, C, T = x.shape
+
+    depth = np.arange(C) // 2 * 2
+    depth = np.power(10000.0, depth / C)
+    pos = np.arange(start_index, start_index+T)
+    phase = pos[:, None] / depth[None]
+
+    phase[:, ::2] += float(np.pi/2)
+    positional_encoding = np.sin(phase)
+
+    positional_encoding = positional_encoding.T[None]
+    positional_encoding = torch.from_numpy(positional_encoding).to(device)
+    positional_encoding = positional_encoding.to(torch.float32)
+    return positional_encoding
+
+
 class Encoder(nn.Module):
     def __init__(
         self,n_layers, n_head, d_model, 
@@ -264,20 +314,23 @@ class Encoder(nn.Module):
         """
         prenet_out : (B, C, T)
         """
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # get mask（学習時のみ、0パディングされた部分を隠すためのマスクを作成）
         if data_len is not None:
             assert max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
             mask = make_pad_mask(data_len, max_len)
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             mask = mask.to(device)
         else:
             # 推論時はマスクなし
             mask = None
-
+        print("--- mask made ---")
+        print(f"mask = {mask.shape}")
         # positional encoding
+        prenet_out = self.dropout(prenet_out)
+        prenet_out = prenet_out + posenc(prenet_out, device, start_index=0)
         prenet_out = prenet_out.permute(0, -1, -2)  # (B, T, C)
-        prenet_out = self.dropout(self.position_enc(prenet_out))
+        # prenet_out = self.dropout(self.position_enc(prenet_out))
         enc_outout = self.layer_norm(prenet_out)
 
         enc_slf_attn_list = []
@@ -320,39 +373,39 @@ class Prenet(nn.Module):
 
 class Decoder(nn.Module):
     def __init__(
-        self, n_layers, n_head, d_model, 
+        self, dec_n_layers, n_head, dec_d_model, 
         pre_in_channels, pre_inner_channels, out_channels, 
         n_position, reduction_factor, dropout=0.1, use_gc=False):
         super().__init__()
 
         self.n_head = n_head
-        self.d_model = d_model
-        self.d_k = d_model // n_head
-        self.d_v = d_model // n_head
+        self.d_model = dec_d_model
+        self.d_k = dec_d_model // n_head
+        self.d_v = dec_d_model // n_head
         self.reduction_factor = reduction_factor
         self.out_channels = out_channels
-        self.d_inner = d_model * 4
+        self.d_inner = dec_d_model * 4
 
-        self.prenet = Prenet(pre_in_channels, d_model, pre_inner_channels)
+        self.prenet = Prenet(pre_in_channels, dec_d_model, pre_inner_channels)
 
-        self.position_enc = PositionalEncoding(d_model, n_position)
+        self.position_enc = PositionalEncoding(dec_d_model, n_position)
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
-            for _ in range(n_layers)
+            DecoderLayer(dec_d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
+            for _ in range(dec_n_layers)
         ])
 
-        # self.conv_o = weight_norm(nn.Conv1d(d_model, self.out_channels * self.reduction_factor, kernel_size=1))
-        self.conv_o = nn.Conv1d(d_model, self.out_channels * self.reduction_factor, kernel_size=1)
+        # self.conv_o = weight_norm(nn.Conv1d(dec_d_model, self.out_channels * self.reduction_factor, kernel_size=1))
+        self.conv_o = nn.Conv1d(dec_d_model, self.out_channels * self.reduction_factor, kernel_size=1)
 
-        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.layer_norm = nn.LayerNorm(dec_d_model, eps=1e-6)
 
-        # self.proj_pre = nn.Conv1d(d_model, d_model, kernel_size=1, bias=False)
+        # self.proj_pre = nn.Conv1d(dec_d_model, dec_d_model, kernel_size=1, bias=False)
         # if use_gc:
         #     self.proj_gc = nn.Linear()
 
     def forward(
-        self, enc_output, data_len, max_len, target=None, gc=None, return_attns=False, 
+        self, enc_output, target=None, data_len=None, max_len=None, gc=None, return_attns=False, 
         training_method=None, num_passes=None, mixing_prob=None):
         """
         reduction_factorにより、
@@ -365,42 +418,64 @@ class Decoder(nn.Module):
         return
         dec_output : (B, C, T)
         """
-        assert training_method == 'tf' or training_method == "ss", "please set traning_method"
+        print("----- decoder forward start -----")
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
+    
+        # シフト
+        if training_method is not None:
+            target = shift(target, self.reduction_factor, mode="orig")
         
         # global conditionの結合
         
         # reshape for reduction factor
         # この順番で処理するのがめっちゃ大事です！
         if target is not None:
-            target = target.permute(0, -1, -2)  # (B, C, T)
+            target = target.permute(0, -1, -2)  # (B, T, C)
             target = target.reshape(B, -1, D * self.reduction_factor)
-            target = target.permute(0, -1, -2)  
-        
-        # get target_mask
-        data_len = torch.div(data_len, self.reduction_factor)
-        mask = make_pad_mask(data_len, max_len)
+            target = target.permute(0, -1, -2)  # (B, C, T)
+        else:
+            target = torch.zeros(B, D * self.reduction_factor, 1).to(device)
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        mask = mask.to(device)
-        target = target.to(device)
-        data_len = data_len.to(device)
-        
-        max_len = torch.tensor(max_len).to(device)
-        target_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target) # (B, T, T)
-        
+        # mask
+        if data_len is not None:
+            # get target_mask
+            data_len = torch.div(data_len, self.reduction_factor)
+            mask = make_pad_mask(data_len, max_len)
+
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            mask = mask.to(device)
+            target = target.to(device)
+            data_len = data_len.to(device)
+            
+            max_len = torch.tensor(max_len).to(device)
+            target_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target) # (B, T, T)
+        else:
+            mask = None
+            target_mask = get_subsequent_mask(target)
+
         # Prenet
         target = self.prenet(target)    # (B, d_model, T=150)
+        target = self.dropout(target)
+
+        # positional encoding
+        if data_len is not None:
+            target = target + posenc(target, device, start_index=0)
+            target = target.permute(0, -1, -2)  # (B, T, C)
+            # target = self.dropout(self.position_enc(target))
+            target = self.layer_norm(target)
+        else:
+            if self.start_idx is None:
+                self.start_idx = 0
+            target = target + posenc(target, device, self.start_idx)
+            target = target.permute(0, -1, -2)
+            target = self.layer_norm(target)
+            self.start_idx += 1
 
         # global conditionの結合後、カーネル数1の畳み込み
 
-        # positional encoding
-        target = target.permute(0, -1, -2)  # (B, T, C)
-        target = self.dropout(self.position_enc(target))
-
-        target = self.layer_norm(target)
         dec_output = target
 
         dec_slf_attn_list = []
@@ -424,7 +499,7 @@ class Decoder(nn.Module):
                         dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
                     dec_slf_attn_list += [dec_slf_attn] if return_attns else []
                     dec_enc_attn_list += [dec_enc_attn] if return_attns else []
-            
+
             # for k in range(num_passes):
             for k in range(1):
                 # decoderからの出力とtargetをmixing_probに従って混合
@@ -433,13 +508,25 @@ class Decoder(nn.Module):
                 judge[:, :, :k] = 1     # t < kの要素は変更しない
                 target = torch.where(judge == 1, target, dec_output)
                 dec_output = target
+                dec_output = shift(dec_output, 1, mode="reduction")
                 
                 # decoder layers
                 for dec_layer in self.layer_stack:
                     dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
                         dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
+                    # print("----- decoder attention -----")
+                    # print(f"dec_slf_attn = {dec_slf_attn}")
+                    # print(f"dec_enc_attn = {dec_enc_attn}")
                     dec_slf_attn_list += [dec_slf_attn] if return_attns else []
                     dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+
+        else:
+            for dec_layer in self.layer_stack:
+                dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
+                    dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask, mode='inference')
+                dec_slf_attn_list += [dec_slf_attn] if return_attns else []
+                dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+                # print(f"dec_enc_attn = {dec_enc_attn}")
 
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
         dec_output = self.conv_o(dec_output)
@@ -455,8 +542,8 @@ class Decoder(nn.Module):
         # assert dec_output.shape == (B, D, self.reduction_factor * T - self.reduction_factor)
 
         # get_subsequent_maskで対角成分もFalseにしてしまうことで，シフトする必要性を解消した
-        assert dec_output.shape == (B, D, T * self.reduction_factor)
-
+        # assert dec_output.shape == (B, D, T * self.reduction_factor)
+        print(dec_output.shape)
         if return_attns:
             return dec_output, dec_slf_attn_list, dec_enc_attn_list
         return dec_output
@@ -472,6 +559,7 @@ class Decoder(nn.Module):
         return
         out : (B, C, T)
         """
+        print("----- decoder inference start -----")
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
@@ -486,6 +574,7 @@ class Decoder(nn.Module):
         #     prev = prev.permute(0, -1, -2)
         # else:
         go_frame = torch.zeros(B, D * self.reduction_factor, 1).to(device)
+        # prev = (go_frame - 1).to(device)
         prev = go_frame.to(device)
         max_decoder_time_steps = T
 
@@ -494,11 +583,15 @@ class Decoder(nn.Module):
         target_mask = None
         
         # メインループ
-        dec_outs = [go_frame]
+        dec_outs = []
         dec_slf_attn_list = []
         dec_enc_attn_list = []
         with torch.no_grad():
-            for t in range(max_decoder_time_steps - 1):
+            for t in range(max_decoder_time_steps):
+                if t > 0:
+                    prev = prev.permute(0, -1, -2)  # (B, C, T)
+                    prev = prev.reshape(B, -1, D * self.reduction_factor)
+                    prev = prev.permute(0, -1, -2)  # (B, C, T)
                 # 出力の保持
                 # if t == 0:
                 #     dec_outs.append(go_frame)
@@ -506,7 +599,7 @@ class Decoder(nn.Module):
                 #     # dec_outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
                 #     dec_outs.append(dec_output[:, :, -1:])
                 #     prev = torch.cat(dec_outs, dim=2)
-
+                # print(f"prev = {prev.shape}")
                 # マスクの更新（prevが長くなるので、その度に作る）
                 target_mask = get_subsequent_mask(prev)
                 
@@ -528,6 +621,9 @@ class Decoder(nn.Module):
                         dec_output, enc_output, slf_attn_mask=target_mask, dec_enc_attn_mask=mask)
                     dec_slf_attn_list += [dec_slf_attn] if return_attns else []
                     dec_enc_attn_list += [dec_enc_attn] if return_attns else []
+                    # print("----- decoder attention -----")
+                    # print(f"dec_slf_attn = {dec_slf_attn}")
+                    # print(f"dec_enc_attn = {dec_enc_attn}")
 
                 dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
 
@@ -538,7 +634,10 @@ class Decoder(nn.Module):
                 # outs.append(dec_output.reshape(B, D, -1)[:, :, -2:])
 
                 # prevの更新
-                dec_outs.append(dec_output[:, :, -1:])
+                dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
+                dec_output = dec_output.reshape(B, -1, D)   
+                dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
+                dec_outs.append(dec_output[:, :, -2:])
                 prev = torch.cat(dec_outs, dim=2)
 
                 # 次のループへの入力
@@ -558,9 +657,9 @@ class Decoder(nn.Module):
                 #     assert prev.shape[-1] == max_len
 
         dec_outs = torch.cat(dec_outs, dim=2)
-        dec_outs = dec_outs.permute(0, -1, -2)  # (B, T, C)
-        dec_outs = dec_outs.reshape(B, -1, D)
-        dec_outs = dec_outs.permute(0, -1, -2)  # (B, C, T)
+        # dec_outs = dec_outs.permute(0, -1, -2)  # (B, T, C)
+        # dec_outs = dec_outs.reshape(B, -1, D)
+        # dec_outs = dec_outs.permute(0, -1, -2)  # (B, C, T)
         out = dec_outs
         # out = torch.cat(outs, dim=2)
         # print(f"out = {out.shape}")
@@ -568,6 +667,11 @@ class Decoder(nn.Module):
         # out = prev.reshape(B, D, -1)
         assert out.shape[-1] == T * 2
         return out
+
+    def reset_state(self):
+        for dec_layer in self.layer_stack:
+            dec_layer.reset_state()
+        self.start_idx = None
 
 
 class Postnet(nn.Module):

@@ -113,7 +113,7 @@ def make_train_val_loader(cfg, data_path, mean_std_path):
         dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=os.cpu_count(),      
+        num_workers=cfg.train.num_workers,      
         pin_memory=True,
         drop_last=True,
         collate_fn=None,
@@ -122,7 +122,7 @@ def make_train_val_loader(cfg, data_path, mean_std_path):
         dataset=val_dataset,
         batch_size=1,   
         shuffle=False,
-        num_workers=os.cpu_count(),      
+        num_workers=cfg.train.num_workers,      
         pin_memory=True,
         drop_last=True,
         collate_fn=None,
@@ -184,7 +184,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        output, dec_output = model(
+        output, dec_output, enc_output = model(
             lip=lip,
             data_len=data_len,
             prev=feature,
@@ -208,7 +208,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
         # dec_output_loss = loss_f_train.mse_loss(dec_output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf) 
         # delta_loss = loss_f_train.delta_loss(output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf)
 
-        # transformerのget_subsequent_maskで対角成分をFalseにしておくことで，損失計算でシフトする必要性を解消した
+        
         output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 
         dec_output_loss = loss_f_train.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
         delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur)
@@ -276,17 +276,14 @@ def calc_val_loss(model: nn.Module, val_loader, loss_f_val, device, cfg):
         
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
-        if iter_cnt == 1:
-            print(lip.shape)
-            print(feature.shape)
-
         batch_size = lip.shape[0]
         data_cnt += batch_size
         
         with torch.no_grad():
-            output, dec_output = model.inference(
-                lip=lip,
-            )            
+            # output, dec_output, enc_output = model.inference(
+            #     lip=lip,
+            # )            
+            output, dec_output, enc_output = model(lip)
 
         rf = cfg.model.reduction_factor
         output_loss = loss_f_val.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 

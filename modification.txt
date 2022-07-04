@@ -54,3 +54,16 @@ first_batch_norm
 sceduled samplingのミスの修正
     sceduled samplingを行う際，torch.no_grad()を行なっていませんでした
     なので，おそらくこれまでは無駄に損失が流れてしまっており，これを修正しました
+
+decoder
+    田口さんは最初に音響特徴量をシフトしてから入力し，元の音響特徴量との損失を計算することで未来予測する最適化
+    現在は対角成分をマスク。やってることは同じ様な気がするけど，一応先輩の処理に合わせてみる
+
+pad_constant
+    decoderのpadのconstantは微妙
+
+positional encodingの変更
+    田口さんのやつを使用
+
+inferenceの変更
+    forward処理にした

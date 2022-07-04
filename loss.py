@@ -26,6 +26,9 @@ class masked_loss:
         パディングされた部分を考慮し、損失計算から省いたMSE loss
         output, target : (B, C, T)
         """
+        print("calculate mse loss")
+        print(f"output = {output.shape}")
+        print(f"target = {target.shape}")
         ########################
         # 学習時
         ########################
