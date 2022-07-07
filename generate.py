@@ -96,6 +96,15 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
+            if cfg.test.generate_method == "inference":
+                output, dec_output, enc_output = model(lip)
+            # elif cfg.test.generate_method == "forward":
+            #     output, dec_output, enc_output = model(
+            #         lip=lip,
+            #         data_len=data_len,
+            #         prev=feature,
+            #         training_method='ss',
+            #     )                
             # output, dec_output, enc_output_inf = model.inference(
             #     lip=lip
             # )
@@ -104,7 +113,6 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
             #     prev=feature,
             #     training_method='ss',
             # )                
-            output, dec_output, enc_output = model(lip)
 
             # print(f"enc_output.shape = {enc_output.shape}")
             # count = 0
@@ -130,14 +138,14 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
             lip=lip,
             feature=feature,
             feat_add=feat_add,
-            output=dec_output,
+            output=output,
             dec_output=dec_output,
             lip_mean=lip_mean,
             lip_std=lip_std,
             feat_mean=feat_mean,
             feat_std=feat_std,
         )
-        if index > 1:
+        if index > 0:
             break
 
 
@@ -174,7 +182,7 @@ def main(cfg):
     model = make_model(cfg, device)
 
     # パラメータのロード
-    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:03_18-48-47/mspec_90.ckpt"
+    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:06_07-02-29/mspec_40.ckpt"
     model.load_state_dict(torch.load(model_path)['model'])
 
     # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/train/2022:06:23_10-07-13/model_mspec.pth"
@@ -183,7 +191,7 @@ def main(cfg):
     # 保存先
     save_path = cfg.test.generate_save_path
     # save_path = os.path.join(save_path, Path(cfg.test.model_save_path).name)
-    save_path = os.path.join(save_path, lip_or_face, Path(model_path).parents[0].name, Path(model_path).stem, cfg.test.which_data)
+    save_path = os.path.join(save_path, lip_or_face, Path(model_path).parents[0].name, Path(model_path).stem, cfg.test.which_data, cfg.test.generate_method)
     os.makedirs(save_path, exist_ok=True)
 
     # Dataloader作成

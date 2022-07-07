@@ -11,6 +11,8 @@ datasetを作成するとき,事前に作ったnpzファイルを読み込むよ
 KablabDatasetのdata_root,mean_std_pathです
 """
 
+from ast import ExtSlice
+from sqlite3 import paramstyle
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import mlflow
@@ -24,6 +26,7 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import librosa.display
 
 # pytorch
 import torch
@@ -32,10 +35,12 @@ from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
+from torchviz import make_dot
+
 # 自作
 from get_dir import get_datasetroot, get_data_directory
 from model.dataset_npz import KablabDataset, KablabTransform, KablabTransform_val,  MySubset, collate_fn_padding
-from model.models import Lip2SP
+from model.models_remake import Lip2SP
 from loss import masked_loss
 from model.discriminator import UNetDiscriminator, JCUDiscriminator
 from mf_writer import MlflowWriter
@@ -48,10 +53,10 @@ wandb.login(key="ba729c3f218d8441552752401f49ba3c0c0e2b9f")
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
-np.random.seed(0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
-random.seed(0)
+np.random.seed(7)
+torch.manual_seed(7)
+torch.cuda.manual_seed_all(7)
+random.seed(7)
 
 
 def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
@@ -69,8 +74,6 @@ def save_checkpoint(model, optimizer, schedular, epoch, ckpt_path):
 def make_train_val_loader(cfg, data_path, mean_std_path):
     """
     pytorchのrandom_splitとかで分けると元のデータセットのtransformを共有してしまうので,Subsetを作ります
-    学習用データにはdata augmentationとtime adjust
-    検証用データにはtime adjustのみを適用しています(損失計算の並列化のため)
     """
     # 学習用，検証用それぞれに対してtransformを作成
     trans_train = KablabTransform(
@@ -142,31 +145,34 @@ def make_model(cfg, device):
             dec_d_model=cfg.model.dec_d_model,
             glu_inner_channels=cfg.model.d_model,
             glu_layers=cfg.model.glu_layers,
+            glu_kernel_size=cfg.model.glu_kernel_size,
             pre_in_channels=cfg.model.pre_in_channels,
             pre_inner_channels=cfg.model.pre_inner_channels,
             post_inner_channels=cfg.model.post_inner_channels,
+            post_n_layers=cfg.model.post_n_layers,
             n_position=cfg.model.length * 5,
-            # n_position=cfg.model.length,
             max_len=cfg.model.length // 2,
             which_encoder=cfg.model.which_encoder,
             which_decoder=cfg.model.which_decoder,
-            training_method=cfg.train.training_method,
-            num_passes=cfg.train.num_passes,
-            mixing_prob=cfg.train.mixing_prob,
             apply_first_bn=cfg.train.apply_first_bn,
             dropout=cfg.train.dropout,
             reduction_factor=cfg.model.reduction_factor,
             use_gc=cfg.train.use_gc,
+            input_layer_dropout=cfg.train.input_layer_dropout,
         ).to(device)
     return model
     
 
-def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, device, cfg, training_method):
+def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, device, cfg, training_method, mixing_prob, epoch):
     epoch_loss = 0
     data_cnt = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start")
+    rf = cfg.model.reduction_factor      
+    visualize = cfg.train.train_visualize
+    visualize_step = cfg.train.visualize_step
+    auto_regressive = cfg.train.auto_regressive
     # with detect_anomaly():
     model.train()
     for batch in train_loader:
@@ -184,63 +190,117 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        output, dec_output, enc_output = model(
-            lip=lip,
-            data_len=data_len,
-            prev=feature,
-            training_method=training_method,
-        )                
+        if iter_cnt % visualize_step == 0:
+            if auto_regressive:
+                output, dec_output, enc_output = model(lip, visualize=visualize)
+            else:
+                output, dec_output, enc_output = model(
+                    lip=lip,
+                    data_len=data_len,
+                    prev=feature,
+                    training_method=training_method,
+                    mixing_prob=mixing_prob,
+                    visualize=visualize,
+                    epoch=epoch,
+                    iter_cnt=iter_cnt,
+                )              
 
-        rf = cfg.model.reduction_factor      
+            B, D, _ = output.shape
+            plot_data = dec_output.to('cpu').detach().numpy().copy()
+            plot_data = plot_data.transpose(0, -1, -2)
+            plot_data = plot_data.reshape(B, -1, D)
+            plot_data = plot_data.transpose(0, -1, -2)
+            fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True)
+            img = librosa.display.specshow(
+                data=plot_data[0],
+                x_axis='time',
+                y_axis='mel',
+                sr=16000,
+                fmax=7600,
+                fmin=0,
+                n_fft=640,
+                hop_length=160,
+                win_length=640,
+                ax=ax[0],
+                cmap='viridis'
+            )
+            ax[0].set(title="dec_output melspectrogram")
+            ax[0].label_outer()  
+
+            plot_data = output.to('cpu').detach().numpy().copy()
+            plot_data = plot_data.transpose(0, -1, -2)
+            plot_data = plot_data.reshape(B, -1, D)
+            plot_data = plot_data.transpose(0, -1, -2)
+            librosa.display.specshow(
+                data=plot_data[0],
+                x_axis='time',
+                y_axis='mel',
+                sr=16000,
+                fmax=7600,
+                fmin=0,
+                n_fft=640,
+                hop_length=160,
+                win_length=640,
+                ax=ax[1],
+                cmap='viridis'
+            )
+            ax[1].set(title="output melspectrogram")
+            ax[1].label_outer()
+
+            plot_data = feature.to('cpu').detach().numpy().copy()
+            plot_data = plot_data.transpose(0, -1, -2)
+            plot_data = plot_data.reshape(B, -1, D)
+            plot_data = plot_data.transpose(0, -1, -2)
+            librosa.display.specshow(
+                data=plot_data[0],
+                x_axis='time',
+                y_axis='mel',
+                sr=16000,
+                fmax=7600,
+                fmin=0,
+                n_fft=640,
+                hop_length=160,
+                win_length=640,
+                ax=ax[2],
+                cmap='viridis'
+            )
+            ax[2].set(title="target melspectrogram")
+            ax[2].label_outer()
+
+            fig.colorbar(img, ax=ax, format='%+2.0f dB')
+            save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
+            save_path = save_path / current_time
+            os.makedirs(save_path, exist_ok=True)
+            plt.savefig(save_path / f"train_mel_epoch{epoch}_iter{iter_cnt}.png")
+
+        else:
+            if auto_regressive:
+                output, dec_output, enc_output = model(lip, visualize=False)
+            else:
+                output, dec_output, enc_output = model(
+                    lip=lip,
+                    data_len=data_len,
+                    prev=feature,
+                    training_method=training_method,
+                    mixing_prob=mixing_prob,
+                    visualize=False,
+                    epoch=epoch,
+                    iter_cnt=iter_cnt,
+                )                
         
-        # パディング部分をマスクした損失を計算。postnet前後の出力両方を考慮。
-        # output_loss = loss_f_train.mse_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        # dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        # delta_loss = loss_f_train.delta_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2)
-            
-        #  decoderは自己回帰なのでずらすけど，outputはpostnetを通すだけなのでずらしちゃだめだったかも
-        # output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * 2) 
-        # dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        # delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * 2)
+        img = make_dot(output, params=dict(model.named_parameters()))
+        img.format = "png"
+        img.render("graph_image_output")
 
-        # transformerのdecoder出力の時点でシフトすることにより，最終的な損失ではシフトしないでいいようにした
-        # output_loss = loss_f_train.mse_loss(output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf) 
-        # dec_output_loss = loss_f_train.mse_loss(dec_output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf) 
-        # delta_loss = loss_f_train.delta_loss(output, feature[..., rf:], data_len - rf, max_len=model.max_len * rf - rf)
+        img = make_dot(dec_output, params=dict(model.named_parameters()))
+        img.format = "png"
+        img.render("graph_image_dec_output")
 
-        
-        output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 
+        output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * rf)
         dec_output_loss = loss_f_train.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
-        delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur)
+        delta_loss = loss_f_train.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur, batch_norm=cfg.train.batch_norm)
 
         loss = output_loss + dec_output_loss + delta_loss
-        
-        # if torch.isnan(loss):
-        #     print("loss is nan!")
-        #     if torch.isnan(output_loss):
-        #         print("output_loss is nan!")
-        #     if torch.isnan(dec_output_loss):
-        #         print("dec_output_loss is nan!")
-        #     if torch.isnan(delta_loss):
-        #         print("delta_loss is nan!")
-        #     if torch.isnan(output):
-        #         print("output is nan!")
-        #     if torch.isnan(feature):
-        #         print("feature is nan!")
-        #     if torch.isnan(data_len):
-        #         print("data_len is nan!")
-        #     if torch.isnan(lip):
-        #         print("lip is nan!")
-
-        #     assert loss is not None
-        #     model = make_model(cfg, device)
-        #     model.load_state_dict(prev_model)
-        #     optimizer = torch.optim.Adam(model.parameters())
-        #     optimizer.load_state_dict(prev_optimizer)
-            
-        # else:
-        #     prev_model = model.state_dict()
-        #     prev_optimizer = optimizer.state_dict()
 
         # 勾配の初期化
         optimizer.zero_grad()
@@ -258,6 +318,10 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
         wandb.log({"train_delta_loss": delta_loss.item()})
         wandb.log({"train_total_loss": loss.item()})
 
+        if cfg.train.debug:
+            if iter_cnt > 0:
+                break
+
     # epoch_loss /= data_cnt
     epoch_loss /= iter_cnt
     return epoch_loss
@@ -270,6 +334,8 @@ def calc_val_loss(model: nn.Module, val_loader, loss_f_val, device, cfg):
     all_iter = len(val_loader)
     print("calc val loss")
     model.eval()
+    visualize = cfg.train.inference_visualize
+    rf = cfg.model.reduction_factor
     for batch in val_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
@@ -280,27 +346,23 @@ def calc_val_loss(model: nn.Module, val_loader, loss_f_val, device, cfg):
         data_cnt += batch_size
         
         with torch.no_grad():
-            # output, dec_output, enc_output = model.inference(
-            #     lip=lip,
-            # )            
-            output, dec_output, enc_output = model(lip)
+            output, dec_output, enc_output = model(lip, visualize=visualize)
 
-        rf = cfg.model.reduction_factor
         output_loss = loss_f_val.mse_loss(output, feature, data_len, max_len=model.max_len * rf) 
         dec_output_loss = loss_f_val.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
-        delta_loss = loss_f_val.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur)
+        delta_loss = loss_f_val.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur, batch_norm=cfg.train.batch_norm)
 
-        # output_loss = loss_f_val.mse_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        # dec_output_loss = loss_f_val.mse_loss(dec_output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
-        # delta_loss = loss_f_val.delta_loss(output[:, :, :-2], feature[:, :, 2:], data_len, max_len=model.max_len * 2) 
         loss = output_loss + dec_output_loss + delta_loss
-        
         epoch_loss += loss.item()
 
         wandb.log({"val_output_loss": output_loss.item()})
         wandb.log({"val_dec_output_loss": dec_output_loss.item()})
         wandb.log({"val_delta_loss": delta_loss.item()})
         wandb.log({"val_total_loss": loss.item()})
+
+        if cfg.train.debug:
+            if iter_cnt > 0:
+                break
     
     # epoch_loss /= data_cnt
     epoch_loss /= iter_cnt
@@ -369,13 +431,21 @@ def main(cfg):
         # model
         model = make_model(cfg, device)
         
-        # optimizer
-        optimizer = torch.optim.Adam(
-            model.parameters(), 
-            lr=cfg.train.lr, 
-            betas=(cfg.train.beta_1, cfg.train.beta_2),
-            weight_decay=cfg.train.weight_decay    
-        )
+        if cfg.train.which_optim == "Adam":
+            # optimizer
+            optimizer = torch.optim.Adam(
+                model.parameters(), 
+                lr=cfg.train.lr, 
+                betas=(cfg.train.beta_1, cfg.train.beta_2),
+                weight_decay=cfg.train.weight_decay    
+            )
+        elif cfg.train.which_optim == "AdamW":
+            optimizer = torch.optim.AdamW(
+                model.parameters(), 
+                lr=cfg.train.lr, 
+                betas=(cfg.train.beta_1, cfg.train.beta_2),
+                weight_decay=cfg.train.weight_decay    
+            )
 
         # schedular
         scheduler = torch.optim.lr_scheduler.StepLR(
@@ -405,15 +475,22 @@ def main(cfg):
 
         # teacher forcingとscheduled samplingの切り替え(田口さんがやっていた)
         training_method_change_step = max_epoch * cfg.train.tm_change_step
+        mixing_prob_change_step = max_epoch * cfg.train.mp_change_step
+        mixing_prob = cfg.train.mixing_prob
         
         for epoch in range(max_epoch):
             print(f"##### {epoch} #####")
-
             if epoch < training_method_change_step:
                 training_method = "tf"  # teacher forcing
             else:
                 training_method = "ss"  # scheduled sampling
             print(f"training_method : {training_method}")
+
+            if epoch < mixing_prob_change_step:
+                mixing_prob = 0.5
+            else:
+                mixing_prob = 0.1
+            print(f"mixing_prob = {mixing_prob}")
 
             epoch_loss = train_one_epoch(
                 model=model, 
@@ -423,6 +500,8 @@ def main(cfg):
                 device=device, 
                 cfg=cfg, 
                 training_method=training_method,
+                mixing_prob=mixing_prob,
+                epoch=epoch,
             )
             train_loss_list.append(epoch_loss)
             print(f"epoch_loss = {epoch_loss}")

@@ -26,9 +26,9 @@ class masked_loss:
         パディングされた部分を考慮し、損失計算から省いたMSE loss
         output, target : (B, C, T)
         """
-        print("calculate mse loss")
-        print(f"output = {output.shape}")
-        print(f"target = {target.shape}")
+        # print("calculate mse loss")
+        # print(f"output = {output.shape}")
+        # print(f"target = {target.shape}")
         ########################
         # 学習時
         ########################
@@ -60,7 +60,7 @@ class masked_loss:
             mse = F.mse_loss(output, target)
         return mse
 
-    def delta_loss(self, output, target, data_len, max_len, device, blur):
+    def delta_loss(self, output, target, data_len, max_len, device, blur, batch_norm):
         """
         音響特徴量の動的特徴量についての損失関数
         """
@@ -76,11 +76,12 @@ class masked_loss:
         output = delta_feature(output) 
         target = delta_feature(target)
 
-        # bn = nn.BatchNorm2d(3).to(device)
-        # output = bn(output.reshape(B, 3, -1, T))
-        # target = bn(target.reshape(B, 3, -1, T))
-        # output = output.reshape(B, -1, T)
-        # target = target.reshape(B, -1, T)
+        if batch_norm:
+            bn = nn.BatchNorm2d(3, affine=False).to(device)
+            output = bn(output.reshape(B, 3, -1, T))
+            target = bn(target.reshape(B, 3, -1, T))
+            output = output.reshape(B, -1, T)
+            target = target.reshape(B, -1, T)
         #######################################################
 
         # 各チャンネルごとの標準偏差（ブロードキャストのため次元を増やしてます）
@@ -93,9 +94,10 @@ class masked_loss:
             # マスク
             mask = make_pad_mask(data_len, max_len)
 
-            # 正規化されたメルスペクトログラムの静的・動的特徴量の二乗誤差
-            loss = ((output - target) / target_std)**2
-            # loss = (output - target) ** 2
+            if batch_norm:
+                loss = (output - target) ** 2
+            else:
+                loss = ((output - target) / target_std)**2
             
             # マスクでパディング部分を隠す
             mse = 0
@@ -114,8 +116,10 @@ class masked_loss:
         # テスト時
         ########################
         else:
-            mse = F.mse_loss(output / target_std, target / target_std)
-            # mse = F.mse_loss(output, target)
+            if batch_norm:
+                mse = F.mse_loss(output, target)
+            else:
+                mse = F.mse_loss(output / target_std, target / target_std)
         return mse
 
     def ls_loss(self, out_f, out_r, data_len, max_len, which_d, which_loss):
