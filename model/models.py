@@ -18,24 +18,24 @@ try:
     from model.transformer_taguchi import Postnet, Encoder, Decoder
     from model.conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    from model.glu import GLU
+    from model.glu_remake import GLU
 except:
     from net import ResNet3D
     from transformer_taguchi import Postnet, Encoder, Decoder
     from conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    from glu import GLU
+    from glu_remake import GLU
 
 
 class Lip2SP(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers,
         d_model, n_layers, n_head, dec_n_layers, dec_d_model,
-        glu_inner_channels, glu_layers, 
-        pre_in_channels, pre_inner_channels, post_inner_channels,
+        glu_inner_channels, glu_layers, glu_kernel_size,
+        pre_in_channels, pre_inner_channels, post_inner_channels, post_n_layers,
         n_position, max_len, which_encoder, which_decoder, 
         training_method, num_passes, mixing_prob, apply_first_bn,
-        dropout=0.1, reduction_factor=2, use_gc=False):
+        dropout=0.1, reduction_factor=2, use_gc=False, input_layer_dropout=False):
 
         super().__init__()
         assert d_model % n_head == 0
@@ -47,11 +47,12 @@ class Lip2SP(nn.Module):
         self.num_passes = num_passes
         self.mixing_prob = mixing_prob
         self.apply_first_bn = apply_first_bn
+        self.reduction_factor = reduction_factor
 
         if apply_first_bn:
             self.first_batch_norm = nn.BatchNorm3d(in_channels)
 
-        self.ResNet_GAP = ResNet3D(in_channels, d_model, res_layers)
+        self.ResNet_GAP = ResNet3D(in_channels, d_model, res_layers, input_layer_dropout, dropout)
 
         # encoder
         if self.which_encoder == "transformer":
@@ -84,29 +85,37 @@ class Lip2SP(nn.Module):
             )
         elif self.which_decoder == "glu":
             self.decoder = GLU(
-                glu_inner_channels, out_channels,
-                pre_in_channels, pre_inner_channels,
-                reduction_factor, glu_layers
+                glu_inner_channels, 
+                out_channels,
+                pre_in_channels, 
+                pre_inner_channels,
+                reduction_factor, 
+                glu_layers,
+                kernel_size=glu_kernel_size,
+                dropout=dropout,
             )
 
-        self.postnet = Postnet(out_channels, post_inner_channels, out_channels)
+        self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
 
     def forward(self, lip, prev=None, data_len=None, max_len=None, gc=None, training_method=None):
         """
         teacher forcingとscheduled samplingが途中で切り替わるように変更
         """
+        # 推論時にdecoderでインスタンスとして保持されていた結果の初期化
         self.reset_state()
+
         # encoder
         if self.apply_first_bn:
             lip = self.first_batch_norm(lip)
         lip_feature = self.ResNet_GAP(lip)
 
         if self.which_encoder == "transformer":
-            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, C, T)
         elif self.which_encoder == "conformer":
-            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C)
+            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C) ?
         
         # decoder
+        # 学習時
         if prev is not None:
             if self.which_decoder == "transformer":
                 dec_output = self.decoder(
@@ -122,18 +131,31 @@ class Lip2SP(nn.Module):
                     num_passes=self.num_passes, 
                     mixing_prob=self.mixing_prob
                 )
+            
+        # 推論時
         else:
             dec_outputs = []
-            # max_decoder_time_steps = enc_output.shape[1]
-            max_decoder_time_steps = enc_output.shape[-1]       # 田口さんは(B, C, T)
-            dec_output = self.decoder(enc_output)
-            dec_outputs.append(dec_output)
-            for _ in range(max_decoder_time_steps - 1):
-                dec_output = self.decoder(enc_output, dec_output)
-                dec_outputs.append(dec_output)
-            dec_output = torch.cat(dec_outputs, dim=-1)
-            assert dec_output.shape[-1] == max_decoder_time_steps * 2
+            max_decoder_time_steps = enc_output.shape[-1]   # (B, C, T)なので
 
+            if self.which_decoder == "transformer":
+                dec_output = self.decoder(enc_output)
+                dec_outputs.append(dec_output)
+                for _ in range(max_decoder_time_steps - 1):
+                    dec_output = self.decoder(enc_output, dec_output)
+                    dec_outputs.append(dec_output)
+                dec_output = torch.cat(dec_outputs, dim=-1)
+                assert dec_output.shape[-1] == max_decoder_time_steps * self.reduction_factor
+
+            elif self.which_decoder == "glu":
+                for t in range(max_decoder_time_steps):
+                    if t == 0:
+                        dec_output = self.decoder(enc_output[:, :, t].unsqueeze(-1))
+                    else:
+                        dec_output = self.decoder(enc_output[:, :, t].unsqueeze(-1), dec_output)
+                    dec_outputs.append(dec_output)
+                dec_output = torch.cat(dec_outputs, dim=-1)
+                assert dec_output.shape[-1] == max_decoder_time_steps * self.reduction_factor
+                
         # postnet
         out = self.postnet(dec_output) 
         return out, dec_output, enc_output

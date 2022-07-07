@@ -21,8 +21,7 @@ class CausalConv1d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
         super().__init__()
         self.padding = (kernel_size - 1)
-        self.conv = weight_norm(conv.Conv1d(
-            in_channels, out_channels*2, kernel_size, padding=self.padding, **kwargs))
+        self.conv = conv.Conv1d(in_channels, out_channels*2, kernel_size, padding=self.padding, **kwargs)
 
     def forward(self, x):
         return self._forward(x, False)
@@ -108,8 +107,7 @@ class GLU(nn.Module):
             GLUBlock(inner_channels, inner_channels) for _ in range(n_layers)
         ])
 
-        self.conv_o = weight_norm(nn.Conv1d(
-            inner_channels, self.out_channels * self.reduction_factor, kernel_size=1))
+        self.conv_o = nn.Conv1d(inner_channels, self.out_channels * self.reduction_factor, kernel_size=1)
 
     def forward(self, enc_output, target=None, gc=None, training_method=None, num_passes=None, mixing_prob=None):
         """

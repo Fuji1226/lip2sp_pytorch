@@ -24,8 +24,6 @@ import torch.nn as nn
 from torchvision import transforms as T
 import torchvision
 from torch.utils.data import Dataset, DataLoader
-import librosa
-import librosa.display
 import matplotlib.pyplot as plt
 from scipy.io.wavfile import write
 from tqdm import tqdm
@@ -403,25 +401,38 @@ class KablabTransform:
     def __call__(self, data, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, train=True):
         lip = data[0]   # (C, H, W, T)
         feature = data[1]   # (T, C)
-        feat_add = data[2]  #(T, C)
+        feat_add = data[2]  # (T, C)
         upsample = data[3]
 
         if train:
             # data augmentation
             lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
             lip = self.lip_transforms(lip)
-            #####################################################################################################################
             lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
             lip, feature, feat_add, upsample, data_len = self.time_augment(lip, feature, feat_add, upsample, data_len)
             lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
-            #####################################################################################################################
         else:
             lip = lip.permute(-1, 0, 1, 2)
 
+        # lip = lip.permute(0, 2, 3, 1)
+        # save_path = "/home/usr4/r70264c/lip2sp_pytorch/data_check"
+        # torchvision.io.write_video(
+        #     filename=os.path.join(save_path, "check_lip.mp4"),
+        #     video_array=lip.to(torch.uint8),
+        #     fps=50,
+        #     video_codec="h264",
+        # )
+
         # normalization
+        # print(f"----- before normalization -----")
+        # print(f"lip = {lip}")
+        # print(f"feature = {feature}")
         lip, feature, feat_add = self.normalization(
             lip, feature, feat_add, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
         )
+        # print(f"----- after normalization -----")
+        # print(f"lip = {lip}")
+        # print(f"feature = {feature}")
         lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
     
         if train:

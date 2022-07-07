@@ -9,7 +9,7 @@ from torch.nn import functional as F
 # import chainer.links as L
 # import chainer.functions as cF
 
-def build_frontend(in_channels, out_channels):
+def build_frontend(in_channels, out_channels, dropout=0.5):
     frontend = nn.Sequential(
             nn.Conv3d(in_channels, 32, 3, stride=(2, 2, 1), padding=1, bias=False),
             nn.BatchNorm3d(32),
@@ -28,8 +28,9 @@ def build_frontend(in_channels, out_channels):
     return frontend
 
 class FrontEnd(nn.Module):
-    def __init__(self, in_channels, out_channels) -> None:
+    def __init__(self, in_channels, out_channels, input_layer_dropout=False, dropout=0.5) -> None:
         super().__init__()
+        self.input_layer_dropout = input_layer_dropout
 
         self.conv1 = nn.Conv3d(in_channels, 32, 3, stride=(2, 2, 1), padding=1, bias=False)
         self.bn1 = nn.BatchNorm3d(32)
@@ -39,19 +40,25 @@ class FrontEnd(nn.Module):
         self.bn3 = nn.BatchNorm3d(out_channels)
 
         self.pool = nn.MaxPool3d(kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
+        self.dropout = nn.Dropout3d(dropout)
 
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = F.relu(x)
+        if self.input_layer_dropout:
+            x = self.dropout(x)
+
         x = self.conv2(x)
         x = self.bn2(x)
         x = F.relu(x)
+        if self.input_layer_dropout:
+            x = self.dropout(x)
+
         x = self.conv3(x)
         x = self.bn3(x)
         x = F.relu(x)
         x = self.pool(x)
-
         return x
 
 # class ChainerFrontEnd(chainer.Chain):
@@ -81,9 +88,9 @@ class FrontEnd(nn.Module):
 #         return x
 
 class ResidualBlock3D(nn.Module):
-    def __init__(self, in_channels, out_channels, stride=2):
+    def __init__(self, in_channels, out_channels, stride=2, input_layer_dropout=False, dropout=0.5):
         super().__init__()
-
+        self.input_layer_dropout = input_layer_dropout
         self.stride = stride
         self.conv1 = nn.Conv3d(
             in_channels, out_channels, kernel_size=3, stride=(stride, stride, 1), padding=1, bias=False
@@ -101,10 +108,15 @@ class ResidualBlock3D(nn.Module):
             )
             self.bn4 = nn.BatchNorm3d(out_channels)
 
+        self.dropout = nn.Dropout3d(dropout)
+
     def forward(self, x):
         y1 = self.conv1(x)
         y1 = self.bn1(y1)
         y1 = F.relu(y1)
+        if self.input_layer_dropout:
+            y1 = self.dropout(y1)
+            
         y1 = self.conv2(y1)
         y1 = self.bn2(y1)
 
@@ -120,19 +132,19 @@ class ResidualBlock3D(nn.Module):
 
 ####３DCNN+GAP#####
 class ResNet3D(nn.Module):
-    def __init__(self, in_channels, out_channels, layers=5) -> None:
+    def __init__(self, in_channels, out_channels, layers=5, input_layer_dropout=False, dropout=0.5) -> None:
         super().__init__()
 
-        self.frontend = FrontEnd(in_channels, out_channels)
+        self.frontend = FrontEnd(in_channels, out_channels, input_layer_dropout, dropout)
 
         res_blocks = nn.Sequential()
         res_blocks.append(ResidualBlock3D(
-            out_channels, out_channels, stride=1,
+            out_channels, out_channels, stride=1, input_layer_dropout=input_layer_dropout, dropout=dropout,
         ))
 
         for _ in range(min(layers, 2)):
             res_blocks.append(ResidualBlock3D(
-                out_channels, out_channels, stride=2,
+                out_channels, out_channels, stride=2, input_layer_dropout=input_layer_dropout, dropout=dropout,
             ))
         self.res_block = res_blocks
     

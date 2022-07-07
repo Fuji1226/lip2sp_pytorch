@@ -74,7 +74,7 @@ class Conv1d(nn.Conv1d):
             # 畳み込みと同様の計算を全結合層を用いて行っている
             output = F.linear(input.view(bsz, -1), weight, self.bias)
         
-        return output.view(bsz, 1, -1).permute(0, -1, 1)
+        return output.view(bsz, 1, -1)
 
     def clear_buffer(self):
         self.input_buffer = None
