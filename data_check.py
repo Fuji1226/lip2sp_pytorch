@@ -383,8 +383,6 @@ def save_wav(cfg, index, save_path, file_name, feature, feat_mean, feat_std):
         fig.colorbar(img, ax=ax, format='%+2.0f dB')
         ax.set(title='Mel-frequency spectrogram')
         plt.savefig(save_path+f"/mel_synth_mspec.png")
-    
-    return
 
 
 def save_mspec(cfg, index, save_path, file_name, feature, feat_mean, feat_std):
@@ -413,8 +411,7 @@ def save_mspec(cfg, index, save_path, file_name, feature, feat_mean, feat_std):
     )
     fig.colorbar(img, ax=ax, format='%+2.0f dB')
     ax.set(title='Mel-frequency spectrogram')
-    plt.savefig(save_path+f"/mel.png")
-    return
+    plt.savefig(save_path+f"/mel_{file_name}.png")
 
 
 def save_world(cfg, index, save_path, file_name, feature, feat_mean, feat_std):
@@ -547,6 +544,15 @@ def save_data(cfg, input_save_path, output_save_path, index, lip, feature, feat_
             save_path=output_save_path,
             file_name="output",
             feature=output,
+            feat_mean=feat_mean,
+            feat_std=feat_std
+        )
+        save_mspec(
+            cfg=cfg,
+            index=index,
+            save_path=output_save_path,
+            file_name="dec_output",
+            feature=dec_output,
             feat_mean=feat_mean,
             feat_std=feat_std
         )

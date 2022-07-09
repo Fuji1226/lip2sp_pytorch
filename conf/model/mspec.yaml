@@ -46,19 +46,29 @@ in_channels : 5
 res_layers : 5
 
 # glu parameter
-# glu_inner_channels : 256
+# glu_inner_channels
 glu_layers : 4
+glu_kernel_size : 5
 
 # transformer parameter
 n_layers : 1
 d_model : 128
 n_head : 2
+dec_n_layers : 4
+dec_d_model : 128
+diag_mask : False
+
+# n_layers : 2
+# d_model : 256
+# n_head : 4
+# dec_n_layers : 2
+# dec_d_model : 256
 
 # 使用するencoder（"transformer" or "conformer"）
 which_encoder : "transformer"
 
 # 使用するdecoder（"transformer" or "glu"）
-which_decoder : "transformer"
+which_decoder : "glu"
 
 # discriminator（"unet" or "jcu" ） 
 # 使わない場合は何も書かない（Noneもいらないです）
@@ -71,3 +81,4 @@ out_channels : 80  # 音響特徴量から計算します
 pre_in_channels : 160  # 音響特徴量から計算します
 pre_inner_channels : 32
 post_inner_channels : 512
+post_n_layers : 5

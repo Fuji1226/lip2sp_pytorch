@@ -3,10 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 try:
-    from .transformer import Prenet, shift
+    from .transformer_taguchi import Prenet, shift
     import conv
 except:
-    from transformer import Prenet, shift
+    from transformer_taguchi import Prenet, shift
     import conv
 
 
@@ -77,7 +77,7 @@ class GLUBlock(nn.Module):
         # チャンネル方向に2分割
         y1, y2 = torch.split(y, y.shape[split_dim] // 2, dim=split_dim)
 
-        enc_output = F.softsign(self.conv(enc_output))
+        enc_output = F.softsign(self.conv(enc_output)).clone()
         y2 = y2 + enc_output
         out = F.sigmoid(y1) * y2
 
@@ -112,30 +112,40 @@ class GLU(nn.Module):
 
         # target shift
         if mode == "training":
+            # print("before shift")
+            # print(f"target = {target}")
             target = shift(target, self.reduction_factor)
+            # print("after shift")
+            # print(f"target = {target}")
 
         # view for reduction factor
         if target is not None:
+            # print("before reduction factor")
+            # print(f"target = {target.shape}")
+            # print(f"target = {target}")
             target = target.permute(0, -1, -2)  # (B, T, C)
             target = target.contiguous().view(B, -1, D * self.reduction_factor)
             target = target.permute(0, -1, -2)  # (B, C, T)
+            # print("after reduction factor")
+            # print(f"target = {target.shape}")
+            # print(f"target = {target}")
         else:
-            target = torch.zeros(B, D * self.reduction_factor, 1).to(enc_output.device) 
+            target = torch.zeros(B, D * self.reduction_factor, 1).to(device=enc_output.device, dtype=enc_output.dtype) 
 
         # prenet
         target = self.dropout(self.prenet(target))
-        dec_output = target
+        dec_layer_out = target.clone()
 
         # decoder layers
         if mode == "training":
             for layer in self.glu_layers:
-                dec_output = layer(enc_output, dec_output)
+                dec_layer_out = layer(enc_output, dec_layer_out)
         
         elif mode == "inference":
             for layer in self.glu_layers:
-                dec_output = layer.incremental_forward(enc_output, dec_output)
+                dec_layer_out = layer.incremental_forward(enc_output, dec_layer_out)
 
-        dec_output = self.conv_o(dec_output)
+        dec_output = self.conv_o(dec_layer_out)
         dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
         dec_output = dec_output.contiguous().view(B, -1, D)   
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)

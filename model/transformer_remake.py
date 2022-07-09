@@ -3,10 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-def get_subsequent_mask(x):
+
+def get_subsequent_mask(x, diag_mask):
     len_x = x.shape[-1]
-    subsequent_mask = (1 - torch.triu(
-        torch.ones((1, len_x, len_x), device=x.device), diagonal=1)).bool()
+    if diag_mask:
+        subsequent_mask = (1 - torch.triu(
+            torch.ones((1, len_x, len_x), device=x.device), diagonal=0)).bool()
+    else:
+        subsequent_mask = (1 - torch.triu(
+            torch.ones((1, len_x, len_x), device=x.device), diagonal=1)).bool()
     return subsequent_mask.to(device=x.device)
 
 
@@ -25,18 +30,11 @@ def make_pad_mask(lengths, max_len):
     return mask.unsqueeze(1).to(device=device)
 
 
-def shift(x, n_shift, mode):
-    if mode == 'orig':
-        pad = (n_shift, 0)
-        x = F.pad(x, pad, mode="constant")[:, :, :-n_shift]
-    elif mode == "reduction":
-        pad = (0, 0, 1, 0)
-        x = F.pad(x, pad, mode="constant")[:, :-1, :]
-    return x
+def shift(x, n_shift):
+    return F.pad(x, (n_shift, 0), mode="constant")[:, :, :-n_shift].clone()
 
 
 def posenc(x, device, start_index=0):
-    x = x.to('cpu').detach().numpy().copy()
     _, C, T = x.shape
 
     depth = np.arange(C) // 2 * 2
@@ -67,10 +65,7 @@ class Prenet(nn.Module):
     def forward(self, x):
         """
         音響特徴量をtransformer内の次元に調整する役割
-
         x : (B, C=feature channels, T)
-
-        return
         y : (B, C=d_model, T)
         """
         x = x.permute(0, -1, -2)  # (B, T, C)
@@ -83,20 +78,20 @@ class Postnet(nn.Module):
         super().__init__()
 
         conv = nn.Sequential(
-            nn.Conv1d(in_channels, inner_channels, kernel_size=5, padding=5//2, bias=False),
+            nn.Conv1d(in_channels, inner_channels, kernel_size=5, padding=2, bias=False),
             nn.BatchNorm1d(inner_channels),
             nn.Tanh(),
             nn.Dropout(p=dropout)
         )
         for _ in range(n_layers - 2):
             conv.append(nn.Conv1d(
-                inner_channels, inner_channels, kernel_size=5, padding=5//2, bias=False
+                inner_channels, inner_channels, kernel_size=5, padding=2, bias=False
             ))
             conv.append(nn.BatchNorm1d(inner_channels))
             conv.append(nn.Tanh())
             conv.append(nn.Dropout(p=dropout))
 
-        conv.append(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=5//2))
+        conv.append(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=2))
         self.conv = conv
 
     def forward(self, x):
@@ -110,16 +105,12 @@ class ScaledDotProductAttention(nn.Module):
         self.dropout = nn.Dropout(attn_dropout)
 
     def forward(self, q, k, v, mask=None):
-        print(f"q = {q.shape}")
-        print(f"k = {k.shape}")
-        print(f"v = {v.shape}")
         attention = torch.matmul(q / self.temperature, k.transpose(2, 3))
         if mask is not None:
-            attention = attention.masked_fill(mask == 0, -1e9)
+            attention = attention.masked_fill(mask == 0, torch.tensor(float('-inf')))
+
         attention = self.dropout(F.softmax(attention, dim=-1))
-        print(f"attention = {attention.shape}")
         output = torch.matmul(attention, v)
-        print(f"output = {output.shape}")
         return output, attention
 
 
@@ -141,6 +132,7 @@ class MultiHeadAttention(nn.Module):
     def forward(self, q, k, v, mask=None):
         """
         input : (B, T, C)
+        return : (B, T, C)
         """
         d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
         sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
@@ -161,7 +153,7 @@ class MultiHeadAttention(nn.Module):
         q = self.dropout(self.fc(q))    # (b x lq x (n*dv)) -> (b, lq, d_model)
         q += residual
         q = self.layer_norm(q)
-        return q, attn
+        return q
 
 
 class PositionwiseFeedForward(nn.Module):
@@ -188,33 +180,36 @@ class EncoderLayer(nn.Module):
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
 
     def forward(self, enc_input, mask=None):
-        enc_output, enc_attention = self.attention(enc_input, enc_input, enc_input, mask)
+        enc_output = self.attention(enc_input, enc_input, enc_input, mask)
         enc_output = self.fc(enc_output)
-        return enc_output, enc_attention
+        return enc_output
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, diag_mask=False):
         super().__init__()
+        self.diag_mask = diag_mask
         self.dec_self_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
         self.dec_enc_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
 
     def forward(self, dec_input, enc_output, self_attention_mask=None, dec_enc_attention_mask=None, mode=None):
-        if mode == "inference":
+        if mode == "training":
+            out_self_atten = self.dec_self_attention(dec_input, dec_input, dec_input, mask=self_attention_mask)
+            out_dec_enc_atten = self.dec_enc_attention(out_self_atten, enc_output, enc_output, mask=dec_enc_attention_mask)
+            dec_output = self.fc(out_dec_enc_atten)
+
+        elif mode == "inference":
             if self.prev is None:
                 self.prev = dec_input
             else:
                 self.prev = torch.cat([self.prev, dec_input], dim=1)
 
-            dec_output, dec_self_attention = self.dec_self_attention(dec_input, dec_input, dec_input, self_attention_mask)
-            dec_output, dec_enc_attention = self.dec_enc_attention(dec_output, enc_output, enc_output, dec_enc_attention_mask)
-            dec_output = self.fc(dec_output[:, -1:, :])
-        else:    
-            dec_output, dec_self_attention = self.dec_self_attention(dec_input, dec_input, dec_input, self_attention_mask)
-            dec_output, dec_enc_attention = self.dec_enc_attention(dec_output, enc_output, enc_output, dec_enc_attention_mask)
-            dec_output = self.fc(dec_output)
-        return dec_output, dec_self_attention, dec_enc_attention
+            self_attention_mask = get_subsequent_mask(self.prev, self.diag_mask)
+            dec_output = self.dec_self_attention(self.prev, self.prev, self.prev, mask=self_attention_mask)
+            dec_output = self.dec_enc_attention(dec_output, enc_output, enc_output, mask=dec_enc_attention_mask)
+            dec_output = self.fc(dec_output[:, -1:, :])     
+        return dec_output
 
     def reset_state(self):
         self.prev = None
@@ -235,7 +230,7 @@ class Encoder(nn.Module):
         ])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, lip_feature, data_len=None, max_len=None, return_attention=False):
+    def forward(self, lip_feature, data_len=None, max_len=None):
         if data_len is not None:
             assert max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
@@ -248,130 +243,87 @@ class Encoder(nn.Module):
         lip_feature = lip_feature.permute(0, -1, -2)  # (B, T, C)
         enc_output = self.layer_norm(lip_feature)
 
-        enc_attention_list = []
         for enc_layer in self.enc_layers:
-            enc_output, enc_attention = enc_layer(enc_output, mask)
-            enc_attention_list.append(enc_attention) if return_attention else []
-
-        if return_attention:
-            return enc_output, enc_attention_list
-        else:
-            return enc_output
+            enc_output = enc_layer(enc_output, mask)
+        return enc_output
 
 
 class Decoder(nn.Module):
     def __init__(
         self, dec_n_layers, n_head, dec_d_model, pre_in_channels, pre_inner_channels, out_channels,
-        n_position, reduction_factor, dropout=0.1, use_gc=False):
+        n_position, reduction_factor, dropout=0.1, use_gc=False, diag_mask=False):
         super().__init__()
         self.d_k = dec_d_model // n_head
         self.d_v = dec_d_model // n_head
         self.reduction_factor = reduction_factor
         self.out_channels = out_channels
         self.d_inner = dec_d_model * 4
+        self.diag_mask = diag_mask
 
         self.prenet = Prenet(pre_in_channels, dec_d_model, pre_inner_channels)
         self.dropout = nn.Dropout(dropout)
         self.dec_layers = nn.ModuleList([
-            DecoderLayer(dec_d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
+            DecoderLayer(dec_d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout, diag_mask=self.diag_mask)
             for _ in range(dec_n_layers)
         ])
         self.conv_o = nn.Conv1d(dec_d_model, self.out_channels * self.reduction_factor, kernel_size=1)
         self.layer_norm = nn.LayerNorm(dec_d_model, eps=1e-6)
 
-    def forward(
-        self, enc_output, target=None, data_len=None, max_len=None, gc=None, 
-        training_method=None, num_passes=None, mixing_prob=None, return_attention=False):
+    def forward(self, enc_output, target=None, data_len=None, max_len=None, gc=None, mode=None):
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
 
         # target shift
-        if training_method is not None:
-            target = shift(target, self.reduction_factor, mode="original")
+        if mode == "training":
+            target = shift(target, self.reduction_factor)
 
-        # reshape for reduction factor
+        # view for reduction factor
         if target is not None:
             target = target.permute(0, -1, -2)  # (B, T, C)
-            target = target.reshape(B, -1, D * self.reduction_factor)
+            target = target.contiguous().view(B, -1, D * self.reduction_factor)
             target = target.permute(0, -1, -2)  # (B, C, T)
         else:
-            target = torch.zeros(B, D * self.reduction_factor, 1).to(enc_output.device)
+            target = torch.zeros(B, D * self.reduction_factor, 1).to(device=enc_output.device, dtype=enc_output.dtype) 
         
         # mask
-        if data_len is not None:
+        if mode == "training":
+            assert data_len is not None and max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
             pad_mask = make_pad_mask(data_len, max_len)
-            dec_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target) # (B, T, T)
-        else:
-            pad_mask = None
-            dec_mask = get_subsequent_mask(target)
+            dec_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target, self.diag_mask) # (B, T, T)
 
+        elif mode == "inference":
+            assert data_len is None and max_len is None
+            pad_mask = None
+            dec_mask = None
+
+        # prenet
         target = self.dropout(self.prenet(target))
 
-        # positional encoding
-        if data_len is not None:
+        # positional encoding & decoder layers
+        if mode == "training":
             target = target + posenc(target, device=target.device, start_index=0)
-            target = self.layer_norm(target.permute(0, -1, -2))
-        else:
+            target = self.layer_norm(target.permute(0, -1, -2))     # (B, T, C)
+            dec_layer_out = target
+            for dec_layer in self.dec_layers:
+                dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask, mode=mode)
+
+        elif mode == "inference":
             if self.start_idx is None:
                 self.start_idx = 0
             target = target + posenc(target, device=target.device, start_index=self.start_idx)
-            target = self.layer_norm(target.permute(0, -1, -2))
+            target = self.layer_norm(target.permute(0, -1, -2))     # (B, T, C)
             self.start_idx += 1
-
-        dec_output = target
-        dec_self_attention_list = []
-        dec_enc_attention_list = []
-
-        # teacher forcing
-        if training_method == "tf":
+            dec_layer_out = target
             for dec_layer in self.dec_layers:
-                dec_output, dec_self_attention, dec_enc_attention = dec_layer(
-                    dec_output, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask
-                )
-                dec_self_attention_list.append(dec_self_attention) if return_attention else []
-                dec_enc_attention_list.append(dec_enc_attention) if return_attention else []
+                dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask, mode=mode)
 
-        # scheduled sampling
-        elif training_method == "ss":
-            with torch.no_grad():
-                for dec_layer in self.dec_layers:
-                    dec_output, _, _ = dec_layer(
-                        dec_output, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask
-                    )
-            # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
-            mixing_prob = torch.zeros_like(target) + mixing_prob
-            judge = torch.bernoulli(mixing_prob)
-            target = torch.where(judge == 1, target, dec_output)
-            dec_output = target
-            dec_output = shift(dec_output, 1, mode="reduction") 
-
-            for dec_layer in self.dec_layers:
-                dec_output, dec_self_attention, dec_enc_attention = dec_layer(
-                    dec_output, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask
-                )
-                dec_self_attention_list.append(dec_self_attention) if return_attention else []
-                dec_enc_attention_list.append(dec_enc_attention) if return_attention else []
-
-        # inference
-        else:
-            for dec_layer in self.dec_layers:
-                dec_output, dec_self_attention, dec_enc_attention = dec_layer(
-                    dec_output, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask
-                )
-                dec_self_attention_list.append(dec_self_attention) if return_attention else []
-                dec_enc_attention_list.append(dec_enc_attention) if return_attention else []
-
-        dec_output = self.conv_o(dec_output.permute(0, -1, -2)) # (B, C, T)
+        dec_output = self.conv_o(dec_layer_out.permute(0, -1, -2))      # (B, C, T)
         dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
-        dec_output = dec_output.reshape(B, -1, D)   
+        dec_output = dec_output.contiguous().view(B, -1, D)
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)
-
-        if return_attention:
-            return dec_output, dec_self_attention_list, dec_enc_attention_list
-        else:
-            return dec_output
+        return dec_output
     
     def reset_state(self):
         for dec_layer in self.dec_layers:

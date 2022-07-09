@@ -1,7 +1,5 @@
 """
 最終的なモデル
-
-最終出力はpostnet出力とdecoder出力の和だったので変更
 """
 import os
 import sys
@@ -19,12 +17,14 @@ from pathlib import Path
 try:
     from model.net import ResNet3D
     from model.transformer_taguchi import Postnet, Encoder, Decoder
+    # from model.transformer_remake import Postnet, Encoder, Decoder
     from model.conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
     from model.glu_remake import GLU
 except:
     from net import ResNet3D
     from transformer_taguchi import Postnet, Encoder, Decoder
+    # from transformer_remake import Postnet, Encoder, Decoder
     from conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
     from glu_remake import GLU
@@ -101,6 +101,7 @@ class Lip2SP(nn.Module):
     def forward(self, lip, prev=None, data_len=None, max_len=None, gc=None, training_method=None, mixing_prob=None, visualize=False, epoch=None, iter_cnt=None):
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化
         self.reset_state()
+
         # print("\n##### input #####")
         # print("----- lip -----")
         # print(f"lip.grad = {lip.grad}")
@@ -123,9 +124,9 @@ class Lip2SP(nn.Module):
         # print(f"lip_feature.is_leaf = {lip_feature.is_leaf}")
         
         if self.which_encoder == "transformer":
-            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, C, T)
+            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # taguchi : (B, C, T), remake : (B, T, C)
         elif self.which_encoder == "conformer":
-            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C) ?
+            enc_output = self.encoder(lip_feature, data_len, self.max_len)    # (B, T, C) 
         
         # print("\n##### after encoder ######")
         # print("----- enc_output -----")
@@ -241,6 +242,8 @@ class Lip2SP(nn.Module):
         """
         学習時の処理
         """
+        print("----- start forward -----")
+        # print(f"enc_output = {enc_output}")
         if self.which_decoder == "transformer":
             dec_output = self.decoder(enc_output, prev, data_len, self.max_len, mode=mode)
 
@@ -253,15 +256,18 @@ class Lip2SP(nn.Module):
         """
         推論時の処理
         """
+        print("----- start inference -----")
         dec_outputs = []
         max_decoder_time_steps = enc_output.shape[-1]   # (B, C, T)なので
+
+        # print(f"enc_output = {enc_output}")
 
         if self.which_decoder == "transformer":
             for t in range(max_decoder_time_steps):
                 if t == 0:
                     dec_output = self.decoder(enc_output, mode=mode)
                 else:
-                    dec_output = self.decoder(enc_output, dec_output, mode=mode)
+                    dec_output = self.decoder(enc_output, dec_outputs[-1], mode=mode)
                 dec_outputs.append(dec_output)
 
                 if visualize:
@@ -292,7 +298,7 @@ class Lip2SP(nn.Module):
                 if t == 0:
                     dec_output = self.decoder(enc_output[:, :, t].unsqueeze(-1), mode=mode)
                 else:
-                    dec_output = self.decoder(enc_output[:, :, t].unsqueeze(-1), dec_output, mode=mode)
+                    dec_output = self.decoder(enc_output[:, :, t].unsqueeze(-1), dec_outputs[-1], mode=mode)
                 dec_outputs.append(dec_output)
 
                 if visualize:
@@ -320,6 +326,7 @@ class Lip2SP(nn.Module):
 
         # 溜め込んだ出力を時間方向に結合して最終出力にする
         dec_output = torch.cat(dec_outputs, dim=-1)
+        # print(f"dec_output = {dec_output}")
         assert dec_output.shape[-1] == max_decoder_time_steps * self.reduction_factor
         return dec_output
 
@@ -349,68 +356,87 @@ class Lip2SP(nn.Module):
     #     return out, dec_output, enc_output
 
 
-def main():
-    batch_size = 8
+
+def make_model(cfg, device):
+    model = Lip2SP(
+            in_channels=cfg.model.in_channels,
+            out_channels=cfg.model.out_channels,
+            res_layers=cfg.model.res_layers,
+            d_model=cfg.model.d_model,
+            n_layers=cfg.model.n_layers,
+            n_head=cfg.model.n_head,
+            dec_n_layers=cfg.model.dec_n_layers,
+            dec_d_model=cfg.model.dec_d_model,
+            glu_inner_channels=cfg.model.d_model,
+            glu_layers=cfg.model.glu_layers,
+            glu_kernel_size=cfg.model.glu_kernel_size,
+            pre_in_channels=cfg.model.pre_in_channels,
+            pre_inner_channels=cfg.model.pre_inner_channels,
+            post_inner_channels=cfg.model.post_inner_channels,
+            post_n_layers=cfg.model.post_n_layers,
+            n_position=cfg.model.length * 5,
+            max_len=cfg.model.length // 2,
+            which_encoder=cfg.model.which_encoder,
+            which_decoder=cfg.model.which_decoder,
+            apply_first_bn=cfg.train.apply_first_bn,
+            dropout=cfg.train.dropout,
+            reduction_factor=cfg.model.reduction_factor,
+            use_gc=cfg.train.use_gc,
+            input_layer_dropout=cfg.train.input_layer_dropout,
+            diag_mask=cfg.model.diag_mask,
+        ).to(device)
+    return model
+
+import hydra
+@hydra.main(config_name="config", config_path="../conf")
+def main(cfg):
+    torch.manual_seed(7)
+    batch_size = 1
 
     # data_len
-    data_len = [300, 300, 300, 300, 100, 100, 200, 200]
+    data_len = [30, 20, 10]
+    if batch_size == 1:
+        data_len = [30]
     data_len = torch.tensor(data_len)
+    max_len = 30
 
     # 口唇動画
     lip_channels = 5
     width = 48
     height = 48
-    frames = 150
+    frames = 15
     lip = torch.rand(batch_size, lip_channels, width, height, frames)
 
     # 音響特徴量
-    feature_channels = 80
-    acoustic_feature = torch.rand(batch_size, feature_channels, frames * 2)
+    feature_channels = 4
+    feature = torch.rand(batch_size, feature_channels, frames * 2)
 
-    # parameter
-    hparams = create_hparams()
+    device = 'cpu'
+    model = make_model(cfg, device)
 
-    # build
-    net = Lip2SP(
-        in_channels=5, 
-        out_channels=hparams.out_channels,
-        res_layers=hparams.res_layers,
-        d_model=hparams.d_model,
-        n_layers=hparams.n_layers,
-        n_head=hparams.n_head,
-        glu_inner_channels=hparams.glu_inner_channels,
-        glu_layers=hparams.glu_layers,
-        pre_in_channels=hparams.pre_in_channels,
-        pre_inner_channels=hparams.pre_inner_channels,
-        post_inner_channels=hparams.post_inner_channels,
-        n_position=hparams.length * 10,  # 口唇動画に対して長ければいい
-        max_len=hparams.length // 2,
-        which_encoder=hparams.which_encoder,
-        which_decoder=hparams.which_decoder,
-        training_method=hparams.training_method,
-        num_passes=hparams.num_passes,
-        mixing_prob=hparams.mixing_prob,
-        dropout=hparams.dropout,
-        reduction_factor=hparams.reduction_factor,
-        use_gc=hparams.use_gc,
+    # forward
+    model.eval()
+    out, dec_output, enc_output = model(
+        lip=lip,
+        data_len=data_len,
+        prev=feature,
+        training_method="tf",
+        mixing_prob=0.5,
+        visualize=False,
+        epoch=1,
+        iter_cnt=1,
     )
-
-    # training
-    outout, dec_output = net(lip=lip, data_len=data_len, prev=acoustic_feature)
-    loss_f = nn.MSELoss()
-    loss = loss_f(outout, acoustic_feature)
-    # print(loss)
+    print(out.shape)
 
     # inference
-    # 口唇動画
-    lip_channels = 5
-    width = 48
-    height = 48
-    frames = 45
-    lip = torch.rand(batch_size, lip_channels, width, height, frames)
-    inference_out = net.inference(lip=lip)
-    # print(inference_out.shape)
-    
+    lip = lip[:1]
+    print(lip.shape)
+    model.eval()
+    out, dec_output, enc_output = model(
+        lip=lip,
+        visualize=False,
+    )
+    print(out.shape)
 
 if __name__ == "__main__":
     main()

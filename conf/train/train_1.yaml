@@ -33,24 +33,24 @@ pre_loaded_path : "/Users/minami/Documents/python/lip2sp_pytorch/dataset/np_file
 # mlflowの保存先
 experiment_name : "test"
 
-# training
-max_iter : 5
+# max_epoch
 max_epoch : 200
 
 # validation lossを計算する間隔
-display_val_loss_step : 5
+display_val_loss_step : 1
 
 # dropout
-dropout : 0.1
+dropout : 0.5
 
 # global condition
 use_gc : False
 
 # dataloader
-batch_size : 4
+batch_size : 8
 num_workers : 8
 
 # optimizer
+which_optim : "Adam"
 lr : 0.001
 beta_1 : 0.9
 beta_2 : 0.999
@@ -67,7 +67,27 @@ max_norm : 3.0
 # tf : teacher forcing
 # ss : scheduled sampling
 training_method : "ss"
+tm_change_step : 0    # training_methodを変更するタイミング(max_epoch * tm_change_stepで変わる)
 
 # parameter for scheduled sampling
-num_passes : 1     # 繰り返し回数
-mixing_prob : 0.5  # 混合率
+num_passes : 1     # 繰り返し回数(使ってません…)
+mixing_prob : 0.5  # 混合率(低いほうがより学習が難しくなり，汎化を促進するはずです)
+mp_change_step : 0.5    # mixing_probを変更するタイミング((max_epoch * tm_change_stepで変わる)
+
+# 学習時の処理
+auto_regressive : False
+
+# 途中のメルスペクトログラムの可視化
+train_visualize : False
+visualize_step : 200    # iteration
+inference_visualize : False
+
+# delta loss
+blur : True
+batch_norm : True
+
+# 動画に対して最初にbatch normalizationをするかどうか
+apply_first_bn : False
+
+# 最初のresnetに対してのdropoutを行うかどうか
+input_layer_dropout : True

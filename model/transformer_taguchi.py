@@ -1,3 +1,4 @@
+from cmath import inf
 from pathlib import Path
 import torch
 import torch.nn as nn
@@ -59,10 +60,10 @@ class LayerNorm1D(nn.LayerNorm):
         B, C, T = x.shape
         x = x.permute(0, -1, -2)    # (B, T, C)
         # x = x.view(B * T, C)
-        x = super().forward(x)
+        out = super().forward(x)
         # x = x.view(B, T, C)
-        x = x.permute(0, -1, -2)    # (B, C, T)
-        return x
+        out = out.permute(0, -1, -2)    # (B, C, T)
+        return out
 
 
 class Prenet(nn.Module):
@@ -136,12 +137,12 @@ class MultiHeadAttention(nn.Module):
         """
         residual = x
         if y is None:
-            x = self.W_QKV(x)
-            (Q, K, V) = torch.split(x, x.shape[1] // 3, dim=1)
+            qkv = self.W_QKV(x)
+            (Q, K, V) = torch.split(qkv, qkv.shape[1] // 3, dim=1)
         else:
             Q = self.W_Q(x)
-            y = self.W_KV(y)
-            (K, V) = torch.split(y, y.shape[1] // 2, dim=1)
+            kv = self.W_KV(y)
+            (K, V) = torch.split(kv, kv.shape[1] // 2, dim=1)
         batch, d_model, n_query = Q.shape
         _, _, n_key = K.shape
 
@@ -167,7 +168,7 @@ class MultiHeadAttention(nn.Module):
             # print(f"mask = {mask.shape}")
             mask = torch.cat([mask] * self.n_head, dim=0)
             # print(f"mask = {mask.shape}")
-            batch_A = batch_A.masked_fill(mask == 0, -1e9)
+            batch_A = batch_A.masked_fill(mask == 0, torch.tensor(float('-inf')))
 
         # print("----- batch_A after mask -----")
         # print(f"batch_A.grad = {batch_A.grad}")
@@ -209,11 +210,11 @@ class PositionwiseFeedForward(nn.Module):
 
     def forward(self, x):
         residual = x
-        x = self.w_2(F.relu(self.w_1(x)))
-        x = self.dropout(x)
-        x += residual
-        x = self.layer_norm(x)
-        return x
+        out = self.w_2(F.relu(self.w_1(x)))
+        out = self.dropout(out)
+        out += residual
+        out = self.layer_norm(out)
+        return out
 
 
 class EncoderLayer(nn.Module):
@@ -223,8 +224,8 @@ class EncoderLayer(nn.Module):
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
 
     def forward(self, enc_input, mask=None):
-        enc_output = self.attention(x=enc_input, mask=mask)
-        enc_output = self.fc(enc_output)
+        attention_out = self.attention(x=enc_input, mask=mask)
+        enc_output = self.fc(attention_out)
         return enc_output
 
 
@@ -238,24 +239,47 @@ class DecoderLayer(nn.Module):
 
     def forward(self, dec_input, enc_output, self_attention_mask=None, dec_enc_attention_mask=None, mode=None):
         if mode == "training":
-            dec_output = self.dec_self_attention(x=dec_input, mask=self_attention_mask)
+            out_self_atten = self.dec_self_attention(x=dec_input, mask=self_attention_mask)
             # print(f"enc_output = {enc_output}")
             # print(f"dec_output = {dec_output}")
-            dec_output = self.dec_enc_attention(x=dec_output, y=enc_output, mask=dec_enc_attention_mask)
-            dec_output = self.fc(dec_output)
+            # print(f"out_self_atten_mean = {torch.mean(out_self_atten ** 2)}")
+            # print(f"enc_outout_mean = {torch.mean(enc_output ** 2)}")
+            # print(f"out_self_atten = {out_self_atten}")
+            # print(f"enc_output = {enc_output}")
+            out_dec_enc_atten = self.dec_enc_attention(x=out_self_atten, y=enc_output, mask=dec_enc_attention_mask)
+            dec_output = self.fc(out_dec_enc_atten)
 
         elif mode == "inference":
             if self.prev is None:
                 self.prev = dec_input
             else:
                 self.prev = torch.cat([self.prev, dec_input], dim=-1)
+            #############################################
             self_attention_mask = get_subsequent_mask(self.prev, self.diag_mask)
-            dec_output = self.dec_self_attention(x=self.prev, mask=self_attention_mask)
+            #############################################
+            out_self_atten = self.dec_self_attention(x=self.prev, mask=self_attention_mask)
             # print(f"enc_output = {enc_output}")
             # print(f"dec_output = {dec_output}")
-            dec_output = self.dec_enc_attention(x=dec_output, y=enc_output, mask=dec_enc_attention_mask)
-            dec_output = self.fc(dec_output[:, :, -1:])
+            # print(f"out_self_atten_mean = {torch.mean(out_self_atten ** 2)}")
+            # print(f"enc_outout_mean = {torch.mean(enc_output ** 2)}")
+            # print(f"out_self_atten = {out_self_atten}")
+            # print(f"enc_output = {enc_output}")
+            out_dec_enc_atten = self.dec_enc_attention(x=out_self_atten, y=enc_output, mask=dec_enc_attention_mask)
+            # print(f"dec_output = {dec_output.shape}")
+            # print(f"dec_output = {dec_output}")
+            # print(f"dec_output[:, :, -1:] = {dec_output[:, :, -1:].shape}")
+            # print(f"dec_output[:, :, -1:] = {dec_output[:, :, -1:]}")
+            # print(f"dec_output[:, :, -1] = {dec_output[:, :, -1].shape}")
+            # print(f"dec_output[:, :, -1] = {dec_output[:, :, -1]}")
+            dec_output = self.fc(out_dec_enc_atten[:, :, -1:])
             # dec_output = self.fc(dec_output)
+            # print(f"dec_output = {dec_output.shape}")
+            # print(f"dec_output = {dec_output}")
+
+            # self_attention_mask = get_subsequent_mask(dec_input, self.diag_mask)
+            # out_self_atten = self.dec_self_attention(x=self.prev, mask=self_attention_mask)
+            # out_dec_enc_atten = self.dec_enc_attention(x=out_self_atten, y=enc_output, mask=dec_enc_attention_mask)
+            # dec_output = self.fc(out_dec_enc_atten)
         return dec_output
 
     def reset_state(self):
@@ -284,6 +308,9 @@ class Encoder(nn.Module):
             assert max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
             mask = make_pad_mask(data_len, max_len).to(device=lip_feature.device)
+            ###################################
+            # mask = None
+            ###################################
             # print(f"mask = {mask.shape}")
             # print(f"mask = {mask}")
         else:
@@ -347,14 +374,18 @@ class Decoder(nn.Module):
             target = target.contiguous().view(B, -1, D * self.reduction_factor)
             target = target.permute(0, -1, -2)  # (B, C, T)
         else:
-            target = torch.zeros(B, D * self.reduction_factor, 1).to(enc_output.device) 
+            target = torch.zeros(B, D * self.reduction_factor, 1).to(device=enc_output.device, dtype=enc_output.dtype) 
         
         # mask
         if mode == "training":
             assert data_len is not None and max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
+            ############################
             pad_mask = make_pad_mask(data_len, max_len)
             dec_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target, self.diag_mask) # (B, T, T)
+            # pad_mask = None
+            # dec_mask = get_subsequent_mask(target, self.diag_mask)
+            ############################
             # print(f"pad_mask = {pad_mask.shape}")
             # print(f"pad_mask = {pad_mask}")
             # print(f"dec_mask = {dec_mask.shape}")
@@ -366,6 +397,7 @@ class Decoder(nn.Module):
 
         # prenet
         target = self.dropout(self.prenet(target))
+        prenet_out = target
 
         # print("----- target after prenet -----")
         # print(f"target.grad = {target.grad}")
@@ -376,9 +408,9 @@ class Decoder(nn.Module):
         if mode == "training":
             target = target + posenc(target, device=target.device, start_index=0)
             target = self.layer_norm(target)
-            dec_output = target
+            dec_layer_out = target
             for dec_layer in self.dec_layers:
-                dec_output = dec_layer(dec_output, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask, mode=mode)
+                dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask, mode=mode)
 
         elif mode == "inference":
             if self.start_idx is None:
@@ -386,15 +418,15 @@ class Decoder(nn.Module):
             target = target + posenc(target, device=target.device, start_index=self.start_idx)
             target = self.layer_norm(target)
             self.start_idx += 1
-            dec_output = target
+            dec_layer_out = target
             for dec_layer in self.dec_layers:
-                dec_output = dec_layer(dec_output, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask, mode=mode)
+                dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask=dec_mask, dec_enc_attention_mask=pad_mask, mode=mode)
 
         # print("----- dec_output after dec_layers -----")
         # print(f"dec_output.grad = {dec_output.grad}")
         # print(f"dec_output.requires_grad = {dec_output.requires_grad}")
         # print(f"dec_output.is_leaf = {dec_output.is_leaf}")
-        dec_output = self.conv_o(dec_output)
+        dec_output = self.conv_o(dec_layer_out)
 
         # print("----- dec_output after conv_o -----")
         # print(f"dec_output.grad = {dec_output.grad}")

@@ -35,30 +35,43 @@ class masked_loss:
         if self.train:
             # マスク作成
             mask = make_pad_mask(data_len, max_len) 
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            mask = mask.to(device)
 
             # 二乗誤差を計算
             loss = (output - target)**2
 
-            # マスクでパディング部分を隠す
-            mse = 0
-            idx = 0
-            for i in range(loss.shape[0]):
-                for j in range(loss.shape[-1]):
-                    if mask[i, :, j]:
-                        mse += torch.mean(loss[i, :, j])
-                        idx += 1
-                    else:
-                        break
-            # 平均
-            mse /= idx
+            # print(f"loss = {loss}")
+
+            # # マスクでパディング部分を隠す
+            # mse = 0
+            # idx = 0
+            # for i in range(loss.shape[0]):
+            #     for j in range(loss.shape[-1]):
+            #         if mask[i, :, j]:
+            #             # print(f"loss = {loss[i, :, j]}")
+            #             mse += torch.mean(loss[i, :, j])
+            #             idx += 1
+            #         else:
+            #             break
+            # print(f"mse_before_division = {mse}")
+            # print(f"idx = {idx}")
+            # mse /= idx
+            # print(f"mse = {mse}")
+            # # 平均
+
+            loss = torch.where(mask == 1, loss, torch.tensor(0).to(device=loss.device, dtype=loss.dtype))
+            loss = torch.mean(loss, dim=1)
+            # print(loss)
+            # print(f"loss_sum = {torch.sum(loss)}")
+            # print(f"mask_sum = {torch.sum(mask)}")
+            # print(f"mask_numel = {torch.numel(mask)}")
+            mse_loss = torch.sum(loss) / torch.sum(mask)
+            # print(f"mse_loss = {mse_loss}")
         ########################
         # テスト時
         ########################
         else:
-            mse = F.mse_loss(output, target)
-        return mse
+            mse_loss = F.mse_loss(output, target)
+        return mse_loss
 
     def delta_loss(self, output, target, data_len, max_len, device, blur, batch_norm):
         """
@@ -100,27 +113,31 @@ class masked_loss:
                 loss = ((output - target) / target_std)**2
             
             # マスクでパディング部分を隠す
-            mse = 0
-            idx = 0
-            for i in range(loss.shape[0]):
-                for j in range(loss.shape[-1]):
-                    if mask[i, :, j]:
-                        mse += torch.mean(loss[i, :, j])
-                        idx += 1
-                    else:
-                        break
-            # 平均
-            mse /= idx
+            # mse = 0
+            # idx = 0
+            # for i in range(loss.shape[0]):
+            #     for j in range(loss.shape[-1]):
+            #         if mask[i, :, j]:
+            #             mse += torch.mean(loss[i, :, j])
+            #             idx += 1
+            #         else:
+            #             break
+            # # 平均
+            # mse /= idx
+
+            loss = torch.where(mask == 1, loss, torch.tensor(0).to(device=loss.device, dtype=loss.dtype))
+            loss = torch.mean(loss, dim=1)
+            mse_loss = torch.sum(loss) / torch.sum(mask)
 
         ########################
         # テスト時
         ########################
         else:
             if batch_norm:
-                mse = F.mse_loss(output, target)
+                mse_loss = F.mse_loss(output, target)
             else:
-                mse = F.mse_loss(output / target_std, target / target_std)
-        return mse
+                mse_loss = F.mse_loss(output / target_std, target / target_std)
+        return mse_loss
 
     def ls_loss(self, out_f, out_r, data_len, max_len, which_d, which_loss):
         """
