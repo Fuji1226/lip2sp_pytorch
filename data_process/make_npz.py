@@ -5,11 +5,18 @@ dataset/lip/lip_cropped/F01_kablab
 
 実行すると
 平均,標準偏差が下のディレクトリに
-dataset/lip/np_files/face/mean_std
+face
+    dataset/lip/np_files/face/mean_std/F01_kablab
+lip
+    dataset/lip/np_files/lip_cropped/mean_std/F01_kablab
 
 データを読み込んだ結果が下の2つに保存されるはずです(事前にconfigのtrain,testのpathを設定してください)
-dataset/lip/np_files/face/train/F01_kablab
-dataset/lip/np_files/face/test/F01_kablab
+face
+    dataset/lip/np_files/face/train/F01_kablab
+    dataset/lip/np_files/face/test/F01_kablab
+lip 
+    dataset/lip/np_files/lip_cropped/train/F01_kablab
+    dataset/lip/np_files/lip_cropped/test/F01_kablab
 
 このディレクトリ構造になることを前提にdataset_npz.pyを書いているので,使用する場合は揃えてほしいです!
 
@@ -22,6 +29,16 @@ model=
     world 
     world_melfb
 で，それぞれいけます
+
+手順
+1. conf/trainとconf/testのパスの変更
+    lip_mean_std_path
+    face_mean_std_path
+    lip_pre_loaded_path
+    face_pre_loaded_path
+    
+2. shells/make_npz.shの実行
+    modelを変更すれば,それに対応した音響特徴量を計算します
 """
 
 from email.mime import audio

@@ -1,14 +1,51 @@
 """
-wandbを使って記録するバージョン
+普通の学習用
+discriminatorを使用する場合はtrain_d.pyで
 
-最近はこっちをメインで使ってます
-train.pyはあまり触ってません
-また,こっちもdiscriminatorはいじってません
-分岐が多くなってごちゃごちゃしてきたので,こっちはdiscriminatorを使わない場合のtrain,使う場合はtrain_d.pyを使用するようにしていこうと考えてます
+使用方法
+1. npzファイルの作成
+    data_process/make_npz.pyを実行し,事前にnpzファイルを作成してください
+    使い方はmake_npz.pyに記載しています
 
-datasetを作成するとき,事前に作ったnpzファイルを読み込むように変更しました
-なので,data_process/make_npz.pyでnpzを作ってから出ないと実行できなくなっていると思います
-KablabDatasetのdata_root,mean_std_pathです
+2. 保存先のパスの変更
+    conf/trainの
+        train_save_path
+        ckpt_path
+    を変更してください
+
+    Path().expanduser()とかを使えば人によって変えずに済むので楽になるかもしれません…
+    後回しになっているので,とりあえず変更でお願いします
+
+3. wandb.loginの変更
+    自分のものに変更してください
+
+4. モデル構造やパラメータ,使用する音響特徴量の変更
+    conf/
+        model
+        train
+    以上の2つで学習時のパラメータを一通り管理しています
+    やりたいものに変更してください
+    おそらくバグらないと思います…
+
+5. train_wandb.pyの実行
+    ここまでやれば実行できるんじゃないかと思います
+    学習中は
+        checkpointに途中のパラメータの保存
+        data_checkに学習途中のメルスペクトログラム
+    が保存されると思います
+    メルスペクトログラムに関しては一旦見たくてやっただけなので,いらなくなったら無くす予定です(ファイルがどんどん増えるので…)
+
+    また,損失の曲線はwandbで見れるはずです
+    iterationで記録しており,
+        decoderからの出力の損失
+        postnetも通した最終出力の損失
+        動的特徴量から計算された損失
+        合計
+    などがプロットされると思います(trainとvalidationあるので8種類でると思います)
+
+6. generate.pyの実行
+    学習途中や終了後に合成できるかどうかを確認するときには,generate.pyを実行してください
+    使用方法はそっちに書いています
 """
 
 from ast import ExtSlice
@@ -35,7 +72,7 @@ from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
-from torchviz import make_dot
+# from torchviz import make_dot
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
@@ -159,6 +196,7 @@ def make_model(cfg, device):
             reduction_factor=cfg.model.reduction_factor,
             use_gc=cfg.train.use_gc,
             input_layer_dropout=cfg.train.input_layer_dropout,
+            diag_mask=cfg.model.diag_mask,
         ).to(device)
     return model
     
@@ -288,13 +326,13 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
                     iter_cnt=iter_cnt,
                 )                
         
-        img = make_dot(output, params=dict(model.named_parameters()))
-        img.format = "png"
-        img.render("graph_image_output")
+        # img = make_dot(output, params=dict(model.named_parameters()))
+        # img.format = "png"
+        # img.render("graph_image_output")
 
-        img = make_dot(dec_output, params=dict(model.named_parameters()))
-        img.format = "png"
-        img.render("graph_image_dec_output")
+        # img = make_dot(dec_output, params=dict(model.named_parameters()))
+        # img.format = "png"
+        # img.render("graph_image_dec_output")
 
         output_loss = loss_f_train.mse_loss(output, feature, data_len, max_len=model.max_len * rf)
         dec_output_loss = loss_f_train.mse_loss(dec_output, feature, data_len, max_len=model.max_len * rf) 
@@ -319,7 +357,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_train, dev
         wandb.log({"train_total_loss": loss.item()})
 
         if cfg.train.debug:
-            if iter_cnt > 0:
+            if iter_cnt > cfg.train.debug_iter:
                 break
 
     # epoch_loss /= data_cnt
@@ -361,7 +399,7 @@ def calc_val_loss(model: nn.Module, val_loader, loss_f_val, device, cfg):
         wandb.log({"val_total_loss": loss.item()})
 
         if cfg.train.debug:
-            if iter_cnt > 0:
+            if iter_cnt > cfg.train.debug_iter:
                 break
     
     # epoch_loss /= data_cnt

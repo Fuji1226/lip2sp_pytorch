@@ -13,6 +13,10 @@ lip2sp/notebook/lip.ipynbを参考にしています
 44行目のpredicter_Pathを変更（shape_predictor_68_face_landmarks.datまでのパス）
 
 ITO上で使ったやつです
+
+追記
+切り取るサイズを(128, 128)でもやってみました
+その場合lip_cropped_128128に保存しました
 """
 
 import os
@@ -41,14 +45,14 @@ def get_data_directory():
 
 # data_root = Path(get_data_directory()).expanduser()     # /Users/minami/dataset/lip/cropped
 data_root = Path("/home/usr4/r70264c/dataset/lip/cropped")
-save_dir = "/home/usr4/r70264c/dataset/lip/lip_cropped"      # 変えてください
-txt_path = "/home/usr4/r70264c/dataset/lip/cropped_error_data.txt"      # エラーしたデータの書き込み用
+save_dir = "/home/usr4/r70264c/dataset/lip/lip_cropped_128128"      # 変えてください
+txt_path = "/home/usr4/r70264c/dataset/lip/cropped_error_data2.txt"      # エラーしたデータの書き込み用(事前に作成してください)
 
 
 # 口唇のランドマーク検出
 def Lip_Cropping(frame, det):
-    im_size = (96, 128)     # (96,96)でもいいかも…？
-    predicter_Path = "/home/usr4/r70264c/Projects/lip2sp_pytorch/shape_predictor_68_face_landmarks.dat"     # 変えてください
+    im_size = (128, 128)    # 切り取るサイズ(96, 128) or (128, 128)
+    predicter_Path = "/home/usr4/r70264c/lip2sp_pytorch/shape_predictor_68_face_landmarks.dat"     # 変えてください
     predictor = dlib.shape_predictor(predicter_Path)
     shape = predictor(frame, det)
     shapes = []
@@ -72,6 +76,7 @@ def Lip_Cropping(frame, det):
 
 
 def main():
+    os.makedirs(save_dir, exist_ok=True)
     datasets = data_root / "F01_kablab"     # /Users/minami/dataset/lip/cropped/F01_kablab
     # F01_kablab内のmp4までのパスを取得。
     datasets_path = sorted(glob.glob(f"{datasets}/*.mp4")) 

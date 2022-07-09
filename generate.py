@@ -1,8 +1,23 @@
 """
-lip2sp_pytorch/conf/modelにあるyamlファイルのパスや、モデルのパラメータの読み込み先のパスを設定してから実行してください
+保存したパラメータを読み込み,合成を行う際に使用してください
+まだ色々確認の段階で,printとかがたくさんあってとても汚くなってます…
+一旦モデルのパラメータをロードし,音声合成を行うことは可能です
 
-とりあえず適当に使っているだけなので，まだ整備できてません
-150行目あたりにパスを設定するところがあるので,そこを変更してください
+1. model_pathの変更
+    main()の中にあります
+    自分が読み込みたいやつまでのパスを通してください(checkpointやresult/train)
+
+2. conf/testの変更
+    顔と口唇のどちらのデータを使うか
+    学習用データとテスト用データのどちらを使うか
+    など
+
+    顔か口唇かを学習時の状態に合わせれば基本的には大丈夫だと思います
+
+3. generate.pyの実行
+
+4. 結果の確認
+    result/generateの下に保存されると思います
 """
 
 
@@ -70,7 +85,7 @@ def make_test_loader(cfg, data_path, mean_std_path):
         dataset=dataset,
         batch_size=1,   
         shuffle=False,
-        num_workers=2,      
+        num_workers=1,      
         pin_memory=True,
         drop_last=True,
         collate_fn=None,
@@ -88,6 +103,17 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
     feat_add_mean = datasets.feat_add_mean.to(device)
     feat_add_std = datasets.feat_add_std.to(device)
 
+    training_method = "ss"
+    mixing_prob = 0.1
+    epoch = 1
+    iter_cnt = 1
+    visualize = False
+
+    inference_enc_list = []
+    inference_dec_list = []
+    forward_enc_list = []    
+    forward_dec_list = []
+
     for batch in test_loader:
         model.eval()
         index += 1
@@ -96,34 +122,39 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
-            if cfg.test.generate_method == "inference":
-                output, dec_output, enc_output = model(lip)
+            if model.which_decoder == "transformer":
+                for_output, for_dec_output, for_enc_output = model(
+                    lip=lip,
+                    data_len=data_len,
+                    prev=feature,
+                    training_method=training_method,
+                    mixing_prob=mixing_prob,
+                    visualize=visualize,
+                    epoch=epoch,
+                    iter_cnt=iter_cnt,
+                )              
+                forward_enc_list.append(enc_output)
+                forward_dec_list.append(dec_output)
+
+                output, dec_output, enc_output = model(lip, visualize=False)
+                inference_enc_list.append(enc_output)
+                inference_dec_list.append(dec_output)
+
+            # if cfg.test.generate_method == "inference":
+            #     output, dec_output, enc_output = model(lip, visualize=False)
+
             # elif cfg.test.generate_method == "forward":
             #     output, dec_output, enc_output = model(
             #         lip=lip,
             #         data_len=data_len,
             #         prev=feature,
-            #         training_method='ss',
-            #     )                
-            # output, dec_output, enc_output_inf = model.inference(
-            #     lip=lip
-            # )
-            # output, dec_output, enc_output = model(
-            #     lip=lip,
-            #     prev=feature,
-            #     training_method='ss',
-            # )                
+            #         training_method=training_method,
+            #         mixing_prob=mixing_prob,
+            #         visualize=visualize,
+            #         epoch=epoch,
+            #         iter_cnt=iter_cnt,
+            #     )              
 
-            # print(f"enc_output.shape = {enc_output.shape}")
-            # count = 0
-            # for i in range(enc_output.shape[0]):
-            #     for j in range(enc_output.shape[1]):
-            #         for k in range(enc_output.shape[2]):
-            #             if enc_output[i, j, k] == enc_output_inf[i, j, k]:
-            #                 count += 1
-            # print("encoder out check")
-            # print(enc_output.numel() == count)
-            
         # ディレクトリ作成
         input_save_path = os.path.join(save_path, label[0], 'input')
         output_save_path = os.path.join(save_path, label[0], 'output')
@@ -145,8 +176,89 @@ def generate(cfg, model, test_loader, datasets, device, save_path):
             feat_mean=feat_mean,
             feat_std=feat_std,
         )
+        plt.close()
         if index > 0:
             break
+    
+    count = 0
+    for i in range(len(inference_enc_list)):
+        for j in range(inference_enc_list[i].shape[0]):
+            for k in range(inference_enc_list[i].shape[1]):
+                for l in range(inference_enc_list[i].shape[2]):
+                    if inference_enc_list[i][j, k, l] == forward_enc_list[i][j, k, l]:
+                        count += 1
+    
+    numel_count = 0
+    for i in range(len(inference_enc_list)):
+        numel_count += inference_enc_list[i].numel()
+    print(f"\ninference_enc_list and forward_enc_list check")
+    print(f"count = {count}")
+    print(f"numel_count = {numel_count}")
+    print(count == numel_count)
+
+
+    count = 0
+    for i in range(len(forward_enc_list) - 1):
+        for j in range(forward_enc_list[i].shape[0]):
+            for k in range(forward_enc_list[i].shape[1]):
+                for l in range(forward_enc_list[i].shape[2] - 100):
+                    if forward_enc_list[i][j, k, l] == forward_enc_list[i+1][j, k, l]:
+                        count += 1
+    print(f"\nforward_enc_list check")
+    print(f"count = {count}")
+    print(f"numel_count = {numel_count}")
+
+
+    count = 0
+    for i in range(len(inference_dec_list) - 1):
+        for j in range(inference_dec_list[i].shape[0]):
+            for k in range(inference_dec_list[i].shape[1]):
+                for l in range(inference_dec_list[i].shape[2] - 100):
+                    if inference_dec_list[i][j, k, l] == inference_dec_list[i+1][j, k, l]:
+                        count += 1
+    
+    numel_count = 0
+    for i in range(len(inference_enc_list)):
+        numel_count += inference_enc_list[i].numel()
+    print("\ninference dec_output check")
+    print(f"count = {count}")
+    print(f"numel_count = {numel_count}")
+
+    count = 0
+    for i in range(len(inference_dec_list) - 1):
+        for j in range(inference_dec_list[i].shape[0]):
+            for k in range(inference_dec_list[i].shape[1]):
+                if inference_dec_list[i][j, k, 0] == forward_dec_list[i][j, k, 0]:
+                    count += 1
+    print("\ndec_output first frame check")
+    print(f"count = {count}")
+
+    count_inf = 0
+    count_for = 0
+    for i in range(len(inference_dec_list) - 1):
+        for j in range(inference_dec_list[i].shape[0]):
+            for k in range(inference_dec_list[i].shape[1]):
+                if inference_dec_list[i][j, k, 0] == inference_dec_list[i+1][j, k, 0]:
+                    count_inf += 1
+                if forward_dec_list[i][j, k, 0] == forward_dec_list[i+1][j, k, 0]:
+                    count_for += 1
+    print("\ndec_output first frame comparison")
+    print(f"count_inf = {count_inf}")
+    print(f"count_for = {count_for}")
+
+
+    print("first frame check(最初はどちらも0入力なので，同じになるはず…)")
+    # dec_output_count = 0
+    # prenet_count = 0
+    # dec_self_atten_count = 0
+    # dec_enc_atten_count = 0
+    # for i in range(len(inference_dec_list)):
+    #     for j in range(inference_dec_list[i].shape[0]):
+    #         for k in range(inference_dec_list[i].shape[1]):
+
+
+    
+
 
 
 @hydra.main(config_name="config", config_path="conf")
@@ -182,7 +294,8 @@ def main(cfg):
     model = make_model(cfg, device)
 
     # パラメータのロード
-    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:06_07-02-29/mspec_40.ckpt"
+    # model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:08_20-10-06/mspec_30.ckpt"     # glu
+    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:07_00-58-32/mspec_80.ckpt"     # transformer
     model.load_state_dict(torch.load(model_path)['model'])
 
     # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/train/2022:06:23_10-07-13/model_mspec.pth"
