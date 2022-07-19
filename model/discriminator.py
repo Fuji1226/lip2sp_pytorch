@@ -1,3 +1,6 @@
+"""
+discriminatorの実装
+"""
 import torch 
 import torch.nn as nn
 from torch.nn.utils import weight_norm
@@ -18,7 +21,7 @@ class JCUDiscriminator(nn.Module):
         self.use_gc = use_gc
 
         # 共有する層
-        self.share = [
+        self.share = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_channels, 64, kernel_size=3, stride=1, padding=1),
                 nn.LeakyReLU(0.2),
@@ -31,29 +34,28 @@ class JCUDiscriminator(nn.Module):
                 nn.Conv1d(128, 512, kernel_size=4, stride=2, padding=1),
                 nn.LeakyReLU(0.2),
             ),
-        ]
-        self.share = nn.ModuleList(self.share)
+        ])
 
         # unconditional layers
         self.uncond = nn.Sequential(
-                nn.Conv1d(512, 128, kernel_size=5, stride=1, padding=2),
-                nn.LeakyReLU(0.2),
-            )
+            nn.Conv1d(512, 128, kernel_size=5, stride=1, padding=2),
+            nn.LeakyReLU(0.2),
+        )
 
         # conditional layers
         if self.use_gc:
             self.embed = nn.Embedding(emb_in, n_features)
             self.fc = nn.Linear(n_features, out_features)
             self.cond = nn.Sequential(
-                    nn.Conv1d(512 + out_features, 128, kernel_size=5, stride=1, padding=2),
-                    nn.LeakyReLU(0.2),
-                )
+                nn.Conv1d(512 + out_features, 128, kernel_size=5, stride=1, padding=2),
+                nn.LeakyReLU(0.2),
+            )
 
         # 出力層
         self.out_layer = nn.Sequential(
-                nn.Conv1d(128, out_channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(0.2),
-            )
+            nn.Conv1d(128, out_channels, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(0.2),
+        )
 
     def forward(self, x, gc=None):
         """
@@ -70,11 +72,9 @@ class JCUDiscriminator(nn.Module):
         fmaps_cond = []
 
         # share
-        for idx, layer in enumerate(self.share):
-            if idx == 0:
-                out_share = layer(x)
-            else:
-                out_share = layer(out_share)
+        out_share = x
+        for layer in self.share:
+            out_share = layer(out_share)
             fmaps_share.append(out_share)
 
         out_uncond = out_share
@@ -101,9 +101,8 @@ class JCUDiscriminator(nn.Module):
             out_cond = self.out_layer(out_cond)
 
             return [out_uncond, out_cond], fmaps_share + fmaps_uncond + fmaps_cond
-
+            
         return [out_uncond], fmaps_share + fmaps_uncond
-
 
 class UNetDiscriminator(nn.Module):
     def __init__(self, in_channels=1, out_channels=1):

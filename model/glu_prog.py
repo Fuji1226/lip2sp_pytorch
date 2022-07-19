@@ -10,11 +10,11 @@ import torch.nn.functional as F
 
 try:
     from .transformer_remake import shift
-    from .pre_post import Prenet
+    from .pre_post import ProgressivePrenet
     import conv
 except:
     from transformer_remake import shift
-    from pre_post import Prenet
+    from pre_post import ProgressivePrenet
     import conv
 
 
@@ -98,7 +98,7 @@ class GLUBlock(nn.Module):
         self.causal_conv.clear_buffer()
 
 
-class GLU(nn.Module):
+class ProgressiveGLU(nn.Module):
     def __init__(
         self, inner_channels, out_channels, pre_in_channels, pre_inner_channels,
         reduction_factor=2, n_layers=4, kernel_size=5, dropout=0.5):
@@ -106,12 +106,20 @@ class GLU(nn.Module):
         self.reduction_factor = reduction_factor
         self.out_channels = out_channels
 
-        self.prenet = Prenet(pre_in_channels, inner_channels, pre_inner_channels)
+        self.prenet = ProgressivePrenet(
+            in_channels=pre_in_channels, 
+            out_channels=inner_channels, 
+            reduction_factor=reduction_factor,
+            inner_channels=pre_inner_channels,
+        )
         self.dropout = nn.Dropout(dropout)
         self.glu_layers = nn.ModuleList([
             GLUBlock(inner_channels, inner_channels, kernel_size, dropout) for _ in range(n_layers)
         ])
-        self.conv_o = nn.Conv1d(inner_channels, self.out_channels * self.reduction_factor, kernel_size=1)
+
+        self.last_conv40 = nn.Conv1d(inner_channels, 40 * reduction_factor, kernel_size=1)
+        self.last_conv60 = nn.Conv1d(inner_channels, 60 * reduction_factor, kernel_size=1)
+        self.last_conv80 = nn.Conv1d(inner_channels, 80 * reduction_factor, kernel_size=1)
 
     def forward(self, enc_output, target=None, gc=None, mode=None):
         """
@@ -150,7 +158,14 @@ class GLU(nn.Module):
             for layer in self.glu_layers:
                 dec_layer_out = layer.incremental_forward(enc_output, dec_layer_out)
 
-        dec_output = self.conv_o(dec_layer_out)
+        # convolution
+        if self.out_channels == 40:
+            dec_output = self.last_conv40(dec_layer_out)
+        elif self.out_channels == 60:
+            dec_output = self.last_conv60(dec_layer_out)
+        elif self.out_channels == 80:
+            dec_output = self.last_conv80(dec_layer_out)
+
         dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
         dec_output = dec_output.contiguous().view(B, -1, D)   
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)

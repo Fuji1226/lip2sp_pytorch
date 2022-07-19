@@ -175,26 +175,22 @@ class Conformer_Encoder(nn.Module):
     def forward(self, prenet_out, data_len=None, max_len=None):
         """
         prenet_out : (B, C, T)
-
-        return
         output : (B, T, C)
         """
         # get mask（学習時のみ、0パディングされた部分を隠すためのマスクを作成）
         if data_len is not None:
             assert max_len is not None
             data_len = torch.div(data_len, self.reduction_factor)
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             mask = make_pad_mask(data_len, max_len)
-            mask = mask.to(device)
         else:
             # 推論時はマスクなし
             mask = None
         
         output = prenet_out.permute(0, -1, -2)  # (B, T, C)
+
         # encoder layers
         for layer in self.layers:
             output = layer(output, mask)
-
         return output
 
 

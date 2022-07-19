@@ -18,13 +18,13 @@ try:
     from model.transformer_taguchi import Postnet, Encoder, Decoder
     from model.conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    from model.glu_remake import GLU
+    from model.glu_taguchi import GLU
 except:
     from net import ResNet3D
     from transformer_taguchi import Postnet, Encoder, Decoder
     from conformer.encoder import Conformer_Encoder
     from hparams import create_hparams
-    from glu_remake import GLU
+    from model.glu_taguchi import GLU
 
 
 class Lip2SP(nn.Module):

@@ -1,5 +1,5 @@
 """
-croppedからlip_croppedへwavをコピーする
+口唇部分の切り抜きをおこなった後，croppedからwavだけコピーするために使用する
 norm.wavがよくわからないので，そこは無視して普通のwavだけをコピーしてます
 """
 
@@ -9,7 +9,7 @@ from pathlib import Path
 
 def main():
     audio_path = "/home/usr4/r70264c/dataset/lip/cropped/F01_kablab"
-    save_path = "/home/usr4/r70264c/dataset/lip/lip_cropped/F01_kablab"
+    save_path = "/home/usr4/r70264c/dataset/lip/lip_cropped_128128/F01_kablab"
     wavs = []
     for curdir, dirs, files in os.walk(audio_path):
         for file in files:

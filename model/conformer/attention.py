@@ -104,7 +104,7 @@ class RelativeMultiHeadAttention(nn.Module):
         
         if mask is not None:
             mask = mask.unsqueeze(1)    # (B, 1, 1, T)
-            score.masked_fill_(mask == 0, -1e9)     # maskがFalseのところを-infに変更
+            score.masked_fill_(mask == 0, torch.tensor(float('-inf')))     # maskがFalseのところを-infに変更
 
         attn = F.softmax(score, -1)
         attn = self.dropout(attn)

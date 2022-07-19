@@ -1,14 +1,5 @@
 """
-最終的なモデル
-
-encoder
-    transformer
-    conformer
-decoder 
-    transformer
-    glu
-
-decoderはgluが良さそうです
+ProgressiveGANの学習方法でやるときのモデル
 """
 import os
 import sys
@@ -19,23 +10,22 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 try:
     from model.net import ResNet3D
     from model.transformer_remake import Encoder, Decoder
-    from model.pre_post import Postnet
+    from model.pre_post import ProgressivePostnet
     from model.conformer.encoder import Conformer_Encoder
-    from model.glu_remake import GLU
+    from model.glu_prog import ProgressiveGLU
 except:
     from .net import ResNet3D
     from .transformer_remake import Encoder, Decoder
-    from .pre_post import Postnet
+    from .pre_post import ProgressivePostnet
     from .conformer.encoder import Conformer_Encoder
-    from .glu_remake import GLU
+    from .glu_prog import ProgressiveGLU
 
 
-class Lip2SP(nn.Module):
+class ProgressiveLip2SP(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers,
         d_model, n_layers, n_head, dec_n_layers, dec_d_model,
@@ -44,7 +34,6 @@ class Lip2SP(nn.Module):
         n_position, max_len, which_encoder, which_decoder, apply_first_bn,
         dropout=0.1, reduction_factor=2, use_gc=False, input_layer_dropout=False, diag_mask=False):
         super().__init__()
-
         assert d_model % n_head == 0
         assert which_encoder == "transformer" or "conformer"
         assert which_decoder == "transformer" or "glu"
@@ -94,7 +83,7 @@ class Lip2SP(nn.Module):
                 diag_mask=diag_mask,
             )
         elif self.which_decoder == "glu":
-            self.decoder = GLU(
+            self.decoder = ProgressiveGLU(
                 inner_channels=glu_inner_channels, 
                 out_channels=out_channels,
                 pre_in_channels=out_channels * reduction_factor, 
@@ -105,7 +94,12 @@ class Lip2SP(nn.Module):
                 dropout=dropout,
             )
 
-        self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
+        self.postnet = ProgressivePostnet(
+            in_channels=out_channels, 
+            inner_channels=post_inner_channels, 
+            out_channels=out_channels, 
+            n_layers=post_n_layers,
+        )
 
     def forward(self, lip, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化

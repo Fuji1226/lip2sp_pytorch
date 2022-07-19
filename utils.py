@@ -1,6 +1,9 @@
-"""
-lip2sp/utils.pyと同じです
-"""
+
+
+import torch
+import torch.nn as nn
+from torch.optim.lr_scheduler import _LRScheduler
+
 
 def prime_factorize(n):
     a = []
@@ -36,10 +39,3 @@ def get_sp_name(name, feature_type, frame_period, nmels=None):
         ret += "_dim" + str(nmels)
 
     return ret
-
-if __name__ == "__main__":
-    fps = 50
-    fs = 16000
-    frame_period = 10
-    upsample = get_upsample(fps, fs, frame_period)
-    print(upsample)

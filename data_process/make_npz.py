@@ -31,13 +31,19 @@ model=
 で，それぞれいけます
 
 手順
-1. conf/trainとconf/testのパスの変更
+1. LIP_PATH, FACE_PATHの変更
+    動画と音声ファイルを保存しているディレクトリまでのパスを設定してください
+    また,口唇部分をdata_process/ip_crop_ito.pyで切り抜いた後などは,wavファイルがないと思います
+    その時はdata_process/copy_wav.pyを実行し,先にwavファイルをコピーしておいてください(同じディレクトリに動画と音声があることを想定して書いているので…)
+
+2. conf/trainとconf/testのパスの変更
+    ここが保存先になり,train.pyなどを実行する際に読み込む対象です
     lip_mean_std_path
     face_mean_std_path
     lip_pre_loaded_path
     face_pre_loaded_path
     
-2. shells/make_npz.shの実行
+3. shells/make_npz.shの実行
     modelを変更すれば,それに対応した音響特徴量を計算します
 """
 
@@ -70,6 +76,7 @@ from transform_no_chainer import load_data_for_npz
 
 LIP_PATH = "/home/usr4/r70264c/dataset/lip/lip_cropped"     # 変更
 FACE_PATH = "/home/usr4/r70264c/dataset/lip/cropped"        # 変更
+LIP_PATH_128128 = "/home/usr4/r70264c/dataset/lip/lip_cropped_128128"     # 変更
 
 
 def get_dataset_lip(data_root):    
@@ -92,6 +99,7 @@ def get_dataset_lip(data_root):
                 #     if os.path.isfile(video_path) and os.path.isfile(audio_path):
                 #             train_items.append([video_path, audio_path])
 
+                # ATRのjセットをテストデータにするので，ここで分けます
                 if '_j' in Path(file).stem:
                     audio_path = os.path.join(curdir, file)
                     video_path = os.path.join(curdir, f"{Path(file).stem}_crop.mp4")
@@ -173,8 +181,12 @@ def save_data_train(items, len, cfg, data_save_path, mean_std_save_path, device)
             f_max=cfg.model.f_max,
         )
 
-        if cfg.model.name == "mspec":
+        if cfg.model.name == "mspec80":
             assert feature.shape[-1] == 80
+        elif cfg.model.name == "mspec40":
+            assert feature.shape[-1] == 40
+        elif cfg.model.name == "mspec60":
+            assert feature.shape[-1] == 60
         elif cfg.model.name == "world":
             assert feature.shape[-1] == 29
         elif cfg.model.name == "world_melfb":
@@ -341,10 +353,38 @@ def main(cfg):
     # )
 
     # print("Done")
-    print("--- lip data processing ---")
+
     # 口唇切り取った動画
+    # print("--- lip data processing ---")
+    # train_items, test_items = get_dataset_lip(
+    #     data_root=LIP_PATH,
+    # )
+    # n_data_train = len(train_items)
+    # n_data_test = len(test_items)
+
+    # save_data_train(
+    #     items=train_items,
+    #     len=n_data_train,
+    #     cfg=cfg,
+    #     data_save_path=cfg.train.lip_pre_loaded_path,
+    #     mean_std_save_path=cfg.train.lip_mean_std_path,
+    #     device=device,
+    # )
+
+    # save_data_test(
+    #     items=test_items,
+    #     len=n_data_test,
+    #     cfg=cfg,
+    #     data_save_path=cfg.test.lip_pre_loaded_path,
+    #     mean_std_save_path=cfg.test.lip_mean_std_path,
+    #     device=device,
+    # )
+    # print("Done")
+
+    # (128, 128)のサイズで切り取ったやつ
+    print("--- lip data 128128 processing ---")
     train_items, test_items = get_dataset_lip(
-        data_root=LIP_PATH,
+        data_root=LIP_PATH_128128,
     )
     n_data_train = len(train_items)
     n_data_test = len(test_items)
@@ -353,8 +393,8 @@ def main(cfg):
         items=train_items,
         len=n_data_train,
         cfg=cfg,
-        data_save_path=cfg.train.lip_pre_loaded_path,
-        mean_std_save_path=cfg.train.lip_mean_std_path,
+        data_save_path=cfg.train.lip_pre_loaded_path_128128,
+        mean_std_save_path=cfg.train.lip_mean_std_path_128128,
         device=device,
     )
 
@@ -362,8 +402,8 @@ def main(cfg):
         items=test_items,
         len=n_data_test,
         cfg=cfg,
-        data_save_path=cfg.test.lip_pre_loaded_path,
-        mean_std_save_path=cfg.test.lip_mean_std_path,
+        data_save_path=cfg.test.lip_pre_loaded_path_128128,
+        mean_std_save_path=cfg.test.lip_mean_std_path_128128,
         device=device,
     )
     print("Done")

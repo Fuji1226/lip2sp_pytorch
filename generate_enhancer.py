@@ -23,6 +23,7 @@
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
+import mlflow
 
 import wandb
 
@@ -42,10 +43,11 @@ from torch.utils.data import DataLoader
 
 # 自作
 from get_dir import get_datasetroot, get_data_directory
-from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets
+from model.dataset_npz import KablabDataset, KablabTransform
 from model.models import Lip2SP
 from data_check import save_data
 from train_default import make_model
+from train_enhancer import make_enhancer
 
 
 # 現在時刻を取得
@@ -56,25 +58,22 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 random.seed(0)
 
-def make_test_loader(cfg, data_root, mean_std_path):
-    test_data_path = get_datasets(
-        data_root=data_root,
-        name=cfg.model.name,
-    )
-    test_trans = KablabTransform(
+def make_test_loader(cfg, data_path, mean_std_path):
+    trans = KablabTransform(
         length=cfg.model.length,
-        delta=cfg.model.delta,
-        train_val_test="test",
+        delta=cfg.model.delta
     )
-    test_dataset = KablabDataset(
-        data_path=test_data_path,
-        mean_std_path = mean_std_path,
-        transform=test_trans,
+    dataset = KablabDataset(
+        data_path=data_path,
+        mean_std_path=mean_std_path,
+        name=cfg.model.name,
+        train=False,
+        transform=trans,
         cfg=cfg,
-        test=True,
+        debug=cfg.test.debug
     )
     test_loader = DataLoader(
-        dataset=test_dataset,
+        dataset=dataset,
         batch_size=1,   
         shuffle=False,
         num_workers=1,      
@@ -82,18 +81,18 @@ def make_test_loader(cfg, data_root, mean_std_path):
         drop_last=True,
         collate_fn=None,
     )
-    return test_loader, test_dataset
+    return test_loader, dataset
 
 
-def generate(cfg, model, test_loader, dataset, device, save_path):
+def generate(cfg, model, enhancer, test_loader, datasets, device, save_path):
     index = 0
 
-    lip_mean = dataset.lip_mean.to(device)
-    lip_std = dataset.lip_std.to(device)
-    feat_mean = dataset.feat_mean.to(device)
-    feat_std = dataset.feat_std.to(device)
-    feat_add_mean = dataset.feat_add_mean.to(device)
-    feat_add_std = dataset.feat_add_std.to(device)
+    lip_mean = datasets.lip_mean.to(device)
+    lip_std = datasets.lip_std.to(device)
+    feat_mean = datasets.feat_mean.to(device)
+    feat_std = datasets.feat_std.to(device)
+    feat_add_mean = datasets.feat_add_mean.to(device)
+    feat_add_std = datasets.feat_add_std.to(device)
 
     for batch in test_loader:
         model.eval()
@@ -104,6 +103,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         
         with torch.no_grad():
             output, dec_output, enc_output = model(lip)
+            enhanced_output = enhancer(output)
 
         # ディレクトリ作成
         input_save_path = os.path.join(save_path, label[0], 'input')
@@ -125,11 +125,12 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
             lip_std=lip_std,
             feat_mean=feat_mean,
             feat_std=feat_std,
+            enhanced_output=enhanced_output,
         )
         plt.close()
         if index > 4:
             break
-    
+
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
@@ -139,53 +140,57 @@ def main(cfg):
 
     # 口唇動画か顔かの選択
     lip_or_face = cfg.test.face_or_lip
-    if lip_or_face == "face":
-        data_path = cfg.test.face_pre_loaded_path
-        mean_std_path = cfg.test.face_mean_std_path
-    elif lip_or_face == "lip":
-        if cfg.test.check_1to5:
-            data_path = cfg.test.lip_pre_loaded_path_1to5
-        else:
+    assert lip_or_face == "face" or "lip"
+    if cfg.test.which_data == "test":
+        if lip_or_face == "face":
+            data_path = cfg.test.face_pre_loaded_path
+            mean_std_path = cfg.test.face_mean_std_path
+        elif lip_or_face == "lip":
             data_path = cfg.test.lip_pre_loaded_path
-        mean_std_path = cfg.test.lip_mean_std_path
-    elif lip_or_face == "lip_128128":
-        if cfg.test.check_1to5:
-            data_path = cfg.test.lip_pre_loaded_path_128128_1to5
-        else:
-            data_path = cfg.test.lip_pre_loaded_path_128128
-        mean_std_path = cfg.test.lip_mean_std_path_128128
+            mean_std_path = cfg.test.lip_mean_std_path
+
+    elif cfg.test.which_data == "train":
+        if lip_or_face == "face":
+            data_path = cfg.train.face_pre_loaded_path
+            mean_std_path = cfg.train.face_mean_std_path
+        elif lip_or_face == "lip":
+            data_path = cfg.train.lip_pre_loaded_path
+            mean_std_path = cfg.train.lip_mean_std_path
 
     print("--- data directory check ---")
     print(f"data_path = {data_path}")
     print(f"mean_std_path = {mean_std_path}")
 
-    #インスタンス作成
     model = make_model(cfg, device)
+    enhancer = make_enhancer(cfg, device)
 
     # パラメータのロード
-    model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/progressive/lip_128128/2022:07:14_23-53-52/mspec40_200.ckpt"     # glu
+    # model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:08_20-10-06/mspec_30.ckpt"     # glu
     # model_path = "/home/usr4/r70264c/lip2sp_pytorch/check_point/default/face/2022:07:07_00-58-32/mspec_80.ckpt"     # transformer
-    model.load_state_dict(torch.load(model_path)['model'])
+    # model.load_state_dict(torch.load(model_path)['model'])
 
-    # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/default/train/lip/2022:07:12_22-19-19/model_mspec.pth"     # glu
-    # model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/default/train/lip/2022:07:10_19-14-02/model_mspec.pth"     # transformer
-    # model.load_state_dict(torch.load(model_path))
+    model_path = "/home/usr4/r70264c/lip2sp_pytorch/result/default/train/lip/2022:07:11_07-42-22/model_mspec.pth"     # glu
+    model.load_state_dict(torch.load(model_path))
+
+    enhancer_path = "/home/usr4/r70264c/lip2sp_pytorch/result/enhancer/train/lip/2022:07:13_08-13-30/enhancer_mspec.pth"
+    enhancer.load_state_dict(torch.load(enhancer_path))
 
     # 保存先
     save_path = cfg.test.generate_save_path
-    save_path = os.path.join(save_path, lip_or_face, Path(model_path).parents[0].name, Path(model_path).stem)
+    save_path = os.path.join(save_path, lip_or_face, Path(model_path).parents[0].name, Path(model_path).stem, cfg.test.which_data, cfg.test.generate_method)
     os.makedirs(save_path, exist_ok=True)
 
     # Dataloader作成
-    test_loader, test_dataset = make_test_loader(cfg, data_path, mean_std_path)
+    test_loader, datasets = make_test_loader(cfg, data_path, mean_std_path)
 
     # generate
     model.eval()
     generate(
         cfg=cfg,
         model=model,
+        enhancer=enhancer,
         test_loader=test_loader,
-        dataset=test_dataset,
+        datasets=datasets,
         device=device,
         save_path=save_path,
     )

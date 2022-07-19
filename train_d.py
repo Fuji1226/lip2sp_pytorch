@@ -1,7 +1,5 @@
 """
-discriminatorを使うtrainを分けました
-
-こっちは事前にモデルを学習しておき，それをロードしてから学習を開始する
+discriminatorを使う場合のtrain
 """
 
 from omegaconf import DictConfig, OmegaConf
@@ -23,15 +21,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
-import torchaudio
-from speechbrain.pretrained import EncoderClassifier
 
 # 自作
-from get_dir import get_datasetroot, get_data_directory
-from loss import masked_loss
-from model.discriminator import UNetDiscriminator, JCUDiscriminator
-from data_process.feature import world2wav_direct
-from train_wandb import make_train_val_loader, make_model
+from loss import MaskedLoss, AdversarialLoss
+from model.discriminator import JCUDiscriminator, UNetDiscriminator
+from train_default import make_train_val_loader, make_model
 
 
 # 現在時刻を取得
@@ -69,36 +63,33 @@ def make_discriminator(cfg, device):
             use_gc=cfg.train.use_gc,
             emb_in=cfg.train.batch_size,
         )
-    discriminator.to(device)
-    return discriminator
+    return discriminator.to(device)
 
 
-def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimizer, optimizer_d, loss_f_train, device, cfg):
+def train_one_epoch_with_d(model, discriminator, train_loader, optimizer, optimizer_d, loss_f, loss_f_adv, device, cfg, training_method, mixing_prob):
     epoch_loss = 0
     epoch_loss_d = 0
     data_cnt = 0
     iter_cnt = 0
     all_iter = len(train_loader)
 
-    # feat_mean = dataset.feat_mean.to(device)
-    # feat_std = dataset.feat_std.to(device)
-
     print("iter start")
     model.train()
     discriminator.train()
+    rf = cfg.model.reduction_factor      
+
     for batch in train_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
         
-        (lip, target, feat_add), data_len, speaker, label = batch
-        lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         batch_size = lip.shape[0]
         data_cnt += batch_size
 
         #====================================================
         # discriminatorの最適化
-        # generator1回に対して複数回最適化するコードもあり。とりあえず1回で実装。
         #====================================================
         # discriminatorのパラメータ更新を行うように設定
         for param in discriminator.parameters():
@@ -108,22 +99,20 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
         # dec_output : postnet前の出力
         # generatorのパラメータが更新されないように設定
         with torch.no_grad():
-            output, dec_output = model(
+            output, dec_output, enc_output = model(
                 lip=lip,
+                prev=feature,
                 data_len=data_len,
-                prev=target,
+                training_method=training_method,
+                mixing_prob=mixing_prob,
             )                      
         
-        # 音声波形のdiscriminatorは一旦放置
-        # wav_target = world2wav_direct(target, feat_mean, feat_std, cfg)
-        # wav_output = world2wav_direct(output, feat_mean, feat_std, cfg)
-        
         # discriminatorへ入力
-        out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
-        out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
+        out_f, fmaps_f = discriminator(output)   # 生成データを入力
+        out_r, fmaps_r = discriminator(feature)    # 実データを入力
 
         # 損失計算
-        loss_d = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
+        loss_d = loss_f_adv.ls_loss(out_f, out_r, which_d=cfg.model.which_d, which_loss="d", data_len=data_len, max_len=model.max_len * 2)
 
         # 勾配初期化
         optimizer_d.zero_grad()
@@ -144,27 +133,30 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
             param.requires_grad = False
         
         # generatorでデータ生成
-        output, dec_output = model(
+        output, dec_output, enc_output = model(
             lip=lip,
+            prev=feature,
             data_len=data_len,
-            prev=target,
-        )
+            training_method=training_method,
+            mixing_prob=mixing_prob,
+        )                      
 
         # discriminatorへ入力
-        out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
-        out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
-        loss_g_ls = loss_f_train.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
-        loss_g_fm = loss_f_train.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
+        out_f, fmaps_f = discriminator(output)   # 生成データを入力
+        out_r, fmaps_r = discriminator(feature)    # 実データを入力
+        loss_g_ls = loss_f_adv.ls_loss(out_f, out_r, which_d=cfg.model.which_d, which_loss="g", data_len=data_len, max_len=model.max_len * 2)
+        loss_g_fm = loss_f_adv.fm_loss(fmaps_f, fmaps_r, which_d=cfg.model.which_d, data_len=data_len, max_len=model.max_len * 2)
 
-        # postnet前後のmse_lossと、GAN関連のlossの和（実際は重みづけが必要そう）
-        output_loss = loss_f_train.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
-        dec_output_loss = loss_f_train.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
-        delta_loss = loss_f_train.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        # generatorのloss
+        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=model.max_len * 2)
+        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=model.max_len * 2)
+        delta_loss = loss_f.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur, batch_norm=cfg.train.batch_norm)
         loss_recon = output_loss + dec_output_loss + delta_loss
 
         # GANspeechのscaled feature matching lossを使用
         co_fm = loss_recon / loss_g_fm
 
+        # total loss
         loss = loss_recon + loss_g_ls + co_fm * loss_g_fm
 
         # 勾配初期化
@@ -183,52 +175,43 @@ def train_one_epoch_with_d(model: nn.Module, discriminator, train_loader, optimi
         wandb.log({"train_delta_loss": delta_loss.item()})
         wandb.log({"train_loss_gen": loss.item()})
     
-    # epoch_loss /= data_cnt
-    # epoch_loss_d /= data_cnt
     epoch_loss /= iter_cnt
     epoch_loss_d /= iter_cnt
     return epoch_loss, epoch_loss_d
 
 
-def calc_test_loss_with_d(model: nn.Module, discriminator, val_loader, loss_f_val, device, cfg):
+def calc_test_loss_with_d(model: nn.Module, discriminator, val_loader, loss_f, loss_f_adv, device, cfg):
     epoch_loss = 0
     epoch_loss_d = 0
     data_cnt = 0
     iter_cnt = 0
     all_iter = len(val_loader)
-    print("calc test loss")
+    print("calc val loss")
     model.eval()
     discriminator.eval()
+    rf = cfg.model.reduction_factor      
+
     for batch in val_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
 
-        (lip, target, feat_add), data_len, speaker, label = batch
-        lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         batch_size = lip.shape[0]
         data_cnt += batch_size
 
-        # generatorでデータ生成
         with torch.no_grad():
-            # output, dec_output = model.inference(
-            #     lip=lip,
-            # )   
-            output, dec_output = model(
-                lip=lip,
-                data_len=data_len,
-                prev=target,
-            ) 
-    
-        # discriminatorへ入力
-        out_f, fmaps_f = discriminator(output[:, :, :-2])   # 生成データを入力
-        out_r, fmaps_r = discriminator(target[:, :, 2:])    # 実データを入力
-        loss_d = loss_f_val.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="d")
-        loss_g_ls = loss_f_val.ls_loss(out_f, out_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d, which_loss="g")
-        loss_g_fm = loss_f_val.fm_loss(fmaps_f, fmaps_r, data_len, max_len=model.max_len * 2, which_d=cfg.model.which_d)
+            output, dec_output, enc_output = model(lip)
+            out_f, fmaps_f = discriminator(output)   
+            out_r, fmaps_r = discriminator(feature)    
 
-        output_loss = loss_f_val.mse_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
-        dec_output_loss = loss_f_val.mse_loss(dec_output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
-        delta_loss = loss_f_val.delta_loss(output[:, :, :-2], target[:, :, 2:], data_len, max_len=model.max_len * 2)
+        loss_d = loss_f_adv.ls_loss(out_f, out_r, which_d=cfg.model.which_d, which_loss="d", data_len=data_len, max_len=model.max_len * 2)
+        loss_g_ls = loss_f_adv.ls_loss(out_f, out_r, which_d=cfg.model.which_d, which_loss="g", data_len=data_len, max_len=model.max_len * 2)
+        loss_g_fm = loss_f_adv.fm_loss(fmaps_f, fmaps_r, which_d=cfg.model.which_d, data_len=data_len, max_len=model.max_len * 2)
+
+        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=model.max_len * 2)
+        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=model.max_len * 2)
+        delta_loss = loss_f.delta_loss(output, feature, data_len, max_len=model.max_len * rf, device=device, blur=cfg.train.blur, batch_norm=cfg.train.batch_norm)
 
         loss = output_loss + dec_output_loss + delta_loss + loss_g_ls + loss_g_fm
 
@@ -242,8 +225,6 @@ def calc_test_loss_with_d(model: nn.Module, discriminator, val_loader, loss_f_va
         wandb.log({"val_delta_loss": delta_loss.item()})
         wandb.log({"val_loss_gen": loss.item()})
     
-    # epoch_loss /= data_cnt
-    # epoch_loss_d /= data_cnt
     epoch_loss /= iter_cnt
     epoch_loss_d /= iter_cnt
     return epoch_loss, epoch_loss_d
@@ -257,8 +238,6 @@ def save_result(loss_list, save_path):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    assert cfg.train == 'with_d'
-
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
@@ -293,17 +272,19 @@ def main(cfg):
     os.makedirs(save_path, exist_ok=True)
     
     # Dataloader作成
-    train_loader, val_loader, _ = make_train_val_loader(cfg)
+    train_loader, val_loader, _ = make_train_val_loader(cfg, data_path, mean_std_path)
     
     # 損失関数
-    loss_f_train = masked_loss(train=True)
-    loss_f_val = masked_loss(train=False)
+    loss_f = MaskedLoss(train=True)
+    loss_f_adv = AdversarialLoss(train=True)
     train_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
-    with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg) as run:
+    with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model =make_model(cfg, device)
+        model_path = cfg.train.model_path
+        model.load_state_dict(torch.load(model_path))
 
         # discriminator
         discriminator = make_discriminator(cfg, device)
@@ -323,14 +304,14 @@ def main(cfg):
         )
 
         # schedular
-        scheduler = torch.optim.lr_scheduler.StepLR(
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer, 
-            step_size=cfg.train.max_epoch // 4, 
+            milestones=cfg.train.multi_lr_decay_step,
             gamma=cfg.train.lr_decay_rate      
         )
-        scheduler_d = torch.optim.lr_scheduler.StepLR(
+        scheduler_d = torch.optim.lr_scheduler.MultiStepLR(
             optimizer_d, 
-            step_size=cfg.train.max_epoch // 4, 
+            milestones=cfg.train.multi_lr_decay_step,
             gamma=cfg.train.lr_decay_rate      
         )
 
@@ -356,41 +337,44 @@ def main(cfg):
             max_epoch = cfg.train.debug_max_epoch
         else:
             max_epoch = cfg.train.max_epoch
-
-        # teacher forcingとscheduled samplingの切り替え(田口さんがやっていた)
-        training_method_change_step = max_epoch * cfg.train.tm_change_step
             
+        training_method = cfg.train.training_method
+        mixing_prob = cfg.train.mixing_prob
+
         # training
         for epoch in range(max_epoch):
             print(f"##### {epoch} #####")
-
-            if epoch < training_method_change_step:
-                training_method = "tf"  # teacher forcing
-            else:
-                training_method = "ss"  # scheduled sampling
             print(f"training_method : {training_method}")
+            print(f"mixing_prob = {mixing_prob}")
+            print(f"learning_rate = {scheduler.get_last_lr()}")
             
+            # training
             epoch_loss, epoch_loss_d = train_one_epoch_with_d(
                 model=model, 
                 discriminator=discriminator, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
                 optimizer_d=optimizer_d, 
-                loss_f_train=loss_f_train, 
+                loss_f=loss_f, 
+                loss_f_adv=loss_f_adv,
                 device=device, 
-                cfg=cfg
+                cfg=cfg,
+                training_method=training_method,
+                mixing_prob=mixing_prob,
             )
             train_loss_list.append(epoch_loss)
             print(f"epoch_loss = {epoch_loss}")
             print(f"epoch_loss_d = {epoch_loss_d}")
             print(f"train_loss_list = {train_loss_list}")
 
+            # validation
             if epoch % cfg.train.display_val_loss_step == 0:
                 epoch_loss_test, epoch_loss_d_test = calc_test_loss_with_d(
                     model=model, 
                     discriminator=discriminator, 
                     val_loader=val_loader, 
-                    loss_f_val=loss_f_val, 
+                    loss_f=loss_f, 
+                    loss_f_adv=loss_f_adv,
                     device=device, 
                     cfg=cfg,
                 )

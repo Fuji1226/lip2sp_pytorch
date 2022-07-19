@@ -5,18 +5,30 @@ lip2sp/notebook/lip.ipynbを参考にしています
 下の実行手順でやっていただければ、lip_croppedに口唇動画が入ると思います
 
 実行手順
-/Users/minami/dataset/lip 下にlip_croppedディレクトリを作成
--> /Users/minami/dataset/lip/lip_cropped
+1. パスの変更
+    data_root, save_dir, txt_pathを変更してください
+        data_root : 顔のデータがあるところ(元データ)
+        save_dir : 口唇部分を切り取った動画の保存先
+        txt_path : 口唇の切り取りをミスる時があるので,ミスったデータを記録しておくファイル(事前に作っておいてください)
+    
+2. 切り取るサイズの変更
+    Lip_croppingのim_sizeを変更してください
+    ここで切り取る範囲を設定しています
+    基本(128, 128)でいいんじゃないかと思ってます
 
-31行目のsave_dirをlip_croppedまでのパスに変更
+3. predicter_Pathの変更
+    Lip_croppingのpredicter_Pathを変更してください
+    shape_predicterがない場合は
+    http://dlib.net/files/
+    からshape_predictor_68_face_landmarks.dat.bz2を事前にダウンロードし,そこまでのパスを設定してください
+    これで顔認識をする感じなので,ないと動きません
 
-44行目のpredicter_Pathを変更（shape_predictor_68_face_landmarks.datまでのパス）
+4. datasetsの変更
+    main()のdatasetsのパスを変更してください
+    F01_kablabなど人のディレクトリを設定すれば大丈夫だと思います
 
-ITO上で使ったやつです
-
-追記
-切り取るサイズを(128, 128)でもやってみました
-その場合lip_cropped_128128に保存しました
+5. 実行
+    save_dirに保存されていくはずです
 """
 
 import os
@@ -45,13 +57,13 @@ def get_data_directory():
 
 # data_root = Path(get_data_directory()).expanduser()     # /Users/minami/dataset/lip/cropped
 data_root = Path("/home/usr4/r70264c/dataset/lip/cropped")
-save_dir = "/home/usr4/r70264c/dataset/lip/lip_cropped_128128"      # 変えてください
+save_dir = "/home/usr4/r70264c/dataset/lip/lip_cropped_128128/F01_kablab"      # 変えてください
 txt_path = "/home/usr4/r70264c/dataset/lip/cropped_error_data2.txt"      # エラーしたデータの書き込み用(事前に作成してください)
 
 
 # 口唇のランドマーク検出
 def Lip_Cropping(frame, det):
-    im_size = (128, 128)    # 切り取るサイズ(96, 128) or (128, 128)
+    im_size = (128, 128)
     predicter_Path = "/home/usr4/r70264c/lip2sp_pytorch/shape_predictor_68_face_landmarks.dat"     # 変えてください
     predictor = dlib.shape_predictor(predicter_Path)
     shape = predictor(frame, det)

@@ -1,7 +1,5 @@
 """
 損失関数
-
-delta lossを田口さんのものに近づけました
 """
 
 
@@ -9,11 +7,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from model.transformer import make_pad_mask
-from model.discriminator import UNetDiscriminator, JCUDiscriminator
 from data_process.feature import delta_feature, blur_pooling2D
 
 
-class masked_loss:
+class MaskedLoss:
     def __init__(self, train):
         """
         train=Trueではマスクを考慮した計算
@@ -26,12 +23,8 @@ class masked_loss:
         パディングされた部分を考慮し、損失計算から省いたMSE loss
         output, target : (B, C, T)
         """
-        # print("calculate mse loss")
-        # print(f"output = {output.shape}")
-        # print(f"target = {target.shape}")
-        ########################
-        # 学習時
-        ########################
+        
+        # train
         if self.train:
             # マスク作成
             mask = make_pad_mask(data_len, max_len) 
@@ -39,36 +32,12 @@ class masked_loss:
             # 二乗誤差を計算
             loss = (output - target)**2
 
-            # print(f"loss = {loss}")
-
-            # # マスクでパディング部分を隠す
-            # mse = 0
-            # idx = 0
-            # for i in range(loss.shape[0]):
-            #     for j in range(loss.shape[-1]):
-            #         if mask[i, :, j]:
-            #             # print(f"loss = {loss[i, :, j]}")
-            #             mse += torch.mean(loss[i, :, j])
-            #             idx += 1
-            #         else:
-            #             break
-            # print(f"mse_before_division = {mse}")
-            # print(f"idx = {idx}")
-            # mse /= idx
-            # print(f"mse = {mse}")
-            # # 平均
-
+            # maskがFalseのところは0にして平均を取る
             loss = torch.where(mask == 1, loss, torch.tensor(0).to(device=loss.device, dtype=loss.dtype))
             loss = torch.mean(loss, dim=1)
-            # print(loss)
-            # print(f"loss_sum = {torch.sum(loss)}")
-            # print(f"mask_sum = {torch.sum(mask)}")
-            # print(f"mask_numel = {torch.numel(mask)}")
             mse_loss = torch.sum(loss) / torch.sum(mask)
-            # print(f"mse_loss = {mse_loss}")
-        ########################
-        # テスト時
-        ########################
+            
+        # validation
         else:
             mse_loss = F.mse_loss(output, target)
         return mse_loss
@@ -77,9 +46,7 @@ class masked_loss:
         """
         音響特徴量の動的特徴量についての損失関数
         """
-        #######################################################
         # 田口さんのやつに変更
-        # 微妙だったので戻した
         B, C, T = output.shape
         if blur:
             output = blur_pooling2D(output, device)
@@ -95,14 +62,11 @@ class masked_loss:
             target = bn(target.reshape(B, 3, -1, T))
             output = output.reshape(B, -1, T)
             target = target.reshape(B, -1, T)
-        #######################################################
-
+        
         # 各チャンネルごとの標準偏差（ブロードキャストのため次元を増やしてます）
         target_std = torch.std(target, dim=(0, -1)).unsqueeze(0).unsqueeze(-1)
 
-        ########################
-        # 学習時
-        ########################
+        # train
         if self.train:
             # マスク
             mask = make_pad_mask(data_len, max_len)
@@ -111,27 +75,12 @@ class masked_loss:
                 loss = (output - target) ** 2
             else:
                 loss = ((output - target) / target_std)**2
-            
-            # マスクでパディング部分を隠す
-            # mse = 0
-            # idx = 0
-            # for i in range(loss.shape[0]):
-            #     for j in range(loss.shape[-1]):
-            #         if mask[i, :, j]:
-            #             mse += torch.mean(loss[i, :, j])
-            #             idx += 1
-            #         else:
-            #             break
-            # # 平均
-            # mse /= idx
 
             loss = torch.where(mask == 1, loss, torch.tensor(0).to(device=loss.device, dtype=loss.dtype))
             loss = torch.mean(loss, dim=1)
             mse_loss = torch.sum(loss) / torch.sum(mask)
 
-        ########################
-        # テスト時
-        ########################
+        # validation
         else:
             if batch_norm:
                 mse_loss = F.mse_loss(output, target)
@@ -302,64 +251,109 @@ class masked_loss:
         return loss
 
 
-def main():
-    # 系列長
-    data_len = [500, 500, 400, 400, 300, 300, 200, 200]
-    data_len = torch.tensor(data_len)
-    max_len = 300
+class AdversarialLoss:
+    def __init__(self, train):
+        self.train = train
 
-    B = 5
-    mel_channels = 80
-    t = 300
-    output = torch.rand(B, mel_channels, t)
-    target = torch.rand(B, mel_channels, t)
+    def ls_loss(self, out_f, out_r, which_d, which_loss, data_len=None, max_len=None):
+        """
+        least squares loss 
+        discriminator、generator共に用いる
+        
+        which_dは使用したdiscriminator
+        which_lossでdiscriminatorとgeneratorを切り替え
+        """
+        assert which_d == "jcu", "please set jcu"
+        assert which_loss == "d" or "g", "please set which_loss d or g"
 
-    loss_train = masked_loss(train=True)
-    loss_test = masked_loss(train=False)
+        # train
+        if self.train:
+            assert data_len is not None and max_len is not None
 
-    loss_mask = loss_train.mse_loss(output, target, data_len, max_len)
-    print(f"masked_mse_loss = {loss_mask}")
-    loss_delta = loss_train.delta_loss(output, target, data_len, max_len)
-    print(f"delta_loss = {loss_delta}")
+            # data_lenとmax_lenを出力の長さを考慮して調節
+            ratio = out_f[0].shape[-1] / max_len
+            data_len = data_len * ratio
+            data_len = data_len.to(torch.int64)
+            max_len = int(max_len * ratio)
 
-    gc = torch.arange(B).reshape(B, 1)      # 複数話者の場合を想定
-    use_gc = False
+            # mask
+            mask = make_pad_mask(data_len, max_len)
+            
+            # loss
+            # discriminator
+            if which_loss == "d":
+                assert len(out_f) == 1 or len(out_f) == 2
+                # gcあり
+                if len(out_f) == 2:
+                    loss = (out_f[0]**2 + out_f[1]**2) / 2 + ((1 - out_r[0])**2 + (1 - out_r[1])**2) / 2
+                # gcなし
+                else:
+                    loss = out_f[0]**2 + (1 - out_r[0])**2
+            # generator
+            else:
+                assert len(out_f) == 1 or len(out_f) == 2
+                # gcあり
+                if len(out_f) == 2:
+                    loss = ((1 - out_f[0])**2 + (1 - out_f[1])**2) / 2
+                # gcなし
+                else:
+                    loss = (1 - out_f[0])**2
+            
+            loss = torch.where(mask == 1, loss, torch.tensor(0).to(device=loss.device, dtype=loss.dtype))
+            loss = torch.mean(loss, dim=1)
+            loss = torch.sum(loss) / torch.sum(mask)
 
-    # ls_lossの切り替え
-    which_loss = "d"
+        # validation
+        else:
+            # discriminator
+            if which_loss == "d":
+                assert len(out_f) == 1 or len(out_f) == 2
+                # gcあり
+                if len(out_f) == 2:
+                    loss = (F.mse_loss(0, out_f[0]) + F.mse_loss(0, out_f[1])) / 2 + (F.mse_loss(1, out_r[0]) + F.mse_loss[1, out_f[1]]) / 2
+                # gcなし
+                else:
+                    loss = F.mse_loss(0, out_f[0]) + F.mse_loss(1, out_r[0])
+            # generator
+            else:
+                assert len(out_f) == 1 or len(out_f) == 2
+                # gcあり
+                if len(out_f) == 2:
+                    loss = (F.mse_loss(1, out_f[0]) + F.mse_loss(1, out_f[0])) / 2
+                # gcなし
+                else:
+                    loss = F.mse_loss(1, out_f[0])
 
-    print("JCU")
-    # JCU discriminator
-    d_J = JCUDiscriminator(mel_channels, 1, use_gc, emb_in=B)
-    if use_gc:
-        out_f, fmaps_f = d_J(output, gc)
-        out_r, fmaps_r = d_J(target, gc)
-    else:
-        out_f, fmaps_f = d_J(output, )
-        out_r, fmaps_r = d_J(target, )
-   
-    # ls_loss
-    ls_jcu = loss_train.ls_loss(out_f, out_r, data_len, max_len, which_d="jcu", which_loss=which_loss)
-    print(ls_jcu)
-    
-    # fm_loss
-    fm_JCU = loss_train.fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d="jcu")
-    print(fm_JCU)
+        return loss
 
-    # print("Unet")
-    # # U_net discriminator
-    # d_U = UNetDiscriminator()
-    # out_f, fmaps_f = d_U(output)
-    # out_r, fmaps_r = d_U(target)
+    def fm_loss(self, fmaps_f, fmaps_r, which_d, data_len=None, max_len=None):
+        """
+        feature matching loss
+        generatorに使う
+        """
+        assert which_d == "jcu", "please set jcu"
 
-    # # ls_loss
-    # ls_u = ls_loss(out_f, out_r, data_len, max_len, which_d="unet", which_loss=which_loss)
-    # print(ls_u)
+        # data_lenとmax_lenを出力の長さを考慮して調節
+        data_lens, max_lens = [], []
+        for fmap in fmaps_f:
+            ratio = fmap.shape[-1] / max_len
+            data_len = data_len * ratio
+            data_lens.append(data_len.to(torch.int64))
+            max_lens.append(int(max_len * ratio))
 
-    # # fm_loss
-    # fm_unet = fm_loss(fmaps_f, fmaps_r, data_len, max_len, which_d="unet")
-    # print(fm_unet)
-
-
-if __name__ == "__main__":
-    main()
+        # mask
+        masks = []
+        for data_len, max_len in zip(data_lens, max_lens):
+            masks.append(make_pad_mask(data_len, max_len))
+        
+        # loss
+        losses = []
+        for fmap_f, fmap_r, mask in zip(fmaps_f, fmaps_r, masks):
+            loss = torch.abs(fmap_f - fmap_r)
+            loss = torch.where(mask == 1, loss, torch.tensor(0).to(device=loss.device, dtype=loss.dtype))
+            loss = torch.mean(loss, dim=1)
+            loss = torch.sum(loss) / torch.sum(mask)
+            losses.append(loss)
+        
+        loss = sum(losses) / len(losses)
+        return loss

@@ -1,9 +1,13 @@
-from cmath import inf
-from pathlib import Path
+"""
+transformerのattentionを田口さんと一緒にしてみたやつです
+特に変化がなかったし,conformerと出力のデータ形状が違ってややこしいので使わなくなりました
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+
 
 def get_subsequent_mask(x, diag_mask):
     len_x = x.shape[-1]
@@ -397,7 +401,6 @@ class Decoder(nn.Module):
 
         # prenet
         target = self.dropout(self.prenet(target))
-        prenet_out = target
 
         # print("----- target after prenet -----")
         # print(f"target.grad = {target.grad}")
