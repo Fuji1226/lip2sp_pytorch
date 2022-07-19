@@ -7,6 +7,7 @@ import torch
 from packaging import version
 from torch import nn
 from torch.nn import functional as F
+from torch.nn.utils import weight_norm
 
 torch_is_ge_180 = version.parse(torch.__version__) >= version.parse("1.8.0")
 
@@ -91,3 +92,40 @@ class Conv1d(nn.Conv1d):
 
     def _clear_linearized_weight(self, *args):
         self._linearized_weight = None
+
+
+class CausalConv1d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, dilation=1, apply_weight_norm=False, *args, **kwargs):
+        super().__init__()
+        self.padding = (kernel_size - 1) * dilation
+        if apply_weight_norm:
+            self.conv = weight_norm(Conv1d(in_channels, out_channels, kernel_size, padding=self.padding, dilation=dilation, *args, **kwargs))
+        else:
+            self.conv = Conv1d(in_channels, out_channels, kernel_size, padding=self.padding, dilation=dilation, *args, **kwargs)
+
+    def forward(self, x):
+        return self._forward(x, False)
+
+    def incremental_forward(self, x):
+        return self._forward(x, True)
+
+    def _forward(self, x, incremental):
+        """
+        ゲート付き活性化関数に通すため、チャンネル数をout_channels*2にしてます
+        x : (B, C, T)
+        return : (B, 2 * C, T)
+        """
+        # 1 次元畳み込み
+        if incremental:
+            x = x.permute(0, -1, 1)     # (B, T, C)
+            y = self.conv.incremental_forward(x)
+            y = y.permute(0, -1, 1)     # (B, C, T)
+        else:
+            y = self.conv(x)
+            # 因果性を担保するために、順方向にシフトする
+            if self.padding > 0:
+                y = y[:, :, :-self.padding]
+        return y
+
+    def clear_buffer(self):
+        self.conv.clear_buffer()

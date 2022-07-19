@@ -11,45 +11,11 @@ import torch.nn.functional as F
 try:
     from .transformer_remake import shift
     from .pre_post import Prenet
-    import conv
+    from .conv import CausalConv1d
 except:
     from transformer_remake import shift
     from pre_post import Prenet
-    import conv
-
-
-class CausalConv1d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, **kwargs):
-        super().__init__()
-        self.padding = (kernel_size - 1)
-        self.conv = conv.Conv1d(in_channels, out_channels*2, kernel_size, padding=self.padding, **kwargs)
-
-    def forward(self, x):
-        return self._forward(x, False)
-
-    def incremental_forward(self, x):
-        return self._forward(x, True)
-
-    def _forward(self, x, incremental):
-        """
-        ゲート付き活性化関数に通すため、チャンネル数をout_channels*2にしてます
-        x : (B, C, T)
-        return : (B, 2 * C, T)
-        """
-        # 1 次元畳み込み
-        if incremental:
-            x = x.permute(0, -1, 1)     # (B, T, C)
-            y = self.conv.incremental_forward(x)
-            y = y.permute(0, -1, 1)     # (B, C, T)
-        else:
-            y = self.conv(x)
-            # 因果性を担保するために、順方向にシフトする
-            if self.padding > 0:
-                y = y[:, :, :-self.padding]
-        return y
-
-    def clear_buffer(self):
-        self.conv.clear_buffer()
+    from conv import CausalConv1d
 
 
 class GLUBlock(nn.Module):
