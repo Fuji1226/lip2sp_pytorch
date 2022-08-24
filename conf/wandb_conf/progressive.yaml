@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_pytorch_prog
+    entity:
+    mode: online
+    name : glu
+watch:
+    log: all
+    log_freq: 100

@@ -1,0 +1,78 @@
+---
+
+name : world
+
+#################################
+# data_info
+#################################
+# video parameter
+fps : 50
+video_channels : 3
+
+# audio parameter
+sampling_rate : 16000
+n_fft : 640
+hop_length : 160
+win_length : 640
+f_min : 0
+f_max : 7600
+n_mel_channels : 80
+
+# input grayscale.（グレースケールかRGBか）
+gray : False
+
+# input first and second derivative.（動的特徴量を使うかどうか）
+delta : True
+
+# frame period
+frame_period : 10
+
+# acoutic feature frames in training
+length : 300     # Unet-discriminatorを使用するときは402か202で！
+
+# reduction factor
+reduction_factor : 2
+
+# "world" or "mspec"（音響特徴量の選択）
+feature_type : "world"
+
+# 非周期性指標の圧縮方法
+comp_mode : 'default'
+
+#################################
+# model_info
+#################################
+# in_channels
+in_channels : 5
+
+# ResNet3D parameter
+res_layers : 5
+
+# glu parameter
+# glu_inner_channels : 256
+glu_layers : 4
+
+# transformer parameter
+n_layers : 1
+d_model : 256
+n_head : 2
+dec_n_layers : 4
+dec_d_model : 256
+
+# 使用するencoder（"transformer" or "conformer"）
+which_encoder : "transformer"
+
+# 使用するdecoder（"transformer" or "glu"）
+which_decoder : "transformer"
+
+# discriminator（"unet" or "jcu"）
+# 使わない場合は何も書かない（Noneもいらないです）
+which_d : 
+
+# out_channels
+out_channels : 29  # 音響特徴量から計算します
+
+# Prenet & Postnet parameter
+pre_in_channels : 58  # 音響特徴量から計算します
+pre_inner_channels : 32
+post_inner_channels : 512

@@ -1,0 +1,31 @@
+---
+
+# debug
+debug : True
+debug_data_len : 1
+
+# face or lip
+face_or_lip : "lip_9696_time_only"
+
+# 1to5
+check_1to5 : False
+
+# generate.pyを実行したときのデータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch/result/lipreading/generate"
+
+# 平均、標準偏差ディレクトリまでのパス
+lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
+face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
+lip_mean_std_path_128128 : "~/dataset/lip/np_files/lip_cropped_128128/mean_std"
+lip_mean_std_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/mean_std"
+lip_mean_std_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/mean_std"
+
+# 口唇動画、音響特徴量ディレクトリまでのパス
+lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
+face_pre_loaded_path : "~/dataset/lip/np_files/face/test"
+lip_pre_loaded_path_128128 : "~/dataset/lip/np_files/lip_cropped_128128/test"
+lip_pre_loaded_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/test"
+lip_pre_loaded_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/test"
+
+lip_pre_loaded_path_1to5 : "~/dataset/lip/np_files/lip_cropped/test_1to5"
+lip_pre_loaded_path_128128_1to5 : "~/dataset/lip/np_files/lip_cropped_128128/test_1to5"

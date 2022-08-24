@@ -1,0 +1,76 @@
+model:
+  name: mspec
+  fps: 50
+  video_channels: 3
+  sampling_rate: 16000
+  n_fft: 640
+  hop_length: 160
+  win_length: 640
+  f_min: 0
+  f_max: 7600
+  n_mel_channels: 80
+  gray: false
+  delta: true
+  frame_period: 10
+  length: 300
+  reduction_factor: 2
+  feature_type: mspec
+  in_channels: 5
+  res_layers: 5
+  glu_layers: 4
+  n_layers: 1
+  d_model: 128
+  n_head: 2
+  which_encoder: transformer
+  which_decoder: transformer
+  which_d: null
+  out_channels: 80
+  pre_in_channels: 160
+  pre_inner_channels: 32
+  post_inner_channels: 512
+train:
+  train_path: /home/usr4/r70264c/dataset/lip/lip_cropped
+  test_path: /home/usr4/r70264c/dataset/lip
+  train_save_path: /home/usr4/r70264c/Projects/lip2sp_pytorch/result/train
+  ckpt_path: /home/usr4/r70264c/Projects/lip2sp_pytorch/check_point
+  ckpt_step: 5
+  generate_save_path: /home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate
+  train_mean_std_path: /home/usr4/r70264c/dataset/np_files/mean_std
+  test_mean_std_path: /home/usr4/r70264c/dataset/np_files/mean_std
+  train_pre_loaded_path: /home/usr4/r70264c/dataset/np_files/train
+  test_pre_loaded_path: /home/usr4/r70264c/dataset/np_files/test
+  experiment_name: test
+  dropout: 0.1
+  use_gc: false
+  batch_size: 5
+  num_workers: 2
+  lr: 0.001
+  beta_1: 0.9
+  beta_2: 0.999
+  weight_decay: 1.0e-06
+  max_iter: 5
+  max_epoch: 20
+  display_test_loss_step: 5
+  lr_decay_rate: 0.5
+  max_norm: 3.0
+  training_method: ss
+  num_passes: 1
+  mixing_prob: 0.5
+  debug: true
+test:
+  data_path: /home/usr4/r70264c/dataset/lip/lip_cropped
+  train_save_path: /home/usr4/r70264c/Projects/lip2sp_pytorch/result/train
+  ckpt_path: /home/usr4/r70264c/Projects/lip2sp_pytorch/check_point
+  ckpt_step: 5
+  generate_save_path: /home/usr4/r70264c/Projects/lip2sp_pytorch/result/generate
+  mean_std_path: /home/usr4/r70264c/dataset/np_files/mean_std
+  pre_loaded_path: /home/usr4/r70264c/dataset/np_files/test
+wandb_conf:
+  setup:
+    project: test_ito
+    entity: null
+    mode: online
+    name: lip2sp_test
+  watch:
+    log: all
+    log_freq: 100

@@ -1,0 +1,21 @@
+---
+
+# debug
+debug : True
+debug_data_len : 1
+
+# face or lip
+face_or_lip : "lip_128128"
+
+# generate.pyを実行したときのデータを保存するディレクトリまでのパス
+generate_save_path : "/home/usr4/r70264c/lip2sp_pytorch/result/progressive/generate"
+
+# 平均、標準偏差を保存するディレクトリまでのパス
+lip_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/lip_cropped/mean_std"
+face_mean_std_path : "/home/usr4/r70264c/dataset/lip/np_files/face/mean_std"
+lip_mean_std_path_128128 : "/home/usr4/r70264c/dataset/lip/np_files/lip_cropped_128128/mean_std"
+
+# 口唇動画、音響特徴量を保存するディレクトリまでのパス
+lip_pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/lip_cropped/test"
+face_pre_loaded_path : "/home/usr4/r70264c/dataset/lip/np_files/face/test"
+lip_pre_loaded_path_128128 : "/home/usr4/r70264c/dataset/lip/np_files/lip_cropped_128128/test"
