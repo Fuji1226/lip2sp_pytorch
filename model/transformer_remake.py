@@ -6,7 +6,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from .pre_post import Prenet
+try:
+    from .pre_post import Prenet
+except:
+    from pre_post import Prenet
 
 
 def get_subsequent_mask(x, diag_mask=False):

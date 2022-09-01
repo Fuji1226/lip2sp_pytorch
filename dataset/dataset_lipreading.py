@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from .dataset_npz import KablabDataset, KablabTransform
-from data_process.phoneme_encode import get_classes, classes2index ,get_phoneme_info
+from data_process.phoneme_encode import classes2index ,get_phoneme_info
 
 
 def get_data_simultaneously(data_root, name):
@@ -219,3 +219,24 @@ def collate_time_adjust(batch):
     data_len = torch.stack(data_len)
 
     return wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label
+
+
+def collate_time_adjust_ctc(batch):
+    wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label = list(zip(*batch))
+
+    wav = adjust_max_data_len(wav)
+    lip = adjust_max_data_len(lip)
+    feature = adjust_max_data_len(feature)
+    feat_add = adjust_max_data_len(feat_add)
+
+    wav = torch.stack(wav)
+    lip = torch.stack(lip)
+    feature = torch.stack(feature)
+    feat_add = torch.stack(feat_add)
+    data_len = torch.stack(data_len)
+
+    phoneme_len = torch.tensor([p.shape[0] for p in phoneme_index])
+    phoneme_index = torch.cat(list(phoneme_index), dim=0)
+
+    return wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label, phoneme_len
+

@@ -6,11 +6,11 @@ name : "nar"
 debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 5
+debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_128128/2022:07:20_13-10-21/world_melfb_100.ckpt"
+check_point_start : True
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:25_17-04-10/mspec80_240.ckpt"
 
 # face or lip
 face_or_lip : "lip_9696_time_only"
@@ -42,6 +42,9 @@ lip_pre_loaded_path_128128 : "~/dataset/lip/np_files/lip_cropped_128128/train"
 lip_pre_loaded_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/train"
 lip_pre_loaded_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/train"
 
+# face_generationで合成したデータまでのパス
+gen_pre_loaded_path : "~/face_generation/result/default/generate/2022:08:24_01-35-17/mspec80_100/train_data"
+
 # max_epoch
 max_epoch : 400
 
@@ -63,8 +66,8 @@ time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速�
 use_gc : False
 
 # dataloader
-batch_size : 16
-num_workers : 16
+batch_size : 4
+num_workers : 4
 
 # dropout
 dec_dropout : 0.1
@@ -100,7 +103,10 @@ use_learnable_loss : False
 output_loss_w : 1.0
 dec_output_loss_w : 1.0
 delta_loss_w : 1.0
+mse_weight : 1.0
+feat_add_weight : 0.1
+phoneme_weight : 0.1
 
-# feat_addを使用するかどうか
-multi_task : False
-add_feat_add  : False
+# multi task
+use_feat_add : True
+use_phoneme : True

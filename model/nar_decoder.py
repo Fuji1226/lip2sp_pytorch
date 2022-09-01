@@ -129,36 +129,43 @@ class ResBlock(nn.Module):
 
 
 class FeadAddPredicter(nn.Module):
-    """
-    rms,f0をencoder出力から推定する
-    """
     def __init__(self, in_channels, out_channels, kernel_size, n_layers, dropout):
         super().__init__()
-        self.layers = nn.ModuleList([
-            ResBlock(in_channels, kernel_size, dropout) for _ in range(n_layers)
-        ])
-        self.out_layer = nn.Conv1d(in_channels, out_channels, kernel_size=1)
+        self.layer = nn.Linear(in_channels, out_channels)
 
     def forward(self, x):
         """
         x : (B, C, T)
         out : (B, C, T)
         """
-        out = x
-        for layer in self.layers:
-            out = layer(out)
-        out = self.out_layer(out)
-        return out
+        out = x.permute(0, 2, 1)
+        out = self.layer(out)
+        return out.permute(0, 2, 1)
+
+
+class PhonemePredicter(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.layer = nn.Linear(in_channels, out_channels)
+
+    def forward(self, x):
+        """
+        x : (B, C, T)
+        out : (B, C, T)
+        """
+        out = x.permute(0, 2, 1)
+        out = self.layer(out)
+        return out.permute(0, 2, 1)
 
 
 class ResTCDecoder(nn.Module):
     """
     残差結合を取り入れたdecoder
     """
-    def __init__(self, cond_channels, out_channels, inner_channels, n_layers, kernel_size, dropout, feat_add_channels, feat_add_layers, multi_task, add_feat_add):
+    def __init__(self, cond_channels, out_channels, inner_channels, n_layers, kernel_size, dropout, feat_add_channels, feat_add_layers, use_feat_add, phoneme_classes, use_phoneme):
         super().__init__()
-        self.multi_task = multi_task
-        self.add_feat_add = add_feat_add
+        self.use_feat_add = use_feat_add
+        self.use_phoneme = use_phoneme
 
         self.upsample_layer = nn.Sequential(
             nn.ConvTranspose1d(cond_channels, inner_channels, kernel_size=2, stride=2),
@@ -168,7 +175,7 @@ class ResTCDecoder(nn.Module):
         )
 
         self.feat_add_layer = FeadAddPredicter(inner_channels, feat_add_channels, kernel_size, feat_add_layers, dropout)
-        self.connect_layer = nn.Conv1d(feat_add_channels, inner_channels, kernel_size=3, padding=1)
+        self.phoneme_layer = PhonemePredicter(inner_channels, phoneme_classes)
 
         self.conv_layers = nn.ModuleList(
             ResBlock(inner_channels, kernel_size, dropout) for _ in range(n_layers)
@@ -186,17 +193,17 @@ class ResTCDecoder(nn.Module):
         # 音響特徴量のフレームまでアップサンプリング
         out = self.upsample_layer(out)
 
-        # feat_addの推定
-        if self.multi_task:
+        if self.use_feat_add:
             feat_add_out = self.feat_add_layer(out)
-            if self.add_feat_add:
-                feat_add_cond = self.connect_layer(feat_add_out)
-                out = out + feat_add_cond
         else:
             feat_add_out = None
+        if self.use_phoneme:
+            phoneme = self.phoneme_layer(out)
+        else:
+            phoneme = None
 
         for layer in self.conv_layers:
             out = layer(out)
 
         out = self.out_layer(out)
-        return out, feat_add_out
+        return out, feat_add_out, phoneme

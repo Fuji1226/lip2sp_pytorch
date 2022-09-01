@@ -14,7 +14,7 @@ import torch.nn.functional as F
 try:
     from .transformer_remake import shift
     from .pre_post import Prenet
-    from wavenet.model.conv import CausalConv1d   
+    from .wavenet.model.conv import CausalConv1d  
 except:
     from transformer_remake import shift
     from pre_post import Prenet

@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import librosa
 from librosa.display import specshow
 import numpy as np
-import os
 from data_process.phoneme_encode import get_keys_from_value
 
 

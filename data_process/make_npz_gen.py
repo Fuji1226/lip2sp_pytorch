@@ -22,7 +22,7 @@ except:
 
 
 def get_dataset(data_root):
-    test_items = []
+    items = []
     for curdir, dir, files in os.walk(data_root):
         for file in files:
             if Path(file).suffix == ".wav":
@@ -30,11 +30,11 @@ def get_dataset(data_root):
                 video_path = os.path.join(curdir, f"{Path(file).stem}_pred.mp4")
 
                 if os.path.isfile(video_path) and os.path.isfile(audio_path):
-                    test_items.append([video_path, audio_path])
-    return test_items
+                    items.append([video_path, audio_path])
+    return items
             
 
-def save_data_test(items, len, cfg, data_save_path, mean_std_save_path, device, time_only):
+def _save_data(items, len, cfg, data_save_path, mean_std_save_path, device, time_only):
     lip_mean = 0
     lip_std = 0
     feat_mean = 0
@@ -79,57 +79,23 @@ def save_data_test(items, len, cfg, data_save_path, mean_std_save_path, device, 
             data_len=data_len,
         )
 
-        # lip = torch.from_numpy(lip).to(device)
-        # feature = torch.from_numpy(feature).to(device)
-        # feat_add = torch.from_numpy(feat_add).to(device)
 
-        # if time_only:
-        #     # 時間方向のみの平均、標準偏差を計算
-        #     print("time only")
-        #     lip_mean += torch.mean(lip.float(), dim=3)
-        #     lip_std += torch.std(lip.float(), dim=3)
-        # else:
-        #     # 時間、空間方向両方の平均、標準偏差を計算
-        #     lip_mean += torch.mean(lip.float(), dim=(1, 2, 3))
-        #     lip_std += torch.std(lip.float(), dim=(1, 2, 3))
-        
-    #     feat_mean += torch.mean(feature, dim=0)
-    #     feat_std += torch.std(feature, dim=0)
-    #     feat_add_mean += torch.mean(feat_add, dim=0)
-    #     feat_add_std += torch.std(feat_add, dim=0)
+def save_data(train_data_root, train_data_save_path, train_mean_std_save_path, test_data_root, test_data_save_path, test_mean_std_save_path, cfg, device):
+    train_items = get_dataset(train_data_root)
+    n_data_train = len(train_items)
+    _save_data(
+        items=train_items,
+        len=n_data_train,
+        cfg=cfg,
+        data_save_path=train_data_save_path,
+        mean_std_save_path=train_mean_std_save_path,
+        device=device,
+        time_only=True,
+    )
 
-    # # データ全体の平均、分散を計算 (C,) チャンネルごと
-    # lip_mean /= len     
-    # lip_std /= len      
-    # feat_mean /= len    
-    # feat_std /= len     
-    # feat_add_mean /= len
-    # feat_add_std /= len
-
-    # lip_mean = lip_mean.to('cpu').detach().numpy().copy()
-    # lip_std = lip_std.to('cpu').detach().numpy().copy()
-    # feat_mean = feat_mean.to('cpu').detach().numpy().copy()
-    # feat_std = feat_std.to('cpu').detach().numpy().copy()
-    # feat_add_mean = feat_add_mean.to('cpu').detach().numpy().copy()
-    # feat_add_std = feat_add_std.to('cpu').detach().numpy().copy()
-    
-    # os.makedirs(os.path.join(mean_std_save_path, speaker), exist_ok=True)
-    # np.savez(
-    #     f"{mean_std_save_path}/{speaker}/test_{cfg.model.name}",
-    #     lip_mean=lip_mean, 
-    #     lip_std=lip_std, 
-    #     feat_mean=feat_mean, 
-    #     feat_std=feat_std, 
-    #     feat_add_mean=feat_add_mean, 
-    #     feat_add_std=feat_add_std,
-    # )
-
-
-def save_data(data_root, test_data_save_path, test_mean_std_save_path, cfg, device):
-    test_items = get_dataset(data_root)
+    test_items = get_dataset(test_data_root)
     n_data_test = len(test_items)
-
-    save_data_test(
+    _save_data(
         items=test_items,
         len=n_data_test,
         cfg=cfg,
@@ -146,7 +112,10 @@ def main(cfg):
     print(f"device = {device}")
 
     save_data(
-        data_root=Path(cfg.test.gen_pre_loaded_path).expanduser(),
+        train_data_root=Path(cfg.train.gen_pre_loaded_path).expanduser(),
+        trian_data_save_path=Path(cfg.train.gen_pre_loaded_path).expanduser(),
+        train_mean_std_save_path=None,
+        test_data_root=Path(cfg.test.gen_pre_loaded_path).expanduser(),
         test_data_save_path=Path(cfg.test.gen_pre_loaded_path).expanduser(),
         test_mean_std_save_path=None,
         cfg=cfg,

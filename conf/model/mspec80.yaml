@@ -71,7 +71,7 @@ diag_mask : False
 tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
 tc_inner_channels : 128
 tc_kernel_size : 5
-tc_feat_add_channels : 2
+tc_feat_add_channels : 1
 tc_feat_add_layers : 1
 
 # conformer parameter
@@ -91,8 +91,8 @@ which_d : "jcu"
 # out_channels
 out_channels : 80  # 音響特徴量から計算します
 
-# lipreading classes
-n_classes : 46
+# lipreading classes(43 + α)
+n_classes : 44
 
 # Prenet & Postnet parameter
 pre_in_channels : 160  # 音響特徴量から計算します

@@ -73,7 +73,6 @@ torch.manual_seed(777)
 torch.cuda.manual_seed_all(777)
 random.seed(777)
 
-
 def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
 	torch.save({
         'model': model.state_dict(),
@@ -269,37 +268,38 @@ def check_mel(target, output, dec_output, cfg, filename):
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
     
 
-def check_feat_add(target, output, cfg, filename):
+def check_feat_add(target, output, cfg, filename, ckpt_time=None):
     target = target.to('cpu').detach().numpy().copy()
     output = output.to('cpu').detach().numpy().copy()
-
     f0_target = target[0]
     f0_output = output[0]
-    power_target = target[1]
-    power_output = output[1]
+    # power_target = target[1]
+    # power_output = output[1]
     time = np.arange(target.shape[-1]) / 100
 
     plt.close("all")
     plt.figure()
-    ax = plt.subplot(2, 1, 1)
-    ax.plot(time, f0_target, label="target")
-    ax.plot(time, f0_output, label="output")
+    plt.plot(time, f0_target, label="target")
+    plt.plot(time, f0_output, label="output")
     plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
     plt.xlabel("Time[s]")
     plt.title("f0")
     plt.grid()
 
-    ax = plt.subplot(2, 1, 2)
-    ax.plot(time, power_target, label="target")
-    ax.plot(time, power_output, label="output")
-    plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
-    plt.xlabel("Time[s]")
-    plt.title("power")
-    plt.grid()
+    # ax = plt.subplot(2, 1, 2)
+    # ax.plot(time, power_target, label="target")
+    # ax.plot(time, power_output, label="output")
+    # plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
+    # plt.xlabel("Time[s]")
+    # plt.title("power")
+    # plt.grid()
 
-    plt.tight_layout()
+    # plt.tight_layout()
     save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
-    save_path = save_path / cfg.train.name / current_time
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})

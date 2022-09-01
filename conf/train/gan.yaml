@@ -77,8 +77,8 @@ res_dropout : 0.1
 disc_dropout : 0.5
 
 # optimizer
-lr_gen: 0.00001
-lr_disc: 0.00001
+lr_gen: 0.0001
+lr_disc: 0.0001
 beta_1: 0.9
 beta_2: 0.999
 weight_decay: 1.0e-6
@@ -112,9 +112,9 @@ multi_task : False
 add_feat_add  : False
 
 # lossの重み
-mse_weight : 10   # 10
-ls_weight : 0   # 1
-fm_weight : 0   # 1
+mse_weight : 1   # 10
+ls_weight : 1   # 1
+fm_weight : 1   # 1
 
 # generatorを更新するiteration
 gen_opt_step : 1

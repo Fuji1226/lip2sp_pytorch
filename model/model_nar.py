@@ -28,8 +28,8 @@ class Lip2SP_NAR(nn.Module):
         self, in_channels, out_channels, res_layers, res_inner_channels,
         d_model, n_layers, n_head, conformer_conv_kernel_size,
         dec_n_layers, dec_inner_channels, dec_kernel_size,
-        feat_add_channels, feat_add_layers,
-        which_encoder, which_decoder, apply_first_bn, multi_task, add_feat_add,
+        feat_add_channels, feat_add_layers, 
+        which_encoder, which_decoder, apply_first_bn, use_feat_add, phoneme_classes, use_phoneme,
         dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
         super().__init__()
 
@@ -97,8 +97,9 @@ class Lip2SP_NAR(nn.Module):
                 dropout=dec_dropout,
                 feat_add_channels=feat_add_channels, 
                 feat_add_layers=feat_add_layers,
-                multi_task=multi_task,
-                add_feat_add=add_feat_add,
+                use_feat_add=use_feat_add,
+                phoneme_classes=phoneme_classes,
+                use_phoneme=use_phoneme,
             )
 
     def forward(self, lip, data_len=None, gc=None):
@@ -114,5 +115,5 @@ class Lip2SP_NAR(nn.Module):
             enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
 
         # decoder
-        output = self.decoder(enc_output)
-        return output
+        output, feat_add, phoneme = self.decoder(enc_output)
+        return output, feat_add, phoneme

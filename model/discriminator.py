@@ -46,7 +46,7 @@ class SimpleDiscriminator(nn.Module):
 
 
 class JCUDiscriminator(nn.Module):
-    def __init__(self, in_channels, out_channels, ana_len=300, use_gc=False, emb_in=None, n_features=128, out_features=512, dropout=0.5):
+    def __init__(self, in_channels, out_channels, ana_len=300, use_gc=False, emb_in=None, n_features=128, out_features=512, dropout=0.1):
         super().__init__()
         self.use_gc = use_gc
 

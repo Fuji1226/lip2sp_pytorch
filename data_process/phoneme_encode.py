@@ -68,6 +68,42 @@ def get_classes(data_path):
     return classes
 
 
+def get_classes_ctc(data_path):
+    phoneme = []
+
+    for [_, alignment_path] in data_path:
+        with open(alignment_path, "r") as f:
+            data = f.read()
+
+            # 改行を空白に変換してから，空白で分割する
+        data = data.replace("\n", " ")
+        data = data.split(" ")
+        
+        # 音素ラベルを取得
+        phoneme.append(data[2::3])
+    
+    classes = []
+
+    # blank index
+    classes.append("-")  # mask_id = 0
+
+    # データに含まれる音素から，音素ラベル全種類を取得
+    for each_p in phoneme:
+        for p in each_p:
+            if p in classes:
+                continue
+            else:
+                classes.append(p)
+
+    print("\n--- label check ---")
+    print(f"n_classes = {len(classes)}")
+
+    for idx, label in enumerate(classes):
+        print(f"{idx} : {label}")
+    print("")
+    return classes
+
+
 def classes2index(classes):
     """
     音素の種類であるclassesを数字に変換
@@ -111,12 +147,12 @@ def get_phoneme_info(alignment_path):
     return phoneme, duration
 
 
-def get_keys_from_value(d, val):
+def get_keys_from_value(dict, val):
     """
     辞書に対してvalueからkeyを得る
     一度数値列に変換した音素列をもう一度音素列に変換するために使用
     """
-    for k, v in d.items():
+    for k, v in dict.items():
         if v == val:
             return k
 

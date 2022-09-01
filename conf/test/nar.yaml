@@ -25,4 +25,4 @@ lip_pre_loaded_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/test"
 lip_pre_loaded_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/test"
 
 # face_generationで合成したデータまでのパス
-gen_pre_loaded_path : "~/face_generation/result/default/generate/2022:08:20_01-05-38/mspec80_40/test_data"
+gen_pre_loaded_path : "~/face_generation/result/default/generate/2022:08:24_01-35-17/mspec80_100/test_data"

@@ -11,13 +11,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 from librosa.display import specshow
+import itertools
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import DataLoader
+import torchmetrics
 
-from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
-from train_default import make_train_val_loader, check_feat_add
+from train_default import check_feat_add
+from dataset.dataset_lipreading import LipReadingDataset, LipReadingTransform, collate_time_adjust_ctc, get_data_simultaneously
+from data_process.phoneme_encode import IGNORE_INDEX, get_classes_ctc, get_keys_from_value
+from train_nar import make_model
 
 # wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -56,8 +63,6 @@ def save_loss(train_loss_list, val_loss_list, save_path, filename):
     plt.grid()
     plt.savefig(str(loss_save_path))
     plt.close("all")
-    # wandb.log({f"{filename}": plt})
-    # wandb.log({f"Image {filename}": wandb.Image(os.path.join(save_path, f"{filename}.png"))})
     wandb.log({f"loss {filename}": wandb.plot.line_series(
         xs=np.arange(len(train_loss_list)), 
         ys=[train_loss_list, val_loss_list],
@@ -67,40 +72,65 @@ def save_loss(train_loss_list, val_loss_list, save_path, filename):
     )})
 
 
-def make_model(cfg, device):
-    model = Lip2SP_NAR(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        res_layers=cfg.model.res_layers,
-        res_inner_channels=cfg.model.res_inner_channels,
-        d_model=cfg.model.d_model,
-        n_layers=cfg.model.n_layers,
-        n_head=cfg.model.n_head,
-        conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
-        dec_n_layers=cfg.model.tc_n_layers,
-        dec_inner_channels=cfg.model.tc_inner_channels,
-        dec_kernel_size=cfg.model.tc_kernel_size,
-        feat_add_channels=cfg.model.tc_feat_add_channels,
-        feat_add_layers=cfg.model.tc_feat_add_layers,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        apply_first_bn=cfg.train.apply_first_bn,
-        use_feat_add=cfg.train.use_feat_add,
-        phoneme_classes=cfg.model.n_classes,
-        use_phoneme=cfg.train.use_phoneme,
-        dec_dropout=cfg.train.dec_dropout,
-        res_dropout=cfg.train.res_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        use_gc=cfg.train.use_gc,
+def make_train_val_loader(cfg, data_root, mean_std_path):
+    data_path = get_data_simultaneously(
+        data_root=data_root,
+        name=cfg.model.name,
     )
-    # multi GPU
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
-        print(f"\nusing {torch.cuda.device_count()} GPU")
-    return model.to(device)
+    classes = get_classes_ctc(data_path)
+    n_samples = len(data_path)
+    train_size = int(n_samples * 0.95)
+    train_data_path = data_path[:train_size]
+    val_data_path = data_path[train_size:]
+
+    train_trans = LipReadingTransform(
+        cfg=cfg,
+        train_val_test="train",
+    )
+    val_trans = LipReadingTransform(
+        cfg=cfg,
+        train_val_test="val",
+    )
+
+    train_dataset = LipReadingDataset(
+        data_path=train_data_path,
+        mean_std_path = mean_std_path,
+        transform=train_trans,
+        cfg=cfg,
+        test=False,
+        classes=classes,
+    )
+    val_dataset = LipReadingDataset(
+        data_path=val_data_path,
+        mean_std_path=mean_std_path,
+        transform=val_trans,
+        cfg=cfg,
+        test=False,
+        classes=classes,
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=collate_time_adjust_ctc,
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=collate_time_adjust_ctc,
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
 
 
-def check_mel(target, output, cfg, filename):
+def check_mel(target, output, cfg, filename, ckpt_time=None):
     target = target.to('cpu').detach().numpy().copy()
     output = output.to('cpu').detach().numpy().copy()
 
@@ -140,15 +170,59 @@ def check_mel(target, output, cfg, filename):
 
     plt.tight_layout()
     save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
-    save_path = save_path / cfg.train.name / current_time
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
+def check_phoneme(target, output, cfg, filename, classes_index, epoch, iter_cnt, ckpt_time=None):
+    phoneme_target = []
+    for i in target:
+        phoneme_target.append(get_keys_from_value(classes_index, int(i)))
+    phoneme_target_content = " ".join(phoneme_target)
+
+    # blankの削除
+    _, output_idx = torch.max(output, dim=1)
+    output_idx = torch.tensor([i for i in output_idx if i != IGNORE_INDEX])
+
+    # 連続した要素の削除
+    output_idx_processed = []
+    for k, g in itertools.groupby(output_idx):
+        output_idx_processed.append(k.item())
+    output_idx = torch.tensor(output_idx_processed)
+
+    phoneme_output = []
+    for i in output_idx:
+        phoneme_output.append(get_keys_from_value(classes_index, int(i)))
+    phoneme_output_content = " ".join(phoneme_output)
+
+    # phoneme error rate
+    metric = torchmetrics.WordErrorRate()
+    per = metric(phoneme_output, phoneme_target)
+    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
+    
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
+    os.makedirs(save_path, exist_ok=True)
+    with open(str(save_path / f"{filename}.txt"), "a") as f:
+        f.write(f"\n--- epoch {epoch} : iter {iter_cnt} ---\n")
+        f.write("answer\n")
+        f.write(f"{phoneme_target_content}\n")
+        f.write("\npredict\n")
+        f.write(f"{phoneme_output_content}\n")
+        f.write(f"\nphoneme error rate = {per:f}\n")
+
+
+def train_one_epoch(model, train_loader, optimizer, loss_f, loss_f_ctc, device, cfg, dataset, epoch, ckpt_time=None):
     epoch_loss = 0
     epoch_loss_feat_add = 0
+    epoch_loss_ctc = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start") 
@@ -156,19 +230,32 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
-        
+        wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label, phoneme_len = batch
+        feat_add = feat_add[:, 0, :].unsqueeze(1)
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device) 
+        phoneme_index, phoneme_len = phoneme_index.to(device), phoneme_len.to(device)
+
         output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
         B, C, T = output.shape
         
-        if cfg.train.use_featadd:
+        if cfg.train.use_feat_add:
             loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
+            loss_feat_add = loss_feat_add * cfg.train.feat_add_weight
             epoch_loss_feat_add += loss_feat_add.item()
             wandb.log({"train_iter_loss_feat_add": loss_feat_add})
             loss_feat_add.backward(retain_graph=True)
 
+        if cfg.train.use_phoneme:
+            phoneme = F.log_softmax(phoneme, dim=1)
+            phoneme = phoneme.permute(2, 0, 1)  # (T, B, C)
+            loss_ctc = loss_f_ctc(phoneme, phoneme_index, data_len, phoneme_len)
+            loss_ctc = loss_ctc * cfg.train.phoneme_weight
+            epoch_loss_ctc += loss_ctc.item()
+            wandb.log({"train_iter_loss_ctc": loss_ctc})
+            loss_ctc.backward(retain_graph=True)
+
         loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
+        loss = loss * cfg.train.mse_weight
         epoch_loss += loss.item()
         wandb.log({"train_iter_loss": loss})
         loss.backward()
@@ -181,25 +268,31 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], cfg, "mel_train")
-                    if cfg.train.use_featadd:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train")
+                    check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
+                    if cfg.train.use_feat_add:
+                        check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
+                    if cfg.train.use_phoneme:
+                        check_phoneme(phoneme_index[:phoneme_len[0]], phoneme[:, 0, :], cfg, "phoneme_train", dataset.classes_index, epoch, iter_cnt, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], cfg, "mel_train")
-                if cfg.train.use_featadd:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train")
+                check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
+                if cfg.train.use_feat_add:
+                    check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
+                if cfg.train.use_phoneme:
+                    check_phoneme(phoneme_index[:phoneme_len[0]], phoneme[:, 0, :], cfg, "phoneme_train", dataset.classes_index, epoch, iter_cnt, ckpt_time)
 
     epoch_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
-    return epoch_loss, epoch_loss_feat_add
+    epoch_loss_ctc /= iter_cnt
+    return epoch_loss, epoch_loss_feat_add, epoch_loss_ctc
 
 
-def calc_val_loss(model, val_loader, loss_f, device, cfg):
+def calc_val_loss(model, val_loader, loss_f, loss_f_ctc, device, cfg, dataset, epoch, ckpt_time=None):
     epoch_loss = 0
     epoch_loss_feat_add = 0
+    epoch_loss_ctc = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("\ncalc val loss")
@@ -207,21 +300,32 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-
-        lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+        wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label, phoneme_len = batch
+        feat_add = feat_add[:, 0, :].unsqueeze(1)
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device) 
+        phoneme_index, phoneme_len = phoneme_index.to(device), phoneme_len.to(device)
         
         with torch.no_grad():
-            output, feat_add_out = model(lip=lip, data_len=data_len)
+            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
 
         B, C, T = output.shape
         
-        if cfg.train.use_featadd:
+        if cfg.train.use_feat_add:
             loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
+            loss_feat_add = loss_feat_add * cfg.train.feat_add_weight
             epoch_loss_feat_add += loss_feat_add.item()
             wandb.log({"val_iter_loss_feat_add": loss_feat_add})
+        
+        if cfg.train.use_phoneme:
+            phoneme = F.log_softmax(phoneme, dim=1)
+            phoneme = phoneme.permute(2, 0, 1)  # (T, B, C)
+            loss_ctc = loss_f_ctc(phoneme, phoneme_index, data_len, phoneme_len)
+            loss_ctc = loss_ctc * cfg.train.phoneme_weight
+            epoch_loss_ctc += loss_ctc.item()
+            wandb.log({"val_iter_loss_ctc": loss_ctc})
 
         loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
+        loss = loss * cfg.train.mse_weight
         epoch_loss += loss.item()
         wandb.log({"val_iter_loss": loss})
 
@@ -229,20 +333,25 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg):
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], cfg, "mel_validation")
-                    if cfg.train.use_featadd:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation")
+                    check_mel(feature[0], output[0], cfg, "mel_validation", ckpt_time)
+                    if cfg.train.use_feat_add:
+                        check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_validation", ckpt_time)
+                    if cfg.train.use_phoneme:
+                        check_phoneme(phoneme_index[:phoneme_len[0]], phoneme[:, 0, :], cfg, "phoneme_validation", dataset.classes_index, epoch, iter_cnt, ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], cfg, "mel_validation")
-                if cfg.train.use_featadd:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation")
+                check_mel(feature[0], output[0], cfg, "mel_validation", ckpt_time)
+                if cfg.train.use_feat_add:
+                    check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_validation", ckpt_time)
+                if cfg.train.use_phoneme:
+                    check_phoneme(phoneme_index[:phoneme_len[0]], phoneme[:, 0, :], cfg, "phoneme_validation", dataset.classes_index, epoch, iter_cnt, ckpt_time)
             
     epoch_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
-    return epoch_loss, epoch_loss_feat_add
+    epoch_loss_ctc /= iter_cnt
+    return epoch_loss, epoch_loss_feat_add, epoch_loss_ctc
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -285,25 +394,39 @@ def main(cfg):
     print(f"data_root = {data_root}")
     print(f"mean_std_path = {mean_std_path}")
 
+    ckpt_time = None
+    if cfg.train.check_point_start:
+        checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
+        ckpt_time = checkpoint_path.parents[0].name
+
     # check point
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
-    ckpt_path = ckpt_path / lip_or_face / current_time
+    if ckpt_time is not None:
+        ckpt_path = ckpt_path / lip_or_face / ckpt_time
+    else:
+        ckpt_path = ckpt_path / lip_or_face / current_time
     os.makedirs(ckpt_path, exist_ok=True)
 
     # モデルパラメータの保存先を指定
     save_path = Path(cfg.train.save_path).expanduser()
-    save_path = save_path / lip_or_face / current_time
+    if ckpt_time is not None:
+        save_path = save_path / lip_or_face / ckpt_time    
+    else:
+        save_path = save_path / lip_or_face / current_time
     os.makedirs(save_path, exist_ok=True)
 
     # Dataloader作成
-    train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
+    train_loader, val_loader, train_dataset, _ = make_train_val_loader(cfg, data_root, mean_std_path)
 
     # 損失関数
     loss_f = MaskedLoss()
+    loss_f_ctc = nn.CTCLoss(blank=IGNORE_INDEX)
     train_loss_list = []
     train_feat_add_loss_list = []
+    train_ctc_loss_list = []
     val_loss_list = []
     val_feat_add_loss_list = []
+    val_ctc_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
@@ -328,7 +451,7 @@ def main(cfg):
         last_epoch = 0
 
         if cfg.train.check_point_start:
-            checkpoint_path = cfg.train.start_ckpt_path
+            checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
             checkpoint = torch.load(checkpoint_path)
             model.load_state_dict(checkpoint["model"])
             optimizer.load_state_dict(checkpoint["optimizer"])
@@ -348,27 +471,37 @@ def main(cfg):
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
 
             # training
-            train_epoch_loss, train_epoch_loss_feat_add = train_one_epoch(
+            train_epoch_loss, train_epoch_loss_feat_add, train_epoch_loss_ctc = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
                 loss_f=loss_f, 
+                loss_f_ctc=loss_f_ctc,
                 device=device, 
                 cfg=cfg, 
+                dataset=train_dataset,
+                epoch=current_epoch,
+                ckpt_time=ckpt_time,
             )
             train_loss_list.append(train_epoch_loss)
             train_feat_add_loss_list.append(train_epoch_loss_feat_add)
+            train_ctc_loss_list.append(train_epoch_loss_ctc)
 
             # validation
-            val_epoch_loss, val_epoch_loss_feat_add = calc_val_loss(
+            val_epoch_loss, val_epoch_loss_feat_add, val_epoch_loss_ctc = calc_val_loss(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
+                loss_f_ctc=loss_f_ctc,
                 device=device, 
                 cfg=cfg,
+                dataset=train_dataset,
+                epoch=current_epoch,
+                ckpt_time=ckpt_time,
             )
             val_loss_list.append(val_epoch_loss)
             val_feat_add_loss_list.append(val_epoch_loss_feat_add)
+            val_ctc_loss_list.append(val_epoch_loss_ctc)
         
             # 学習率の更新
             scheduler.step()
@@ -386,6 +519,7 @@ def main(cfg):
             # save loss
             save_loss(train_loss_list, val_loss_list, save_path, "loss")
             save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
+            save_loss(train_ctc_loss_list, val_ctc_loss_list, save_path, "loss_ctc")
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"
