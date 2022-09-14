@@ -50,16 +50,15 @@ import random
 from functools import partial
 from librosa.display import specshow
 
-# pytorch
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
+from timm.scheduler import CosineLRScheduler
 
-# 自作
 from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets, collate_time_adjust
-from model.models_remake import Lip2SP
+from model.model_default import Lip2SP
 from loss import MaskedLoss
 
 # wandbへのログイン
@@ -72,6 +71,7 @@ np.random.seed(777)
 torch.manual_seed(777)
 torch.cuda.manual_seed_all(777)
 random.seed(777)
+
 
 def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
 	torch.save({
@@ -113,8 +113,9 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
     # パスを取得
     data_path = get_datasets(
         data_root=data_root,
-        name=cfg.model.name,
+        cfg=cfg,
     )
+    data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     train_size = int(n_samples * 0.95)
     train_data_path = data_path[:train_size]
@@ -131,19 +132,19 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
     )
 
     # dataset作成
+    print("\n--- make train dataset ---")
     train_dataset = KablabDataset(
         data_path=train_data_path,
         mean_std_path = mean_std_path,
         transform=train_trans,
         cfg=cfg,
-        test=False,
     )
+    print("\n--- make validation dataset ---")
     val_dataset = KablabDataset(
         data_path=val_data_path,
         mean_std_path=mean_std_path,
         transform=val_trans,
         cfg=cfg,
-        test=False,
     )
 
     # それぞれのdata loaderを作成
@@ -174,6 +175,7 @@ def make_model(cfg, device):
         out_channels=cfg.model.out_channels,
         res_layers=cfg.model.res_layers,
         res_inner_channels=cfg.model.res_inner_channels,
+        norm_type=cfg.model.norm_type,
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
@@ -206,7 +208,7 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def check_mel(target, output, dec_output, cfg, filename):
+def check_mel(target, output, dec_output, cfg, filename, ckpt_time=None):
     target = target.to('cpu').detach().numpy().copy()
     output = output.to('cpu').detach().numpy().copy()
     dec_output = dec_output.to('cpu').detach().numpy().copy()
@@ -262,7 +264,10 @@ def check_mel(target, output, dec_output, cfg, filename):
 
     plt.tight_layout()
     save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
-    save_path = save_path / cfg.train.name / current_time
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
@@ -305,7 +310,7 @@ def check_feat_add(target, output, cfg, filename, ckpt_time=None):
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_loss_feat_add = 0
@@ -335,16 +340,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
             loss_feat_add.backward(retain_graph=True)
             epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"train_iter_loss_feat_add": loss_feat_add})
+            wandb.log({"train_loss_feat_add": loss_feat_add})
 
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
         epoch_output_loss += output_loss.item()
-        wandb.log({"train_iter_output_loss": output_loss})
+        wandb.log({"train_output_loss": output_loss})
         output_loss.backward(retain_graph=True)
 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
         epoch_dec_output_loss += dec_output_loss.item()
-        wandb.log({"train_iter_dec_output_loss": dec_output_loss})
+        wandb.log({"train_dec_output_loss": dec_output_loss})
         dec_output_loss.backward()
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
@@ -356,16 +361,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], dec_output[0], cfg, "mel_train")
+                    check_mel(feature[0], output[0], dec_output[0], cfg, "mel_train", ckpt_time)
                     if cfg.train.multi_task:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train")
+                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], dec_output[0], cfg, "mel_train")
+                check_mel(feature[0], output[0], dec_output[0], cfg, "mel_train", ckpt_time)
                 if cfg.train.multi_task:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train")
+                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
 
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
@@ -373,7 +378,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add
 
 
-def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob):
+def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_loss_feat_add = 0
@@ -402,30 +407,30 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         if cfg.train.multi_task:
             loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
             epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"val_iter_loss_feat_add": loss_feat_add})
+            wandb.log({"val_loss_feat_add": loss_feat_add})
 
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
         epoch_output_loss += output_loss.item()
-        wandb.log({"val_iter_output_loss": output_loss})
+        wandb.log({"val_output_loss": output_loss})
 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
         epoch_dec_output_loss += dec_output_loss.item()
-        wandb.log({"val_iter_dec_output_loss": dec_output_loss})
+        wandb.log({"val_dec_output_loss": dec_output_loss})
 
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], dec_output[0], cfg, "mel_validation")
+                    check_mel(feature[0], output[0], dec_output[0], cfg, "mel_validation", ckpt_time)
                     if cfg.train.multi_task:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation")
+                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], dec_output[0], cfg, "mel_validation")
+                check_mel(feature[0], output[0], dec_output[0], cfg, "mel_validation", ckpt_time)
                 if cfg.train.multi_task:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation")
+                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", ckpt_time)
             
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
@@ -448,8 +453,47 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
+def get_path(cfg):
+    # data
+    if cfg.train.face_or_lip == "face":
+        data_root = cfg.train.face_pre_loaded_path
+        mean_std_path = cfg.train.face_mean_std_path
+    elif cfg.train.face_or_lip == "lip":
+        data_root = cfg.train.lip_pre_loaded_path
+        mean_std_path = cfg.train.lip_mean_std_path
+    data_root = Path(data_root).expanduser()
+    mean_std_path = Path(mean_std_path).expanduser()
+
+    ckpt_time = None
+    if cfg.train.check_point_start:
+        checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
+        ckpt_time = checkpoint_path.parents[0].name
+
+    # check point
+    ckpt_path = Path(cfg.train.ckpt_path).expanduser()
+    if ckpt_time is not None:
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
+    else:
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
+    os.makedirs(ckpt_path, exist_ok=True)
+
+    # save
+    save_path = Path(cfg.train.save_path).expanduser()
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
+    else:
+        save_path = save_path / cfg.train.face_or_lip / current_time
+    os.makedirs(save_path, exist_ok=True)
+
+    return data_root, mean_std_path, ckpt_path, save_path, ckpt_time
+
+
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
+    if cfg.train.debug:
+        cfg.train.batch_size = 4
+        cfg.train.num_workers = 4
+        
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
@@ -462,40 +506,13 @@ def main(cfg):
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
 
-    # 口唇動画か顔かの選択
-    lip_or_face = cfg.train.face_or_lip
-    if lip_or_face == "face":
-        data_root = cfg.train.face_pre_loaded_path
-        mean_std_path = cfg.train.face_mean_std_path
-    elif lip_or_face == "lip":
-        data_root = cfg.train.lip_pre_loaded_path
-        mean_std_path = cfg.train.lip_mean_std_path
-    elif lip_or_face == "lip_128128":
-        data_root = cfg.train.lip_pre_loaded_path_128128
-        mean_std_path = cfg.train.lip_mean_std_path_128128
-    elif lip_or_face == "lip_9696":
-        data_root = cfg.train.lip_pre_loaded_path_9696
-        mean_std_path = cfg.train.lip_mean_std_path_9696
-    elif lip_or_face == "lip_9696_time_only":
-        data_root = cfg.train.lip_pre_loaded_path_9696_time_only
-        mean_std_path = cfg.train.lip_mean_std_path_9696_time_only
-    
-    data_root = Path(data_root).expanduser()
-    mean_std_path = Path(mean_std_path).expanduser()
-
+    # path
+    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path(cfg)
     print("\n--- data directory check ---")
     print(f"data_root = {data_root}")
     print(f"mean_std_path = {mean_std_path}")
-
-    # check point
-    ckpt_path = Path(cfg.train.ckpt_path).expanduser()
-    ckpt_path = ckpt_path / lip_or_face / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
-
-    # モデルパラメータの保存先を指定
-    save_path = Path(cfg.train.save_path).expanduser()
-    save_path = save_path / lip_or_face / current_time
-    os.makedirs(save_path, exist_ok=True)
+    print(f"ckpt_path = {ckpt_path}")
+    print(f"save_path = {save_path}")
 
     # Dataloader作成
     train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
@@ -528,6 +545,14 @@ def main(cfg):
             milestones=cfg.train.multi_lr_decay_step,
             gamma=cfg.train.lr_decay_rate,
         )
+        # scheduler = CosineLRScheduler(
+        #     optimizer, 
+        #     t_initial=cfg.train.max_epoch, 
+        #     lr_min=cfg.train.lr / 10, 
+        #     warmup_t=cfg.train.warmup_t, 
+        #     warmup_lr_init=cfg.train.warmup_lr_init, 
+        #     warmup_prefix=True,
+        # )
 
         last_epoch = 0
 
@@ -545,10 +570,9 @@ def main(cfg):
             last_epoch = checkpoint["epoch"]
 
         wandb.watch(model, **cfg.wandb_conf.watch)
-        wandb.watch(loss_f, **cfg.wandb_conf.watch)
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
-            current_epoch = epoch + last_epoch
+            current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
 
             # 学習方法の変更
@@ -585,6 +609,7 @@ def main(cfg):
                 training_method=training_method,
                 mixing_prob=mixing_prob,
                 epoch=current_epoch,
+                ckpt_time=ckpt_time,
             )
             train_output_loss_list.append(train_epoch_loss_output)
             train_dec_output_loss_list.append(train_epoch_loss_dec_output)
@@ -599,6 +624,7 @@ def main(cfg):
                 cfg=cfg,
                 training_method=training_method,
                 mixing_prob=mixing_prob,
+                ckpt_time=ckpt_time,
             )
             val_output_loss_list.append(val_epoch_loss_output)
             val_dec_output_loss_list.append(val_epoch_loss_dec_output)

@@ -25,7 +25,7 @@ from torch.autograd import detect_anomaly
 # 自作
 from model.dataset_npz import KablabDataset, KablabTransform, KablabTransform_val,  MySubset, collate_fn_padding
 from model.enhancer import Enhancer1D, Enhancer2D
-from model.models_remake import Lip2SP
+from model.model_default import Lip2SP
 from loss import MaskedLoss
 from train_default import make_train_val_loader, make_model
 

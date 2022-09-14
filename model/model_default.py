@@ -39,7 +39,7 @@ except:
 
 class Lip2SP(nn.Module):
     def __init__(
-        self, in_channels, out_channels, res_layers, res_inner_channels,
+        self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
         d_model, n_layers, n_head, dec_n_layers, dec_d_model, conformer_conv_kernel_size,
         glu_inner_channels, glu_layers, glu_kernel_size,
         feat_add_channels, feat_add_layers,
@@ -66,6 +66,7 @@ class Lip2SP(nn.Module):
             inner_channels=res_inner_channels,
             layers=res_layers, 
             dropout=res_dropout,
+            norm_type=norm_type,
         )
 
         # encoder

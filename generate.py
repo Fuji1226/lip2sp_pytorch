@@ -41,10 +41,11 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 random.seed(0)
 
+
 def make_test_loader(cfg, data_root, mean_std_path):
     test_data_path = get_datasets(
         data_root=data_root,
-        name=cfg.model.name,
+        cfg=cfg,
     )
     test_trans = KablabTransform(
         cfg=cfg,
@@ -55,7 +56,6 @@ def make_test_loader(cfg, data_root, mean_std_path):
         mean_std_path = mean_std_path,
         transform=test_trans,
         cfg=cfg,
-        test=False,     # Falseで
     )
     test_loader = DataLoader(
         dataset=test_dataset,
@@ -78,38 +78,24 @@ def get_path(cfg, model_path):
         train_data_root = cfg.train.lip_pre_loaded_path
         test_data_root = cfg.test.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
-    if cfg.test.face_or_lip == "lip_128128":
-        train_data_root = cfg.train.lip_pre_loaded_path_128128
-        test_data_root = cfg.test.lip_pre_loaded_path_128128
-        mean_std_path = cfg.train.lip_mean_std_path_128128
-    if cfg.test.face_or_lip == "lip_9696":
-        train_data_root = cfg.train.lip_pre_loaded_path_9696
-        test_data_root = cfg.test.lip_pre_loaded_path_9696
-        mean_std_path = cfg.train.lip_mean_std_path_9696
-    if cfg.test.face_or_lip == "lip_9696_time_only":
-        train_data_root = cfg.train.lip_pre_loaded_path_9696_time_only
-        test_data_root = cfg.test.lip_pre_loaded_path_9696_time_only
-        gen_data_root = cfg.test.gen_pre_loaded_path
-        mean_std_path = cfg.train.lip_mean_std_path_9696_time_only
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
-    gen_data_root = Path(gen_data_root).expanduser()
     mean_std_path = Path(mean_std_path).expanduser()
-    data_root_list = [train_data_root, test_data_root, gen_data_root]
 
     save_path = Path(cfg.test.save_path).expanduser()
     save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
     train_save_path = save_path / "train_data" / "audio"
     test_save_path = save_path / "test_data" / "audio"
-    gen_save_path = save_path / "gen_data" / "audio"
     os.makedirs(train_save_path, exist_ok=True)
     os.makedirs(test_save_path, exist_ok=True)
-    os.makedirs(gen_save_path, exist_ok=True)
-    save_path_list = [train_save_path, test_save_path, gen_save_path]
 
-    data_root_list = [train_data_root, test_data_root, gen_data_root]
-    save_path_list = [train_save_path, test_save_path, gen_save_path]
+    # data_root_list = [test_data_root, train_data_root]
+    # save_path_list = [test_save_path, train_save_path]
+
+    data_root_list = [test_data_root]
+    save_path_list = [test_save_path]
+    
     print(data_root_list, save_path_list)
 
     return data_root_list, mean_std_path, save_path_list
@@ -171,7 +157,7 @@ def main(cfg):
 
     model = make_model(cfg, device)
 
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip_9696_time_only/2022:08:21_14-06-39/mspec80_300.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:09:04_11-57-49/mspec80_300.ckpt")
 
     if model_path.suffix == ".ckpt":
         try:

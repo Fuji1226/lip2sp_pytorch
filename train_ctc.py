@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 import torchmetrics
 
 from loss import MaskedLoss
-from train_default import check_feat_add
+from train_default import check_feat_add, save_loss
 from dataset.dataset_lipreading import LipReadingDataset, LipReadingTransform, collate_time_adjust_ctc, get_data_simultaneously
 from data_process.phoneme_encode import IGNORE_INDEX, get_classes_ctc, get_keys_from_value
 from train_nar import make_model
@@ -50,26 +50,6 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
         'cuda_random' : torch.cuda.get_rng_state(),
         'epoch': epoch
     }, ckpt_path)
-
-
-def save_loss(train_loss_list, val_loss_list, save_path, filename):
-    loss_save_path = save_path / f"{filename}.png"
-    plt.figure()
-    plt.plot(np.arange(len(train_loss_list)), train_loss_list)
-    plt.plot(np.arange(len(train_loss_list)), val_loss_list)
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.legend(["train loss", "validation loss"])
-    plt.grid()
-    plt.savefig(str(loss_save_path))
-    plt.close("all")
-    wandb.log({f"loss {filename}": wandb.plot.line_series(
-        xs=np.arange(len(train_loss_list)), 
-        ys=[train_loss_list, val_loss_list],
-        keys=["train loss", "validation loss"],
-        title=f"{filename}",
-        xname="epoch",
-    )})
 
 
 def make_train_val_loader(cfg, data_root, mean_std_path):

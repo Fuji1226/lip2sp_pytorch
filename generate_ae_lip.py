@@ -1,6 +1,6 @@
 import hydra
 
-import sys
+from pathlib import Path
 import os
 from pathlib import Path
 from datetime import datetime
@@ -10,60 +10,23 @@ import time
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import DataLoader
 
-from dataset.dataset_lipreading import LipReadingDataset, LipReadingTransform, collate_time_adjust_ctc, get_data_simultaneously
-from data_process.phoneme_encode import IGNORE_INDEX, get_classes_ctc, get_keys_from_value
-from generate import get_path
-from train_nar import make_model
 from data_check import save_data
+from train_ae_audio import make_model
+from generate import make_test_loader, get_path
 from calc_accuracy import calc_accuracy
+from dataset.dataset_npz import get_datasets
+
+# 現在時刻を取得
+current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
+
+np.random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+random.seed(0)
 
 
-def make_test_loader(cfg, data_root, mean_std_path):
-    # classesを取得するために一旦学習用データを読み込む
-    data_path = get_data_simultaneously(
-        data_root=data_root,
-        name=cfg.model.name,
-    )
-    classes = get_classes_ctc(data_path) 
-
-    # テストデータを取得
-    test_data_path = get_data_simultaneously(
-        data_root=data_root,
-        name=cfg.model.name,
-    )
-
-    # transform
-    test_trans = LipReadingTransform(
-        cfg=cfg,
-        train_val_test="test",
-    )
-
-    # dataset
-    test_dataset = LipReadingDataset(
-        data_path=test_data_path,
-        mean_std_path = mean_std_path,
-        transform=test_trans,
-        cfg=cfg,
-        test=False,
-        classes=classes,
-    )
-
-    # dataloader
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def generate(cfg, model, test_loader, dataset, device, save_path):
+def generate(cfg, model, test_loader, dataset, device, save_path, ref_loader):
     model.eval()
 
     lip_mean = dataset.lip_mean.to(device)
@@ -77,14 +40,18 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
     iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label = batch
+        wav, lip, feature, feat_add, upsample, data_len, speaker, label = batch
         feat_add = feat_add[:, 0, :].unsqueeze(1)
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device) 
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+
+        # speaker embeddingのために使用する音響特徴量
+        _, _, feature_ref, _, _, _, _, _ = ref_loader.next()
+        feature_ref = feature_ref.to(device)
 
         start_time = time.time()
 
         with torch.no_grad():
-            output, feat_add_out, phoneme = model(lip=lip)
+            output, feat_add_out, phoneme, spk_emb, enc_output = model(lip=lip, feature_ref=feature_ref)
 
         end_time = time.time()
         process_time = end_time - start_time
@@ -110,7 +77,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         iter_cnt += 1
         if iter_cnt == 53:
             break
-        
+
     return process_times
 
 
@@ -118,10 +85,9 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
-    
-    model = make_model(cfg, device)
 
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:25_17-04-10/mspec80_300.ckpt")
+    model = make_model(cfg, device)
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/ae/lip/2022:09:10_09-24-50/mspec80_100.ckpt") 
     
     if model_path.suffix == ".ckpt":
         try:
@@ -136,7 +102,16 @@ def main(cfg):
 
     data_root_list, mean_std_path, save_path_list = get_path(cfg, model_path)
 
-    for data_root, save_path in zip(data_root_list[:-1], save_path_list[:-1]):
+    ref_data_root = Path(cfg.train.lip_pre_loaded_path_9696_time_only).expanduser()
+    ref_mean_std_path = Path(cfg.train.lip_mean_std_path_9696_time_only).expanduser()
+    ref_loader, ref_dataset = make_test_loader(cfg, ref_data_root, ref_mean_std_path)
+    ref_loader = iter(ref_loader)
+
+    # 同じ発話内容のものを使いたくないので適当に取り出しておく
+    for _ in range(100):
+        _ = ref_loader.next()
+
+    for data_root, save_path in zip(data_root_list, save_path_list):
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
         print("--- generate ---")
@@ -147,11 +122,12 @@ def main(cfg):
             dataset=test_dataset,
             device=device,
             save_path=save_path,
+            ref_loader=ref_loader,
         )
 
         print("--- calc accuracy ---")
         calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
-
+        
 
 if __name__ == "__main__":
     main()

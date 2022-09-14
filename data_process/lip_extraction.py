@@ -52,7 +52,6 @@ txt_path = "/users/minami/dataset/lip/cropped_error_data.txt"
 
 # 口唇のランドマーク検出
 def Lip_Cropping(frame, det):
-    im_size = (96, 128)
     predicter_Path = "/users/minami/documents/python/lip2sp_pytorch/shape_predictor_68_face_landmarks.dat"     # 変えてください
     predictor = dlib.shape_predictor(predicter_Path)
     shape = predictor(frame, det)
@@ -65,14 +64,19 @@ def Lip_Cropping(frame, det):
     # 平均を中心とする
     mouth_center = np.mean(shapes, axis=0).astype('int')
 
-    # mouth_centerを中心に、im_sizeの大きさにする
-    mouth_area = [mouth_center[1]-im_size[0]//2,
-                  mouth_center[1]+im_size[0]//2,
-                  mouth_center[0]-im_size[1]//2,
-                  mouth_center[0]+im_size[1]//2]
-    
-    # 切り取り
-    # mouth = frame[mouth_area[0]:mouth_area[1], mouth_area[2]:mouth_area[3]]
+    # 口唇部分のランドマークの左端と右端から切り取り範囲を決定
+    left_point = shapes[0]
+    right_point = shapes[6]
+    size = right_point[0] - left_point[0] + 10
+
+    # mouth_centerを中心に切り取り
+    mouth_area = [
+        mouth_center[1] - size//2,
+        mouth_center[1] + size//2,
+        mouth_center[0] - size//2,
+        mouth_center[0] + size//2
+    ]
+    im_size = (size, size)
     return im_size, mouth_area
 
 

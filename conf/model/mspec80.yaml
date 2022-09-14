@@ -52,6 +52,7 @@ in_channels : 5
 # ResNet3D parameter
 res_layers : 3
 res_inner_channels : 128
+norm_type_lip : "bn"
 
 # glu parameter
 glu_layers : 4    # 4 or 6
@@ -72,7 +73,7 @@ tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
 tc_inner_channels : 128
 tc_kernel_size : 5
 tc_feat_add_channels : 1
-tc_feat_add_layers : 1
+tc_feat_add_layers : 2
 
 # conformer parameter
 conformer_conv_kernel_size : 31   # 7, 15 or 31
@@ -84,6 +85,17 @@ which_encoder : "transformer"
 # 自己回帰 : "transformer" or "glu"
 # 非自己回帰 : "simple_tc", "gated_tc" or "res_tc"
 which_decoder : "res_tc"
+
+# audio encoder
+ae_emb_dim : 8
+vae_emb_dim : 64
+vq_emb_dim : 64
+vq_num_emb : 256    
+spk_emb_dim : 256
+norm_type_audio : "in"
+
+# mutual information
+mi_hidden_channels : 256
 
 # discriminator
 which_d : "jcu"

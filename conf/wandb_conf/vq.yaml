@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_vq
+    entity:
+    mode: online
+    name : vq
+watch:
+    log: all
+    log_freq: 100

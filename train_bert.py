@@ -24,7 +24,7 @@ from torch.autograd import detect_anomaly
 
 # 自作
 from model.dataset_bert import BertDataset, BertTransform, MySubset
-from model.models_remake import Lip2SP
+from model.model_default import Lip2SP
 from loss import MaskedLoss
 
 # wandbへのログイン

@@ -1,6 +1,6 @@
 ---
 
-name : "nar"
+name : "vq"
 
 # デバッグ
 debug : True
@@ -10,7 +10,7 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:25_17-04-10/mspec80_240.ckpt"
+start_ckpt_path : 
 
 # face or lip
 face_or_lip : "lip"
@@ -20,10 +20,10 @@ lip_path : "~/dataset/lip/lip_cropped"
 face_path : "~/dataset/lip/cropped"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/nar/train"
+save_path : "~/lip2sp_pytorch/result/vq/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/nar"
+ckpt_path : "~/lip2sp_pytorch/check_point/vq"
 ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
@@ -35,11 +35,13 @@ lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
 # 使用する話者
-speaker : ["M01_kablab", "F01_kablab"]
-use_gc : False
+speaker : ["F01_kablab", "M01_kablab",]
+
+# 口唇動画を使用した学習時にロードする事前学習済みモデルまでのパス
+model_path : "~/lip2sp_pytorch/check_point/vq/lip/2022:09:06_17-17-28/mspec80_300.ckpt"
 
 # max_epoch
-max_epoch : 300
+max_epoch : 600
 
 # validation lossを計算する間隔
 display_val_loss_step : 1
@@ -55,6 +57,9 @@ use_rotation : False
 use_time_augment : False
 time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
+# global condition
+use_gc : False
+
 # dataloader
 batch_size : 32
 num_workers : 32
@@ -66,9 +71,11 @@ res_dropout : 0.1
 # optimizer
 lr : 0.001
 lr_lf : 0.0001
+lr_mi : 0.0003
 beta_1 : 0.9
 beta_2 : 0.999
 weight_decay : 1.0e-6
+weight_decay_mi : 0
 
 # scheduler
 lr_decay_rate : 0.5
@@ -76,6 +83,7 @@ lr_decay_step : 4   # max_epoch // lr_decay_stepでlr_decay_rate倍に学習率�
 multi_lr_decay_step : [200,]   # 学習率を変更するepoch
 warmup_t : 20
 warmup_lr_init : 1.0e-5
+cosine_T_max : 10
 
 # gradient clipping
 max_norm : 3.0
@@ -92,8 +100,10 @@ apply_first_bn : False
 
 # lossの重みづけ
 mse_weight : 1.0
-feat_add_weight : 0.1
+feat_add_weight : 1.0
 phoneme_weight : 0.1
+mi_weight : 0.1
+classifier_weight : 0
 
 # multi task
 use_feat_add : False

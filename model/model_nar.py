@@ -1,11 +1,7 @@
-"""
-非自己回帰のモデル
-GANをやるなら自己回帰はあってなさそうなので作成
-"""
-import os
 import sys
 from pathlib import Path
-sys.path.append(Path("~/lip2sp_pytorch/model").expanduser())
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch/model").expanduser()))
 
 import torch
 import torch.nn as nn
@@ -15,21 +11,27 @@ try:
     from model.net import ResNet3D
     from model.transformer_remake import Encoder
     from model.conformer.encoder import ConformerEncoder
+    from model.audio_enc import SpeakerEncoder, ContentEncoder
     from model.nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
+    from model.vq import VQ
 except:
     from .net import ResNet3D
     from .transformer_remake import Encoder
     from .conformer.encoder import ConformerEncoder
+    from .audio_enc import SpeakerEncoder, ContentEncoder
     from .nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
+    from .vq import VQ
 
 
 class Lip2SP_NAR(nn.Module):
     def __init__(
-        self, in_channels, out_channels, res_layers, res_inner_channels,
+        self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
         d_model, n_layers, n_head, conformer_conv_kernel_size,
         dec_n_layers, dec_inner_channels, dec_kernel_size,
         feat_add_channels, feat_add_layers, 
-        which_encoder, which_decoder, apply_first_bn, use_feat_add, phoneme_classes, use_phoneme,
+        n_speaker, spk_emb_dim,
+        which_encoder, which_decoder, apply_first_bn, use_feat_add, phoneme_classes, use_phoneme, 
+        upsample_method, compress_rate,
         dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
         super().__init__()
 
@@ -39,9 +41,9 @@ class Lip2SP_NAR(nn.Module):
         self.apply_first_bn = apply_first_bn
         self.reduction_factor = reduction_factor
         self.out_channels = out_channels
+        self.use_gc = use_gc
 
-        if apply_first_bn:
-            self.first_batch_norm = nn.BatchNorm3d(in_channels)
+        self.first_batch_norm = nn.BatchNorm3d(in_channels)
 
         self.ResNet_GAP = ResNet3D(
             in_channels=in_channels, 
@@ -49,6 +51,7 @@ class Lip2SP_NAR(nn.Module):
             inner_channels=res_inner_channels,
             layers=res_layers, 
             dropout=res_dropout,
+            norm_type=norm_type,
         )
 
         # encoder
@@ -67,6 +70,8 @@ class Lip2SP_NAR(nn.Module):
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
             )
+
+        self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
 
         # decoder
         if self.which_decoder == "simple_tc":
@@ -100,20 +105,36 @@ class Lip2SP_NAR(nn.Module):
                 use_feat_add=use_feat_add,
                 phoneme_classes=phoneme_classes,
                 use_phoneme=use_phoneme,
+                spk_emb_dim=spk_emb_dim,
+                upsample_method=upsample_method,
+                compress_rate=compress_rate,
             )
 
-    def forward(self, lip, data_len=None, gc=None):
+    def forward(self, lip=None, feature=None, data_len=None, gc=None):
+        output = feat_add_out = phoneme = None
+
         # resnet
         if self.apply_first_bn:
             lip = self.first_batch_norm(lip)
         lip_feature = self.ResNet_GAP(lip)
         
         # encoder
-        if self.which_encoder == "transformer":
-            enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
-        elif self.which_encoder == "conformer":
-            enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
+        enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
+
+        # speaker embedding
+        if gc is not None:
+            spk_emb = self.emb_layer(gc)
+        else:
+            spk_emb = None
 
         # decoder
-        output, feat_add, phoneme = self.decoder(enc_output)
-        return output, feat_add, phoneme
+        output, feat_add_out, phoneme = self.decoder(enc_output, spk_emb=spk_emb)
+        
+        return output, feat_add_out, phoneme
+
+
+if __name__ == "__main__":
+    emb_layer = nn.Embedding(2, 10)
+    speaker = torch.tensor([1, 0, 1, 1, 0, 1]).to(torch.long)   # speakerは(B,)にしとく (B,) -> (B, C)
+    spk_emb = emb_layer(speaker)
+    breakpoint()

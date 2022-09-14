@@ -1,17 +1,19 @@
 """
 口唇部分の切り抜きをおこなった後,croppedからwavだけコピーするために使用する
-norm.wavがよくわからないので,そこは無視して普通のwavだけをコピーしてます
-
-使用するときはaudio_path(wavファイルがあるディレクトリ)とsave_pathを変更してください
+F01_kablabについて,norm.wavがよくわからないので,そこは無視して普通のwavだけをコピーしてます
+使用時はspeakerを変更してください
 """
 
 import shutil
 import os
 from pathlib import Path
+from tqdm import tqdm
 
 def main():
-    audio_path = "/home/usr4/r70264c/dataset/lip/cropped/F01_kablab"
-    save_path = "/home/usr4/r70264c/dataset/lip/lip_cropped/F01_kablab"
+    speaker = "M04_kablab"
+    audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
+    save_path = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
+    print(f"speaker = {speaker}")
     wavs = []
     for curdir, dirs, files in os.walk(audio_path):
         for file in files:
@@ -22,7 +24,7 @@ def main():
                 else:
                     wavs.append(os.path.join(curdir, file))
 
-    for i in range(len(wavs)):
+    for i in tqdm(range(len(wavs))):
         shutil.copy(wavs[i], save_path)
 
 

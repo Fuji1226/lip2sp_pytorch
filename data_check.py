@@ -528,12 +528,10 @@ def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip
     )
 
     # サンプル数を合わせるための微調整
-    if wav.shape[0] > wav_AbS.shape[0]:
-        wav = wav[:wav_AbS.shape[0]]
-    else:
-        wav_AbS = wav_AbS[:wav.shape[0]]
-        wav_gen = wav_gen[:wav.shape[0]]
-        
+    n_sample = min(wav.shape[0], wav_AbS.shape[0], wav_gen.shape[0])
+    wav = wav[:n_sample]
+    wav_AbS = wav_AbS[:n_sample]
+    wav_gen = wav_gen[:n_sample]
     assert wav.shape[0] == wav_AbS.shape[0] == wav_gen.shape[0]
 
     # 音声波形，音響特徴量のプロット

@@ -45,7 +45,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         start_time = time.time()
 
         with torch.no_grad():
-            output, feat_add_out = model(lip=lip, data_len=data_len)
+            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
 
         end_time = time.time()
         process_time = end_time - start_time
@@ -69,8 +69,8 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         )
 
         iter_cnt += 1
-        if iter_cnt == 53:
-            break
+        # if iter_cnt == 53:
+        #     break
         
     return process_times
 
@@ -82,7 +82,9 @@ def main(cfg):
 
     model = make_model(cfg, device)
 
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/gan/lip_9696_time_only/2022:08:24_14-46-17/mspec80_50.ckpt")
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:13_22-01-44/mspec80_300.ckpt")     # M01_kablab
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:12_22-54-07/mspec80_300.ckpt")     # F01_kablab
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:13_23-49-41/mspec80_300.ckpt")     # both
     
     if model_path.suffix == ".ckpt":
         try:

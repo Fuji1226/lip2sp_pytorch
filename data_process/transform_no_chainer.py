@@ -6,6 +6,7 @@ make_npz.pyを実行するとここの処理が行われます
 import os
 import sys
 from pathlib import Path
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 sys.path.append(str(Path("~/lip2sp_pytorch/data_process").expanduser()))
 
 from pathlib import Path

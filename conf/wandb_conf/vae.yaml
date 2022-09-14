@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_vae
+    entity:
+    mode: online
+    name : vae
+watch:
+    log: all
+    log_freq: 100

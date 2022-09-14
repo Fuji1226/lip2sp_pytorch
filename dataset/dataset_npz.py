@@ -21,26 +21,40 @@ from torchvision import transforms as T
 from torch.utils.data import Dataset, DataLoader
 
 
-def get_datasets(data_root, name):    
+def get_datasets(data_root, cfg):    
     """
     npzファイルのパス取得
     """
+    print("\n--- get datasets ---")
     items = []
-    for curdir, dir, files in os.walk(data_root):
-        for file in files:
-            if file.endswith(".npz"):
-                # mspecかworldかの分岐
-                if f"{name}" in Path(file).stem:
-                    data_path = os.path.join(curdir, file)
-                    if os.path.isfile(data_path):
-                        items.append(data_path)
+    for speaker in cfg.train.speaker:
+        print(f"load {speaker}")
+        spk_path = data_root / speaker
+        spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
+        items += spk_path
     return items
 
 
-def load_mean_std(mean_std_path, name, test):
+def get_speaker_idx(data_path):
+    print("\nget speaker idx")
+    speaker_idx = {}
+    idx = 0
+    for path in sorted(data_path):
+        speaker = path.parents[0].name
+        if speaker in speaker_idx:
+            continue
+        else:
+            speaker_idx[speaker] = idx
+            idx += 1
+    print(f"speaker_idx = {speaker_idx}")
+    return speaker_idx
+
+
+def load_mean_std(mean_std_path, cfg):
     """
     一応複数話者の場合は全話者の平均にできるようにやってみました
     """
+    print("\nload mean std")
     each_lip_mean = []
     each_lip_std = []
     each_feat_mean = []
@@ -48,31 +62,17 @@ def load_mean_std(mean_std_path, name, test):
     each_feat_add_mean = []
     each_feat_add_std = []
 
-    # 話者ごとにリスト
-    for curdir, dirs, files in os.walk(mean_std_path):
-        for file in files:
-            if file.endswith('.npz'):
-                if f"{name}" in Path(file).stem:
-                    if test:
-                        if f"test" in Path(file).stem:
-                            npz_key = np.load(os.path.join(curdir, file))
-                            each_lip_mean.append(torch.from_numpy(npz_key['lip_mean']))
-                            each_lip_std.append(torch.from_numpy(npz_key['lip_std']))
-                            each_feat_mean.append(torch.from_numpy(npz_key['feat_mean']))
-                            each_feat_std.append(torch.from_numpy(npz_key['feat_std']))
-                            each_feat_add_mean.append(torch.from_numpy(npz_key['feat_add_mean']))
-                            each_feat_add_std.append(torch.from_numpy(npz_key['feat_add_std']))
-                    else:
-                        if f"train" in Path(file).stem:
-                            npz_key = np.load(os.path.join(curdir, file))
-                            each_lip_mean.append(torch.from_numpy(npz_key['lip_mean']))
-                            each_lip_std.append(torch.from_numpy(npz_key['lip_std']))
-                            each_feat_mean.append(torch.from_numpy(npz_key['feat_mean']))
-                            each_feat_std.append(torch.from_numpy(npz_key['feat_std']))
-                            each_feat_add_mean.append(torch.from_numpy(npz_key['feat_add_mean']))
-                            each_feat_add_std.append(torch.from_numpy(npz_key['feat_add_std']))
+    for speaker in cfg.train.speaker:
+        print(f"load {speaker}")
+        spk_path = mean_std_path / speaker / f"train_{cfg.model.name}.npz"
+        npz_key = np.load(str(spk_path))
+        each_lip_mean.append(torch.from_numpy(npz_key['lip_mean']))
+        each_lip_std.append(torch.from_numpy(npz_key['lip_std']))
+        each_feat_mean.append(torch.from_numpy(npz_key['feat_mean']))
+        each_feat_std.append(torch.from_numpy(npz_key['feat_std']))
+        each_feat_add_mean.append(torch.from_numpy(npz_key['feat_add_mean']))
+        each_feat_add_std.append(torch.from_numpy(npz_key['feat_add_std']))
 
-    # 話者人数で割って平均
     lip_mean = sum(each_lip_mean) / len(each_lip_mean)
     lip_std = sum(each_lip_std) / len(each_lip_std)
     feat_mean = sum(each_feat_mean) / len(each_feat_mean)
@@ -84,22 +84,22 @@ def load_mean_std(mean_std_path, name, test):
 
 
 class KablabDataset(Dataset):
-    def __init__(self, data_path, mean_std_path, transform, cfg, test):
+    def __init__(self, data_path, mean_std_path, transform, cfg):
         super().__init__()
         self.data_path = data_path
         self.transform = transform
-        self.test = test
-        
-        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, cfg.model.name, test)
 
+        self.speaker_idx = get_speaker_idx(data_path)
+        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, cfg)
         print(f"n = {self.__len__()}")
     
     def __len__(self):
         return len(self.data_path)
 
     def __getitem__(self, index):
-        data_path = Path(self.data_path[index])
+        data_path = self.data_path[index]
         speaker = data_path.parents[0].name
+        speaker = torch.tensor(self.speaker_idx[speaker])
         label = data_path.stem
 
         npz_key = np.load(str(data_path))
@@ -145,7 +145,7 @@ class KablabTransform:
         self.color_jitter = T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2)
         self.blur = T.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 5)) 
         self.horizontal_flip = T.RandomHorizontalFlip(p=0.5)
-        self.rotation = T.RandomRotation(degrees=(0, 10))
+        self.rotation = T.RandomRotation(degrees=(-10, 10))
         self.pad = T.RandomCrop(size=(48, 48), padding=4)
         self.cfg = cfg
         self.train_val_test = train_val_test
@@ -176,6 +176,7 @@ class KablabTransform:
     def normalization(self, lip, feature, feat_add, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
         """
         標準化
+        lip : (C, H, W, T)
         feature, feat_add : (C, T)
         """
         lip_mean = lip_mean.unsqueeze(-1)
@@ -188,7 +189,6 @@ class KablabTransform:
         lip = (lip -lip_mean) / lip_std        
         feature = (feature - feat_mean) / feat_std
         feat_add = (feat_add - feat_add_mean) / feat_add_std
-
         return lip, feature, feat_add
 
     def calc_delta(self, lip):
@@ -326,6 +326,7 @@ def collate_time_adjust(batch, cfg):
     feature = torch.stack(feature_adjusted)
     feat_add = torch.stack(feat_add_adjusted)
     data_len = torch.stack(data_len)
+    speaker = torch.stack(speaker)
 
     return lip, feature, feat_add, upsample, data_len, speaker, label
 

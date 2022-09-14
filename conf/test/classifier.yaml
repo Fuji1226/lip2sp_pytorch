@@ -8,12 +8,15 @@ face_or_lip : "lip"
 check_train_data : False
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/nar/generate"
+save_path : "~/lip2sp_pytorch/result/classifier/generate"
 
 # 平均、標準偏差ディレクトリまでのパス
-lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
+lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std/F01_kablab"
 face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
+lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test/F01_kablab"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/test"
+
+# face_generationで合成したデータまでのパス
+gen_pre_loaded_path : "~/face_generation/result/default/generate/2022:08:24_01-35-17/mspec80_100/test_data"
