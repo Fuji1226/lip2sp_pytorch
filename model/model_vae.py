@@ -11,16 +11,20 @@ try:
     from model.net import ResNet3D
     from model.transformer_remake import Encoder
     from model.conformer.encoder import ConformerEncoder
-    from model.audio_enc import SpeakerEncoder, ContentEncoder
+    from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
     from model.nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
     from model.vae import VAE
+    from model.classifier import SpeakerClassifier
+    from model.grad_reversal import GradientReversal
 except:
     from .net import ResNet3D
     from .transformer_remake import Encoder
     from .conformer.encoder import ConformerEncoder
-    from .audio_enc import SpeakerEncoder, ContentEncoder
+    from .audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
     from .nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
     from .vae import VAE
+    from .classifier import SpeakerClassifier
+    from .grad_reversal import GradientReversal
 
 
 class Lip2SP_VAE(nn.Module):
@@ -29,7 +33,9 @@ class Lip2SP_VAE(nn.Module):
         d_model, n_layers, n_head, conformer_conv_kernel_size,
         dec_n_layers, dec_inner_channels, dec_kernel_size,
         feat_add_channels, feat_add_layers, 
-        vae_emb_dim, spk_emb_dim,
+        vae_emb_dim, spk_emb_dim, n_speaker,
+        norm_type_lip, norm_type_audio,
+        content_n_attn_layer, content_n_head, which_spk_enc, 
         which_encoder, which_decoder, apply_first_bn, use_feat_add, phoneme_classes, use_phoneme,
         upsample_method,  compress_rate,
         dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
@@ -53,6 +59,7 @@ class Lip2SP_VAE(nn.Module):
             inner_channels=res_inner_channels,
             layers=res_layers, 
             dropout=res_dropout,
+            norm_type=norm_type_lip,
         )
 
         # encoder
@@ -73,16 +80,26 @@ class Lip2SP_VAE(nn.Module):
             )
 
         # audio encoder
-        self.speaker_enc = SpeakerEncoder(
-            in_channels=out_channels,
-            out_channels=spk_emb_dim,
-        )
+        if which_spk_enc == "conv":
+            self.speaker_enc = SpeakerEncoderConv(
+                in_channels=out_channels,
+                out_channels=spk_emb_dim,
+            )
+        elif which_spk_enc == "rnn":
+            self.speaker_enc = SpeakerEncoderRNN(
+                in_channels=out_channels,
+                hidden_dim=512,
+                out_channels=spk_emb_dim,
+                n_layers=2,
+                bidirectional=True
+            )
         self.content_enc = ContentEncoder(
             in_channels=out_channels,
             out_channels=d_model,
-            n_attn_layer=n_layers,
-            n_head=n_head,
+            n_attn_layer=content_n_attn_layer,
+            n_head=content_n_head,
             reduction_factor=reduction_factor,
+            norm_type=norm_type_audio,
         )
 
         self.compress_layer_audio = nn.Conv1d(d_model, d_model, kernel_size=3, stride=2, padding=1)
@@ -91,6 +108,9 @@ class Lip2SP_VAE(nn.Module):
         # vae
         self.vae_lip = VAE(d_model, vae_emb_dim)
         self.vae_audio = VAE(d_model, vae_emb_dim)
+
+        self.gr_layer = GradientReversal(1.0)
+        self.classifier = SpeakerClassifier(vae_emb_dim, 512, n_layers=2, bidirectional=True, n_speaker=n_speaker)
 
         # decoder
         self.decoder = ResTCDecoder(
@@ -110,15 +130,16 @@ class Lip2SP_VAE(nn.Module):
             compress_rate=compress_rate,
         )
 
-    def forward_(self, lip=None, feature=None, feat_add=None, feature_ref=None, data_len=None, gc=None):
+    def forward(self, lip=None, feature=None, feat_add=None, feature_ref=None, data_len=None, gc=None):
         """
         口唇動画を入力する際にはResnetとencoder以外のパラメータは更新しない(事前学習済み)
         """
-        output = feat_add_out = phoneme = spk_emb = mu = logvar = z = enc_output = None
+        output = feat_add_out = phoneme = spk_emb = mu = logvar = z = enc_output = spk_class = None
         
         # 口唇動画を入力した場合
         if lip is not None:
-            assert feature is not None
+            with torch.no_grad():
+                spk_emb = self.speaker_enc(feature_ref)     # (B, C)
 
             # resnet
             if self.apply_first_bn:
@@ -128,75 +149,29 @@ class Lip2SP_VAE(nn.Module):
             # encoder
             enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
             if self.compress_rate == 4:
-                enc_outout = self.compress_layer_lip(enc_output.permute(0, 2, 1)).permute(0, 2, 1)
+                enc_output = self.compress_layer_lip(enc_output.permute(0, 2, 1)).permute(0, 2, 1)
             
             # vae
             mu, logvar, z = self.vae_lip(enc_output)    # (B, T, C)
-
-            # speaker embedding
-            with torch.no_grad():
-                if feature_ref is None:
-                    spk_emb = self.speaker_enc(feature)     # (B, C)
-                else:
-                    spk_emb = self.speaker_enc(feature_ref)     # (B, C)
                 
         # 音響特徴量のみを入力した場合
         elif feature is not None:
-            assert lip is None
-
-            # speaker embedding
-            if feature_ref is None:
-                spk_emb = self.speaker_enc(feature)     # (B, C)
-            else:
-                spk_emb = self.speaker_enc(feature_ref)     # (B, C)
+            spk_emb = self.speaker_enc(feature_ref)     # (B, C)
 
             # content encoder
             enc_output = self.content_enc(feature)     # (B, T, C)
 
             # vae
             mu, logvar, z = self.vae_audio(enc_output)    # (B, T, C)
+
+            # speaker classifier
+            spk_class = self.classifier(self.gr_layer(z))
         
         # decoder
         if lip is not None:
             with torch.no_grad():
-                output, feat_add_out, phoneme = self.decoder(z, spk_emb, feat_add)
+                output, feat_add_out, phoneme, out_upsample = self.decoder(z, spk_emb, feat_add)
         else:
-            output, feat_add_out, phoneme = self.decoder(z, spk_emb, feat_add)
+            output, feat_add_out, phoneme, out_upsample = self.decoder(z, spk_emb, feat_add)
 
-        return output, feat_add_out, phoneme, spk_emb, mu, logvar, z, enc_output
-
-    def forward(self, lip, feature=None, feat_add=None, feature_ref=None, data_len=None):
-        output_feat = feat_add_out_feat = phoneme_feat = output_lip = feat_add_out_lip = phoneme_lip = mu_lip = logvar_lip = z_lip = mu_feat = logvar_feat = z_feat = spk_emb = None
-
-        # resnet
-        if self.apply_first_bn:
-            lip = self.first_batch_norm(lip)
-        lip_feature = self.ResNet_GAP(lip)
-        
-        # encoder
-        enc_output_lip = self.encoder(lip_feature, data_len)    # (B, T, C)
-        if self.compress_rate == 4:
-            enc_outout_lip = self.compress_layer_lip(enc_output_lip.permute(0, 2, 1)).permute(0, 2, 1)
-        
-        # vae(lip)
-        mu_lip, logvar_lip, z_lip = self.vae_lip(enc_output_lip)    # (B, T, C)
-
-        # content encoder
-        enc_output_feat = self.content_enc(feature)     # (B, T, C)
-
-        # vae(feature)
-        mu_feat, logvar_feat, z_feat = self.vae_audio(enc_output_feat)    # (B, T, C)
-
-        # speaker embedding
-        if feature_ref is None:
-            spk_emb = self.speaker_enc(feature)     # (B, C)
-        else:
-            spk_emb = self.speaker_enc(feature_ref)     # (B, C)
-
-        # decoder
-        output_feat, feat_add_out_feat, phoneme_feat = self.decoder(z_feat, spk_emb, feat_add)
-
-        with torch.no_grad():
-            output_lip, feat_add_out_lip, phoneme_lip = self.decoder(z_lip, spk_emb, feat_add)
-        
-        return output_feat, feat_add_out_feat, phoneme_feat, output_lip, feat_add_out_lip, phoneme_lip, mu_lip, logvar_lip, z_lip, mu_feat, logvar_feat, z_feat, spk_emb
+        return output, feat_add_out, phoneme, spk_emb, mu, logvar, z, enc_output, spk_class, out_upsample

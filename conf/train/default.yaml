@@ -35,7 +35,8 @@ lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
 # 使用する話者
-speaker : ["F01_kablab", "M01_kablab", "F02_kablab", "M03_kablab", "F03_kablab", "M04_kablab"]
+speaker : ["F01_kablab", "M01_kablab"]
+use_gc : False
 
 # max_epoch
 max_epoch : 300
@@ -53,9 +54,6 @@ use_rotation : False
 # 時間
 use_time_augment : False
 time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
-
-# global condition
-use_gc : False
 
 # dataloader
 batch_size : 32

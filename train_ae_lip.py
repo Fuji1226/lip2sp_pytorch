@@ -14,8 +14,7 @@ import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from train_default import make_train_val_loader, check_feat_add, save_loss, get_path
-from train_nar import check_mel
+from utils import make_train_val_loader, save_loss, get_path_train, check_mel_nar
 from train_ae_audio import make_model
 from loss import MaskedLoss
 
@@ -32,9 +31,9 @@ random.seed(777)
 
 
 # def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
-def save_checkpoint(model, optimizer, epoch, ckpt_path):
+def save_checkpoint(lip_enc, optimizer, epoch, ckpt_path):
 	torch.save({
-        'model': model.state_dict(),
+        'lip_enc': lip_enc.state_dict(),
         'optimizer': optimizer.state_dict(),
         # 'scheduler': scheduler.state_dict(),
         "random": random.getstate(),
@@ -46,38 +45,38 @@ def save_checkpoint(model, optimizer, epoch, ckpt_path):
     }, ckpt_path)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time, epoch):
+def train_one_epoch(vcnet, lip_enc, train_loader, optimizer, loss_f, device, cfg, ckpt_time, epoch):
     epoch_loss_enc = 0
     epoch_loss_mel = 0
     epoch_loss_feat_add = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start") 
-    model.train()
+    vcnet.train()
+    lip_enc.train()
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
         feat_add = feat_add[:, 0, :].unsqueeze(1)
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
-        print(f"lip = {lip.shape}, feature = {feature.shape}")
+        
         rand_index = torch.randperm(feature.shape[0])
         feature_ref = feature[rand_index]
 
-        # 事前学習済みモデルのembed_idxをラベルとする
-        print("input feature")
         with torch.no_grad():
-            _, _, _, _, enc_output_target = model(feature=feature, feature_ref=feature, data_len=data_len)
+            _, _, _, _, enc_output_target, _, _ = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
 
-        print("input lip")
-        output, feat_add_out, phoneme, spk_emb, enc_output = model(lip=lip, feature_ref=feature, data_len=data_len)
+        lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+        with torch.no_grad():
+            output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
 
         enc_loss = loss_f.mse_loss(
-            enc_output.permute(0, 2, 1), enc_output_target.permute(0, 2, 1), 
-            data_len = torch.div(data_len, 2).to(dtype=torch.int), max_len=enc_output.shape[1]
+            lip_enc_out.permute(0, 2, 1), enc_output_target.permute(0, 2, 1), 
+            data_len = torch.div(data_len, 2).to(dtype=torch.int), max_len=lip_enc_out.shape[1]
         )
         enc_loss.backward()
-        clip_grad_norm_(model.parameters(), cfg.train.max_norm)
+        clip_grad_norm_(lip_enc.parameters(), cfg.train.max_norm)
         optimizer.step()
         optimizer.zero_grad()
 
@@ -88,39 +87,32 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         epoch_loss_mel += mel_loss.item()
         wandb.log({"train_loss_mel": mel_loss})
 
-        if cfg.train.use_feat_add:
-            loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=output.shape[-1])
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"train_loss_feat_add": loss_feat_add})
-
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
-                    if cfg.train.use_feat_add:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
+                    check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
-                if cfg.train.use_feat_add:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
+                check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
 
     epoch_loss_enc /= iter_cnt
     epoch_loss_mel /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
     return epoch_loss_enc, epoch_loss_mel, epoch_loss_feat_add
 
-def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time, epoch):
+
+def val_one_epoch(vcnet, lip_enc, val_loader, loss_f, device, cfg, ckpt_time, epoch):
     epoch_loss_enc = 0
     epoch_loss_mel = 0
     epoch_loss_feat_add = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("iter start") 
-    model.eval()
+    vcnet.eval()
+    lip_enc.eval()
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
@@ -132,12 +124,13 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time, epoch):
         feature_ref = feature[rand_index]
 
         with torch.no_grad():
-            _, _, _, _, enc_output_target = model(feature=feature, feature_ref=feature, data_len=data_len)
-            output, feat_add_out, phoneme, spk_emb, enc_output = model(lip=lip, feature_ref=feature, data_len=data_len)
+            _, _, _, _, enc_output_target, _, _ = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
+            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+            output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
 
         enc_loss = loss_f.mse_loss(
-            enc_output.permute(0, 2, 1), enc_output_target.permute(0, 2, 1), 
-            data_len = torch.div(data_len, 2).to(dtype=torch.int), max_len=enc_output.shape[1]
+            lip_enc_out.permute(0, 2, 1), enc_output_target.permute(0, 2, 1), 
+            data_len = torch.div(data_len, 2).to(dtype=torch.int), max_len=lip_enc_out.shape[1]
         )
         epoch_loss_enc += enc_loss.item()
         wandb.log({"val_loss_enc": enc_loss})
@@ -146,25 +139,16 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time, epoch):
         epoch_loss_mel += mel_loss.item()
         wandb.log({"val_loss_mel": mel_loss})
 
-        if cfg.train.use_feat_add:
-            loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=output.shape[-1])
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"val_loss_feat_add": loss_feat_add})
-
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], cfg, "mel_val", ckpt_time)
-                    if cfg.train.use_feat_add:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_val", ckpt_time)
+                    check_mel_nar(feature[0], output[0], cfg, "mel_val", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], cfg, "mel_val", ckpt_time)
-                if cfg.train.use_feat_add:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_val", ckpt_time)
+                check_mel_nar(feature[0], output[0], cfg, "mel_val", current_time, ckpt_time)
 
     epoch_loss_enc /= iter_cnt
     epoch_loss_mel /= iter_cnt
@@ -177,8 +161,6 @@ def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
         cfg.train.num_workers = 4
-
-    cfg.train.n_speaker = len(cfg.train.speaker)
         
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
@@ -194,7 +176,7 @@ def main(cfg):
     torch.backends.cudnn.deterministic = True
 
     # path
-    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path(cfg)
+    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
     print(f"data_root = {data_root}")
     print(f"mean_std_path = {mean_std_path}")
@@ -215,23 +197,23 @@ def main(cfg):
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}_lip"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
-        model = make_model(cfg, device)
+        vcnet, lip_enc = make_model(cfg, device)
         model_path = Path(cfg.train.model_path).expanduser()
 
         if model_path.suffix == ".ckpt":
             try:
-                model.load_state_dict(torch.load(str(model_path))['model'])
+                vcnet.load_state_dict(torch.load(str(model_path))['vcnet'])
             except:
-                model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
+                vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['vcnet'])
         elif model_path.suffix == ".pth":
             try:
-                model.load_state_dict(torch.load(str(model_path)))
+                vcnet.load_state_dict(torch.load(str(model_path)))
             except:
-                model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+                vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
         # optimizer
         optimizer = torch.optim.Adam(
-            params=model.parameters(),
+            params=lip_enc.parameters(),
             lr=cfg.train.lr, 
             betas=(cfg.train.beta_1, cfg.train.beta_2),
             weight_decay=cfg.train.weight_decay,    
@@ -252,7 +234,7 @@ def main(cfg):
         if cfg.train.check_point_start:
             checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
             checkpoint = torch.load(checkpoint_path)
-            model.load_state_dict(checkpoint["model"])
+            lip_enc.load_state_dict(checkpoint["lip_enc"])
             optimizer.load_state_dict(checkpoint["optimizer"])
             # scheduler.load_state_dict(checkpoint["scheduler"])
             random.setstate(checkpoint["random"])
@@ -262,7 +244,8 @@ def main(cfg):
             torch.cuda.set_rng_state(checkpoint["cuda_random"])
             last_epoch = checkpoint["epoch"]
         
-        wandb.watch(model, **cfg.wandb_conf.watch)
+        wandb.watch(vcnet, **cfg.wandb_conf.watch)
+        wandb.watch(lip_enc, **cfg.wandb_conf.watch)
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
@@ -272,7 +255,8 @@ def main(cfg):
 
             # train
             epoch_loss_enc, epoch_loss_mel, epoch_loss_feat_add = train_one_epoch(
-                model=model,
+                vcnet=vcnet,
+                lip_enc=lip_enc,
                 train_loader=train_loader,
                 optimizer=optimizer,
                 loss_f=loss_f,
@@ -287,7 +271,8 @@ def main(cfg):
 
             # validation
             epoch_loss_enc, epoch_loss_mel, epoch_loss_feat_add = val_one_epoch(
-                model=model,
+                vcnet=vcnet,
+                lip_enc=lip_enc,
                 val_loader=val_loader,
                 loss_f=loss_f,
                 device=device,
@@ -304,7 +289,7 @@ def main(cfg):
             # checkpoint
             if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(
-                    model=model,
+                    lip_enc=lip_enc,
                     optimizer=optimizer,
                     # scheduler=scheduler,
                     epoch=current_epoch,
@@ -318,7 +303,7 @@ def main(cfg):
 
         # save model
         model_save_path = save_path / f"model_{cfg.model.name}.pth"
-        torch.save(model.state_dict(), str(model_save_path))
+        torch.save(lip_enc.state_dict(), str(model_save_path))
         artifact_model = wandb.Artifact('model', type='model')
         artifact_model.add_file(str(model_save_path))
         wandb.log_artifact(artifact_model)

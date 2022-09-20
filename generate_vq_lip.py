@@ -13,9 +13,9 @@ import torch
 
 from data_check import save_data
 from train_vq_audio import make_model
-from generate import make_test_loader, get_path
+from utils import make_test_loader, get_path_test
 from calc_accuracy import calc_accuracy
-from dataset.dataset_npz import get_datasets
+from data_process.phoneme_encode import get_keys_from_value
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -26,8 +26,9 @@ torch.cuda.manual_seed_all(0)
 random.seed(0)
 
 
-def generate(cfg, model, test_loader, dataset, device, save_path, ref_loader):
-    model.eval()
+def generate(cfg, vcnet, lip_enc, test_loader, dataset, device, save_path, ref_loader):
+    vcnet.eval()
+    lip_enc.eval()
 
     lip_mean = dataset.lip_mean.to(device)
     lip_std = dataset.lip_std.to(device)
@@ -35,6 +36,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path, ref_loader):
     feat_std = dataset.feat_std.to(device)
     feat_add_mean = dataset.feat_add_mean.to(device)
     feat_add_std = dataset.feat_add_std.to(device)
+    speaker_idx = dataset.speaker_idx
 
     process_times = []
 
@@ -53,14 +55,15 @@ def generate(cfg, model, test_loader, dataset, device, save_path, ref_loader):
         start_time = time.time()
 
         with torch.no_grad():
-            output, feat_add_out, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred = model(lip=lip, feature=feature, feature_ref=feature_ref, data_len=data_len)
-            # output, feat_add_out, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred = model(feature=feature, data_len=data_len)
+            lip_enc_out = lip_enc(lip=lip)
+            output, feat_add_out, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature_ref)
 
         end_time = time.time()
         process_time = end_time - start_time
         process_times.append(process_time)
 
-        _save_path = save_path / label[0]
+        speaker_label = get_keys_from_value(speaker_idx, speaker[0])
+        _save_path = save_path / speaker_label / label[0]
         os.makedirs(_save_path, exist_ok=True)
 
         save_data(
@@ -89,47 +92,56 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    model = make_model(cfg, device)
-
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/mi/lip/2022:09:07_09-12-56/mspec80_300.ckpt")  # 256
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/mi/lip/2022:09:07_09-45-40/mspec80_400.ckpt")  # 128
+    vcnet, lip_enc = make_model(cfg, device)
+    model_path_vc = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/ae/lip/2022:09:10_09-24-50/mspec80_100.ckpt") 
+    model_path_lip = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/ae/lip/2022:09:10_09-24-50/mspec80_100.ckpt") 
     
-    if model_path.suffix == ".ckpt":
+    if model_path_lip.suffix == ".ckpt":
         try:
-            model.load_state_dict(torch.load(str(model_path))['model'])
+            vcnet.load_state_dict(torch.load(str(model_path_lip))['vcnet'])
+            lip_enc.load_state_dict(torch.load(str(model_path_lip))['lip_enc'])
         except:
-            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
-    elif model_path.suffix == ".pth":
+            vcnet.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu'))['vcnet'])
+            lip_enc.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu'))['lip_enc'])
+    elif model_path_lip.suffix == ".pth":
         try:
-            model.load_state_dict(torch.load(str(model_path)))
+            vcnet.load_state_dict(torch.load(str(model_path_lip)))
+            lip_enc.load_state_dict(torch.load(str(model_path_lip)))
         except:
-            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+            vcnet.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu')))
+            lip_enc.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu')))
 
-    data_root_list, mean_std_path, save_path_list = get_path(cfg, model_path)
+    data_root_list, mean_std_path, save_path_list = get_path_test(cfg, model_path_lip)
 
-    ref_data_root = Path(cfg.train.lip_pre_loaded_path_9696_time_only).expanduser()
-    ref_mean_std_path = Path(cfg.train.lip_mean_std_path_9696_time_only).expanduser()
-    ref_loader, ref_dataset = make_test_loader(cfg, ref_data_root, ref_mean_std_path)
-    ref_loader = iter(ref_loader)
+    ref_data_root = Path(cfg.train.lip_pre_loaded_path).expanduser()
+    ref_mean_std_path = Path(cfg.train.lip_mean_std_path).expanduser()
 
-    # 同じ発話内容のものを使いたくないので適当に取り出しておく
-    for _ in range(100):
-        _ = ref_loader.next()
+    generate_speaker = ["F01_kablab", "M01_kablab"]
 
+    for speaker in generate_speaker:
+        print(f"generate {speaker}")
+        for data_root, save_path in zip(data_root_list, save_path_list):
+            cfg.test.speaker = [speaker]
+            test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
+            ref_loader, ref_dataset = make_test_loader(cfg, ref_data_root, ref_mean_std_path)
+            ref_loader = iter(ref_loader)
+            # 同じ発話内容のものを使いたくないので適当に取り出しておく
+            for _ in range(100):
+                _ = ref_loader.next()
+
+            print("--- generate ---")
+            process_times = generate(
+                cfg=cfg,
+                vcnet=vcnet,
+                lip_enc=lip_enc,
+                test_loader=test_loader,
+                dataset=test_dataset,
+                device=device,
+                save_path=save_path,
+                ref_loader=ref_loader,
+            )
+            
     for data_root, save_path in zip(data_root_list, save_path_list):
-        test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
-
-        print("--- generate ---")
-        process_times = generate(
-            cfg=cfg,
-            model=model,
-            test_loader=test_loader,
-            dataset=test_dataset,
-            device=device,
-            save_path=save_path,
-            ref_loader=ref_loader,
-        )
-
         print("--- calc accuracy ---")
         calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
         

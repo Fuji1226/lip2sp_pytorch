@@ -3,7 +3,7 @@
 name : "vae"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 0
@@ -18,8 +18,6 @@ face_or_lip : "lip"
 # データを置いているディレクトリまでのパス
 lip_path : "~/dataset/lip/lip_cropped"
 face_path : "~/dataset/lip/cropped"
-lip_path_128128 : "~/dataset/lip/lip_cropped_128128"
-lip_path_9696 : "~/dataset/lip/lip_cropped_9696"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/vae/train"
@@ -29,18 +27,15 @@ ckpt_path : "~/lip2sp_pytorch/check_point/vae"
 ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
-lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std/F01_kablab"
+lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
 face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
-lip_mean_std_path_128128 : "~/dataset/lip/np_files/lip_cropped_128128/mean_std"
-lip_mean_std_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/mean_std"
-lip_mean_std_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/mean_std"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train/F01_kablab"
+lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
-lip_pre_loaded_path_128128 : "~/dataset/lip/np_files/lip_cropped_128128/train"
-lip_pre_loaded_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/train"
-lip_pre_loaded_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/train"
+
+# 使用する話者
+speaker : ["F01_kablab", "M01_kablab"]
 
 # face_generationで合成したデータまでのパス
 gen_pre_loaded_path : "~/face_generation/result/default/generate/2022:08:24_01-35-17/mspec80_100/train_data"
@@ -49,7 +44,7 @@ gen_pre_loaded_path : "~/face_generation/result/default/generate/2022:08:24_01-3
 model_path : "~/lip2sp_pytorch/check_point/vae/lip/2022:09:09_08-38-34/mspec80_100.ckpt"
 
 # max_epoch
-max_epoch : 300
+max_epoch : 200
 
 # validation lossを計算する間隔
 display_val_loss_step : 1
@@ -89,9 +84,9 @@ weight_decay_mi : 0
 lr_decay_rate : 0.5
 lr_decay_step : 4   # max_epoch // lr_decay_stepでlr_decay_rate倍に学習率を変更
 multi_lr_decay_step : [200,]   # 学習率を変更するepoch
-warmup_t : 20
+warmup_t : 10
 warmup_lr_init : 1.0e-5
-cosine_T_max : 10
+warmup_lr_min : 1.0e-5
 
 # gradient clipping
 max_norm : 3.0
@@ -108,13 +103,14 @@ apply_first_bn : False
 
 # lossの重みづけ
 mse_weight : 1.0
-feat_add_weight : 1.0
-phoneme_weight : 0.1
-mi_weight : 0.01
-kl_weight : 0.1
+feat_add_weight : 0
+phoneme_weight : 0
+mi_weight : 0
+kl_weight : 1.0
+classifier_weight : 0
 
 # multi task
-use_feat_add : False
+use_feat_add : True
 use_phoneme : False
 
 # 時間方向の削減とアップサンプリングの方法

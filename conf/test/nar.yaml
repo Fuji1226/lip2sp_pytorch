@@ -17,3 +17,5 @@ face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/test"
+
+speaker : ["F01_kablab", "M01_kablab"]

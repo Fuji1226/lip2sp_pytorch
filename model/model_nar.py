@@ -11,14 +11,12 @@ try:
     from model.net import ResNet3D
     from model.transformer_remake import Encoder
     from model.conformer.encoder import ConformerEncoder
-    from model.audio_enc import SpeakerEncoder, ContentEncoder
     from model.nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
     from model.vq import VQ
 except:
     from .net import ResNet3D
     from .transformer_remake import Encoder
     from .conformer.encoder import ConformerEncoder
-    from .audio_enc import SpeakerEncoder, ContentEncoder
     from .nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
     from .vq import VQ
 
@@ -30,7 +28,7 @@ class Lip2SP_NAR(nn.Module):
         dec_n_layers, dec_inner_channels, dec_kernel_size,
         feat_add_channels, feat_add_layers, 
         n_speaker, spk_emb_dim,
-        which_encoder, which_decoder, apply_first_bn, use_feat_add, phoneme_classes, use_phoneme, 
+        which_encoder, which_decoder, apply_first_bn, use_feat_add, phoneme_classes, use_phoneme, use_dec_attention, 
         upsample_method, compress_rate,
         dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
         super().__init__()
@@ -74,41 +72,27 @@ class Lip2SP_NAR(nn.Module):
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
 
         # decoder
-        if self.which_decoder == "simple_tc":
-            self.decoder = TCDecoder(
-                cond_channels=d_model,
-                out_channels=out_channels,
-                inner_channels=dec_inner_channels,
-                n_layers=dec_n_layers,
-                kernel_size=dec_kernel_size,
-                dropout=dec_dropout,
-            )
-        elif self.which_decoder == "gated_tc":
-            self.decoder = GatedTCDecoder(
-                cond_channels=d_model,
-                out_channels=out_channels,
-                inner_channels=dec_inner_channels,
-                n_layers=dec_n_layers,
-                kernel_size=dec_kernel_size,
-                dropout=dec_dropout,
-            )
-        elif self.which_decoder == "res_tc":
-            self.decoder = ResTCDecoder(
-                cond_channels=d_model,
-                out_channels=out_channels,
-                inner_channels=dec_inner_channels,
-                n_layers=dec_n_layers,
-                kernel_size=dec_kernel_size,
-                dropout=dec_dropout,
-                feat_add_channels=feat_add_channels, 
-                feat_add_layers=feat_add_layers,
-                use_feat_add=use_feat_add,
-                phoneme_classes=phoneme_classes,
-                use_phoneme=use_phoneme,
-                spk_emb_dim=spk_emb_dim,
-                upsample_method=upsample_method,
-                compress_rate=compress_rate,
-            )
+        self.decoder = ResTCDecoder(
+            cond_channels=d_model,
+            out_channels=out_channels,
+            inner_channels=dec_inner_channels,
+            n_layers=dec_n_layers,
+            kernel_size=dec_kernel_size,
+            dropout=dec_dropout,
+            feat_add_channels=feat_add_channels, 
+            feat_add_layers=feat_add_layers,
+            use_feat_add=use_feat_add,
+            phoneme_classes=phoneme_classes,
+            use_phoneme=use_phoneme,
+            spk_emb_dim=spk_emb_dim,
+            n_attn_layer=n_layers,
+            n_head=n_head,
+            d_model=d_model,
+            reduction_factor=reduction_factor,
+            use_attention=use_dec_attention,
+            upsample_method=upsample_method,
+            compress_rate=compress_rate,
+        )
 
     def forward(self, lip=None, feature=None, data_len=None, gc=None):
         output = feat_add_out = phoneme = None
@@ -128,7 +112,7 @@ class Lip2SP_NAR(nn.Module):
             spk_emb = None
 
         # decoder
-        output, feat_add_out, phoneme = self.decoder(enc_output, spk_emb=spk_emb)
+        output, feat_add_out, phoneme, out_upsample = self.decoder(enc_output, spk_emb, data_len)
         
         return output, feat_add_out, phoneme
 

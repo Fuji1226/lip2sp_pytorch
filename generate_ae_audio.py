@@ -13,7 +13,7 @@ import torch
 
 from data_check import save_data
 from train_ae_audio import make_model
-from generate import make_test_loader
+from utils import make_test_loader, get_path_test_vc
 from calc_accuracy import calc_accuracy, calc_accuracy_vc
 
 # 現在時刻を取得
@@ -25,8 +25,8 @@ torch.cuda.manual_seed_all(0)
 random.seed(0)
 
 
-def generate(cfg, model, test_loader, dataset, device, save_path, ref_loader):
-    model.eval()
+def generate(cfg, vcnet, test_loader, dataset, device, save_path, ref_loader):
+    vcnet.eval()
 
     lip_mean = dataset.lip_mean.to(device)
     lip_std = dataset.lip_std.to(device)
@@ -52,7 +52,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path, ref_loader):
         start_time = time.time()
 
         with torch.no_grad():
-            output, feat_add_out, phoneme, spk_emb, enc_output, spk_class = model(feature=feature, feature_ref=feature_ref)
+            output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(feature=feature, feature_ref=feature_ref)
 
         end_time = time.time()
         process_time = end_time - start_time
@@ -82,44 +82,13 @@ def generate(cfg, model, test_loader, dataset, device, save_path, ref_loader):
     return process_times
 
 
-def get_path(cfg, model_path, speaker, reference):
-    if cfg.test.face_or_lip == "face":
-        train_data_root = cfg.train.face_pre_loaded_path
-        test_data_root = cfg.test.face_pre_loaded_path
-        mean_std_path = cfg.train.face_mean_std_path
-    if cfg.test.face_or_lip == "lip":
-        train_data_root = cfg.train.lip_pre_loaded_path
-        test_data_root = cfg.test.lip_pre_loaded_path
-        mean_std_path = cfg.train.lip_mean_std_path
-    
-    train_data_root = Path(train_data_root).expanduser()
-    # train_data_root = train_data_root / speaker
-    test_data_root = Path(test_data_root).expanduser()
-    # test_data_root = test_data_root / speaker
-    mean_std_path = Path(mean_std_path).expanduser()
-
-    save_path = Path(cfg.test.save_path).expanduser()
-    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
-    train_save_path = save_path / "train_data" / str(speaker) / str(reference) / "audio"
-    test_save_path = save_path / "test_data" / str(speaker) / str(reference) / "audio"
-    os.makedirs(train_save_path, exist_ok=True)
-    os.makedirs(test_save_path, exist_ok=True)
-
-    # data_root_list = [test_data_root, train_data_root]
-    # save_path_list = [test_save_path, train_save_path]
-
-    data_root_list = [test_data_root]
-    save_path_list = [test_save_path]
-    return data_root_list, mean_std_path, save_path_list
-
-
-def generate_each_speaker(cfg, model_path, model, device, speaker):
+def generate_each_speaker(cfg, model_path, vcnet, device, speaker):
     print(f"generate {speaker}")
     print("reference feature : F01_kablab")
-    data_root_list, mean_std_path, save_path_list = get_path(cfg, model_path, speaker, "F01_kablab")
+    data_root_list, mean_std_path, save_path_list = get_path_test_vc(cfg, model_path, speaker, "F01_kablab")
     ref_data_root = Path("~/dataset/lip/np_files/lip_cropped/train").expanduser()
     ref_mean_std_path = Path("~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
-    cfg.train.speaker = ["F01_kablab"]
+    cfg.test.speaker = ["F01_kablab"]
     ref_loader, ref_dataset = make_test_loader(cfg, ref_data_root, ref_mean_std_path)
     ref_loader = iter(ref_loader)
 
@@ -128,13 +97,13 @@ def generate_each_speaker(cfg, model_path, model, device, speaker):
         _ = ref_loader.next()
 
     for data_root, save_path in zip(data_root_list, save_path_list):
-        cfg.train.speaker = [speaker]
+        cfg.test.speaker = [speaker]
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
         print("--- generate ---")
         process_times = generate(
             cfg=cfg,
-            model=model,
+            vcnet=vcnet,
             test_loader=test_loader,
             dataset=test_dataset,
             device=device,
@@ -147,8 +116,8 @@ def generate_each_speaker(cfg, model_path, model, device, speaker):
             calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
 
     print("reference feature : M01_kablab")
-    data_root_list, mean_std_path, save_path_list = get_path(cfg, model_path, speaker, "M01_kablab")
-    cfg.train.speaker = ["M01_kablab"]
+    data_root_list, mean_std_path, save_path_list = get_path_test_vc(cfg, model_path, speaker, "M01_kablab")
+    cfg.test.speaker = ["M01_kablab"]
     ref_loader, ref_dataset = make_test_loader(cfg, ref_data_root, ref_mean_std_path)
     ref_loader = iter(ref_loader)
 
@@ -157,13 +126,13 @@ def generate_each_speaker(cfg, model_path, model, device, speaker):
         _ = ref_loader.next()
 
     for data_root, save_path in zip(data_root_list, save_path_list):
-        cfg.train.speaker = [speaker]
+        cfg.test.speaker = [speaker]
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
         print("--- generate ---")
         process_times = generate(
             cfg=cfg,
-            model=model,
+            vcnet=vcnet,
             test_loader=test_loader,
             dataset=test_dataset,
             device=device,
@@ -186,27 +155,27 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    model = make_model(cfg, device)
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/ae/lip/2022:09:13_16-55-55/mspec80_300.ckpt") 
+    vcnet, lip_enc = make_model(cfg, device)
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/ae/lip/2022:09:20_00-47-02/mspec80_140.ckpt")
     
     if model_path.suffix == ".ckpt":
         try:
-            model.load_state_dict(torch.load(str(model_path))['model'])
+            vcnet.load_state_dict(torch.load(str(model_path))['vcnet'])
         except:
-            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
+            vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['vcnet'])
     elif model_path.suffix == ".pth":
         try:
-            model.load_state_dict(torch.load(str(model_path)))
+            vcnet.load_state_dict(torch.load(str(model_path)))
         except:
-            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+            vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
-    generate_each_speaker(cfg, model_path, model, device, "F01_kablab")
-    generate_each_speaker(cfg, model_path, model, device, "M01_kablab")
+    generate_each_speaker(cfg, model_path, vcnet, device, "F01_kablab")
+    generate_each_speaker(cfg, model_path, vcnet, device, "M01_kablab")
 
-    _, _, save_path_list_same_F01 = get_path(cfg, model_path, "F01_kablab", "F01_kablab")
-    _, _, save_path_list_mix_F01 = get_path(cfg, model_path, "F01_kablab", "M01_kablab")
-    _, _, save_path_list_same_M01 = get_path(cfg, model_path, "M01_kablab", "M01_kablab")
-    _, _, save_path_list_mix_M01 = get_path(cfg, model_path, "M01_kablab", "F01_kablab")
+    _, _, save_path_list_same_F01 = get_path_test_vc(cfg, model_path, "F01_kablab", "F01_kablab")
+    _, _, save_path_list_mix_F01 = get_path_test_vc(cfg, model_path, "F01_kablab", "M01_kablab")
+    _, _, save_path_list_same_M01 = get_path_test_vc(cfg, model_path, "M01_kablab", "M01_kablab")
+    _, _, save_path_list_mix_M01 = get_path_test_vc(cfg, model_path, "M01_kablab", "F01_kablab")
 
     print("calc accuracy F01_kablab")
     calc_accuracy_each_speaker(cfg, save_path_list_same_F01, save_path_list_mix_F01)

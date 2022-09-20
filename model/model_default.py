@@ -43,6 +43,7 @@ class Lip2SP(nn.Module):
         d_model, n_layers, n_head, dec_n_layers, dec_d_model, conformer_conv_kernel_size,
         glu_inner_channels, glu_layers, glu_kernel_size,
         feat_add_channels, feat_add_layers,
+        n_speaker, spk_emb_dim,
         pre_inner_channels, post_inner_channels, post_n_layers,
         n_position, which_encoder, which_decoder, apply_first_bn, multi_task, add_feat_add,
         dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
@@ -85,6 +86,8 @@ class Lip2SP(nn.Module):
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
             )
+
+        self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
 
         # decoder
         if self.which_decoder == "transformer":
@@ -138,10 +141,7 @@ class Lip2SP(nn.Module):
             lip = self.first_batch_norm(lip)
         lip_feature = self.ResNet_GAP(lip)
         
-        if self.which_encoder == "transformer":
-            enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
-        elif self.which_encoder == "conformer":
-            enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
+        enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
 
         # feat_add predicter
         if self.multi_task:
@@ -152,6 +152,12 @@ class Lip2SP(nn.Module):
                 enc_output = enc_output + feat_add_cond.permute(0, 2, 1)    # (B, T, C)
         else:
             feat_add_out = None
+
+        # speaker embedding
+        if gc is not None:
+            spk_emb = self.emb_layer(gc)
+        else:
+            spk_emb = None
 
         # decoder
         # 学習時

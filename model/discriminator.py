@@ -8,6 +8,31 @@ from torch.nn.utils import weight_norm
 import numpy as np
 
 
+class AEDiscriminator(nn.Module):
+    def __init__(self, in_channels, n_frame=150, hidden_channels=128, kernel_size=3):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Conv1d(in_channels, hidden_channels, kernel_size=kernel_size, stride=2, padding=(kernel_size - 1) // 2),
+            nn.BatchNorm1d(hidden_channels),
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(hidden_channels, hidden_channels, kernel_size=kernel_size, padding=(kernel_size - 1) // 2),
+            nn.BatchNorm1d(hidden_channels),
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(hidden_channels, hidden_channels, kernel_size=kernel_size, padding=(kernel_size - 1) // 2),
+            nn.BatchNorm1d(hidden_channels),
+            nn.LeakyReLU(0.2),
+            nn.Flatten(),
+            nn.Linear(hidden_channels * n_frame // 2, 1),
+        )
+
+    def forward(self, x):
+        """
+        x : (B, T, C)
+        out : (B, C)
+        """
+        return self.layers(x.permute(0, 2, 1))
+
+
 class SimpleDiscriminator(nn.Module):
     def __init__(self, in_channels, out_channels, dropout=0.5):
         super().__init__()
@@ -263,9 +288,9 @@ class UNetDiscriminator(nn.Module):
 
 
 def main():
-    net = JCUDiscriminator(in_channels=80, out_channels=1)
-    feature = torch.rand(1, 80, 300)
-    out, fmaps = net(feature)
+    net = AEDiscriminator(8)
+    x = torch.rand(1, 8, 150)
+    out = net(x)
     breakpoint()
     
 

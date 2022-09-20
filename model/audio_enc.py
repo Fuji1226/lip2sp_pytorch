@@ -1,17 +1,15 @@
 import sys
 from pathlib import Path
-sys.path.append(Path("~/lip2sp_pytorch").expanduser())
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from transformer_remake import Encoder
-
-# try:
-#     from model.transformer_remake import Encoder
-# except:
-#     from .transformer_remake import Encoder
+try:
+    from model.transformer_remake import Encoder
+except:
+    from .transformer_remake import Encoder
 
 class NormLayer1D(nn.Module):
     def __init__(self, in_channels, norm_type):
@@ -83,7 +81,7 @@ class ContentEncoder(nn.Module):
         return out
 
 
-class SpeakerEncoder(nn.Module):
+class SpeakerEncoderConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         o = out_channels
@@ -109,10 +107,29 @@ class SpeakerEncoder(nn.Module):
         for layer in self.conv_layers:
             out = layer(out)
         out = self.last_conv(out)
-        # out = self.bn(out)
         
         # average pooling
         out = torch.mean(out, dim=-1)
+        return out
+
+
+class SpeakerEncoderRNN(nn.Module):
+    def __init__(self, in_channels, hidden_dim, out_channels, n_layers, bidirectional):
+        super().__init__()
+        self.lstm = nn.LSTM(in_channels, hidden_dim, num_layers=n_layers, batch_first=True, bidirectional=bidirectional)
+        if bidirectional:
+            self.fc = nn.Linear(hidden_dim * 2, out_channels)
+        else:
+            self.fc = nn.Linear(hidden_dim, out_channels)
+
+    def forward(self, x):
+        """
+        x : (B, C, T)
+        out : (B, C)
+        """
+        out, (hn, cn) = self.lstm(x.permute(0, 2, 1))
+        out = torch.cat([hn[-1], hn[-2]], dim=-1)
+        out = self.fc(out)
         return out
 
 
@@ -124,7 +141,7 @@ if __name__ == "__main__":
         n_head=4,
         reduction_factor=2,
     )
-    spk_enc = SpeakerEncoder(
+    spk_enc = SpeakerEncoderConv(
         in_channels=80,
         out_channels=256,
     )

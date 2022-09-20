@@ -222,7 +222,7 @@ class Encoder(nn.Module):
         ])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, x, data_len=None):
+    def forward(self, x, data_len=None, layer="enc"):
         """
         x : (B, C, T)
         enc_output : (B, T, C)
@@ -230,9 +230,13 @@ class Encoder(nn.Module):
         B, C, T = x.shape
 
         if data_len is not None:
-            data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+            if layer == "enc":
+                data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+            elif layer == "dec":
+                pass
             max_len = T
             mask = make_pad_mask(data_len, max_len)
+            
         else:
             mask = None
 

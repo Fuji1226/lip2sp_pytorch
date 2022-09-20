@@ -35,6 +35,20 @@ def get_datasets(data_root, cfg):
     return items
 
 
+def get_datasets_test(data_root, cfg):
+    """
+    npzファイルのパス取得
+    """
+    print("\n--- get datasets ---")
+    items = []
+    for speaker in cfg.test.speaker:
+        print(f"load {speaker}")
+        spk_path = data_root / speaker
+        spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
+        items += spk_path
+    return items
+
+
 def get_speaker_idx(data_path):
     print("\nget speaker idx")
     speaker_idx = {}
@@ -332,69 +346,3 @@ def collate_time_adjust(batch, cfg):
 
 
 
-def calc_delta(lip):
-    """
-    口唇動画の動的特徴量の計算
-    田口さんからの継承
-    """
-    lip = lip.to("cpu").detach().numpy().copy()
-    lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]
-    lip_pad = lip_pad.astype(lip.dtype)
-    lip_pad = gaussian_filter(lip_pad, (0, 0.5, 0.5, 0), mode="reflect", truncate=2)
-    lip_pad = np.pad(lip_pad, ((0, 0), (0, 0), (0, 0), (1, 1)), "edge")
-    lip_diff = (lip_pad[..., 2:] - lip_pad[..., :-2]) / 2
-    lip_acc = lip_pad[..., 0:-2] + lip_pad[..., 2:] - 2 * lip_pad[..., 1:-1]
-    lip = np.vstack((lip, lip_diff, lip_acc))
-    lip = torch.from_numpy(lip)
-    return lip
-
-
-def main():
-    path = Path("~/dataset/lip/np_files/lip_cropped_9696_time_only/train/F01_kablab").expanduser()
-    path = list(path.glob("**/*mspec80.npz"))
-    exp_path = path[0]
-
-    npz_key = np.load(str(exp_path))
-    lip = torch.from_numpy(npz_key['lip'])
-
-    mean_std_path = Path("~/dataset/lip/np_files/lip_cropped_9696_time_only/mean_std").expanduser()
-    lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std = load_mean_std(mean_std_path, "mspec80", False)
-
-    lip_mean = lip_mean.unsqueeze(-1)
-    lip_std = lip_std.unsqueeze(-1)
-
-    lip = (lip - lip_mean) / lip_std
-    lip = calc_delta(lip)
-
-    lip_orig = lip[:3]
-    lip_delta = lip[3].unsqueeze(0)
-    lip_deltadelta = lip[4].unsqueeze(0)
-    lip_orig = torch.add(torch.mul(lip_orig, lip_std), lip_mean)
-    lip_delta = torch.add(torch.mul(lip_delta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1)), torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-    lip_deltadelta = torch.add(torch.mul(lip_deltadelta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1)), torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-
-    lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, H, W, C)
-    lip_delta = lip_delta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, H, W, C)
-    lip_deltadelta = lip_deltadelta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, H, W, C)
-
-    save_path = Path("~/lip2sp_pytorch/check").expanduser()
-    import torchvision
-    torchvision.io.write_video(
-        filename=str(save_path / "lip.mp4"),
-        video_array=lip_orig,
-        fps=50
-    )
-    torchvision.io.write_video(
-        filename=str(save_path / "lip_d.mp4"),
-        video_array=lip_delta,
-        fps=50,
-    )
-    torchvision.io.write_video(
-        filename=str(save_path / "lip_dd.mp4"),
-        video_array=lip_deltadelta,
-        fps=50,
-    )
-
-
-if __name__ == "__main__":
-    main()

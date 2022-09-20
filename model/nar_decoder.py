@@ -9,8 +9,10 @@ import torch.nn.functional as F
 
 try:
     from model.grad_reversal import GradientReversal
+    from model.transformer_remake import Encoder
 except:
     from .grad_reversal import GradientReversal
+    from .transformer_remake import Encoder
 
 
 class TCDecoder(nn.Module):
@@ -186,12 +188,13 @@ class ResTCDecoder(nn.Module):
     def __init__(
         self, cond_channels, out_channels, inner_channels, n_layers, kernel_size, dropout, 
         feat_add_channels, feat_add_layers, use_feat_add, phoneme_classes, use_phoneme, spk_emb_dim, 
+        n_attn_layer, n_head, d_model, reduction_factor,  use_attention,
         upsample_method, compress_rate):
         super().__init__()
-        self.use_feat_add = use_feat_add
         self.use_phoneme = use_phoneme
         self.upsample_method = upsample_method
         self.compress_rate = compress_rate
+        self.use_attention = use_attention
 
         self.upsample_layer = nn.Sequential(
             nn.ConvTranspose1d(cond_channels, inner_channels, kernel_size=compress_rate, stride=compress_rate),
@@ -206,6 +209,17 @@ class ResTCDecoder(nn.Module):
         self.feat_add_layer = FeadAddPredicter(inner_channels, feat_add_channels, kernel_size=3, n_layers=feat_add_layers, dropout=dropout)
         self.adjust_feat_add_layer = nn.Conv1d(feat_add_channels, inner_channels, kernel_size=1)
         self.phoneme_layer = PhonemePredicter(inner_channels, phoneme_classes)
+        self.gr_layer = GradientReversal(1.0)
+
+        if self.use_attention:
+            self.pre_attention_layer = nn.Conv1d(inner_channels, d_model, kernel_size=1)
+            self.attention = Encoder(
+                n_layers=n_attn_layer,
+                n_head=n_head,
+                d_model=d_model,
+                reduction_factor=reduction_factor,
+            )
+            self.post_attention_layer = nn.Conv1d(d_model, inner_channels, kernel_size=1)
 
         self.conv_layers = nn.ModuleList(
             ResBlock(inner_channels, kernel_size, dropout) for _ in range(n_layers)
@@ -213,7 +227,7 @@ class ResTCDecoder(nn.Module):
 
         self.out_layer = nn.Conv1d(inner_channels, out_channels, kernel_size=1)
 
-    def forward(self, enc_output, spk_emb=None, feat_add=None):
+    def forward(self, enc_output, spk_emb=None, data_len=None):
         """
         enc_outout : (B, T, C)
         spk_emb : (B, C)
@@ -225,19 +239,12 @@ class ResTCDecoder(nn.Module):
 
         # 音響特徴量のフレームまでアップサンプリング
         if self.upsample_method == "conv":
-            out = self.upsample_layer(out)
+            out_upsample = self.upsample_layer(out)
         elif self.upsample_method == "interpolate":
-            out = F.interpolate(out ,scale_factor=self.compress_rate)
-            out = self.interp_layer(out)
+            out_upsample = F.interpolate(out ,scale_factor=self.compress_rate)
+            out_upsample = self.interp_layer(out_upsample)
 
-        # f0
-        if self.use_feat_add:
-            feat_add_out = self.feat_add_layer(out)
-
-            if feat_add is not None:
-                out += self.adjust_feat_add_layer(feat_add)
-            else:
-                out += self.adjust_feat_add_layer(feat_add_out)
+        out = out_upsample
 
         # speaker embedding
         if spk_emb is not None:
@@ -245,12 +252,14 @@ class ResTCDecoder(nn.Module):
             out = torch.cat([out, spk_emb], dim=1)
             out = self.spk_emb_layer(out)
         
-        # 音素
-        if self.use_phoneme:
-            phoneme = self.phoneme_layer(out)
+        # attention
+        if self.use_attention:
+            out = self.pre_attention_layer(out)
+            out = self.attention(out, data_len, layer="dec")   # (B, T, C)
+            out = self.post_attention_layer(out.permute(0, 2, 1))   # (B, C, T)
 
         for layer in self.conv_layers:
             out = layer(out)
 
         out = self.out_layer(out)
-        return out, feat_add_out, phoneme
+        return out, feat_add_out, phoneme, out_upsample

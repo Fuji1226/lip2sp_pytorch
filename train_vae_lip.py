@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from train_default import make_train_val_loader, check_feat_add, save_loss
+from train_default import make_train_val_loader, check_feat_add, save_loss, get_path
 from train_nar import check_mel
 from train_vae_audio import make_model
 from loss import MaskedLoss
@@ -61,11 +61,10 @@ def train_one_epoch(model, train_loader, optimizer, loss_f_mse, device, cfg, ckp
         feat_add = feat_add[:, 0, :].unsqueeze(1)
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
 
-        # 事前学習済みモデルのembed_idxをラベルとする
         with torch.no_grad():
-            _, _, _, _, mu_target, logvar_target, _, _ = model.forward_(feature=feature, data_len=data_len)
+            _, _, _, _, mu_target, logvar_target, _, _, _, _ = model(feature=feature, feature_ref=feature, data_len=data_len)
 
-        output, feat_add_out, phoneme, spk_emb, mu, logvar, z, enc_output = model.forward_(lip=lip, feature=feature, data_len=data_len)
+        output, feat_add_out, phoneme, spk_emb, mu, logvar, z, enc_output, spk_class, out_upsample = model(lip=lip, feature_ref=feature, data_len=data_len)
         B, C, T = output.shape
 
         kl_loss = - 0.5 * torch.sum(1 + logvar - logvar_target - ((logvar.exp() + (mu - mu_target)**2) / logvar_target.exp()), dim=-1)
@@ -82,25 +81,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f_mse, device, cfg, ckp
         epoch_loss_mse += mse_loss.item()
         wandb.log({"train_mse_loss": mse_loss})
 
-        if cfg.train.use_feat_add:
-            loss_feat_add = loss_f_mse.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"train_loss_feat_add": loss_feat_add})
-
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
                     check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
-                    if cfg.train.use_feat_add:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
-                if cfg.train.use_feat_add:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
 
     epoch_kl_loss /= iter_cnt
     epoch_loss_mse /= iter_cnt
@@ -123,8 +113,8 @@ def val_one_epoch(model, val_loader, loss_f_mse, device, cfg, ckpt_time, epoch):
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
 
         with torch.no_grad():
-            _, _, _, _, mu_target, logvar_target, _, _ = model.forward_(feature=feature, data_len=data_len)
-            output, feat_add_out, phoneme, spk_emb, mu, logvar, z, enc_output = model.forward_(lip=lip, feature=feature, data_len=data_len)
+            _, _, _, _, mu_target, logvar_target, _, _, _, _ = model(feature=feature, feature_ref=feature, data_len=data_len)
+            output, feat_add_out, phoneme, spk_emb, mu, logvar, z, enc_output, spk_class, out_upsample = model(lip=lip, feature_ref=feature, data_len=data_len)
         B, C, T = output.shape
 
         kl_loss = - 0.5 * torch.sum(1 + logvar - logvar_target - ((logvar.exp() + (mu - mu_target)**2) / logvar_target.exp()), dim=-1)
@@ -136,25 +126,16 @@ def val_one_epoch(model, val_loader, loss_f_mse, device, cfg, ckpt_time, epoch):
         epoch_loss_mse += mse_loss.item()
         wandb.log({"val_mse_loss": mse_loss})
 
-        if cfg.train.use_feat_add:
-            loss_feat_add = loss_f_mse.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"val_loss_feat_add": loss_feat_add})
-
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
                     check_mel(feature[0], output[0], cfg, "mel_val", ckpt_time)
-                    if cfg.train.use_feat_add:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_val", ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel(feature[0], output[0], cfg, "mel_val", ckpt_time)
-                if cfg.train.use_feat_add:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_val", ckpt_time)
 
     epoch_kl_loss /= iter_cnt
     epoch_loss_mse /= iter_cnt
@@ -164,6 +145,10 @@ def val_one_epoch(model, val_loader, loss_f_mse, device, cfg, ckpt_time, epoch):
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
+    if cfg.train.debug:
+        cfg.train.batch_size = 4
+        cfg.train.num_workers = 4
+
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
@@ -177,51 +162,13 @@ def main(cfg):
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
 
-    # 口唇動画か顔かの選択
-    lip_or_face = cfg.train.face_or_lip
-    if lip_or_face == "face":
-        data_root = cfg.train.face_pre_loaded_path
-        mean_std_path = cfg.train.face_mean_std_path
-    elif lip_or_face == "lip":
-        data_root = cfg.train.lip_pre_loaded_path
-        mean_std_path = cfg.train.lip_mean_std_path
-    elif lip_or_face == "lip_128128":
-        data_root = cfg.train.lip_pre_loaded_path_128128
-        mean_std_path = cfg.train.lip_mean_std_path_128128
-    elif lip_or_face == "lip_9696":
-        data_root = cfg.train.lip_pre_loaded_path_9696
-        mean_std_path = cfg.train.lip_mean_std_path_9696
-    elif lip_or_face == "lip_9696_time_only":
-        data_root = cfg.train.lip_pre_loaded_path_9696_time_only
-        mean_std_path = cfg.train.lip_mean_std_path_9696_time_only
-    
-    data_root = Path(data_root).expanduser()
-    mean_std_path = Path(mean_std_path).expanduser()
-
+    # path
+    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path(cfg)
     print("\n--- data directory check ---")
     print(f"data_root = {data_root}")
     print(f"mean_std_path = {mean_std_path}")
-
-    ckpt_time = None
-    if cfg.train.check_point_start:
-        checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
-        ckpt_time = checkpoint_path.parents[0].name
-
-    # check point
-    ckpt_path = Path(cfg.train.ckpt_path).expanduser()
-    if ckpt_time is not None:
-        ckpt_path = ckpt_path / lip_or_face / ckpt_time
-    else:
-        ckpt_path = ckpt_path / lip_or_face / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
-
-    # モデルパラメータの保存先を指定
-    save_path = Path(cfg.train.save_path).expanduser()
-    if ckpt_time is not None:
-        save_path = save_path / lip_or_face / ckpt_time    
-    else:
-        save_path = save_path / lip_or_face / current_time
-    os.makedirs(save_path, exist_ok=True)
+    print(f"ckpt_path = {ckpt_path}")
+    print(f"save_path = {save_path}")
 
     # Dataloader作成
     train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
@@ -240,16 +187,16 @@ def main(cfg):
         model = make_model(cfg, device)
         model_path = Path(cfg.train.model_path).expanduser()
 
-        if model_path.suffix == ".ckpt":
-            try:
-                model.load_state_dict(torch.load(str(model_path))['model'])
-            except:
-                model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
-        elif model_path.suffix == ".pth":
-            try:
-                model.load_state_dict(torch.load(str(model_path)))
-            except:
-                model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+        # if model_path.suffix == ".ckpt":
+        #     try:
+        #         model.load_state_dict(torch.load(str(model_path))['model'])
+        #     except:
+        #         model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
+        # elif model_path.suffix == ".pth":
+        #     try:
+        #         model.load_state_dict(torch.load(str(model_path)))
+        #     except:
+        #         model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
         # optimizer
         optimizer = torch.optim.Adam(

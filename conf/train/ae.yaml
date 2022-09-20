@@ -38,10 +38,10 @@ face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 speaker : ["F01_kablab", "M01_kablab",]
 
 # 口唇動画を使用した学習時にロードする事前学習済みモデルまでのパス
-model_path : "~/lip2sp_pytorch/check_point/ae/lip/2022:09:10_16-43-12/mspec80_150.ckpt"
+model_path : "~/lip2sp_pytorch/check_point/ae/lip/2022:09:19_15-16-27/mspec80_100.ckpt"
 
 # max_epoch
-max_epoch : 600
+max_epoch : 200
 
 # validation lossを計算する間隔
 display_val_loss_step : 1
@@ -69,9 +69,11 @@ dec_dropout : 0.1
 res_dropout : 0.1
 
 # optimizer
-lr : 0.001
+lr : 1.0e-3
 lr_lf : 0.0001
 lr_mi : 0.0003
+lr_feat_add : 0.001
+lr_disc : 0.0001
 beta_1 : 0.9
 beta_2 : 0.999
 weight_decay : 1.0e-6
@@ -81,9 +83,9 @@ weight_decay_mi : 0
 lr_decay_rate : 0.5
 lr_decay_step : 4   # max_epoch // lr_decay_stepでlr_decay_rate倍に学習率を変更
 multi_lr_decay_step : [200,]   # 学習率を変更するepoch
-warmup_t : 20
+warmup_t : 10
 warmup_lr_init : 1.0e-5
-cosine_T_max : 10
+warmup_lr_min : 1.0e-5
 
 # gradient clipping
 max_norm : 3.0
@@ -100,13 +102,14 @@ apply_first_bn : False
 
 # lossの重みづけ
 mse_weight : 1.0
-feat_add_weight : 1.0
-phoneme_weight : 0.1
+feat_add_weight : 0
+phoneme_weight : 0
 mi_weight : 0
 classifier_weight : 0.1
+gan_weight : 0
 
 # multi task
-use_feat_add : False
+use_feat_add : True
 use_phoneme : False
 
 # 時間方向の削減とアップサンプリングの方法
@@ -114,3 +117,5 @@ upsample_method : "interpolate"   # conv or interpolate
 compress_rate : 2   # 2 or 4
 time_reduction : False
 time_reduction_rate : 30
+
+use_dec_attention : False

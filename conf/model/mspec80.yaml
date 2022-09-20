@@ -63,7 +63,7 @@ glu_inner_channels : 128
 n_layers : 1    # 1, 2 or 4
 d_model : 256   # 128 or 256
 n_head : 4    # 2 or 4
-dec_n_layers : 4
+dec_n_layers : 1
 dec_d_model : 256
 dec_n_head : 4
 diag_mask : False
@@ -74,6 +74,9 @@ tc_inner_channels : 128
 tc_kernel_size : 5
 tc_feat_add_channels : 1
 tc_feat_add_layers : 2
+tc_d_model : 128
+tc_n_attn_layer : 1
+tc_n_head : 2
 
 # conformer parameter
 conformer_conv_kernel_size : 31   # 7, 15 or 31
@@ -87,12 +90,16 @@ which_encoder : "transformer"
 which_decoder : "res_tc"
 
 # audio encoder
-ae_emb_dim : 8
+ae_emb_dim : 2
 vae_emb_dim : 64
 vq_emb_dim : 64
 vq_num_emb : 256    
 spk_emb_dim : 256
 norm_type_audio : "in"
+content_d_model : 256
+content_n_attn_layer : 1
+content_n_head : 4
+which_spk_enc : "rnn"
 
 # mutual information
 mi_hidden_channels : 256

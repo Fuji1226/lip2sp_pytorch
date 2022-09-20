@@ -13,8 +13,9 @@ import torch
 
 from data_check import save_data
 from train_nar import make_model
-from generate import make_test_loader, get_path
+from utils import make_test_loader, get_path_test
 from calc_accuracy import calc_accuracy
+from data_process.phoneme_encode import get_keys_from_value
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -34,6 +35,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
     feat_std = dataset.feat_std.to(device)
     feat_add_mean = dataset.feat_add_mean.to(device)
     feat_add_std = dataset.feat_add_std.to(device)
+    speaker_idx = dataset.speaker_idx
 
     process_times = []
 
@@ -45,13 +47,17 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         start_time = time.time()
 
         with torch.no_grad():
-            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+            if cfg.train.use_gc:
+                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+            else:
+                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
 
         end_time = time.time()
         process_time = end_time - start_time
         process_times.append(process_time)
 
-        _save_path = save_path / label[0]
+        speaker_label = get_keys_from_value(speaker_idx, speaker[0])
+        _save_path = save_path / speaker_label / label[0]
         os.makedirs(_save_path, exist_ok=True)
 
         save_data(
@@ -77,14 +83,17 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
+    if len(cfg.train.speaker) > 1:
+        cfg.train.use_gc = True
+    else:
+        cfg.train.use_gc = False
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     model = make_model(cfg, device)
-
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:13_22-01-44/mspec80_300.ckpt")     # M01_kablab
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:12_22-54-07/mspec80_300.ckpt")     # F01_kablab
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:13_23-49-41/mspec80_300.ckpt")     # both
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:19_13-15-04/mspec80_300.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:09:19_17-38-34/mspec80_300.ckpt")
     
     if model_path.suffix == ".ckpt":
         try:
@@ -97,11 +106,12 @@ def main(cfg):
         except:
             model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
-    data_root_list, mean_std_path, save_path_list = get_path(cfg, model_path)
+    data_root_list, mean_std_path, save_path_list = get_path_test(cfg, model_path)
 
     for data_root, save_path in zip(data_root_list, save_path_list):
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
+        process_times = None
         print("--- generate ---")
         process_times = generate(
             cfg=cfg,

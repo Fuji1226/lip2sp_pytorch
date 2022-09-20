@@ -35,7 +35,7 @@ lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
 # 使用する話者
-speaker : ["M01_kablab", "F01_kablab"]
+speaker : ["F01_kablab", "M01_kablab"]
 use_gc : False
 
 # max_epoch
@@ -92,8 +92,8 @@ apply_first_bn : False
 
 # lossの重みづけ
 mse_weight : 1.0
-feat_add_weight : 0.1
-phoneme_weight : 0.1
+feat_add_weight : 0
+phoneme_weight : 0
 
 # multi task
 use_feat_add : False
@@ -102,3 +102,5 @@ use_phoneme : False
 # 時間方向の削減とアップサンプリングの方法
 upsample_method : "interpolate"   # conv or interpolate
 compress_rate : 2   # 2 or 4
+
+use_dec_attention : False

@@ -16,9 +16,9 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
+from utils import make_train_val_loader, save_loss, get_path_train, check_feat_add, check_mel_nar
 from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
-from train_default import make_train_val_loader, check_feat_add, save_loss, get_path
 
 # wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -70,6 +70,7 @@ def make_model(cfg, device):
         use_feat_add=cfg.train.use_feat_add,
         phoneme_classes=cfg.model.n_classes,
         use_phoneme=cfg.train.use_phoneme,
+        use_dec_attention=cfg.train.use_dec_attention,
         upsample_method=cfg.train.upsample_method,
         compress_rate=cfg.train.compress_rate,
         dec_dropout=cfg.train.dec_dropout,
@@ -82,55 +83,6 @@ def make_model(cfg, device):
         model = torch.nn.DataParallel(model)
         print(f"\nusing {torch.cuda.device_count()} GPU")
     return model.to(device)
-
-
-def check_mel(target, output, cfg, filename, ckpt_time=None):
-    target = target.to('cpu').detach().numpy().copy()
-    output = output.to('cpu').detach().numpy().copy()
-
-    plt.close("all")
-    plt.figure()
-    ax = plt.subplot(2, 1, 1)
-    specshow(
-        data=target, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=cfg.model.sampling_rate, 
-        hop_length=cfg.model.hop_length,
-        fmin=cfg.model.f_min,
-        fmax=cfg.model.f_max,
-        cmap="viridis",
-    )
-    plt.colorbar(format="%+2.f dB")
-    plt.xlabel("Time[s]")
-    plt.ylabel("Frequency[Hz]")
-    plt.title("target")
-    
-    ax = plt.subplot(2, 1, 2, sharex=ax, sharey=ax)
-    specshow(
-        data=output, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=cfg.model.sampling_rate, 
-        hop_length=cfg.model.hop_length, 
-        fmin=cfg.model.f_min,
-        fmax=cfg.model.f_max,
-        cmap="viridis",
-    )
-    plt.colorbar(format="%+2.f dB")
-    plt.xlabel("Time[s]")
-    plt.ylabel("Frequency[Hz]")
-    plt.title("output")
-
-    plt.tight_layout()
-    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
-    if ckpt_time is not None:
-        save_path = save_path / cfg.train.name / ckpt_time
-    else:
-        save_path = save_path / cfg.train.name / current_time
-    os.makedirs(save_path, exist_ok=True)
-    plt.savefig(str(save_path / f"{filename}.png"))
-    wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
 
 
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time):
@@ -151,12 +103,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         else:
             output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
         B, C, T = output.shape
-        
-        if cfg.train.use_feat_add:
-            loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"train_loss_feat_add": loss_feat_add})
-            loss_feat_add.backward(retain_graph=True)
 
         loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
         epoch_loss += loss.item()
@@ -170,16 +116,12 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
-                    if cfg.train.use_feat_add:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
+                    check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], cfg, "mel_train", ckpt_time)
-                if cfg.train.use_feat_add:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", ckpt_time)
+                check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
 
     epoch_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
@@ -207,11 +149,6 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
                 output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
 
         B, C, T = output.shape
-        
-        if cfg.train.use_feat_add:
-            loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"val_loss_feat_add": loss_feat_add})
 
         loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
         epoch_loss += loss.item()
@@ -221,16 +158,12 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel(feature[0], output[0], cfg, "mel_validation", ckpt_time)
-                    if cfg.train.use_feat_add:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", ckpt_time)
+                    check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel(feature[0], output[0], cfg, "mel_validation", ckpt_time)
-                if cfg.train.use_feat_add:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", ckpt_time)
+                check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
             
     epoch_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
@@ -262,7 +195,7 @@ def main(cfg):
     torch.backends.cudnn.deterministic = True
 
     # path
-    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path(cfg)
+    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
     print(f"data_root = {data_root}")
     print(f"mean_std_path = {mean_std_path}")
