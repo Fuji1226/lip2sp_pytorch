@@ -32,6 +32,7 @@ from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets
 from data_check import save_data
 from train_default import make_model
 from calc_accuracy import calc_accuracy
+from utils import make_test_loader, get_path_test
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -40,65 +41,6 @@ np.random.seed(0)
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 random.seed(0)
-
-
-def make_test_loader(cfg, data_root, mean_std_path):
-    test_data_path = get_datasets(
-        data_root=data_root,
-        cfg=cfg,
-    )
-    test_trans = KablabTransform(
-        cfg=cfg,
-        train_val_test="test",
-    )
-    test_dataset = KablabDataset(
-        data_path=test_data_path,
-        mean_std_path = mean_std_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def get_path(cfg, model_path):
-    if cfg.test.face_or_lip == "face":
-        train_data_root = cfg.train.face_pre_loaded_path
-        test_data_root = cfg.test.face_pre_loaded_path
-        mean_std_path = cfg.train.face_mean_std_path
-    if cfg.test.face_or_lip == "lip":
-        train_data_root = cfg.train.lip_pre_loaded_path
-        test_data_root = cfg.test.lip_pre_loaded_path
-        mean_std_path = cfg.train.lip_mean_std_path
-    
-    train_data_root = Path(train_data_root).expanduser()
-    test_data_root = Path(test_data_root).expanduser()
-    mean_std_path = Path(mean_std_path).expanduser()
-
-    save_path = Path(cfg.test.save_path).expanduser()
-    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
-    train_save_path = save_path / "train_data" / "audio"
-    test_save_path = save_path / "test_data" / "audio"
-    os.makedirs(train_save_path, exist_ok=True)
-    os.makedirs(test_save_path, exist_ok=True)
-
-    # data_root_list = [test_data_root, train_data_root]
-    # save_path_list = [test_save_path, train_save_path]
-
-    data_root_list = [test_data_root]
-    save_path_list = [test_save_path]
-    
-    print(data_root_list, save_path_list)
-
-    return data_root_list, mean_std_path, save_path_list
 
 
 def generate(cfg, model, test_loader, dataset, device, save_path):
@@ -150,6 +92,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
     return process_times
 
+
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -170,7 +113,7 @@ def main(cfg):
         except:
             model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
-    data_root_list, mean_std_path, save_path_list = get_path(cfg, model_path)
+    data_root_list, mean_std_path, save_path_list = get_path_test(cfg, model_path)
 
     for data_root, save_path in zip(data_root_list, save_path_list):
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)

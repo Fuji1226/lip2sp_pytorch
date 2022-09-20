@@ -1,43 +1,3 @@
-"""
-普通の学習用
-
-使用方法
-1. npzファイルの作成
-    data_process/make_npz.pyを実行し,事前にnpzファイルを作成してください
-    使い方はmake_npz.pyに記載しています
-
-2. 保存先のパスの変更
-    conf/trainの
-        train_save_path
-        ckpt_path
-    を変更してください
-
-    Path().expanduser()とかを使えば人によって変えずに済むので楽になるかもしれません…
-    後回しになっているので,とりあえず変更でお願いします
-
-    追記
-    expanduser()で一通り設定したので,おそらくパスの設定を変更しなくてもいけると思います！
-
-3. wandb.loginの変更
-    自分のものに変更してください
-
-4. モデル構造やパラメータ,使用する音響特徴量の変更
-    conf/
-        model
-        train
-    以上の2つで学習時のパラメータを一通り管理しています
-    やりたいものに変更してください
-    おそらくバグらないと思います…
-
-5. train_default.pyの実行
-    ここまでやれば実行できるんじゃないかと思います
-    学習中はcheckpointに途中のパラメータの保存が保存されると思います
-    また,損失の曲線はwandbで見れるはずです
-
-6. generate.pyの実行
-    学習途中や終了後に合成できるかどうかを確認するときには,generate.pyを実行してください
-    使用方法はそっちに書いています
-"""
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import wandb
@@ -53,7 +13,6 @@ from librosa.display import specshow
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
-from timm.scheduler import CosineLRScheduler
 
 from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default
 from model.model_default import Lip2SP
@@ -91,7 +50,7 @@ def make_model(cfg, device):
         out_channels=cfg.model.out_channels,
         res_layers=cfg.model.res_layers,
         res_inner_channels=cfg.model.res_inner_channels,
-        norm_type=cfg.model.norm_type,
+        norm_type=cfg.model.norm_type_lip,
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
@@ -103,6 +62,8 @@ def make_model(cfg, device):
         glu_kernel_size=cfg.model.glu_kernel_size,
         feat_add_channels=cfg.model.tc_feat_add_channels,
         feat_add_layers=cfg.model.tc_feat_add_layers,
+        n_speaker=len(cfg.train.speaker),
+        spk_emb_dim=cfg.model.spk_emb_dim,
         pre_inner_channels=cfg.model.pre_inner_channels,
         post_inner_channels=cfg.model.post_inner_channels,
         post_n_layers=cfg.model.post_n_layers,
@@ -136,17 +97,14 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+        lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        output, dec_output, feat_add_out = model(
-            lip=lip,
-            prev=feature,
-            data_len=data_len,
-            training_method=training_method,
-            mixing_prob=mixing_prob,
-        )               
+        if cfg.train.use_gc:
+            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+        else:
+            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
@@ -208,13 +166,10 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
-            output, dec_output, feat_add_out = model(
-                lip=lip,
-                prev=feature,
-                data_len=data_len,
-                training_method=training_method,
-                mixing_prob=mixing_prob,
-            )           
+            if cfg.train.use_gc:
+                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+            else:
+                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 

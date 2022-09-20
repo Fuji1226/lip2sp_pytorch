@@ -88,6 +88,7 @@ class Lip2SP(nn.Module):
             )
 
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
+        self.spk_emb_layer = nn.Linear(d_model + spk_emb_dim, d_model)
 
         # decoder
         if self.which_decoder == "transformer":
@@ -155,7 +156,10 @@ class Lip2SP(nn.Module):
 
         # speaker embedding
         if gc is not None:
-            spk_emb = self.emb_layer(gc)
+            spk_emb = self.emb_layer(gc)    # (B, C)
+            spk_emb = spk_emb.unsqueeze(1).expand(-1, enc_output.shape[1], -1)
+            enc_output = torch.cat([enc_output, spk_emb], dim=-1)
+            enc_output = self.spk_emb_layer(enc_output)
         else:
             spk_emb = None
 

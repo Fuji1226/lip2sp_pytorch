@@ -104,7 +104,7 @@ mse_weight : 1.0
 feat_add_weight : 0
 phoneme_weight : 0
 mi_weight : 0
-classifier_weight : 0.1
+classifier_weight : 0
 
 # multi task
 use_feat_add : True
