@@ -104,3 +104,5 @@ upsample_method : "interpolate"   # conv or interpolate
 compress_rate : 2   # 2 or 4
 
 use_dec_attention : False
+
+separate_frontend : True

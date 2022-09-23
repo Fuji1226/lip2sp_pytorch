@@ -33,14 +33,15 @@ import dlib
 import numpy as np
 from tqdm import tqdm
 
-speaker = "M03_kablab"
+speaker = "F01_kablab"
 data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-save_dir = f"/home/usr4/r70264c/dataset/lip/lip_cropped/{speaker}"
+# save_dir = f"/home/usr4/r70264c/dataset/lip/lip_cropped/{speaker}"
+save_dir = f"/home/usr4/r70264c/dataset/lip/optical_flow/{speaker}"
 txt_path = f"/home/usr4/r70264c/dataset/lip/cropped_error_data_{speaker}.txt"
 corpus = "ATR"
 start_num = 0
 
-debug = False
+debug = True
 debug_iter = 5
 
 # 口唇のランドマーク検出
@@ -61,6 +62,7 @@ def Lip_Cropping(frame, det):
     left_point = shapes[0]
     right_point = shapes[6]
     im_size = right_point[0] - left_point[0] + 10
+    im_size = 120
 
     return im_size, mouth_center
 

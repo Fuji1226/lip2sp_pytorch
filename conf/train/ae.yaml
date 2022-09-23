@@ -38,7 +38,7 @@ face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 speaker : ["F01_kablab", "M01_kablab",]
 
 # 口唇動画を使用した学習時にロードする事前学習済みモデルまでのパス
-model_path : "~/lip2sp_pytorch/check_point/ae/lip/2022:09:19_15-16-27/mspec80_100.ckpt"
+model_path : "~/lip2sp_pytorch/check_point/ae/lip/2022:09:22_12-06-45/mspec80_140.ckpt"
 
 # max_epoch
 max_epoch : 200
@@ -105,7 +105,7 @@ mse_weight : 1.0
 feat_add_weight : 0
 phoneme_weight : 0
 mi_weight : 0
-classifier_weight : 0
+classifier_weight : 0.5
 gan_weight : 0
 
 # multi task
@@ -119,3 +119,5 @@ time_reduction : False
 time_reduction_rate : 30
 
 use_dec_attention : False
+
+separate_frontend : False

@@ -22,14 +22,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 try:
-    from model.net import ResNet3D
+    from model.net import ResNet3D, EfficientResNet3D
     from model.transformer_remake import Encoder, Decoder
     from model.pre_post import Postnet
     from model.conformer.encoder import ConformerEncoder
     from model.glu_remake import GLU
     from model.nar_decoder import FeadAddPredicter
 except:
-    from .net import ResNet3D
+    from .net import ResNet3D, EfficientResNet3D
     from .transformer_remake import Encoder, Decoder
     from .pre_post import Postnet
     from .conformer.encoder import ConformerEncoder
@@ -40,6 +40,7 @@ except:
 class Lip2SP(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
+        separate_frontend, which_res,
         d_model, n_layers, n_head, dec_n_layers, dec_d_model, conformer_conv_kernel_size,
         glu_inner_channels, glu_layers, glu_kernel_size,
         feat_add_channels, feat_add_layers,
@@ -57,18 +58,82 @@ class Lip2SP(nn.Module):
         self.out_channels = out_channels
         self.multi_task = multi_task
         self.add_feat_add = add_feat_add
+        self.separate_frontend = separate_frontend
 
         if apply_first_bn:
             self.first_batch_norm = nn.BatchNorm3d(in_channels)
 
-        self.ResNet_GAP = ResNet3D(
-            in_channels=in_channels, 
-            out_channels=d_model, 
-            inner_channels=res_inner_channels,
-            layers=res_layers, 
-            dropout=res_dropout,
-            norm_type=norm_type,
-        )
+        if separate_frontend:
+            if which_res == "eff":
+                self.ResNet_GAP = EfficientResNet3D(
+                    in_channels=3, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
+                self.ResNet_GAP_d = EfficientResNet3D(
+                    in_channels=1, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
+                self.ResNet_GAP_dd = EfficientResNet3D(
+                    in_channels=1, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
+            elif which_res == "all_3d":
+                self.ResNet_GAP = ResNet3D(
+                    in_channels=3, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
+                self.ResNet_GAP_d = ResNet3D(
+                    in_channels=1, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
+                self.ResNet_GAP_dd = ResNet3D(
+                    in_channels=1, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
+            self.pre_attention_layer = nn.Conv1d(d_model * 3, d_model, kernel_size=1)
+        else:
+            if which_res == "eff":
+                self.ResNet_GAP = EfficientResNet3D(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
+            elif which_res == "all_3d":
+                self.ResNet_GAP = ResNet3D(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type,
+                )
 
         # encoder
         if self.which_encoder == "transformer":
@@ -129,7 +194,7 @@ class Lip2SP(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
 
-    def forward(self, lip, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
+    def forward(self, lip, lip_d=None, lip_dd=None, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
         """
         lip : (B, C, H, W, T)
         prev, out, dec_output : (B, C, T)
@@ -138,9 +203,14 @@ class Lip2SP(nn.Module):
         self.reset_state()
 
         # encoder
-        if self.apply_first_bn:
-            lip = self.first_batch_norm(lip)
-        lip_feature = self.ResNet_GAP(lip)
+        if self.separate_frontend:
+            lip_feature = self.ResNet_GAP(lip)
+            lip_feature_d = self.ResNet_GAP_d(lip_d)
+            lip_feature_dd = self.ResNet_GAP_dd(lip_dd)
+            lip_feature = torch.cat([lip_feature, lip_feature_d, lip_feature_dd], dim=1)
+            lip_feature = self.pre_attention_layer(lip_feature)
+        else:
+            lip_feature = self.ResNet_GAP(lip)
         
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
 

@@ -38,10 +38,10 @@ face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 speaker : ["F01_kablab", "M01_kablab"]
 
 # 口唇動画を使用した学習時にロードする事前学習済みモデルまでのパス
-model_path : "~/lip2sp_pytorch/check_point/vq/lip/2022:09:19_15-33-15/mspec80_100.ckpt"
+model_path : "~/lip2sp_pytorch/check_point/vq/lip/2022:09:22_08-25-16/mspec80_200.ckpt"
 
 # max_epoch
-max_epoch : 500
+max_epoch : 200
 
 # validation lossを計算する間隔
 display_val_loss_step : 1
@@ -104,7 +104,7 @@ mse_weight : 1.0
 feat_add_weight : 0
 phoneme_weight : 0
 mi_weight : 0
-classifier_weight : 0
+classifier_weight : 0.1
 
 # multi task
 use_feat_add : True
@@ -115,3 +115,5 @@ upsample_method : "interpolate"   # conv or interpolate
 compress_rate : 2   # 2 or 4
 
 use_dec_attention : False
+
+separate_frontend : True

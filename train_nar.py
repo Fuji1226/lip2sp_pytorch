@@ -50,6 +50,8 @@ def make_model(cfg, device):
         res_layers=cfg.model.res_layers,
         res_inner_channels=cfg.model.res_inner_channels,
         norm_type=cfg.model.norm_type_lip,
+        separate_frontend=cfg.train.separate_frontend,
+        which_res=cfg.model.which_res,
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
@@ -57,6 +59,9 @@ def make_model(cfg, device):
         dec_n_layers=cfg.model.tc_n_layers,
         dec_inner_channels=cfg.model.tc_inner_channels,
         dec_kernel_size=cfg.model.tc_kernel_size,
+        tc_n_attn_layer=cfg.model.tc_n_attn_layer,
+        tc_n_head=cfg.model.tc_n_head,
+        tc_d_model=cfg.model.tc_d_model,
         feat_add_channels=cfg.model.tc_feat_add_channels,
         feat_add_layers=cfg.model.tc_feat_add_layers,
         n_speaker=len(cfg.train.speaker),
@@ -75,6 +80,11 @@ def make_model(cfg, device):
         reduction_factor=cfg.model.reduction_factor,
         use_gc=cfg.train.use_gc,
     )
+    params = 0
+    for p in model.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"model_parameter = {params}")
     # multi GPU
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
@@ -95,10 +105,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
-        if cfg.train.use_gc:
-            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+        if cfg.train.separate_frontend:
+            if cfg.train.use_gc:
+                output, feat_add_out, phoneme = model(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len, gc=speaker)
+            else:
+                output, feat_add_out, phoneme = model(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
         else:
-            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+            if cfg.train.use_gc:
+                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+            else:
+                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
         B, C, T = output.shape
 
         loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
@@ -140,10 +156,16 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
         
         with torch.no_grad():
-            if cfg.train.use_gc:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)    
+            if cfg.train.separate_frontend:
+                if cfg.train.use_gc:
+                    output, feat_add_out, phoneme = model(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len, gc=speaker)
+                else:
+                    output, feat_add_out, phoneme = model(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
             else:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+                if cfg.train.use_gc:
+                    output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+                else:
+                    output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
 
         B, C, T = output.shape
 

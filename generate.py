@@ -58,12 +58,15 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
     iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
         wav, lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+        lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
         
         start_time = time.time()
 
         with torch.no_grad():
-            output, dec_output, feat_add_out = model(lip)
+            if cfg.train.use_gc:
+                output, dec_output, feat_add_out = model(lip=lip, gc=speaker)
+            else:
+                output, dec_output, feat_add_out = model(lip)
 
         end_time = time.time()
         process_time = end_time - start_time
@@ -86,21 +89,26 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
             feat_std=feat_std,
         )
 
-        iter_cnt += 1
-        if iter_cnt == 53:
-            break
+        # iter_cnt += 1
+        # if iter_cnt == 53:
+        #     break
 
     return process_times
 
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
+    if len(cfg.train.speaker) > 1:
+        cfg.train.use_gc = True
+    else:
+        cfg.train.use_gc = False
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     model = make_model(cfg, device)
 
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:09:04_11-57-49/mspec80_300.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:09:20_17-06-45/mspec80_300.ckpt")
 
     if model_path.suffix == ".ckpt":
         try:
@@ -128,6 +136,7 @@ def main(cfg):
             save_path=save_path,
         )
         
+    for data_root, save_path in zip(data_root_list, save_path_list):
         print("--- calc accuracy ---")
         calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
 

@@ -78,7 +78,10 @@ def train_one_epoch(vcnet, lip_enc, discriminator, train_loader, optimizer, opti
 
         ### update discriminator ###
         with torch.no_grad():
-            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+            if cfg.train.separate_frontend:
+                lip_enc_out = lip_enc(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
+            else:
+                lip_enc_out = lip_enc(lip=lip, data_len=data_len)
             output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
         
         real = discriminator(enc_output_target)
@@ -94,7 +97,10 @@ def train_one_epoch(vcnet, lip_enc, discriminator, train_loader, optimizer, opti
         wandb.log({"train_loss_disc": disc_loss})
 
         ### update generator ###
-        lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+        if cfg.train.separate_frontend:
+            lip_enc_out = lip_enc(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
+        else:
+            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
         with torch.no_grad():
             output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
             fake = discriminator(lip_enc_out)
@@ -165,7 +171,10 @@ def val_one_epoch(vcnet, lip_enc, discriminator, val_loader, loss_f, device, cfg
 
         with torch.no_grad():
             _, _, _, _, enc_output_target, _, _ = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
-            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+            if cfg.train.separate_frontend:
+                lip_enc_out = lip_enc(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
+            else:
+                lip_enc_out = lip_enc(lip=lip, data_len=data_len)
             output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
             real = discriminator(enc_output_target)
             fake = discriminator(lip_enc_out)
@@ -261,18 +270,23 @@ def main(cfg):
         vcnet, lip_enc = make_model(cfg, device)
         model_path = Path(cfg.train.model_path).expanduser()
 
-        # if model_path.suffix == ".ckpt":
-        #     try:
-        #         vcnet.load_state_dict(torch.load(str(model_path))['vcnet'])
-        #     except:
-        #         vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['vcnet'])
-        # elif model_path.suffix == ".pth":
-        #     try:
-        #         vcnet.load_state_dict(torch.load(str(model_path)))
-        #     except:
-        #         vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+        if model_path.suffix == ".ckpt":
+            try:
+                vcnet.load_state_dict(torch.load(str(model_path))['vcnet'])
+            except:
+                vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['vcnet'])
+        elif model_path.suffix == ".pth":
+            try:
+                vcnet.load_state_dict(torch.load(str(model_path)))
+            except:
+                vcnet.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
         discriminator = AEDiscriminator(cfg.model.ae_emb_dim).to(device)
+        params = 0
+        for p in discriminator.parameters():
+            if p.requires_grad:
+                params += p.numel()
+        print(f"discriminator parameter = {params}")
 
         # optimizer
         optimizer = torch.optim.Adam(

@@ -67,7 +67,11 @@ def train_one_epoch(vcnet, lip_enc, train_loader, optimizer, loss_f, device, cfg
         with torch.no_grad():
             _, _, _, _, enc_output_target, _, _ = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
 
-        lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+        if cfg.train.separate_frontend:
+            lip_enc_out = lip_enc(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
+        else:
+            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+
         with torch.no_grad():
             output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
 
@@ -125,7 +129,10 @@ def val_one_epoch(vcnet, lip_enc, val_loader, loss_f, device, cfg, ckpt_time, ep
 
         with torch.no_grad():
             _, _, _, _, enc_output_target, _, _ = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
-            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+            if cfg.train.separate_frontend:
+                lip_enc_out = lip_enc(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
+            else:
+                lip_enc_out = lip_enc(lip=lip, data_len=data_len)
             output, feat_add_out, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
 
         enc_loss = loss_f.mse_loss(

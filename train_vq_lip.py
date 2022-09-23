@@ -87,7 +87,11 @@ def train_one_epoch(vcnet, lip_enc, train_loader, optimizer, loss_f, device, cfg
         with torch.no_grad():
             _, _, _, _, _, embed_idx_target, _, _, _, _, _ = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
 
-        lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+        if cfg.train.separate_frontend:
+            lip_enc_out = lip_enc(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
+        else:
+            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+
         with torch.no_grad():
             output, feat_add_out, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
         B, C, T = output.shape
@@ -145,7 +149,10 @@ def val_one_epoch(vcnet, lip_enc, val_loader, loss_f, device, cfg, ckpt_time, ep
 
         with torch.no_grad():
             _, _, _, _, _, embed_idx_target, _, _, _, _, _ = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
-            lip_enc_out = lip_enc(lip=lip, data_len=data_len)
+            if cfg.train.separate_frontend:
+                lip_enc_out = lip_enc(lip=lip[:, :3], lip_delta=lip[:, 3:], data_len=data_len)
+            else:
+                lip_enc_out = lip_enc(lip=lip, data_len=data_len)
             output, feat_add_out, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
         B, C, T = output.shape
 

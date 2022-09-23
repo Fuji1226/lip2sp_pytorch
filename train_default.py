@@ -51,6 +51,8 @@ def make_model(cfg, device):
         res_layers=cfg.model.res_layers,
         res_inner_channels=cfg.model.res_inner_channels,
         norm_type=cfg.model.norm_type_lip,
+        separate_frontend=cfg.train.separate_frontend,
+        which_res=cfg.model.which_res,
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
@@ -78,6 +80,12 @@ def make_model(cfg, device):
         reduction_factor=cfg.model.reduction_factor,
         use_gc=cfg.train.use_gc,
     )
+    params = 0
+    for p in model.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"model_parameter = {params}")
+
     # multi GPU
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
@@ -101,10 +109,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        if cfg.train.use_gc:
-            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+        if cfg.train.separate_frontend:
+            if cfg.train.use_gc:
+                output, dec_output, feat_add_out = model(lip=lip[:, :3], lip_d=lip[:, 3:4], lip_dd=lip[:, 4:], prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+            else:
+                output, dec_output, feat_add_out = model(lip=lip[:, :3], lip_d=lip[:, 3:4], lip_dd=lip[:, 4:], prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
         else:
-            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+            if cfg.train.use_gc:
+                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+            else:
+                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
@@ -163,13 +177,20 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         print(f'iter {iter_cnt}/{all_iter}')
 
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+        lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
         
         with torch.no_grad():
-            if cfg.train.use_gc:
-                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+            if cfg.train.separate_frontend:
+                if cfg.train.use_gc:
+                    output, dec_output, feat_add_out = model(lip=lip[:, :3], lip_d=lip[:, 3:4], lip_dd=lip[:, 4:], prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+                else:
+                    output, dec_output, feat_add_out = model(lip=lip[:, :3], lip_d=lip[:, 3:4], lip_dd=lip[:, 4:], prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
             else:
-                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+                if cfg.train.use_gc:
+                    output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+                else:
+                    output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+
 
         B, C, T = output.shape
 

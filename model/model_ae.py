@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 try:
-    from model.net import ResNet3D
+    from model.net import ResNet3D, EfficientResNet3D
     from model.transformer_remake import Encoder
     from model.conformer.encoder import ConformerEncoder
     from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
@@ -16,7 +16,7 @@ try:
     from model.classifier import SpeakerClassifier
     from model.grad_reversal import GradientReversal
 except:
-    from .net import ResNet3D
+    from .net import ResNet3D, EfficientResNet3D
     from .transformer_remake import Encoder
     from .conformer.encoder import ConformerEncoder
     from .audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
@@ -195,23 +195,70 @@ class LipEncoder(nn.Module):
         self, in_channels, res_layers, res_inner_channels,
         d_model, n_layers, n_head, conformer_conv_kernel_size,
         res_dropout, norm_type_lip, reduction_factor, ae_emb_dim,
-        apply_first_bn, compress_rate, which_encoder):
+        apply_first_bn, compress_rate, which_encoder, which_res, separate_frontend):
         super().__init__()
         assert d_model % n_head == 0
         self.apply_first_bn = apply_first_bn
         self.compress_rate = compress_rate
         self.which_encoder = which_encoder
+        self.separate_frontend = separate_frontend
 
         self.first_batch_norm = nn.BatchNorm3d(in_channels)
 
-        self.ResNet_GAP = ResNet3D(
-            in_channels=in_channels, 
-            out_channels=d_model, 
-            inner_channels=res_inner_channels,
-            layers=res_layers, 
-            dropout=res_dropout,
-            norm_type=norm_type_lip,
-        )
+        if separate_frontend:
+            if which_res == "eff":
+                self.ResNet_GAP = EfficientResNet3D(
+                    in_channels=3, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+                self.ResNet_GAP_delta = EfficientResNet3D(
+                    in_channels=2, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "all_3d":
+                self.ResNet_GAP = ResNet3D(
+                    in_channels=3, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+                self.ResNet_GAP_delta = ResNet3D(
+                    in_channels=2, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+        else:
+            if which_res == "eff":
+                self.ResNet_GAP = EfficientResNet3D(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "all_3d":
+                self.ResNet_GAP = ResNet3D(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
 
         # encoder
         if self.which_encoder == "transformer":
@@ -232,11 +279,14 @@ class LipEncoder(nn.Module):
         self.compress_layer_lip = nn.Conv1d(d_model, d_model, kernel_size=2, stride=2)
         self.pre_dec_layer_lip = nn.Linear(d_model, ae_emb_dim)
 
-    def forward(self, lip, data_len=None):
+    def forward(self, lip, lip_delta=None, data_len=None):
         # resnet
-        if self.apply_first_bn:
-            lip = self.first_batch_norm(lip)
-        lip_feature = self.ResNet_GAP(lip)
+        if self.separate_frontend:
+            lip_feature = self.ResNet_GAP(lip)
+            lip_feature_delta = self.ResNet_GAP_delta(lip_delta)
+            lip_feature = torch.cat([lip_feature, lip_feature_delta], dim=1)
+        else:
+            lip_feature = self.ResNet_GAP(lip)
         
         # encoder
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
@@ -330,6 +380,11 @@ class VoiceConversionNetAE(nn.Module):
 
             # speaker classifier
             spk_class = self.classifier(self.gr_layer(enc_output))  
+        
+        else:
+            with torch.no_grad():
+                # speaker embedding
+                spk_emb = self.speaker_enc(feature_ref)     # (B, C)
 
         # decoder
         if lip_enc_out is None:

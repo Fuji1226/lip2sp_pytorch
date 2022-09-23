@@ -101,7 +101,8 @@ class ResidualBlock3D(nn.Module):
         y2 = x
         if hasattr(self, "res_conv"):
             # 空間方向のstrideが2の場合、空間方向に1/2に圧縮されるのでその分を考慮
-            y2 = F.avg_pool3d(y2, kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
+            if self.stride > 1:
+                y2 = F.avg_pool3d(y2, kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
             y2 = self.res_bn(self.res_conv(y2))
 
         return F.relu(y1 + y2)
@@ -148,68 +149,91 @@ class ResNet3D(nn.Module):
         return out
 
 
-# class ResBlock(nn.Module):
-#     def __init__(self, in_channels, out_channels, dropout) -> None:
-#         super().__init__()
-#         self.layers = nn.Sequential(
-#             nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
-#             nn.BatchNorm3d(out_channels),
-#             nn.ReLU(),
-#             nn.Dropout3d(dropout),
-#             nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
-#             nn.BatchNorm3d(out_channels),
-#             nn.ReLU(),
-#             nn.Dropout3d(dropout),
-#         )
+class ResBlock2D(nn.Module):
+    def __init__(self, in_channels, out_channels, stride, dropout, norm_type):
+        super().__init__()
+        self.stride = stride
+        self.conv1 = nn.Conv3d(in_channels, out_channels, kernel_size=(3, 3, 1), stride=(stride, stride, 1), padding=(1, 1, 0), bias=False)
+        self.bn1 = NormLayer3D(out_channels, norm_type)
+        self.conv2 = nn.Conv3d(out_channels, out_channels, kernel_size=(3, 3, 1), stride=1, padding=(1, 1, 0), bias=False)
+        self.bn2 = NormLayer3D(out_channels, norm_type)
 
-#     def forward(self, x):
-#         res = x
-#         out = self.layers(x) + res
-#         return out
+        if stride > 1 or in_channels != out_channels:
+            self.res_conv = nn.Conv3d(in_channels, out_channels, kernel_size=1)
+            self.res_bn = NormLayer3D(out_channels, norm_type)
+
+        self.dropout = nn.Dropout3d(dropout)
+
+    def forward(self, x):
+        y1 = x
+        y1 = self.conv1(y1)
+        y1 = self.bn1(y1)
+        y1 = F.relu(y1)
+            
+        y1 = self.conv2(y1)
+        y1 = self.bn2(y1)
+
+        y2 = x
+        if hasattr(self, "res_conv"):
+            if self.stride > 1:
+                y2 = F.avg_pool3d(y2, kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
+            y2 = self.res_bn(self.res_conv(y2))
+
+        return self.dropout(F.relu(y1 + y2))
 
 
-# class ResNet3D2(nn.Module):
-#     def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
-#         super().__init__()
-#         assert layers <= 3
-#         in_cs = [(inner_channels // 2) // (2**i) for i in range(layers)]
-#         out_cs = [inner_channels // (2**i) for i in range(layers)]
-#         in_cs.append(in_channels)
-#         out_cs.append(in_cs[-2])
-#         in_cs = list(reversed(in_cs))
-#         out_cs = list(reversed(out_cs))
+class EfficientResNet3D(nn.Module):
+    def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
+        super().__init__()
+        self.conv3d = nn.Sequential(
+            nn.Conv3d(in_channels, inner_channels, kernel_size=(5, 5, 5), stride=(2, 2, 1), padding=(2, 2, 2)),
+            NormLayer3D(inner_channels, norm_type),
+            nn.ReLU(),
+        )
+        self.max_pool = nn.MaxPool3d(kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
 
-#         self.layers = nn.ModuleList([
-#             nn.Sequential(
-#                 nn.Conv3d(in_c, out_c, kernel_size=(3, 3, 3), stride=(2, 2, 1), padding=(1, 1, 1), bias=False),
-#                 nn.BatchNorm3d(out_c),
-#                 nn.ReLU(),
-#                 ResBlock(out_c, out_c, dropout),
-#             ) for in_c, out_c in zip(in_cs, out_cs)
-#         ])
-#         self.out_layer = nn.Conv1d(inner_channels, out_channels, kernel_size=1)
-    
-#     def forward(self, x):
-#         """
-#         x : (B, C, H, W, T)
-#         out : (B, C, T)
-#         """
-#         out = x
-#         for layer in self.layers:
-#             out = layer(out)
+        in_cs = [inner_channels, inner_channels, inner_channels * 2]
+        out_cs = [inner_channels, inner_channels * 2, inner_channels*4]
+        stride = [1, 2, 2]
+        self.conv2d_layers = nn.ModuleList([
+            nn.Sequential(
+                ResBlock2D(in_c, out_c, s, dropout, norm_type),
+            ) for in_c, out_c, s in zip(in_cs, out_cs, stride)
+        ])
+        self.out_layer = nn.Conv1d(out_cs[-1], out_channels, kernel_size=1)
 
-#         # W, HについてAverage pooling
-#         out = torch.mean(out, dim=(2, 3))
-#         out = self.out_layer(out)
-#         return out
+    def forward(self, x):
+        """
+        x : (B, C, H, W, T)
+        out : (B, C, T)
+        """
+        print("eff")
+        out = self.conv3d(x)
+        out = self.max_pool(out)
+        for layer in self.conv2d_layers:
+            out = layer(out)
+        out = torch.mean(out, dim=(2, 3))
+        out = self.out_layer(out)
+        return out
 
 
 if __name__ == "__main__":
-    net = ResNet3D(5, 256, 128, 3, 0.1)
+    net = ResNet3D(5, 256, 128, 3, 0.1, "bn")
+    net.train()
     x = torch.rand(1, 5, 48, 48, 150)
     out = net(x)
+    params = 0
+    for p in net.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"out = {out.shape}, params = {params}")
 
+    net = EfficientResNet3D(5, 256, 128, 3, 0.1, "bn")
+    net.train()
     x = torch.rand(1, 5, 48, 48, 150)
-    norm_layer = NormLayer3D(5, norm_type="bn")
-    out = norm_layer(x)
-    print(out.shape)
+    out = net(x)
+    params = 0
+    for p in net.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"out = {out.shape}, params = {params}")

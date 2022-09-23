@@ -95,7 +95,20 @@ def make_model(cfg, device):
         res_dropout=cfg.train.res_dropout,
         reduction_factor=cfg.model.reduction_factor,
         norm_type_lip=cfg.model.norm_type_lip,
+        which_res=cfg.model.which_res,
+        separate_frontend=cfg.train.separate_frontend,
     )
+    params = 0
+    for p in vcnet.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"vcnet parameter = {params}")
+    
+    params = 0
+    for p in lip_enc.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"lip_enc parameter = {params}")
     # multi GPU
     # if torch.cuda.device_count() > 1:
     #     vcnet = torch.nn.DataParallel(vcnet)

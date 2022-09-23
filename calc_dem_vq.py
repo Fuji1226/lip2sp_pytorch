@@ -23,10 +23,10 @@ def main(cfg):
     print(f"device = {device}")
 
     vcnet, lip_enc = make_model(cfg, device)
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:17_12-03-53/mspec80_200.ckpt")  # 0.1
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:17_12-10-17/mspec80_200.ckpt")  # 0       
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:17_12-33-29/mspec80_200.ckpt")  # 1.0    
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:17_18-09-14/mspec80_200.ckpt")  # 0.5  
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:21_18-59-23/mspec80_200.ckpt")  # 0
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:22_08-25-16/mspec80_200.ckpt")  # 0.1       
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:22_00-06-27/mspec80_200.ckpt")  # 0.5    
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/vq/lip/2022:09:22_00-14-37/mspec80_200.ckpt")  # 1.0  
     
     if model_path.suffix == ".ckpt":
         try:

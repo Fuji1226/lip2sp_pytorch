@@ -51,8 +51,9 @@ in_channels : 5
 
 # ResNet3D parameter
 res_layers : 3
-res_inner_channels : 128
+res_inner_channels : 32
 norm_type_lip : "bn"
+which_res : "eff"   # eff or all_3d
 
 # glu parameter
 glu_layers : 4    # 4 or 6
@@ -61,8 +62,8 @@ glu_inner_channels : 128
 
 # transformer parameter
 n_layers : 1    # 1, 2 or 4
-d_model : 256   # 128 or 256
-n_head : 4    # 2 or 4
+d_model : 128   # 128 or 256
+n_head : 2    # 2 or 4
 dec_n_layers : 1
 dec_d_model : 256
 dec_n_head : 4
@@ -87,10 +88,10 @@ which_encoder : "transformer"
 # 使用するdecoder
 # 自己回帰 : "transformer" or "glu"
 # 非自己回帰 : "simple_tc", "gated_tc" or "res_tc"
-which_decoder : "res_tc"
+which_decoder : "glu"
 
 # audio encoder
-ae_emb_dim : 2
+ae_emb_dim : 4
 vae_emb_dim : 64
 vq_emb_dim : 64
 vq_num_emb : 256    
