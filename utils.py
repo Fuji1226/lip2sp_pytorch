@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 from pathlib import Path
 import numpy as np
@@ -171,11 +172,16 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
         data_root=data_root,
         cfg=cfg,
     )
-    data_path = random.sample(data_path, len(data_path))
-    n_samples = len(data_path)
-    train_size = int(n_samples * 0.95)
-    train_data_path = data_path[:train_size]
-    val_data_path = data_path[train_size:]
+    train_data_path = []
+    val_data_path = []
+    for key, value in data_path.items():
+        train_size = int(len(value) * 0.95)
+        p_train = value[:train_size]
+        p_val = value[train_size:]
+        for p_t in p_train:
+            train_data_path.append(p_t)
+        for p_v in p_val:
+            val_data_path.append(p_v)
 
     # 学習用，検証用それぞれに対してtransformを作成
     train_trans = KablabTransform(

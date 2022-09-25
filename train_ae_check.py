@@ -16,7 +16,7 @@ from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
 from utils import make_train_val_loader, save_loss, get_path_train, check_feat_add
-from train_vq_audio import make_model
+from train_ae_audio import make_model
 from loss import MaskedLoss
 from model.nar_decoder import FeadAddPredicter
 from model.classifier import SpeakerClassifier
@@ -86,9 +86,9 @@ def train_one_epoch(vcnet, feat_add_predicter, classifier, train_loader, optimiz
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
         with torch.no_grad():
-            output, _, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred, spk_class, out_upsample = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
+            output, _, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
 
-        speaker_pred = classifier(quantize)
+        speaker_pred = classifier(enc_output)
         feat_add_pred = feat_add_predicter(out_upsample)
 
         loss_classifier = F.cross_entropy(speaker_pred, speaker)
@@ -140,8 +140,8 @@ def val_one_epoch(vcnet, feat_add_predicter, classifier, val_loader, loss_f, cfg
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
         with torch.no_grad():
-            output, _, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred, spk_class, out_upsample = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
-            speaker_pred = classifier(quantize)
+            output, _, phoneme, spk_emb, enc_output, spk_class, out_upsample = vcnet(feature=feature, feature_ref=feature, data_len=data_len)
+            speaker_pred = classifier(enc_output)
             feat_add_pred = feat_add_predicter(out_upsample)
 
         loss_classifier = F.cross_entropy(speaker_pred, speaker)
@@ -228,7 +228,7 @@ def main(cfg):
             n_layers=cfg.model.tc_feat_add_layers, 
             dropout=cfg.train.dec_dropout,
         ).to(device)
-        classifier = SpeakerClassifier(cfg.model.vq_emb_dim, 512, n_layers=2, bidirectional=True, n_speaker=len(cfg.train.speaker)).to(device)
+        classifier = SpeakerClassifier(cfg.model.ae_emb_dim, 512, n_layers=2, bidirectional=True, n_speaker=len(cfg.train.speaker)).to(device)
 
         optimizer_feat_add = torch.optim.Adam(
             params=feat_add_predicter.parameters(),

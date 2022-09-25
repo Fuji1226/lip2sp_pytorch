@@ -8,7 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 try:
-    from model.net import ResNet3D, EfficientResNet3D
+    from model.net import ResNet3D, EfficientResNet3D, MoreEfficientResNet3D, MoreEfficientResNetAll3D, MoreEfficientResNetAll3D_Bigger, MoreEfficientResNetAll3D_Bigger2, \
+        MoreEfficientResNetAll3DAttention, MoreEfficientResNetAll3D_BiggerAttention
     from model.transformer_remake import Encoder
     from model.conformer.encoder import ConformerEncoder
     from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
@@ -17,7 +18,8 @@ try:
     from model.classifier import SpeakerClassifier
     from model.grad_reversal import GradientReversal
 except:
-    from .net import ResNet3D, EfficientResNet3D
+    from .net import ResNet3D, EfficientResNet3D, MoreEfficientResNet3D, MoreEfficientResNetAll3D, MoreEfficientResNetAll3D_Bigger, MoreEfficientResNetAll3D_Bigger2, \
+        MoreEfficientResNetAll3DAttention, MoreEfficientResNetAll3D_BiggerAttention
     from .transformer_remake import Encoder
     from .conformer.encoder import ConformerEncoder
     from .audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
@@ -223,6 +225,74 @@ class LipEncoder(nn.Module):
                     dropout=res_dropout,
                     norm_type=norm_type_lip,
                 )
+            elif which_res == "more_eff":
+                self.ResNet_GAP = MoreEfficientResNet3D(
+                    in_channels=3, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+                self.ResNet_GAP_delta = MoreEfficientResNet3D(
+                    in_channels=2, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d":
+                self.ResNet_GAP = MoreEfficientResNetAll3D(
+                    in_channels=3, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+                self.ResNet_GAP_delta = MoreEfficientResNetAll3D(
+                    in_channels=2, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d_bigger":
+                self.ResNet_GAP = MoreEfficientResNetAll3D_Bigger(
+                    in_channels=3, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+                self.ResNet_GAP_delta = MoreEfficientResNetAll3D_Bigger(
+                    in_channels=2, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d_bigger2":
+                self.ResNet_GAP = MoreEfficientResNetAll3D_Bigger2(
+                    in_channels=3, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+                self.ResNet_GAP_delta = MoreEfficientResNetAll3D_Bigger2(
+                    in_channels=2, 
+                    out_channels=d_model // 2, 
+                    inner_channels=res_inner_channels // 2,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
             elif which_res == "all_3d":
                 self.ResNet_GAP = ResNet3D(
                     in_channels=3, 
@@ -243,6 +313,60 @@ class LipEncoder(nn.Module):
         else:
             if which_res == "eff":
                 self.ResNet_GAP = EfficientResNet3D(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff":
+                self.ResNet_GAP = MoreEfficientResNet3D(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d":
+                self.ResNet_GAP = MoreEfficientResNetAll3D(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d_attention":
+                self.ResNet_GAP = MoreEfficientResNetAll3DAttention(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d_bigger":
+                self.ResNet_GAP = MoreEfficientResNetAll3D_Bigger(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d_bigger_attention":
+                self.ResNet_GAP = MoreEfficientResNetAll3D_BiggerAttention(
+                    in_channels=in_channels, 
+                    out_channels=d_model, 
+                    inner_channels=res_inner_channels,
+                    layers=res_layers, 
+                    dropout=res_dropout,
+                    norm_type=norm_type_lip,
+                )
+            elif which_res == "more_eff_all_3d_bigger2":
+                self.ResNet_GAP = MoreEfficientResNetAll3D_Bigger2(
                     in_channels=in_channels, 
                     out_channels=d_model, 
                     inner_channels=res_inner_channels,

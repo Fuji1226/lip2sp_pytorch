@@ -34,11 +34,17 @@ face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
+# 使用するコーパス
+# corpus : ["ATR"]
+corpus : ["ATR", "BASIC5000", "balanced"]
+
 # 使用する話者
+# speaker : ["F01_kablab", "M01_kablab", "F02_kablab", "F03_kablab", "M03_kablab", "M04_kablab"]
 speaker : ["F01_kablab", "M01_kablab"]
 
 # 口唇動画を使用した学習時にロードする事前学習済みモデルまでのパス
-model_path : "~/lip2sp_pytorch/check_point/vq/lip/2022:09:22_08-25-16/mspec80_200.ckpt"
+model_path : "~/lip2sp_pytorch/check_point/vq/lip/2022:09:22_00-14-37/mspec80_200.ckpt"   # F01, M01
+# model_path : "~/lip2sp_pytorch/check_point/vq/lip/2022:09:23_14-38-35/mspec80_160.ckpt"   # all
 
 # max_epoch
 max_epoch : 200
@@ -61,8 +67,8 @@ time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速�
 use_gc : False
 
 # dataloader
-batch_size : 32
-num_workers : 32
+batch_size : 4
+num_workers : 4
 
 # dropout
 dec_dropout : 0.1
@@ -104,7 +110,7 @@ mse_weight : 1.0
 feat_add_weight : 0
 phoneme_weight : 0
 mi_weight : 0
-classifier_weight : 0.1
+classifier_weight : 0
 
 # multi task
 use_feat_add : True
@@ -116,4 +122,4 @@ compress_rate : 2   # 2 or 4
 
 use_dec_attention : False
 
-separate_frontend : True
+separate_frontend : False

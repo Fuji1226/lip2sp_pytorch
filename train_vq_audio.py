@@ -112,9 +112,10 @@ def make_model(cfg, device):
             params += p.numel()
     print(f"lip_enc_parameter = {params}")
     # multi GPU
-    # if torch.cuda.device_count() > 1:
-    #     model = torch.nn.DataParallel(model)
-    #     print(f"\nusing {torch.cuda.device_count()} GPU")
+    if torch.cuda.device_count() > 1:
+        vcnet = torch.nn.DataParallel(vcnet)
+        lip_enc = torch.nn.DataParallel(lip_enc)
+        print(f"\nusing {torch.cuda.device_count()} GPU")
     return vcnet.to(device), lip_enc.to(device)
 
 
@@ -200,13 +201,13 @@ def train_one_epoch(vcnet, mi_estimater, feat_add_predicter, train_loader, optim
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
                     check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
+                    check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
-                check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
+                check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
 
     epoch_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
@@ -278,13 +279,13 @@ def val_one_epoch(vcnet, mi_estimater, feat_add_predicter, val_loader, loss_f, d
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
                     check_mel_nar(feature[0], output[0], cfg, "mel_val", current_time, ckpt_time)
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_val", current_time, ckpt_time)
+                    check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_val", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel_nar(feature[0], output[0], cfg, "mel_val", current_time, ckpt_time)
-                check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_val", current_time, ckpt_time)
+                check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_val", current_time, ckpt_time)
 
     epoch_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt

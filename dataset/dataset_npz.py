@@ -9,8 +9,9 @@ data_process/make_npz.pyで事前にnpzファイルを作成
 
 import os
 import sys
-
+import re
 from pathlib import Path
+import random
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
@@ -26,12 +27,18 @@ def get_datasets(data_root, cfg):
     npzファイルのパス取得
     """
     print("\n--- get datasets ---")
-    items = []
+    items = {}
     for speaker in cfg.train.speaker:
         print(f"load {speaker}")
+        spk_path_list = []
         spk_path = data_root / speaker
-        spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
-        items += spk_path
+
+        for corpus in cfg.train.corpus:
+            spk_path_co = [p for p in spk_path.glob("*.npz") if re.search(f"{corpus}", str(p))]
+            if len(spk_path_co) > 1:
+                print(f"load {corpus}")
+            spk_path_list += spk_path_co
+        items[speaker] = random.sample(spk_path_list, len(spk_path_list))
     return items
 
 
@@ -343,6 +350,4 @@ def collate_time_adjust(batch, cfg):
     speaker = torch.stack(speaker)
 
     return lip, feature, feat_add, upsample, data_len, speaker, label
-
-
 
