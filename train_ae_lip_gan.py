@@ -264,7 +264,7 @@ def main(cfg):
     val_gen_loss_list = []
     val_total_loss_list = []
 
-    cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}_lip"
+    cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}_lip_gan"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         vcnet, lip_enc = make_model(cfg, device)

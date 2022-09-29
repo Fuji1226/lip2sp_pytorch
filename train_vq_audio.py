@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from model.model_vq import Lip2SP_VQ, VoiceConversionNetVQ, LipEncoder
+from model.model_vq import VoiceConversionNetVQ, LipEncoder
 from loss import MaskedLoss
 from utils import make_train_val_loader, make_test_loader, save_loss, get_path_train, check_feat_add, check_mel_nar
 from model.mi_estimater import MyCLUBSample

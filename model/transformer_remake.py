@@ -2,6 +2,7 @@
 transformerの完成版です
 """
 
+from turtle import forward
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -411,3 +412,13 @@ class PhonemeDecoder(nn.Module):
         for dec_layer in self.dec_layers:
             dec_layer.reset_state()
         self.start_idx = None
+
+
+class OfficialEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return
+
+

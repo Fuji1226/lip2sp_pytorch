@@ -76,7 +76,7 @@ lr : 1.0e-3
 lr_lf : 0.0001
 lr_mi : 0.0003
 lr_feat_add : 0.001
-lr_disc : 0.0001
+lr_disc : 1.0e-4
 beta_1 : 0.9
 beta_2 : 0.999
 weight_decay : 1.0e-6
@@ -109,7 +109,7 @@ feat_add_weight : 0
 phoneme_weight : 0
 mi_weight : 0
 classifier_weight : 0.5
-gan_weight : 0
+gan_weight : 0.1
 
 # multi task
 use_feat_add : True

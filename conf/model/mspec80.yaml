@@ -51,9 +51,9 @@ in_channels : 5
 
 # ResNet3D parameter
 res_layers : 3
-res_inner_channels : 16
+res_inner_channels : 32
 norm_type_lip : "bn"
-which_res : "more_eff_all_3d_attention" 
+which_res : "ds_cbam" 
 
 # glu parameter
 glu_layers : 4    # 4 or 6
@@ -61,9 +61,9 @@ glu_kernel_size : 5   # 5 or 9
 glu_inner_channels : 128
 
 # transformer parameter
-n_layers : 2   # 1, 2 or 4
-d_model : 128   # 128 or 256
-n_head : 2    # 2 or 4
+n_layers : 6    # 1, 2 or 4
+d_model : 256   # 128 or 256
+n_head : 4    # 2 or 4
 dec_n_layers : 1
 dec_d_model : 256
 dec_n_head : 4
@@ -83,7 +83,7 @@ tc_n_head : 2
 conformer_conv_kernel_size : 31   # 7, 15 or 31
 
 # 使用するencoder（"transformer" or "conformer"）
-which_encoder : "transformer"
+which_encoder : "lstm"
 
 # 使用するdecoder
 # 自己回帰 : "transformer" or "glu"
