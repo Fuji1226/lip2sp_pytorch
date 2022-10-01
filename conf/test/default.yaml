@@ -18,4 +18,4 @@ face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/test"
 
-speaker : ["F01_kablab", "M01_kablab"]
+speaker : ["F01_kablab"]

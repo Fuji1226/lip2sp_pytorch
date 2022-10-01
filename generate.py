@@ -14,6 +14,7 @@
     result/generateの下に保存されると思います
 """
 
+from concurrent.futures import process
 import hydra
 
 import sys
@@ -26,9 +27,7 @@ import time
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import DataLoader
 
-from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets
 from data_check import save_data
 from train_default import make_model
 from calc_accuracy import calc_accuracy
@@ -126,6 +125,7 @@ def main(cfg):
     for data_root, save_path in zip(data_root_list, save_path_list):
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
+        process_times = None
         print("--- generate ---")
         process_times = generate(
             cfg=cfg,

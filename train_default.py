@@ -44,6 +44,14 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
     }, ckpt_path)
 
 
+def count_params(module, attr):
+    params = 0
+    for p in module.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"{attr}_parameter = {params}")
+
+
 def make_model(cfg, device):
     model = Lip2SP(
         in_channels=cfg.model.in_channels,
@@ -80,11 +88,12 @@ def make_model(cfg, device):
         reduction_factor=cfg.model.reduction_factor,
         use_gc=cfg.train.use_gc,
     )
-    params = 0
-    for p in model.parameters():
-        if p.requires_grad:
-            params += p.numel()
-    print(f"model_parameter = {params}")
+
+    count_params(model, "model")
+    count_params(model.ResNet_GAP, "ResNet")
+    count_params(model.encoder, "encoder")
+    count_params(model.decoder, "decoder")
+    count_params(model.postnet, "postnet")
 
     # multi GPU
     if torch.cuda.device_count() > 1:
@@ -149,14 +158,14 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
                     if cfg.train.multi_task:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
+                        check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
                 if cfg.train.multi_task:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
+                    check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
 
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
@@ -213,14 +222,14 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
                     if cfg.train.multi_task:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", current_time, ckpt_time)
+                        check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_validation", current_time, ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
                 if cfg.train.multi_task:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", current_time, ckpt_time)
+                    check_feat_add(feat_add[0], feat_add_out[0], cfg, "feat_add_validation", current_time, ckpt_time)
             
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt

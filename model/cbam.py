@@ -1,4 +1,3 @@
-from tabnanny import check
 import torch
 import torch.nn as nn
 
@@ -49,35 +48,6 @@ class SpatialAttention(nn.Module):
         return x * s_uni
 
 
-class SpatialAttentionFC(nn.Module):
-    def __init__(self, in_channels, kernel_size):
-        super().__init__()
-        padding = (kernel_size - 1) // 2
-        self.spatial_attention = nn.Sequential(
-            nn.Conv3d(in_channels, 1, kernel_size=(kernel_size, kernel_size, 1), padding=(padding, padding, 0), bias=False),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, x):
-        """
-        x : (B, C, H, W, T)
-        """
-        attn = self.spatial_attention(x)
-        return x * attn
-
-
-class CbamBlock(nn.Module):
-    def __init__(self, hidden_channels, sq_r, kernel_size):
-        super().__init__()
-        self.c_attn = ChannnelAttention(hidden_channels, sq_r)
-        self.s_attn = SpatialAttention(kernel_size)
-
-    def forward(self, x):
-        out = self.c_attn(x)
-        out = self.s_attn(out)
-        return out
-
-
 def check_params(net):
     x = torch.rand(1, 256, 48, 48, 150)
     out = net(x)
@@ -91,8 +61,5 @@ def check_params(net):
 if __name__ == "__main__":
     kernel_size = 7
     net = SpatialAttention(kernel_size)
-    check_params(net)
-
-    net = SpatialAttentionFC(256, kernel_size)
     check_params(net)
 

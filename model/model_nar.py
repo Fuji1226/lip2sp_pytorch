@@ -7,18 +7,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-try:
-    from model.net import ResNet3D
-    from model.transformer_remake import Encoder
-    from model.conformer.encoder import ConformerEncoder
-    from model.nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
-    from model.vq import VQ
-except:
-    from .net import ResNet3D
-    from .transformer_remake import Encoder
-    from .conformer.encoder import ConformerEncoder
-    from .nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
-    from .vq import VQ
+from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall, InvResNet3D
+from model.transformer_remake import Encoder, OfficialEncoder
+from model.conformer.encoder import ConformerEncoder
+from model.nar_decoder import ResTCDecoder
+from model.rnn import LSTMEncoder, GRUEncoder
+from model.dilated_conv import DilatedConvEncoder
+from model.pre_post import Postnet
 
 
 class Lip2SP_NAR(nn.Module):
@@ -55,6 +50,42 @@ class Lip2SP_NAR(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
+        elif which_res == "ds":
+            self.ResNet_GAP = DSResNet3D(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        elif which_res == "ds_cbam":
+            self.ResNet_GAP = DSResNet3DCbam(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        elif which_res == "ds_cbam_small":
+            self.ResNet_GAP = DSResNet3DCbamSmall(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        elif which_res == "inv":
+            self.ResNet_GAP = InvResNet3D(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
 
         # encoder
         if self.which_encoder == "transformer":
@@ -71,6 +102,35 @@ class Lip2SP_NAR(nn.Module):
                 num_attention_heads=n_head, 
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
+            )
+        elif which_encoder == "lstm":
+            self.encoder = LSTMEncoder(
+                in_channels=d_model,
+                hidden_dim=d_model,
+                out_channels=d_model,
+                n_layers=n_layers,
+                bidirectional=True,
+            )
+        elif which_encoder == "gru":
+            self.encoder = GRUEncoder(
+                in_channels=d_model,
+                hidden_dim=d_model,
+                out_channels=d_model,
+                n_layers=n_layers,
+                bidirectional=True,
+            )
+        elif which_encoder == "official":
+            self.encoder = OfficialEncoder(
+                d_model=d_model,
+                nhead=n_head,
+                num_layers=n_layers,
+            )
+        elif which_encoder == "dconv":
+            self.encoder = DilatedConvEncoder(
+                in_channels=d_model,
+                out_channels=d_model,
+                kernel_size=3,
+                n_layers=5,
             )
 
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
@@ -102,12 +162,7 @@ class Lip2SP_NAR(nn.Module):
         output = feat_add_out = phoneme = None
 
         # resnet
-        if self.separate_frontend:
-            lip_feature = self.ResNet_GAP(lip)
-            lip_feature_delta = self.ResNet_GAP_delta(lip_delta)
-            lip_feature = torch.cat([lip_feature, lip_feature_delta], dim=1)
-        else:
-            lip_feature = self.ResNet_GAP(lip)
+        lip_feature = self.ResNet_GAP(lip)
         
         # encoder
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
@@ -122,83 +177,3 @@ class Lip2SP_NAR(nn.Module):
         output, feat_add_out, phoneme, out_upsample = self.decoder(enc_output, spk_emb, data_len)
         
         return output, feat_add_out, phoneme
-
-
-class LipEncoder(nn.Module):
-    def __init__(
-        self, in_channels, res_layers, res_inner_channels, norm_type,
-        d_model, n_layers, n_head,
-        res_dropout, reduction_factor):
-        super().__init__()
-        self.ResNet_GAP = ResNet3D(
-            in_channels=in_channels, 
-            out_channels=d_model, 
-            inner_channels=res_inner_channels,
-            layers=res_layers, 
-            dropout=res_dropout,
-            norm_type=norm_type,
-        )
-
-        self.encoder = Encoder(
-            n_layers=n_layers, 
-            n_head=n_head, 
-            d_model=d_model, 
-            reduction_factor=reduction_factor,  
-        )
-
-    def forward(self, lip, data_len=None):
-        enc_output = self.ResNet_GAP(lip)
-        enc_output = self.encoder(enc_output, data_len)     # (B, T, C)
-        return enc_output
-
-
-class Decoder(nn.Module):
-    def __init__(
-        self, out_channels, d_model,
-        tc_d_model, tc_n_attn_layer, tc_n_head,
-        dec_n_layers, dec_inner_channels, dec_kernel_size,
-        feat_add_channels, feat_add_layers,
-        spk_emb_dim, n_speaker,
-        use_feat_add, phoneme_classes, use_phoneme, use_dec_attention,
-        upsample_method,  compress_rate,
-        dec_dropout, reduction_factor=2):
-        super().__init__()
-        self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
-
-        self.decoder = ResTCDecoder(
-            cond_channels=d_model,
-            out_channels=out_channels,
-            inner_channels=dec_inner_channels,
-            n_layers=dec_n_layers,
-            kernel_size=dec_kernel_size,
-            dropout=dec_dropout,
-            feat_add_channels=feat_add_channels, 
-            feat_add_layers=feat_add_layers,
-            use_feat_add=use_feat_add,
-            phoneme_classes=phoneme_classes,
-            use_phoneme=use_phoneme,
-            spk_emb_dim=spk_emb_dim,
-            n_attn_layer=tc_n_attn_layer,
-            n_head=tc_n_head,
-            d_model=tc_d_model,
-            reduction_factor=reduction_factor,
-            use_attention=use_dec_attention,
-            upsample_method=upsample_method,
-            compress_rate=compress_rate,
-        )
-
-    def forward(self, enc_output, gc=None, data_len=None):
-        output = feat_add_out = phoneme = None
-
-        # speaker embedding
-        if gc is not None:
-            spk_emb = self.emb_layer(gc)
-        else:
-            spk_emb = None
-
-        # decoder
-        output, feat_add_out, phoneme, out_upsample = self.decoder(enc_output, spk_emb, data_len)
-        
-        return output, feat_add_out, phoneme
-
-

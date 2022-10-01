@@ -8,13 +8,10 @@ import torch
 import hydra
 from tqdm import tqdm
 
-try:
-    from .transform_no_chainer import load_data_for_npz
-except:
-    from transform_no_chainer import load_data_for_npz
+from transform_no_chainer import load_data_for_npz
 
 # speakerのみ変更してください
-speaker = "M04_kablab"
+speaker = "M01_kablab"
 LIP_PATH = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
 LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/train").expanduser()
 LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
@@ -308,16 +305,6 @@ def main(cfg):
     # 口唇切り取った動画
     print("--- lip data processing ---")
     print(f"speaker = {speaker}, mode = {cfg.model.name}")
-    # save_data(
-    #     data_root=LIP_PATH,
-    #     train_data_save_path=cfg.train.lip_pre_loaded_path,
-    #     train_mean_std_save_path=cfg.train.lip_mean_std_path,
-    #     test_data_save_path=cfg.test.lip_pre_loaded_path,
-    #     test_mean_std_save_path=cfg.test.lip_mean_std_path,
-    #     cfg=cfg,
-    #     device=device,
-    #     time_only=True,
-    # )
     save_data(
         data_root=LIP_PATH,
         train_data_save_path=LIP_TRAIN_DATA_PATH,
@@ -329,20 +316,6 @@ def main(cfg):
         time_only=True,
     )
     print("Done")
-
-
-    # # 顔
-    # print("--- face data processing ---")
-    # save_data(
-    #     data_root=FACE_PATH,
-    #     train_data_save_path=cfg.train.face_pre_loaded_path,
-    #     train_mean_std_save_path=cfg.train.face_mean_std_path,
-    #     test_data_save_path=cfg.test.face_pre_loaded_path,
-    #     test_mean_std_save_path=cfg.test.face_mean_std_path,
-    #     cfg=cfg,
-    #     device=device,
-    # )
-    # print("Done")
 
 
 if __name__ == "__main__":

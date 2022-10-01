@@ -7,22 +7,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-try:
-    from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam
-    from model.transformer_remake import Encoder
-    from model.conformer.encoder import ConformerEncoder
-    from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
-    from model.nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
-    from model.classifier import SpeakerClassifier
-    from model.grad_reversal import GradientReversal
-except:
-    from .net import ResNet3D, DSResNet3D, DSResNet3DCbam
-    from .transformer_remake import Encoder
-    from .conformer.encoder import ConformerEncoder
-    from .audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
-    from .nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
-    from .classifier import SpeakerClassifier
-    from .grad_reversal import GradientReversal
+from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall, InvResNet3D
+from model.transformer_remake import Encoder
+from model.conformer.encoder import ConformerEncoder
+from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
+from model.nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
+from model.classifier import SpeakerClassifier
+from model.grad_reversal import GradientReversal
+from model.dilated_conv import DilatedConvEncoder
 
 
 class LipEncoder(nn.Module):
@@ -67,6 +59,24 @@ class LipEncoder(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type_lip,
             )
+        elif which_res == "ds_cbam_small":
+            self.ResNet_GAP = DSResNet3DCbamSmall(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type_lip,
+            )
+        elif which_res == "inv":
+            self.ResNet_GAP = InvResNet3D(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type_lip,
+            )
 
         # encoder
         if self.which_encoder == "transformer":
@@ -84,6 +94,14 @@ class LipEncoder(nn.Module):
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
             )
+        elif which_encoder == "dconv":
+            self.encoder = DilatedConvEncoder(
+                in_channels=d_model,
+                out_channels=d_model,
+                kernel_size=3,
+                n_layers=5,
+            )
+
         self.compress_layer_lip = nn.Conv1d(d_model, d_model, kernel_size=2, stride=2)
         self.pre_dec_layer_lip = nn.Linear(d_model, ae_emb_dim)
 

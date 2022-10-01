@@ -43,6 +43,14 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
     }, ckpt_path)
 
 
+def count_params(module, attr):
+    params = 0
+    for p in module.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"{attr}_parameter = {params}")
+
+
 def make_model(cfg, device):
     model = Lip2SP_NAR(
         in_channels=cfg.model.in_channels,
@@ -80,11 +88,12 @@ def make_model(cfg, device):
         reduction_factor=cfg.model.reduction_factor,
         use_gc=cfg.train.use_gc,
     )
-    params = 0
-    for p in model.parameters():
-        if p.requires_grad:
-            params += p.numel()
-    print(f"model_parameter = {params}")
+
+    count_params(model, "model")
+    count_params(model.ResNet_GAP, "ResNet")
+    count_params(model.encoder, "encoder")
+    count_params(model.decoder, "decoder")
+    
     # multi GPU
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)

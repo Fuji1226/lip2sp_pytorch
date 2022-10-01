@@ -7,7 +7,6 @@ from torch import nn
 from torch.nn import functional as F
 
 from cbam import SpatialAttention, ChannnelAttention
-from axial_attention import AxialAttentionBlock
 
 
 class NormLayer3D(nn.Module):
@@ -29,7 +28,7 @@ class NormLayer3D(nn.Module):
 
 
 class InvResLayer3D(nn.Module):
-    def __init__(self, in_channels, out_channels, norm_type, up_scale=4, sq_r=8, pooling=True, c_attn=True):
+    def __init__(self, in_channels, out_channels, norm_type, up_scale=6, sq_r=16, kernel_size=None, pooling=True, c_attn=True, s_attn=True):
         super().__init__()
         self.hidden_channels = int(in_channels * up_scale)
         self.pointwise_conv1 = nn.Sequential(
@@ -50,13 +49,15 @@ class InvResLayer3D(nn.Module):
         self.pointwise_conv2 = nn.Sequential(
             nn.Conv3d(self.hidden_channels, out_channels, kernel_size=(1, 1, 3), padding=(0, 0, 1)),
             NormLayer3D(out_channels, norm_type),
-            nn.ReLU(),
         )
+
+        if s_attn:
+            self.s_attention = SpatialAttention(kernel_size)
+
         if in_channels != out_channels:
             self.adjust_layer = nn.Sequential(
                 nn.Conv3d(in_channels, out_channels, kernel_size=1),
                 NormLayer3D(out_channels, norm_type),
-                nn.ReLU(),
             )
 
     def forward(self, x):
@@ -72,35 +73,13 @@ class InvResLayer3D(nn.Module):
 
         out = self.pointwise_conv2(out)
 
+        if hasattr(self, "s_attention"):
+            out = self.s_attention(out)
+
         if hasattr(self, "adjust_layer"):
             x = self.adjust_layer(x)
-
-        return out + x
-
-
-class InvResLayer3DSA(InvResLayer3D):
-    def __init__(self, in_channels, out_channels, norm_type, n_head, span, stride=1, up_scale=4, sq_r=8, pooling=False, c_attn=False):
-        super().__init__(in_channels, out_channels, norm_type, up_scale, sq_r, pooling, c_attn)
-        self.attention = AxialAttentionBlock(self.hidden_channels, n_head, span, stride)
-        del self.depthwise_conv
-
-    def forward(self, x):
-        out = self.pointwise_conv1(x)
-        out = self.attention(out)
         
-        if hasattr(self, "pool_layer"):
-            out = self.pool_layer(out)
-            x = self.pool_layer(x)
-
-        if hasattr(self, "c_attention"):
-            out = self.c_attention(out)
-
-        out = self.pointwise_conv2(out)
-
-        if hasattr(self, "adjust_layer"):
-            x = self.adjust_layer(x)
-
-        return out + x
+        return F.relu(out + x)
 
 
 class DSLayer3D(nn.Module):
@@ -131,11 +110,11 @@ class DSLayer3D(nn.Module):
 
 
 class DSBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, norm_type, pooling=True):
+    def __init__(self, in_channels, hidden_channels, out_channels, norm_type, pooling=True):
         super().__init__()
         self.layer = nn.Sequential(
-            DSLayer3D(in_channels, out_channels, norm_type, pooling=pooling),
-            DSLayer3D(out_channels, out_channels, norm_type, pooling=False),
+            DSLayer3D(in_channels, hidden_channels, norm_type, pooling=pooling),
+            DSLayer3D(hidden_channels, out_channels, norm_type, pooling=False),
         )
 
         if pooling:
@@ -160,8 +139,8 @@ class DSBlock(nn.Module):
 
 
 class DSBlockCbam(DSBlock):
-    def __init__(self, in_channels, out_channels, norm_type, sq_r, kernel_size, pooling=True):
-        super().__init__(in_channels, out_channels, norm_type, pooling)
+    def __init__(self, in_channels, hidden_channels, out_channels, norm_type, sq_r, kernel_size, pooling=True):
+        super().__init__(in_channels, hidden_channels, out_channels, norm_type, pooling)
         self.c_attn = ChannnelAttention(out_channels, sq_r)
         self.s_attn = SpatialAttention(kernel_size)
 
@@ -310,16 +289,16 @@ class DSResNet3D(nn.Module):
     def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
         super().__init__()
         self.conv3d = nn.Sequential(
-            DSBlock(in_channels, inner_channels, norm_type),
+            DSBlock(in_channels, inner_channels, inner_channels, norm_type),
             nn.Dropout(dropout),
 
-            DSBlock(inner_channels, inner_channels * 2, norm_type),
+            DSBlock(inner_channels, inner_channels * 2, inner_channels * 2, norm_type),
             nn.Dropout(dropout),
 
-            DSBlock(inner_channels * 2, inner_channels * 4, norm_type),
+            DSBlock(inner_channels * 2, inner_channels * 4, inner_channels * 4, norm_type),
             nn.Dropout(dropout),
             
-            DSBlock(inner_channels * 4, inner_channels * 8, norm_type),
+            DSBlock(inner_channels * 4, inner_channels * 8, inner_channels * 8, norm_type),
             nn.Dropout(dropout),
         )
 
@@ -337,16 +316,16 @@ class DSResNet3DCbam(nn.Module):
     def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
         super().__init__()
         self.conv3d = nn.Sequential(
-            DSBlockCbam(in_channels, inner_channels, norm_type, sq_r=16, kernel_size=7),
+            DSBlockCbam(in_channels, inner_channels, inner_channels, norm_type, sq_r=16, kernel_size=7),
             nn.Dropout(dropout),
 
-            DSBlockCbam(inner_channels, inner_channels * 2, norm_type, sq_r=16, kernel_size=7),
+            DSBlockCbam(inner_channels, inner_channels * 2, inner_channels * 2, norm_type, sq_r=16, kernel_size=7),
             nn.Dropout(dropout),
 
-            DSBlockCbam(inner_channels * 2, inner_channels * 4, norm_type, sq_r=16, kernel_size=5),
+            DSBlockCbam(inner_channels * 2, inner_channels * 4, inner_channels * 4, norm_type, sq_r=16, kernel_size=5),
             nn.Dropout(dropout),
             
-            DSBlock(inner_channels * 4, inner_channels * 8, norm_type),
+            DSBlock(inner_channels * 4, inner_channels * 8, inner_channels * 8, norm_type),
             nn.Dropout(dropout),
         )
 
@@ -360,31 +339,47 @@ class DSResNet3DCbam(nn.Module):
         return out
 
 
+class DSResNet3DCbamSmall(nn.Module):
+    def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
+        super().__init__()
+        self.conv3d = nn.Sequential(
+            DSBlockCbam(in_channels, inner_channels, inner_channels, norm_type, sq_r=16, kernel_size=7),
+            nn.Dropout(dropout),
+
+            DSBlockCbam(inner_channels, inner_channels * 2, inner_channels * 2, norm_type, sq_r=16, kernel_size=7),
+            nn.Dropout(dropout),
+
+            DSBlockCbam(inner_channels * 2, inner_channels * 4, inner_channels * 4, norm_type, sq_r=16, kernel_size=5),
+            nn.Dropout(dropout),
+            
+            DSBlock(inner_channels * 4, inner_channels * 8, out_channels, norm_type),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x):
+        print("DSResNet Cbam SMall")
+        out = self.conv3d(x)
+        out = torch.mean(out, dim=(2, 3))
+        return out
+
+
 class InvResNet3D(nn.Module):
     def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
         super().__init__()
         self.conv3d = nn.Sequential(
-            InvResLayer3D(in_channels, inner_channels, norm_type),
-            nn.Dropout(dropout),
-            InvResLayer3D(inner_channels, inner_channels, norm_type, pooling=False),
+            InvResLayer3D(in_channels, inner_channels, norm_type, kernel_size=7),
             nn.Dropout(dropout),
 
-            InvResLayer3D(inner_channels, inner_channels * 2, norm_type),
-            nn.Dropout(dropout),
-            InvResLayer3D(inner_channels * 2, inner_channels * 2, norm_type, pooling=False),
+            InvResLayer3D(inner_channels, inner_channels + 16, norm_type, kernel_size=7),
             nn.Dropout(dropout),
 
-            InvResLayer3D(inner_channels * 2, inner_channels * 4, norm_type),
-            nn.Dropout(dropout),
-            InvResLayer3D(inner_channels * 4, inner_channels * 4, norm_type, pooling=False),
+            InvResLayer3D(inner_channels + 16, inner_channels + 32, norm_type, kernel_size=5),
             nn.Dropout(dropout),
 
-            InvResLayer3D(inner_channels * 4, inner_channels * 8, norm_type),
-            nn.Dropout(dropout),
-            InvResLayer3D(inner_channels * 8, inner_channels * 8, norm_type, pooling=False),
+            InvResLayer3D(inner_channels + 32, inner_channels + 48, norm_type, s_attn=False),
             nn.Dropout(dropout),
         )
-        self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
+        self.out_layer = nn.Conv1d(inner_channels + 48, out_channels, kernel_size=1)
 
     def forward(self, x):
         print("InvResNet")
@@ -415,6 +410,9 @@ if __name__ == "__main__":
     net = DSResNet3DCbam(5, 128, ds_ch, 3, 0.1, "bn")
     check_params(net)
 
-    se_ch = 16
+    net = DSResNet3DCbamSmall(5, 128, ds_ch, 3, 0.1, "bn")
+    check_params(net)
+
+    se_ch = 32
     net = InvResNet3D(5, 128, se_ch, 3, 0.1, "bn")
     check_params(net)

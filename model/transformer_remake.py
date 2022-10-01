@@ -2,7 +2,7 @@
 transformerの完成版です
 """
 
-from turtle import forward
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -44,7 +44,7 @@ def make_pad_mask(lengths, max_len):
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
     mask = seq_range_expand >= seq_length_expand     
-    return mask.unsqueeze(1).to(device=device)
+    return mask.unsqueeze(1).to(device=device)  # (B, 1, T)
 
 
 def token_mask(x):
@@ -414,11 +414,61 @@ class PhonemeDecoder(nn.Module):
         self.start_idx = None
 
 
-class OfficialEncoder(nn.Module):
-    def __init__(self):
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
 
     def forward(self, x):
-        return
+        """
+        Args:
+            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        """
+        x = x + self.pe[:x.size(0)]
+        return self.dropout(x)
 
 
+class OfficialEncoder(nn.Module):
+    def __init__(self, d_model, nhead, num_layers):
+        super().__init__()
+        self.pos_encoder = PositionalEncoding(d_model)
+        enc_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=int(d_model * 4),
+        )
+        self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
+        
+    def forward(self, x, data_len=None):
+        B, C, T = x.shape
+        x = x.permute(2, 0, 1)
+        if data_len is not None:
+            pad_mask = make_pad_mask(data_len, T).squeeze(1)
+        else:
+            pad_mask = None
+        out = self.encoder(x, src_key_padding_mask=pad_mask)
+        out = out.permute(1, 0, 2)
+        return out
+
+
+if __name__ == "__main__":
+    lengths = torch.tensor([10, 20, 30])
+    mask = make_pad_mask(lengths, max_len=30)
+    print(mask)
+
+    net = OfficialEncoder(128, 2, 2)
+    x = torch.rand(3, 128, 150)
+    lengths = torch.tensor([100, 200, 300])
+    out = net(x, lengths)
+    params = 0
+    for p in net.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"out = {out.shape}, params = {params}")

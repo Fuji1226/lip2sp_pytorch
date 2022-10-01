@@ -140,14 +140,35 @@ class LabelSmoothingLoss(nn.Module):
         return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
 
-def main():
-    data_len = torch.tensor([300, 400, 200])
-    x = torch.rand(3, 80, 300)
-    y = torch.rand(3, 80, 300)
-    loss_f = MaskedLoss()
-    loss = loss_f.mse_loss(x, y, data_len, x.shape[-1])
-    print(loss)
+class LabelSmoothingCrossEntropyLoss(nn.Module):
+    def __init__(self, classes, smoothing=0.0, dim=1):
+        super(LabelSmoothingCrossEntropyLoss, self).__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.cls = classes
+        self.dim = dim
+
+    def forward(self, pred, target):
+        """
+        pred : (B, C, T)
+        target : (B, T)
+        """
+        pred = pred.log_softmax(dim=self.dim)
+        with torch.no_grad():
+            # true_dist = pred.data.clone()
+            true_dist = torch.zeros_like(pred)
+            true_dist.fill_(self.smoothing / (self.cls - 1))
+            true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+        return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
 
 if __name__ == "__main__":
-    main()
+    pred = torch.rand(1, 256, 150)
+    target = torch.randint(0, 256, (1, 150))
+    loss_f = LabelSmoothingCrossEntropyLoss(256, smoothing=0.1, dim=1)
+    loss = loss_f(pred, target)
+    print(loss)
+
+    loss_f = nn.CrossEntropyLoss()
+    loss = loss_f(pred, target)
+    print(loss)

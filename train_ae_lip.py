@@ -257,8 +257,6 @@ def main(cfg):
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-            # print(f"learning_rate = {scheduler_mi.get_last_lr()[0]}")
-            # print(f"learning_rate = {scheduler.get_epoch_values(current_epoch)}")
 
             # train
             epoch_loss_enc, epoch_loss_mel, epoch_loss_feat_add = train_one_epoch(

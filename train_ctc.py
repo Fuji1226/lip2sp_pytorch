@@ -1,6 +1,3 @@
-"""
-非自己回帰decoderの学習用
-"""
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import wandb

@@ -93,22 +93,22 @@ def main(cfg):
     print(f"device = {device}")
 
     vcnet, lip_enc = make_model(cfg, device)
-    model_path_vc = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/ae/lip/2022:09:10_09-24-50/mspec80_100.ckpt") 
-    model_path_lip = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/ae/lip/2022:09:10_09-24-50/mspec80_100.ckpt") 
+    model_path_vc = Path("~/lip2sp_pytorch/check_point/vq/lip/2022:09:22_00-14-37/mspec80_200.ckpt").expanduser() 
+    model_path_lip = Path("~/lip2sp_pytorch/check_point/vq/lip/2022:09:30_08-46-24/mspec80_30.ckpt").expanduser()   # d_conv inv
     
     if model_path_lip.suffix == ".ckpt":
         try:
-            vcnet.load_state_dict(torch.load(str(model_path_lip))['vcnet'])
+            vcnet.load_state_dict(torch.load(str(model_path_vc))['vcnet'])
             lip_enc.load_state_dict(torch.load(str(model_path_lip))['lip_enc'])
         except:
-            vcnet.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu'))['vcnet'])
+            vcnet.load_state_dict(torch.load(str(model_path_vc), map_location=torch.device('cpu'))['vcnet'])
             lip_enc.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu'))['lip_enc'])
     elif model_path_lip.suffix == ".pth":
         try:
-            vcnet.load_state_dict(torch.load(str(model_path_lip)))
+            vcnet.load_state_dict(torch.load(str(model_path_vc)))
             lip_enc.load_state_dict(torch.load(str(model_path_lip)))
         except:
-            vcnet.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu')))
+            vcnet.load_state_dict(torch.load(str(model_path_vc), map_location=torch.device('cpu')))
             lip_enc.load_state_dict(torch.load(str(model_path_lip), map_location=torch.device('cpu')))
 
     data_root_list, mean_std_path, save_path_list = get_path_test(cfg, model_path_lip)
@@ -125,7 +125,6 @@ def main(cfg):
             test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
             ref_loader, ref_dataset = make_test_loader(cfg, ref_data_root, ref_mean_std_path)
             ref_loader = iter(ref_loader)
-            # 同じ発話内容のものを使いたくないので適当に取り出しておく
             for _ in range(100):
                 _ = ref_loader.next()
 

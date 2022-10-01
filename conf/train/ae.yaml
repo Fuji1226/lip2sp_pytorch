@@ -64,8 +64,8 @@ time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速�
 use_gc : False
 
 # dataloader
-batch_size : 16
-num_workers : 16
+batch_size : 12
+num_workers : 12
 
 # dropout
 dec_dropout : 0.1

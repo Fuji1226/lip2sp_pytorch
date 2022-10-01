@@ -54,7 +54,9 @@ in_channels : 5
 
 # ResNet3D parameter
 res_layers : 3
-res_inner_channels : 128
+res_inner_channels : 32
+norm_type_lip : "bn"
+which_res : "inv" 
 
 # glu parameter
 glu_layers : 4    # 4 or 6
@@ -62,30 +64,49 @@ glu_kernel_size : 5   # 5 or 9
 glu_inner_channels : 64
 
 # transformer parameter
-n_layers : 1    # 1, 2 or 4
-d_model : 256   # 128 or 256
-n_head : 4    # 2 or 4
-dec_n_layers : 2
-dec_d_model : 128
+n_layers : 2    # 1, 2 or 4
+d_model : 128   # 128 or 256
+n_head : 2    # 2 or 4
+dec_n_layers : 1
+dec_d_model : 256
+dec_n_head : 4
 diag_mask : False
 
 # transposed convolution parameter
-tc_n_layers : 3
+tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
 tc_inner_channels : 64
 tc_kernel_size : 5
-tc_feat_add_channels : 2
-tc_feat_add_layers : 1
+tc_feat_add_channels : 1
+tc_feat_add_layers : 2
+tc_d_model : 128
+tc_n_attn_layer : 1
+tc_n_head : 2
 
 # conformer parameter
 conformer_conv_kernel_size : 15   # 7, 15 or 31
 
-# 使用するencoder（"transformer" or "conformer"）
-which_encoder : "transformer"
+# 使用するencoder
+which_encoder : "dconv"
 
 # 使用するdecoder（"transformer" or "glu"）
 # 自己回帰 : "transformer" or "glu"
 # 非自己回帰 : "simple_tc" or "gated_tc" or "res_tc"
 which_decoder : "glu"
+
+# audio encoder
+ae_emb_dim : 4
+vae_emb_dim : 64
+vq_emb_dim : 64
+vq_num_emb : 256    
+spk_emb_dim : 256
+norm_type_audio : "in"
+content_d_model : 256
+content_n_attn_layer : 1
+content_n_head : 4
+which_spk_enc : "rnn"
+
+# mutual information
+mi_hidden_channels : 256
 
 # discriminator（"unet" or "jcu"）
 # 使わない場合は何も書かない（Noneもいらないです）
@@ -94,10 +115,13 @@ which_d : "simple"
 # out_channels
 out_channels : 32  # 音響特徴量から計算します
 
+# lipreading classes(43 + α)
+n_classes : 44
+
 # Prenet & Postnet parameter
 pre_in_channels : 64  # 音響特徴量から計算します
 pre_inner_channels : 32
-post_inner_channels : 512
+post_inner_channels : 128
 post_n_layers : 5
 
 # enhancer parameter

@@ -122,6 +122,7 @@ def main(cfg):
             save_path=save_path,
         )
 
+    for data_root, save_path in zip(data_root_list, save_path_list):
         print("--- calc accuracy ---")
         calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
         

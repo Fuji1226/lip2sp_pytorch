@@ -34,7 +34,7 @@ def get_datasets(data_root, cfg):
         spk_path = data_root / speaker
 
         for corpus in cfg.train.corpus:
-            spk_path_co = [p for p in spk_path.glob("*.npz") if re.search(f"{corpus}", str(p))]
+            spk_path_co = [p for p in spk_path.glob(f"*{cfg.model.name}.npz") if re.search(f"{corpus}", str(p))]
             if len(spk_path_co) > 1:
                 print(f"load {corpus}")
             spk_path_list += spk_path_co

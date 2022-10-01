@@ -17,7 +17,7 @@ from timm.scheduler import CosineLRScheduler
 
 from utils import make_train_val_loader, save_loss, get_path_train, check_feat_add, check_mel_nar
 from train_vq_audio import make_model
-from loss import MaskedLoss
+from loss import MaskedLoss, LabelSmoothingCrossEntropyLoss
 
 # wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -65,7 +65,7 @@ def check_idx(target, output, cfg, filename, epoch, current_time, ckpt_time=None
         f.write(f"{output}\n")
 
 
-def train_one_epoch(vcnet, lip_enc, train_loader, optimizer, loss_f, device, cfg, ckpt_time, epoch):
+def train_one_epoch(vcnet, lip_enc, train_loader, optimizer, loss_f, loss_f_c, device, cfg, ckpt_time, epoch):
     epoch_loss = 0
     epoch_loss_mse = 0
     epoch_loss_feat_add = 0
@@ -96,7 +96,7 @@ def train_one_epoch(vcnet, lip_enc, train_loader, optimizer, loss_f, device, cfg
             output, feat_add_out, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
         B, C, T = output.shape
 
-        loss = F.cross_entropy(lip_enc_out.permute(0, 2, 1), embed_idx_target)
+        loss = loss_f_c(lip_enc_out.permute(0, 2, 1), embed_idx_target)
         loss.backward()
         clip_grad_norm_(lip_enc.parameters(), cfg.train.max_norm)
         optimizer.step()
@@ -128,7 +128,7 @@ def train_one_epoch(vcnet, lip_enc, train_loader, optimizer, loss_f, device, cfg
     return epoch_loss, epoch_loss_mse, epoch_loss_feat_add
 
 
-def val_one_epoch(vcnet, lip_enc, val_loader, loss_f, device, cfg, ckpt_time, epoch):
+def val_one_epoch(vcnet, lip_enc, val_loader, loss_f, loss_f_c, device, cfg, ckpt_time, epoch):
     epoch_loss = 0
     epoch_loss_mse = 0
     epoch_loss_feat_add = 0
@@ -156,7 +156,7 @@ def val_one_epoch(vcnet, lip_enc, val_loader, loss_f, device, cfg, ckpt_time, ep
             output, feat_add_out, phoneme, spk_emb, quantize, embed_idx, vq_loss, enc_output, idx_pred, spk_class, out_upsample = vcnet(lip_enc_out=lip_enc_out, feature_ref=feature, data_len=data_len)
         B, C, T = output.shape
 
-        loss = F.cross_entropy(lip_enc_out.permute(0, 2, 1), embed_idx_target)
+        loss = loss_f_c(lip_enc_out.permute(0, 2, 1), embed_idx_target)
         epoch_loss += loss.item()
         wandb.log({"val_loss": loss})
 
@@ -213,8 +213,8 @@ def main(cfg):
     # Dataloader作成
     train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
 
-    loss_f = nn.CrossEntropyLoss()
     loss_f = MaskedLoss()
+    loss_f_c = LabelSmoothingCrossEntropyLoss(cfg.model.vq_num_emb, cfg.train.label_smoothing, dim=1)
     train_loss_list = []
     train_mse_loss_list = []
     train_feat_add_loss_list = []
@@ -278,8 +278,6 @@ def main(cfg):
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-            # print(f"learning_rate = {scheduler_mi.get_last_lr()[0]}")
-            # print(f"learning_rate = {scheduler.get_epoch_values(current_epoch)}")
 
             # train
             epoch_loss, epoch_loss_mse, epoch_loss_feat_add = train_one_epoch(
@@ -288,6 +286,7 @@ def main(cfg):
                 train_loader=train_loader,
                 optimizer=optimizer,
                 loss_f=loss_f,
+                loss_f_c=loss_f_c,
                 device=device,
                 cfg=cfg,
                 ckpt_time=ckpt_time,
@@ -303,6 +302,7 @@ def main(cfg):
                 lip_enc=lip_enc,
                 val_loader=val_loader,
                 loss_f=loss_f,
+                loss_f_c=loss_f_c,
                 device=device,
                 cfg=cfg,
                 ckpt_time=ckpt_time,

@@ -1,6 +1,5 @@
 from pathlib import Path
 import sys
-from unicodedata import bidirectional
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 sys.path.append(str(Path("~/lip2sp_pytorch/model").expanduser()))
 
@@ -8,26 +7,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-try:
-    from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam
-    from model.transformer_remake import Encoder
-    from model.conformer.encoder import ConformerEncoder
-    from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
-    from model.nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
-    from model.vq import VQ
-    from model.classifier import SpeakerClassifier
-    from model.grad_reversal import GradientReversal
-    from model.rnn import LSTMEncoder
-except:
-    from .net import ResNet3D, DSResNet3D, DSResNet3DCbam
-    from .transformer_remake import Encoder
-    from .conformer.encoder import ConformerEncoder
-    from .audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
-    from .nar_decoder import TCDecoder, GatedTCDecoder, ResTCDecoder
-    from .vq import VQ
-    from .classifier import SpeakerClassifier
-    from .grad_reversal import GradientReversal
-    from .model.rnn import LSTMEncoder
+from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall, InvResNet3D
+from model.transformer_remake import Encoder, OfficialEncoder
+from model.conformer.encoder import ConformerEncoder
+from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
+from model.nar_decoder import ResTCDecoder
+from model.vq import VQ
+from model.classifier import SpeakerClassifier
+from model.grad_reversal import GradientReversal
+from model.rnn import LSTMEncoder, GRUEncoder
+from model.dilated_conv import DilatedConvEncoder
 
 
 class LipEncoder(nn.Module):
@@ -71,6 +60,24 @@ class LipEncoder(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type_lip,
             )
+        elif which_res == "ds_cbam_small":
+            self.ResNet_GAP = DSResNet3DCbamSmall(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type_lip,
+            )
+        elif which_res == "inv":
+            self.ResNet_GAP = InvResNet3D(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type_lip,
+            )
         
         if which_encoder == "transformer":
             self.encoder = Encoder(
@@ -92,8 +99,29 @@ class LipEncoder(nn.Module):
                 in_channels=d_model,
                 hidden_dim=d_model,
                 out_channels=d_model,
-                n_layers=2,
+                n_layers=n_layers,
                 bidirectional=True,
+            )
+        elif which_encoder == "gru":
+            self.encoder = GRUEncoder(
+                in_channels=d_model,
+                hidden_dim=d_model,
+                out_channels=d_model,
+                n_layers=n_layers,
+                bidirectional=True,
+            )
+        elif which_encoder == "official":
+            self.encoder = OfficialEncoder(
+                d_model=d_model,
+                nhead=n_head,
+                num_layers=n_layers,
+            )
+        elif which_encoder == "dconv":
+            self.encoder = DilatedConvEncoder(
+                in_channels=d_model,
+                out_channels=d_model,
+                kernel_size=3,
+                n_layers=5,
             )
     
         self.compress_layer_lip = nn.Conv1d(d_model, d_model, kernel_size=3, stride=2, padding=1)

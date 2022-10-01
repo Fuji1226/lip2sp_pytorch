@@ -38,8 +38,7 @@ face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 corpus : ["ATR", "BASIC5000", "balanced"]
 
 # 使用する話者
-# speaker : ["F01_kablab", "M01_kablab", "F02_kablab", "F03_kablab", "M03_kablab", "M04_kablab"]
-speaker : ["F01_kablab", "M01_kablab"]
+speaker : ["F01_kablab"]
 use_gc : False
 
 # max_epoch
@@ -60,8 +59,8 @@ use_time_augment : False
 time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # dataloader
-batch_size : 16
-num_workers : 16
+batch_size : 12
+num_workers : 12
 
 # dropout
 dec_dropout : 0.1

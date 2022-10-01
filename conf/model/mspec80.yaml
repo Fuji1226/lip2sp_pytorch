@@ -53,7 +53,7 @@ in_channels : 5
 res_layers : 3
 res_inner_channels : 32
 norm_type_lip : "bn"
-which_res : "ds_cbam" 
+which_res : "inv" 
 
 # glu parameter
 glu_layers : 4    # 4 or 6
@@ -61,9 +61,9 @@ glu_kernel_size : 5   # 5 or 9
 glu_inner_channels : 128
 
 # transformer parameter
-n_layers : 6    # 1, 2 or 4
-d_model : 256   # 128 or 256
-n_head : 4    # 2 or 4
+n_layers : 2    # 1, 2 or 4
+d_model : 128   # 128 or 256
+n_head : 2    # 2 or 4
 dec_n_layers : 1
 dec_d_model : 256
 dec_n_head : 4
@@ -82,12 +82,12 @@ tc_n_head : 2
 # conformer parameter
 conformer_conv_kernel_size : 31   # 7, 15 or 31
 
-# 使用するencoder（"transformer" or "conformer"）
-which_encoder : "lstm"
+# 使用するencoder
+which_encoder : "dconv"
 
 # 使用するdecoder
 # 自己回帰 : "transformer" or "glu"
-# 非自己回帰 : "simple_tc", "gated_tc" or "res_tc"
+# 非自己回帰 : "res_tc"
 which_decoder : "glu"
 
 # audio encoder
@@ -117,7 +117,7 @@ n_classes : 44
 # Prenet & Postnet parameter
 pre_in_channels : 160  # 音響特徴量から計算します
 pre_inner_channels : 32
-post_inner_channels : 512
+post_inner_channels : 256
 post_n_layers : 5
 
 # enhancer parameter
