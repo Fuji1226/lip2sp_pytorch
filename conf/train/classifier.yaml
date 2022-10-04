@@ -34,11 +34,12 @@ face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
-# face_generationで合成したデータまでのパス
-gen_pre_loaded_path : "~/face_generation/result/default/generate/2022:08:24_01-35-17/mspec80_100/train_data"
+# 使用するコーパス
+corpus : ["ATR", "BASIC5000", "balanced"]
 
-# 口唇動画を使用した学習時にロードする事前学習済みモデルまでのパス
-model_path : "~/lip2sp_pytorch/check_point/classifier/lip/2022:09:10_16-43-12/mspec80_150.ckpt"
+# 使用する話者
+speaker : ["F01_kablab", "F02_kablab", "F03_kablab"]
+use_gc : False
 
 # max_epoch
 max_epoch : 300
@@ -56,9 +57,6 @@ use_rotation : False
 # 時間
 use_time_augment : False
 time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
-
-# global condition
-use_gc : False
 
 # dataloader
 batch_size : 32
@@ -114,6 +112,3 @@ upsample_method : "interpolate"   # conv or interpolate
 compress_rate : 2   # 2 or 4
 time_reduction : False
 time_reduction_rate : 30
-
-# speaker classifier
-n_speaker : 2

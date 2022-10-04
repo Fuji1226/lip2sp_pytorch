@@ -1,20 +1,3 @@
-"""
-保存したパラメータを読み込み,合成を行う際に使用してください
-
-1. model_pathの変更
-    main()の中にあります
-    自分が読み込みたいやつまでのパスを通してください(checkpointやresult/train)
-
-2. conf/testの変更
-    顔か口唇かを学習時の状態に合わせれば基本的には大丈夫だと思います
-
-3. generate.pyの実行
-
-4. 結果の確認
-    result/generateの下に保存されると思います
-"""
-
-from concurrent.futures import process
 import hydra
 
 import sys
@@ -107,7 +90,8 @@ def main(cfg):
 
     model = make_model(cfg, device)
 
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:09:20_17-06-45/mspec80_300.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:01_11-23-31/mspec80_300.ckpt")
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:01_11-24-06/world_melfb_300.ckpt")
 
     if model_path.suffix == ".ckpt":
         try:

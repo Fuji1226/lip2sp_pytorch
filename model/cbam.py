@@ -59,7 +59,5 @@ def check_params(net):
 
 
 if __name__ == "__main__":
-    kernel_size = 7
-    net = SpatialAttention(kernel_size)
-    check_params(net)
+    net = ChannnelAttention(1, 12)
 

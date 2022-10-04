@@ -218,8 +218,8 @@ class KablabTransform:
         田口さんからの継承
         """
         # scipywのgaussian_filterを使用するため、一旦numpyに戻してます
-        lip = lip.to('cpu').detach().numpy().copy()
         if self.cfg.model.delta:
+            lip = lip.to('cpu').detach().numpy().copy()
             lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]
             lip_pad = lip_pad.astype(lip.dtype)
             lip_pad = gaussian_filter(lip_pad, (0, 0.5, 0.5, 0), mode="reflect", truncate=2)

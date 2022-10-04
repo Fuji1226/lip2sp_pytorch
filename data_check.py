@@ -17,8 +17,10 @@ def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
     """
     口唇動画と動的特徴量の保存
     """
-
-    lip_orig = lip[:3, ...]
+    if lip.shape[0] == 3:
+        lip_orig = lip[:1, ...]    
+    elif lip.shape[0] == 5:
+        lip_orig = lip[:3, ...]
     lip_delta = lip[-2, ...].unsqueeze(0)
     lip_deltadelta = lip[-1, ...].unsqueeze(0)
     

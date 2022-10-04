@@ -14,7 +14,7 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default
+from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, count_params, set_config
 from model.model_default import Lip2SP
 from loss import MaskedLoss
 
@@ -44,14 +44,6 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
     }, ckpt_path)
 
 
-def count_params(module, attr):
-    params = 0
-    for p in module.parameters():
-        if p.requires_grad:
-            params += p.numel()
-    print(f"{attr}_parameter = {params}")
-
-
 def make_model(cfg, device):
     model = Lip2SP(
         in_channels=cfg.model.in_channels,
@@ -67,6 +59,11 @@ def make_model(cfg, device):
         dec_n_layers=cfg.model.dec_n_layers,
         dec_d_model=cfg.model.dec_d_model,
         conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
+        rnn_hidden_channels=cfg.model.rnn_hidden_channels,
+        rnn_n_layers=cfg.model.rnn_n_layers,
+        dconv_inner_channels=cfg.model.dconv_inner_channels,
+        dconv_kernel_size=cfg.model.dconv_kernel_size,
+        dconv_n_layers=cfg.model.dconv_n_layers,
         glu_inner_channels=cfg.model.glu_inner_channels,
         glu_layers=cfg.model.glu_layers,
         glu_kernel_size=cfg.model.glu_kernel_size,
@@ -77,6 +74,7 @@ def make_model(cfg, device):
         pre_inner_channels=cfg.model.pre_inner_channels,
         post_inner_channels=cfg.model.post_inner_channels,
         post_n_layers=cfg.model.post_n_layers,
+        post_kernel_size=cfg.model.post_kernel_size,
         n_position=cfg.model.length * 5,
         which_encoder=cfg.model.which_encoder,
         which_decoder=cfg.model.which_decoder,
@@ -254,14 +252,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
-    if cfg.train.debug:
-        cfg.train.batch_size = 4
-        cfg.train.num_workers = 4
-
-    if len(cfg.train.speaker) > 1:
-        cfg.train.use_gc = True
-    else:
-        cfg.train.use_gc = False
+    set_config(cfg)
         
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,

@@ -20,13 +20,13 @@ class DilatedConvBlock(nn.Module):
 
 
 class DilatedConvEncoder(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, n_layers):
+    def __init__(self, inner_channels, kernel_size, n_layers):
         super().__init__()
         layers = []
         for i in range(n_layers):
             dilation = 2 ** (i + 1)
             layers.append(
-                DilatedConvBlock(in_channels, in_channels, kernel_size, dilation),
+                DilatedConvBlock(inner_channels, inner_channels, kernel_size, dilation),
             )
         self.layers = nn.ModuleList(layers)
 
@@ -43,10 +43,9 @@ class DilatedConvEncoder(nn.Module):
 
 if __name__ == "__main__":
     net = DilatedConvEncoder(
-        in_channels=128,
-        out_channels=128,
-        kernel_size=3,
-        n_layers=5,
+        inner_channels=128,
+        kernel_size=5,
+        n_layers=2,
     )
     x = torch.rand(1, 128, 150)
     out = net(x)

@@ -50,6 +50,27 @@ def get_sp_name(name, feature_type, frame_period, nmels=None):
     return ret
 
 
+def set_config(cfg):
+    if cfg.train.debug:
+        cfg.train.batch_size = 4
+        cfg.train.num_workers = 4
+
+    if len(cfg.train.speaker) > 1:
+        cfg.train.use_gc = True
+    else:
+        cfg.train.use_gc = False
+    
+    if cfg.model.gray:
+        cfg.model.in_channels = 1
+        cfg.train.face_or_lip = "lip_gray"
+    else:
+        cfg.model.in_channels = 3
+        cfg.train.face_or_lip = "lip"
+    
+    if cfg.model.delta:
+        cfg.model.in_channels += 2
+
+
 def get_path_train(cfg, current_time):
     # data
     if cfg.train.face_or_lip == "face":
@@ -58,6 +79,9 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "lip":
         data_root = cfg.train.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
+    elif cfg.train.face_or_lip == "lip_gray":
+        data_root = cfg.train.lip_pre_loaded_path_gray
+        mean_std_path = cfg.train.lip_mean_std_path_gray
     data_root = Path(data_root).expanduser()
     mean_std_path = Path(mean_std_path).expanduser()
 
@@ -94,6 +118,10 @@ def get_path_test(cfg, model_path):
         train_data_root = cfg.train.lip_pre_loaded_path
         test_data_root = cfg.test.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
+    if cfg.test.face_or_lip == "lip_gray":
+        train_data_root = cfg.train.lip_pre_loaded_path_gray
+        test_data_root = cfg.test.lip_pre_loaded_path_gray
+        mean_std_path = cfg.train.lip_mean_std_path_gray
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
@@ -172,12 +200,16 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
         data_root=data_root,
         cfg=cfg,
     )
+
+    print("\nsplit data")
     train_data_path = []
     val_data_path = []
     for key, value in data_path.items():
         train_size = int(len(value) * 0.95)
         p_train = value[:train_size]
         p_val = value[train_size:]
+        print(f"{key}")
+        print(f"train_data_size = {len(p_train)}, val_data_size = {len(p_val)}")
         for p_t in p_train:
             train_data_path.append(p_t)
         for p_v in p_val:
@@ -257,6 +289,24 @@ def make_test_loader(cfg, data_root, mean_std_path):
         collate_fn=None,
     )
     return test_loader, test_dataset
+
+
+def calc_class_balance(cfg, data_root, device):
+    data_path = get_datasets(
+        data_root=data_root,
+        cfg=cfg,
+    )
+
+    print("\ncalc_class_balance")
+    num_data = []
+    for key, value in data_path.items():
+        print(f"{key} : {len(value)}")
+        num_data.append(len(value))    
+    
+    num_data_max = max(num_data)
+    class_weight = torch.tensor([num_data_max / d for d in num_data])
+    print(f"class_weight = {class_weight}\n")
+    return class_weight.to(device)
 
 
 def check_mel_default(target, output, dec_output, cfg, filename, current_time, ckpt_time=None):
@@ -408,3 +458,11 @@ def check_feat_add(target, output, cfg, filename, current_time, ckpt_time=None):
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
+
+
+def count_params(module, attr):
+    params = 0
+    for p in module.parameters():
+        if p.requires_grad:
+            params += p.numel()
+    print(f"{attr}_parameter = {params}")

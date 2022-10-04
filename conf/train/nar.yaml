@@ -13,7 +13,7 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:25_17-04-10/mspec80_240.ckpt"
 
 # face or lip
-face_or_lip : "lip"
+face_or_lip : "lip_gray"
 
 # データを置いているディレクトリまでのパス
 lip_path : "~/dataset/lip/lip_cropped"
@@ -28,10 +28,12 @@ ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
 lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
+lip_mean_std_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/mean_std"
 face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
+lip_pre_loaded_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
 # 使用するコーパス

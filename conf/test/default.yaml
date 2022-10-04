@@ -12,10 +12,12 @@ save_path : "~/lip2sp_pytorch/result/default/generate"
 
 # 平均、標準偏差ディレクトリまでのパス
 lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
+lip_mean_std_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/mean_std"
 face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
+lip_pre_loaded_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/test"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/test"
 
 speaker : ["F01_kablab"]

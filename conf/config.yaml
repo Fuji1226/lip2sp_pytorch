@@ -1,5 +1,5 @@
 defaults:
-  - model: world_melfb
-  - train: nar
-  - test : nar
+  - model: mspec80
+  - train: default
+  - test : default
   - wandb_conf : debug

@@ -7,13 +7,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall, InvResNet3D
+from model.net import ResNet3D
+from model.dsconv import DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall
+from model.invres import InvResNet3D
+from model.mdconv import InvResNetMD
 from model.transformer_remake import Encoder, OfficialEncoder
 from model.conformer.encoder import ConformerEncoder
 from model.nar_decoder import ResTCDecoder
 from model.rnn import LSTMEncoder, GRUEncoder
 from model.dilated_conv import DilatedConvEncoder
-from model.pre_post import Postnet
 
 
 class Lip2SP_NAR(nn.Module):
@@ -21,6 +23,8 @@ class Lip2SP_NAR(nn.Module):
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
         separate_frontend, which_res,
         d_model, n_layers, n_head, conformer_conv_kernel_size,
+        rnn_hidden_channels, rnn_n_layers,
+        dconv_inner_channels, dconv_kernel_size, dconv_n_layers,
         dec_n_layers, dec_inner_channels, dec_kernel_size,
         tc_n_attn_layer, tc_n_head, tc_d_model,
         feat_add_channels, feat_add_layers, 
@@ -86,6 +90,15 @@ class Lip2SP_NAR(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
+        elif which_res == "invmd":
+            self.ResNet_GAP = InvResNetMD(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
 
         # encoder
         if self.which_encoder == "transformer":
@@ -103,34 +116,29 @@ class Lip2SP_NAR(nn.Module):
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
             )
-        elif which_encoder == "lstm":
-            self.encoder = LSTMEncoder(
-                in_channels=d_model,
-                hidden_dim=d_model,
-                out_channels=d_model,
-                n_layers=n_layers,
-                bidirectional=True,
-            )
-        elif which_encoder == "gru":
-            self.encoder = GRUEncoder(
-                in_channels=d_model,
-                hidden_dim=d_model,
-                out_channels=d_model,
-                n_layers=n_layers,
-                bidirectional=True,
-            )
         elif which_encoder == "official":
             self.encoder = OfficialEncoder(
                 d_model=d_model,
                 nhead=n_head,
                 num_layers=n_layers,
             )
+        elif which_encoder == "lstm":
+            self.encoder = LSTMEncoder(
+                hidden_channels=rnn_hidden_channels,
+                n_layers=rnn_n_layers,
+                bidirectional=True,
+            )
+        elif which_encoder == "gru":
+            self.encoder = GRUEncoder(
+                hidden_channels=rnn_hidden_channels,
+                n_layers=rnn_n_layers,
+                bidirectional=True,
+            )
         elif which_encoder == "dconv":
             self.encoder = DilatedConvEncoder(
-                in_channels=d_model,
-                out_channels=d_model,
-                kernel_size=3,
-                n_layers=5,
+                inner_channels=dconv_inner_channels,
+                kernel_size=dconv_kernel_size,
+                n_layers=dconv_n_layers,
             )
 
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)

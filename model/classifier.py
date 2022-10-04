@@ -8,11 +8,11 @@ class SpeakerClassifier(nn.Module):
         super().__init__()
         self.lstm = nn.LSTM(in_channels, hidden_dim, num_layers=n_layers, batch_first=True, bidirectional=bidirectional)
         if bidirectional:
-            self.fc = nn.Linear(hidden_dim * 2, 256)
+            self.fc = nn.Linear(hidden_dim * 2, hidden_dim)
         else:
-            self.fc = nn.Linear(hidden_dim, 256)
+            self.fc = nn.Linear(hidden_dim, hidden_dim)
         
-        self.last_layer = nn.Linear(256, n_speaker)
+        self.last_layer = nn.Linear(hidden_dim, n_speaker)
 
     def forward(self, x):
         """

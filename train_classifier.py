@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 
-from train_default import make_train_val_loader, save_loss, get_path
+from utils import get_path_train, make_train_val_loader, save_loss, count_params, calc_class_balance
 from model.classifier import SpeakerClassifier
 
 # wandbへのログイン
@@ -44,10 +44,11 @@ def make_model(cfg, device):
     model = SpeakerClassifier(
         in_channels=80,
         hidden_dim=128,
-        n_layers=2,
+        n_layers=1,
         bidirectional=True,
-        n_speaker=2,
+        n_speaker=len(cfg.train.speaker),
     ).to(device)
+    count_params(model, "model")
     return model
 
 
@@ -56,6 +57,9 @@ def check_result(target, pred, cfg, filename, epoch, ckpt_time=None):
     pred = torch.argmax(pred, dim=-1)
     target = target.to('cpu').detach().numpy().copy()
     pred = pred.to('cpu').detach().numpy().copy()
+
+    acc = np.sum(target == pred) / target.size
+    print(acc)
 
     save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
     if ckpt_time is not None:
@@ -70,10 +74,11 @@ def check_result(target, pred, cfg, filename, epoch, ckpt_time=None):
         f.write(f"{target}\n")
         f.write("--- pred ---\n")
         f.write(f"{pred}\n")
+        f.write(f"accuracy = {acc}\n")
         f.write("\n")
 
 
-def train_one_epoch(model, train_loader, optimizer, device, cfg, ckpt_time, epoch):
+def train_one_epoch(model, train_loader, optimizer, device, cfg, ckpt_time, epoch, class_weight):
     epoch_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
@@ -86,7 +91,7 @@ def train_one_epoch(model, train_loader, optimizer, device, cfg, ckpt_time, epoc
         feature, feat_add, data_len, speaker = feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
         out = model(feature.permute(0, 2, 1))
-        loss = F.cross_entropy(out, speaker)
+        loss = F.cross_entropy(out, speaker, weight=class_weight)
         loss.backward()
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
@@ -100,6 +105,7 @@ def train_one_epoch(model, train_loader, optimizer, device, cfg, ckpt_time, epoc
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 check_result(speaker, out, cfg, "train", epoch, ckpt_time)
+            break
         
         if iter_cnt % (all_iter - 1) == 0:
             check_result(speaker, out, cfg, "train", epoch, ckpt_time)
@@ -107,7 +113,7 @@ def train_one_epoch(model, train_loader, optimizer, device, cfg, ckpt_time, epoc
     return epoch_loss
 
 
-def val_one_epoch(model, val_loader, device, cfg ,ckpt_time, epoch):
+def val_one_epoch(model, val_loader, device, cfg ,ckpt_time, epoch, class_weight):
     epoch_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
@@ -120,7 +126,7 @@ def val_one_epoch(model, val_loader, device, cfg ,ckpt_time, epoch):
         feature, feat_add, data_len, speaker = feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
         out = model(feature.permute(0, 2, 1))
-        loss = F.cross_entropy(out, speaker)
+        loss = F.cross_entropy(out, speaker, weight=class_weight)
         epoch_loss += loss.item()
         wandb.log({"val_loss": loss})
 
@@ -129,6 +135,7 @@ def val_one_epoch(model, val_loader, device, cfg ,ckpt_time, epoch):
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 check_result(speaker[0], out[0], cfg, "val", epoch, ckpt_time)
+            break
         
         if iter_cnt % (all_iter - 1) == 0:
             check_result(speaker[0], out[0], cfg, "val", epoch, ckpt_time)
@@ -138,6 +145,10 @@ def val_one_epoch(model, val_loader, device, cfg ,ckpt_time, epoch):
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
+    if cfg.train.debug:
+        cfg.train.batch_size = 12
+        cfg.train.num_workers = 4
+        
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
@@ -151,7 +162,7 @@ def main(cfg):
     torch.backends.cudnn.benchmark = True
 
     # path
-    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path(cfg)
+    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
     print(f"data_root = {data_root}")
     print(f"mean_std_path = {mean_std_path}")
@@ -160,6 +171,9 @@ def main(cfg):
 
     # Dataloader作成
     train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
+
+    # cross entropy weight
+    class_weight = calc_class_balance(cfg, data_root, device)
 
     train_loss_list = []
     val_loss_list = []
@@ -192,6 +206,7 @@ def main(cfg):
                 cfg=cfg,
                 ckpt_time=ckpt_time,
                 epoch=current_epoch,
+                class_weight=class_weight,
             )
             train_loss_list.append(epoch_loss)
 
@@ -203,6 +218,7 @@ def main(cfg):
                 cfg=cfg,
                 ckpt_time=ckpt_time,
                 epoch=current_epoch,
+                class_weight=class_weight,
             )
             val_loss_list.append(epoch_loss)
 

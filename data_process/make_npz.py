@@ -11,12 +11,13 @@ from tqdm import tqdm
 from transform_no_chainer import load_data_for_npz
 
 # speakerのみ変更してください
-speaker = "M01_kablab"
+speaker = "F01_kablab"
+dirname = "lip_cropped_gray"
 LIP_PATH = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
-LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/train").expanduser()
-LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
-LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/test").expanduser()
-LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
+LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files/{dirname}/train").expanduser()
+LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/{dirname}/mean_std").expanduser()
+LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files/{dirname}/test").expanduser()
+LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/{dirname}/mean_std").expanduser()
 
 
 def get_dataset_lip(data_root):    

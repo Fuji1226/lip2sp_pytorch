@@ -13,7 +13,7 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from utils import make_train_val_loader, save_loss, get_path_train, check_feat_add, check_mel_nar
+from utils import make_train_val_loader, save_loss, get_path_train, check_feat_add, check_mel_nar, count_params, set_config
 from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
 
@@ -43,14 +43,6 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
     }, ckpt_path)
 
 
-def count_params(module, attr):
-    params = 0
-    for p in module.parameters():
-        if p.requires_grad:
-            params += p.numel()
-    print(f"{attr}_parameter = {params}")
-
-
 def make_model(cfg, device):
     model = Lip2SP_NAR(
         in_channels=cfg.model.in_channels,
@@ -64,6 +56,11 @@ def make_model(cfg, device):
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
         conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
+        rnn_hidden_channels=cfg.model.rnn_hidden_channels,
+        rnn_n_layers=cfg.model.rnn_n_layers,
+        dconv_inner_channels=cfg.model.dconv_inner_channels,
+        dconv_kernel_size=cfg.model.dconv_kernel_size,
+        dconv_n_layers=cfg.model.dconv_n_layers,
         dec_n_layers=cfg.model.tc_n_layers,
         dec_inner_channels=cfg.model.tc_inner_channels,
         dec_kernel_size=cfg.model.tc_kernel_size,
@@ -200,14 +197,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
-    if cfg.train.debug:
-        cfg.train.batch_size = 4
-        cfg.train.num_workers = 4
-
-    if len(cfg.train.speaker) > 1:
-        cfg.train.use_gc = True
-    else:
-        cfg.train.use_gc = False
+    set_config(cfg)
         
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,

@@ -13,15 +13,16 @@ decoderはgluが良さそうです
 import os
 import sys
 from pathlib import Path
-
-# 親ディレクトリからのimport用
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall, InvResNet3D
+from model.net import ResNet3D
+from model.dsconv import DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall
+from model.invres import InvResNet3D
+from model.mdconv import InvResNetMD
 from model.transformer_remake import Encoder, Decoder, OfficialEncoder
 from model.pre_post import Postnet
 from model.conformer.encoder import ConformerEncoder
@@ -36,10 +37,12 @@ class Lip2SP(nn.Module):
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
         separate_frontend, which_res,
         d_model, n_layers, n_head, dec_n_layers, dec_d_model, conformer_conv_kernel_size,
+        rnn_hidden_channels, rnn_n_layers,
+        dconv_inner_channels, dconv_kernel_size, dconv_n_layers,
         glu_inner_channels, glu_layers, glu_kernel_size,
         feat_add_channels, feat_add_layers,
         n_speaker, spk_emb_dim,
-        pre_inner_channels, post_inner_channels, post_n_layers,
+        pre_inner_channels, post_inner_channels, post_n_layers, post_kernel_size,
         n_position, which_encoder, which_decoder, apply_first_bn, multi_task, add_feat_add,
         dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
         super().__init__()
@@ -102,7 +105,16 @@ class Lip2SP(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
-
+        elif which_res == "invmd":
+            self.ResNet_GAP = InvResNetMD(
+                in_channels=in_channels, 
+                out_channels=d_model, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        
         # encoder
         if self.which_encoder == "transformer":
             self.encoder = Encoder(
@@ -119,34 +131,29 @@ class Lip2SP(nn.Module):
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
             )
-        elif which_encoder == "lstm":
-            self.encoder = LSTMEncoder(
-                in_channels=d_model,
-                hidden_dim=d_model,
-                out_channels=d_model,
-                n_layers=n_layers,
-                bidirectional=True,
-            )
-        elif which_encoder == "gru":
-            self.encoder = GRUEncoder(
-                in_channels=d_model,
-                hidden_dim=d_model,
-                out_channels=d_model,
-                n_layers=n_layers,
-                bidirectional=True,
-            )
         elif which_encoder == "official":
             self.encoder = OfficialEncoder(
                 d_model=d_model,
                 nhead=n_head,
                 num_layers=n_layers,
             )
+        elif which_encoder == "lstm":
+            self.encoder = LSTMEncoder(
+                hidden_channels=rnn_hidden_channels,
+                n_layers=rnn_n_layers,
+                bidirectional=True,
+            )
+        elif which_encoder == "gru":
+            self.encoder = GRUEncoder(
+                hidden_channels=rnn_hidden_channels,
+                n_layers=rnn_n_layers,
+                bidirectional=True,
+            )
         elif which_encoder == "dconv":
             self.encoder = DilatedConvEncoder(
-                in_channels=d_model,
-                out_channels=d_model,
-                kernel_size=3,
-                n_layers=5,
+                inner_channels=dconv_inner_channels,
+                kernel_size=dconv_kernel_size,
+                n_layers=dconv_n_layers,
             )
 
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
@@ -189,7 +196,7 @@ class Lip2SP(nn.Module):
         self.connect_layer = nn.Conv1d(feat_add_channels, d_model, kernel_size=3, stride=2, padding=1)
 
         # postnet
-        self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
+        self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
     def forward(self, lip, lip_d=None, lip_dd=None, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
         """

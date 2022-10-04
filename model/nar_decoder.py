@@ -7,12 +7,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-try:
-    from model.grad_reversal import GradientReversal
-    from model.transformer_remake import Encoder
-except:
-    from .grad_reversal import GradientReversal
-    from .transformer_remake import Encoder
+from model.grad_reversal import GradientReversal
+from model.transformer_remake import Encoder
+from utils import count_params
 
 
 class TCDecoder(nn.Module):
@@ -263,3 +260,16 @@ class ResTCDecoder(nn.Module):
 
         out = self.out_layer(out)
         return out, feat_add_out, phoneme, out_upsample
+
+
+if __name__ == "__main__":
+    inner_channels = 128
+    kernel_size = 3
+    n_layers = 2
+
+    net = []
+    for _ in range(n_layers):
+        net.append(ResBlock(inner_channels, kernel_size, dropout=0.1))
+    net.append(nn.Conv1d(inner_channels, 80, 1))
+    net = nn.ModuleList(net)
+    count_params(net, "net")

@@ -25,21 +25,22 @@ class Prenet(nn.Module):
 
 
 class Postnet(nn.Module):
-    def __init__(self, in_channels, inner_channels, out_channels, n_layers=5, dropout=0.5):
+    def __init__(self, in_channels, inner_channels, out_channels, kernel_size, n_layers=5, dropout=0.5):
         super().__init__()
+        padding = (kernel_size - 1) // 2
         conv = []
-        conv.append(nn.Conv1d(in_channels, inner_channels, kernel_size=5, padding=2, bias=True))
+        conv.append(nn.Conv1d(in_channels, inner_channels, kernel_size=kernel_size, padding=padding, bias=True))
         conv.append(nn.BatchNorm1d(inner_channels))
         conv.append(nn.Tanh())
         conv.append(nn.Dropout(p=dropout))
         
         for _ in range(n_layers - 2):
-            conv.append(nn.Conv1d(inner_channels, inner_channels, kernel_size=5, padding=2, bias=True))
+            conv.append(nn.Conv1d(inner_channels, inner_channels, kernel_size=kernel_size, padding=padding, bias=True))
             conv.append(nn.BatchNorm1d(inner_channels))
             conv.append(nn.Tanh())
             conv.append(nn.Dropout(p=dropout))
 
-        conv.append(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=2, bias=True))
+        conv.append(nn.Conv1d(inner_channels, out_channels, kernel_size=kernel_size, padding=padding, bias=True))
         self.conv_layers = nn.ModuleList(conv)
 
     def forward(self, x):

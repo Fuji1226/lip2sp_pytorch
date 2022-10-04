@@ -53,11 +53,11 @@ in_channels : 5
 res_layers : 3
 res_inner_channels : 32
 norm_type_lip : "bn"
-which_res : "inv" 
+which_res : "invmd" 
 
 # glu parameter
 glu_layers : 4    # 4 or 6
-glu_kernel_size : 5   # 5 or 9
+glu_kernel_size : 3   # 5 or 9
 glu_inner_channels : 128
 
 # transformer parameter
@@ -69,10 +69,19 @@ dec_d_model : 256
 dec_n_head : 4
 diag_mask : False
 
+# rnn parameter
+rnn_hidden_channels : 128
+rnn_n_layers : 1
+
+# dilated conv paramater
+dconv_inner_channels : 128
+dconv_kernel_size : 5
+dconv_n_layers : 2
+
 # transposed convolution parameter
-tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
+tc_n_layers : 2   # 1層あたり2層の畳み込みを含みます
 tc_inner_channels : 128
-tc_kernel_size : 5
+tc_kernel_size : 3
 tc_feat_add_channels : 1
 tc_feat_add_layers : 2
 tc_d_model : 128
@@ -118,7 +127,8 @@ n_classes : 44
 pre_in_channels : 160  # 音響特徴量から計算します
 pre_inner_channels : 32
 post_inner_channels : 256
-post_n_layers : 5
+post_n_layers : 3
+post_kernel_size : 3
 
 # enhancer parameter
 which_enhancer : "2D"   # 2D or 1D

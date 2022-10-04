@@ -77,6 +77,12 @@ def load_mp4(path, gray=False):
     lip, _, _ = torchvision.io.read_video(str(path), pts_unit="sec")    # lip : (T, W, H, C)
     resizer = torchvision.transforms.Resize((48, 48))
     lip_resize = resizer(lip.permute(0, -1, 1, 2))  # (T, C, W, H)
+
+    if gray:
+        rgb2gray = torchvision.transforms.Grayscale()
+        lip_resize = rgb2gray(lip_resize)
+        assert lip_resize.shape[1] == 1
+
     lip_resize = lip_resize.permute(1, 2, 3, 0)  # (C, W, H, T)
 
     return lip_resize, fps
