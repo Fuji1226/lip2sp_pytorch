@@ -1,15 +1,3 @@
-"""
-最終的なモデル
-
-encoder
-    transformer
-    conformer
-decoder 
-    transformer
-    glu
-
-decoderはgluが良さそうです
-"""
 import os
 import sys
 from pathlib import Path
@@ -20,7 +8,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from model.net import ResNet3D
-from model.dsconv import DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall
 from model.invres import InvResNet3D
 from model.mdconv import InvResNetMD
 from model.transformer_remake import Encoder, Decoder, OfficialEncoder
@@ -35,6 +22,7 @@ from model.dilated_conv import DilatedConvEncoder
 class Lip2SP(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
+        inv_up_scale, sq_r, md_n_groups, c_attn, s_attn,
         separate_frontend, which_res,
         d_model, n_layers, n_head, dec_n_layers, dec_d_model, conformer_conv_kernel_size,
         rnn_hidden_channels, rnn_n_layers,
@@ -69,33 +57,6 @@ class Lip2SP(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
-        elif which_res == "ds":
-            self.ResNet_GAP = DSResNet3D(
-                in_channels=in_channels, 
-                out_channels=d_model, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
-        elif which_res == "ds_cbam":
-            self.ResNet_GAP = DSResNet3DCbam(
-                in_channels=in_channels, 
-                out_channels=d_model, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
-        elif which_res == "ds_cbam_small":
-            self.ResNet_GAP = DSResNet3DCbamSmall(
-                in_channels=in_channels, 
-                out_channels=d_model, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
         elif which_res == "inv":
             self.ResNet_GAP = InvResNet3D(
                 in_channels=in_channels, 
@@ -104,6 +65,10 @@ class Lip2SP(nn.Module):
                 layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
+                up_scale=inv_up_scale,
+                sq_r=sq_r,
+                c_attn=c_attn,
+                s_attn=s_attn,
             )
         elif which_res == "invmd":
             self.ResNet_GAP = InvResNetMD(
@@ -113,6 +78,11 @@ class Lip2SP(nn.Module):
                 layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
+                up_scale=inv_up_scale,
+                sq_r=sq_r,
+                n_groups=md_n_groups,
+                c_attn=c_attn,
+                s_attn=s_attn,
             )
         
         # encoder
@@ -142,12 +112,16 @@ class Lip2SP(nn.Module):
                 hidden_channels=rnn_hidden_channels,
                 n_layers=rnn_n_layers,
                 bidirectional=True,
+                dropout=res_dropout,
+                reduction_factor=reduction_factor,
             )
         elif which_encoder == "gru":
             self.encoder = GRUEncoder(
                 hidden_channels=rnn_hidden_channels,
                 n_layers=rnn_n_layers,
                 bidirectional=True,
+                dropout=res_dropout,
+                reduction_factor=reduction_factor,
             )
         elif which_encoder == "dconv":
             self.encoder = DilatedConvEncoder(
@@ -206,27 +180,11 @@ class Lip2SP(nn.Module):
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化
         self.reset_state()
 
-        # encoder
-        if self.separate_frontend:
-            lip_feature = self.ResNet_GAP(lip)
-            lip_feature_d = self.ResNet_GAP_d(lip_d)
-            lip_feature_dd = self.ResNet_GAP_dd(lip_dd)
-            lip_feature = torch.cat([lip_feature, lip_feature_d, lip_feature_dd], dim=1)
-            lip_feature = self.pre_attention_layer(lip_feature)
-        else:
-            lip_feature = self.ResNet_GAP(lip)
+        # resnet
+        lip_feature = self.ResNet_GAP(lip)
         
+        # encoder
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
-
-        # feat_add predicter
-        if self.multi_task:
-            feat_add_out = self.upsample_layer(enc_output.permute(0, 2, 1))     # (B, C, T)
-            feat_add_out = self.feat_add_layer(feat_add_out)
-            if self.add_feat_add:
-                feat_add_cond = self.connect_layer(feat_add_out)
-                enc_output = enc_output + feat_add_cond.permute(0, 2, 1)    # (B, T, C)
-        else:
-            feat_add_out = None
 
         # speaker embedding
         if gc is not None:
@@ -260,7 +218,7 @@ class Lip2SP(nn.Module):
 
         # postnet
         out = self.postnet(dec_output) 
-        return out, dec_output, feat_add_out
+        return out, dec_output
 
     def decoder_forward(self, enc_output, prev=None, data_len=None, mode="training"):
         """

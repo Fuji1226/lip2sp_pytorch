@@ -46,9 +46,9 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, dec_output, feat_add_out = model(lip=lip, gc=speaker)
+                output, dec_output = model(lip=lip, gc=speaker)
             else:
-                output, dec_output, feat_add_out = model(lip)
+                output, dec_output = model(lip)
 
         end_time = time.time()
         process_time = end_time - start_time
@@ -90,7 +90,9 @@ def main(cfg):
 
     model = make_model(cfg, device)
 
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:01_11-23-31/mspec80_300.ckpt")
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:08_21-19-57/mspec80_300.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:08_22-00-27/mspec80_300.ckpt")
+
     # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:01_11-24-06/world_melfb_300.ckpt")
 
     if model_path.suffix == ".ckpt":

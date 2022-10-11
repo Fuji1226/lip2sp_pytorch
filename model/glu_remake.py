@@ -5,20 +5,15 @@ transformer_taguchi.pyとは使えません(データ形状が違うので)
 """
 import sys
 from pathlib import Path
-sys.path.append(Path("~/lip2sp_pytorch").expanduser())
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-try:
-    from .transformer_remake import shift
-    from .pre_post import Prenet
-    from ..wavenet.model.conv import CausalConv1d  
-except:
-    from transformer_remake import shift
-    from pre_post import Prenet
-    from wavenet.model.conv import CausalConv1d   
+from model.transformer_remake import shift
+from model.pre_post import Prenet
+from wavenet.model.conv import CausalConv1d   
     
 
 class GLUBlock(nn.Module):

@@ -1,4 +1,4 @@
-from multiprocessing.sharedctypes import Value
+import re
 import os
 from pathlib import Path
 import numpy as np
@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets, get_datasets_test, collate_time_adjust
+from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 
 
 def prime_factorize(n):
@@ -192,6 +192,34 @@ def save_loss(train_loss_list, val_loss_list, save_path, filename):
         title=f"{filename}",
         xname="epoch",
     )})
+
+
+def get_datasets(data_root, cfg):    
+    print("\n--- get datasets ---")
+    items = {}
+    for speaker in cfg.train.speaker:
+        print(f"load {speaker}")
+        spk_path_list = []
+        spk_path = data_root / speaker
+
+        for corpus in cfg.train.corpus:
+            spk_path_co = [p for p in spk_path.glob(f"*{cfg.model.name}.npz") if re.search(f"{corpus}", str(p))]
+            if len(spk_path_co) > 1:
+                print(f"load {corpus}")
+            spk_path_list += spk_path_co
+        items[speaker] = random.sample(spk_path_list, len(spk_path_list))
+    return items
+
+
+def get_datasets_test(data_root, cfg):
+    print("\n--- get datasets ---")
+    items = []
+    for speaker in cfg.test.speaker:
+        print(f"load {speaker}")
+        spk_path = data_root / speaker
+        spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
+        items += spk_path
+    return items
 
 
 def make_train_val_loader(cfg, data_root, mean_std_path):

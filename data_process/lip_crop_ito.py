@@ -1,30 +1,3 @@
-"""
-動画から口唇動画を作成するところをやってみました
-lip2sp/notebook/lip.ipynbを参考にしています
-
-下の実行手順でやっていただければ、lip_croppedに口唇動画が入ると思います
-
-実行手順
-1. パスの変更
-    data_root, save_dir, txt_pathを変更してください
-        data_root : 顔のデータがあるところ(元データ)
-        save_dir : 口唇部分を切り取った動画の保存先
-        txt_path : 口唇の切り取りをミスる時があるので,ミスったデータを記録しておくファイル(事前に作っておいてください)
-    
-2. 切り取るサイズの変更
-    Lip_croppingのim_sizeを変更してください
-    ここで切り取る範囲を設定しています
-
-3. predicter_Pathの変更
-    Lip_croppingのpredicter_Pathを変更してください
-    shape_predicterがない場合は
-    http://dlib.net/files/
-    からshape_predictor_68_face_landmarks.dat.bz2を事前にダウンロードし,そこまでのパスを設定してください
-    これで顔認識をする感じです
-
-4. 実行
-"""
-
 import os
 from pathlib import Path
 import glob
@@ -33,16 +6,12 @@ import dlib
 import numpy as np
 from tqdm import tqdm
 
-speaker = "F01_kablab"
+speaker = "F01_kablab_20220930"
 data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-# save_dir = f"/home/usr4/r70264c/dataset/lip/lip_cropped/{speaker}"
-save_dir = f"/home/usr4/r70264c/dataset/lip/optical_flow/{speaker}"
+save_dir = f"/home/usr4/r70264c/dataset/lip/lip_cropped/{speaker}"
 txt_path = f"/home/usr4/r70264c/dataset/lip/cropped_error_data_{speaker}.txt"
-corpus = "ATR"
-start_num = 0
 
-debug = True
-debug_iter = 5
+debug = False
 
 # 口唇のランドマーク検出
 def Lip_Cropping(frame, det):
@@ -61,28 +30,21 @@ def Lip_Cropping(frame, det):
     # 口唇部分のランドマークの左端と右端から切り取り範囲を決定
     left_point = shapes[0]
     right_point = shapes[6]
-    im_size = right_point[0] - left_point[0] + 10
-    im_size = 120
+    im_size = right_point[0] - left_point[0]
+
+    # はみ出ないように10%分余裕を持たせる
+    im_size += int(im_size * 0.1)
 
     return im_size, mouth_center
 
 
 def main():
     os.makedirs(save_dir, exist_ok=True)
-    print(f"speaker = {speaker}, corpus = {corpus}, start_num = {start_num}")
-    if corpus == "ATR":
-        datasets_path = sorted(glob.glob(f"{data_root}/ATR*.mp4")) 
-    elif corpus == "BASIC5000":
-        datasets_path = sorted(glob.glob(f"{data_root}/BASIC5000*.mp4")) 
-    elif corpus == "balanced":
-        datasets_path = sorted(glob.glob(f"{data_root}/balanced*.mp4")) 
 
-    if start_num > 0:
-        datasets_path = datasets_path[start_num:]
+    print(f"speaker = {speaker}")
+    datasets_path = sorted(list(data_root.glob("*.mp4")))
 
-    iter_cnt = 0
     for data_path in tqdm(datasets_path, total=len(datasets_path)):
-        iter_cnt += 1
         data_name = Path(data_path)
         data_name = data_name.stem      # 保存する口唇動画の名前に使用
     
@@ -90,10 +52,10 @@ def main():
         check_path = Path(f"{save_dir}/{data_name}_crop.mp4")
         if check_path.exists():
             continue
-        
+
         try:
             # 動画読み込み
-            movie = cv2.VideoCapture(data_path)
+            movie = cv2.VideoCapture(str(data_path))
             fps    = movie.get(cv2.CAP_PROP_FPS)
             height = movie.get(cv2.CAP_PROP_FRAME_HEIGHT)
             width  = movie.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -125,7 +87,7 @@ def main():
                 mouth_center[0]+im_size//2
             ]
             
-            # 各フレームに対して口唇の中心位置を計算し直し、1フレーム目で計算した範囲で切り取る
+            # 各フレームに対して口唇の中心位置を計算し直し、1フレーム目で計算したim_sizeの大きさで切り取っていく
             while ret:
                 out.write(frame[mouth_area[0]:mouth_area[1], mouth_area[2]:mouth_area[3]])
                 ret,frame = movie.read()
@@ -147,11 +109,9 @@ def main():
             # できないやつをスキップし，txtデータに書き込んでおく
             with open(txt_path, mode="a") as f:
                 f.write(f"{data_name}\n")
-            continue
-            
+        
         if debug:
-            if iter_cnt > debug_iter:
-                break
+            break
 
 
 if __name__ == "__main__":

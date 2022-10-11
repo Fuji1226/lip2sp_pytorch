@@ -11,49 +11,16 @@ import os
 import sys
 import re
 from pathlib import Path
-import random
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
+import random
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms as T
-from torch.utils.data import Dataset, DataLoader
-
-
-def get_datasets(data_root, cfg):    
-    """
-    npzファイルのパス取得
-    """
-    print("\n--- get datasets ---")
-    items = {}
-    for speaker in cfg.train.speaker:
-        print(f"load {speaker}")
-        spk_path_list = []
-        spk_path = data_root / speaker
-
-        for corpus in cfg.train.corpus:
-            spk_path_co = [p for p in spk_path.glob(f"*{cfg.model.name}.npz") if re.search(f"{corpus}", str(p))]
-            if len(spk_path_co) > 1:
-                print(f"load {corpus}")
-            spk_path_list += spk_path_co
-        items[speaker] = random.sample(spk_path_list, len(spk_path_list))
-    return items
-
-
-def get_datasets_test(data_root, cfg):
-    """
-    npzファイルのパス取得
-    """
-    print("\n--- get datasets ---")
-    items = []
-    for speaker in cfg.test.speaker:
-        print(f"load {speaker}")
-        spk_path = data_root / speaker
-        spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
-        items += spk_path
-    return items
+from torch.utils.data import Dataset
 
 
 def get_speaker_idx(data_path):
@@ -72,9 +39,6 @@ def get_speaker_idx(data_path):
 
 
 def load_mean_std(mean_std_path, cfg):
-    """
-    一応複数話者の場合は全話者の平均にできるようにやってみました
-    """
     print("\nload mean std")
     each_lip_mean = []
     each_lip_std = []
@@ -220,7 +184,8 @@ class KablabTransform:
         # scipywのgaussian_filterを使用するため、一旦numpyに戻してます
         if self.cfg.model.delta:
             lip = lip.to('cpu').detach().numpy().copy()
-            lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]
+            if lip.shape[0] == 3:
+                lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]
             lip_pad = lip_pad.astype(lip.dtype)
             lip_pad = gaussian_filter(lip_pad, (0, 0.5, 0.5, 0), mode="reflect", truncate=2)
             lip_pad = np.pad(lip_pad, ((0, 0), (0, 0), (0, 0), (1, 1)), "edge")
@@ -266,6 +231,19 @@ class KablabTransform:
         assert lip.shape[-1] == feature.shape[-1] // upsample
         return lip, feature, feat_add, data_len
 
+    def delete_frame(self, lip):
+        """
+        口唇動画のフレームをランダムに削除
+        lip : (C, H, W, T)
+        """
+        rate = torch.randint(self.cfg.train.min_delete_frame_rate, self.cfg.train.max_delete_frame_rate, (1,)) / 100
+        delete_idx = [i for i in range(lip.shape[-1])]
+        n_delete_frame = int(lip.shape[-1] * rate)
+        delete_idx = sorted(random.sample(delete_idx, n_delete_frame))
+        for i in delete_idx:
+            lip[..., i] = 0
+        return lip
+
     def __call__(self, lip, feature, feat_add, upsample, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
         """
         lip : (C, H, W, T)
@@ -282,6 +260,9 @@ class KablabTransform:
 
             if self.cfg.train.use_time_augment:
                 lip, feature, feat_add, data_len = self.time_augment(lip, feature, feat_add, upsample, data_len)
+
+            if self.cfg.train.use_delete_frame:
+                lip = self.delete_frame(lip)
 
         # 標準化
         lip, feature, feat_add = self.normalization(

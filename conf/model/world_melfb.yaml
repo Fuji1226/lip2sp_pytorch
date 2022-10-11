@@ -54,13 +54,16 @@ in_channels : 5
 
 # ResNet3D parameter
 res_layers : 3
-res_inner_channels : 128
+res_inner_channels : 16
 norm_type_lip : "bn"
-which_res : "default" 
+inv_up_scale : 6
+sq_r : 16
+md_n_groups : 3
+which_res : "invmd" 
 
 # glu parameter
 glu_layers : 4    # 4 or 6
-glu_kernel_size : 5   # 5 or 9
+glu_kernel_size : 3   # 5 or 9
 glu_inner_channels : 64
 
 # transformer parameter
@@ -78,8 +81,8 @@ rnn_n_layers : 1
 
 # dilated conv paramater
 dconv_inner_channels : 128
-dconv_kernel_size : 3
-dconv_n_layers : 5
+dconv_kernel_size : 5
+dconv_n_layers : 2
 
 # transposed convolution parameter
 tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
@@ -95,7 +98,7 @@ tc_n_head : 2
 conformer_conv_kernel_size : 15   # 7, 15 or 31
 
 # 使用するencoder
-which_encoder : "transformer"
+which_encoder : "gru"
 
 # 使用するdecoder（"transformer" or "glu"）
 # 自己回帰 : "transformer" or "glu"
@@ -131,8 +134,8 @@ n_classes : 44
 pre_in_channels : 64  # 音響特徴量から計算します
 pre_inner_channels : 32
 post_inner_channels : 128
-post_n_layers : 5
-post_kernel_size : 5
+post_n_layers : 3
+post_kernel_size : 3
 
 # enhancer parameter
 which_enhancer : "1D"   

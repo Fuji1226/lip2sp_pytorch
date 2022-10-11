@@ -15,16 +15,16 @@ class ChannnelAttention(nn.Module):
 
     def forward(self, x):
         """
-        x : (B, C, H, W, T)
+        x : (B, C, T, H, W)
         """
-        B, C, H, W, T = x.shape
-        out = x.permute(0, -1, 1, 2, 3)
+        B, C, T, H, W = x.shape
+        out = x.permute(0, 2, 1, 3, 4)  # (B, T, C, H, W)
         out = out.reshape(B * T, C, H, W)
 
         c_avg = self.channel_attention(self.avg_pool(out))
         c_max = self.channel_attention(self.max_pool(out))
         c_uni = torch.sigmoid(c_avg + c_max)
-        c_uni = c_uni.reshape(B, T, C, 1, 1).permute(0, 2, 3, 4, 1)
+        c_uni = c_uni.reshape(B, T, C, 1, 1).permute(0, 2, 1, 3, 4)     # (B, C, T, 1, 1)
         return x * c_uni
 
 
@@ -33,31 +33,17 @@ class SpatialAttention(nn.Module):
         super().__init__()
         padding = (kernel_size - 1) // 2
         self.spatial_attention = nn.Sequential(
-            nn.Conv3d(2, 1, kernel_size=(kernel_size, kernel_size, 3), padding=(padding, padding, 1), bias=False),
+            nn.Conv3d(2, 1, kernel_size=(3, kernel_size, kernel_size), padding=(1, padding, padding), bias=False),
             nn.Sigmoid(),
         )
 
     def forward(self, x):
         """
-        x : (B, C, H, W, T)
+        x : (B, C, T, H, W)
         """
-        s_avg = torch.mean(x, dim=1, keepdim=True)
-        s_max, _ = torch.max(x, dim=1, keepdim=True)
-        s_uni = torch.cat([s_avg, s_max], dim=1)
+        s_avg = torch.mean(x, dim=1, keepdim=True)  # (B, 1, T, H, W)
+        s_max, _ = torch.max(x, dim=1, keepdim=True)    # (B, 1, T, H, W)
+        s_uni = torch.cat([s_avg, s_max], dim=1)    # (B, 2, T, H, W)
         s_uni = self.spatial_attention(s_uni)
         return x * s_uni
-
-
-def check_params(net):
-    x = torch.rand(1, 256, 48, 48, 150)
-    out = net(x)
-    params = 0
-    for p in net.parameters():
-        if p.requires_grad:
-            params += p.numel()
-    print(f"out = {out.shape}, params = {params}")
-
-
-if __name__ == "__main__":
-    net = ChannnelAttention(1, 12)
 

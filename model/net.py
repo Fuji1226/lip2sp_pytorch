@@ -16,7 +16,7 @@ class NormLayer3D(nn.Module):
 
     def forward(self, x):
         """
-        x : (B, C, H, W, T)
+        x : (B, C, T, H, W)
         """
         if self.norm_type == "bn":
             out = self.b_n(x)
@@ -26,15 +26,15 @@ class NormLayer3D(nn.Module):
 
 
 class NormalConv(nn.Module):
-    def __init__(self, in_channels, out_channels, norm_type, pooling=True):
+    def __init__(self, in_channels, out_channels, stride, norm_type):
         super().__init__()
         self.layers = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv3d(in_channels, out_channels, kernel_size=3, stride=(1, stride, stride), padding=1),
             NormLayer3D(out_channels, norm_type),
             nn.ReLU(),
         )
-        if pooling:
-            self.pool_layer = nn.MaxPool3d(kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
+        if stride > 1:
+            self.pool_layer = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
     
         if in_channels != out_channels:
             self.adjust_layer = nn.Sequential(
@@ -43,10 +43,12 @@ class NormalConv(nn.Module):
             )
 
     def forward(self, x):
+        """
+        x : (B, C, T, H, W)
+        """
         out = self.layers(x)
         
         if hasattr(self, "pool_layer"):
-            out = self.pool_layer(out)
             x = self.pool_layer(x)
 
         if hasattr(self, "adjust_layer"):
@@ -63,21 +65,21 @@ class FrontEnd(nn.Module):
     def __init__(self, in_channels, out_channels, dropout, norm_type):
         super().__init__()
 
-        self.conv1 = nn.Conv3d(in_channels, 32, kernel_size=(3, 3, 3), stride=(2, 2, 1), padding=(1, 1, 1), bias=False)
+        self.conv1 = nn.Conv3d(in_channels, 32, kernel_size=(3, 3, 3), stride=(1, 2, 2), padding=(1, 1, 1), bias=False)
         self.bn1 = NormLayer3D(32, norm_type)
         self.conv2 = nn.Conv3d(32, 32, kernel_size=3, padding=1, bias=False)
         self.bn2 = NormLayer3D(32, norm_type)
         self.conv3 = nn.Conv3d(32, out_channels, kernel_size=3, padding=1, bias=False)
         self.bn3 = NormLayer3D(out_channels, norm_type)
 
-        self.pool = nn.MaxPool3d(kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
+        self.pool = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         self.dropout = nn.Dropout3d(dropout)
 
     def forward(self, x):
         """
-        x : (B, C, H, W, T)
-        out : (B, C, H, W, T)
-        (H, W)は1/4になります(stride=2が2層あるので) (48, 48) -> (12, 12)
+        x : (B, C, T, H, W)
+        out : (B, C, T, H, W)
+        (H, W)は1/4になります
         """
         out = self.conv1(x)
         out = self.bn1(out)
@@ -104,7 +106,7 @@ class ResidualBlock3D(nn.Module):
         super().__init__()
         self.stride = stride
         self.conv1 = nn.Conv3d(
-            in_channels, out_channels, kernel_size=3, stride=(stride, stride, 1), padding=1, bias=False
+            in_channels, out_channels, kernel_size=3, stride=(1, stride, stride), padding=1, bias=False
         )
         self.bn1 = NormLayer3D(out_channels, norm_type)
 
@@ -136,7 +138,7 @@ class ResidualBlock3D(nn.Module):
         if hasattr(self, "res_conv"):
             # 空間方向のstrideが2の場合、空間方向に1/2に圧縮されるのでその分を考慮
             if self.stride > 1:
-                y2 = F.avg_pool3d(y2, kernel_size=(3, 3, 1), stride=(2, 2, 1), padding=(1, 1, 0))
+                y2 = F.avg_pool3d(y2, kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
             y2 = self.res_bn(self.res_conv(y2))
 
         return F.relu(y1 + y2)
@@ -170,6 +172,7 @@ class ResNet3D(nn.Module):
         out : (B, C, T)
         """
         # 3D convolution & MaxPooling
+        x = x.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
         out = self.frontend(x)
         
         # residual layers
@@ -179,8 +182,17 @@ class ResNet3D(nn.Module):
         out = self.out_layer(out)
 
         # W, HについてAverage pooling
-        out = torch.mean(out, dim=(2, 3))
+        out = torch.mean(out, dim=(3, 4))
         return out
+
+
+class Simple(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+
+    def forward(self, x):
+        return
 
 
 def check_params(net):

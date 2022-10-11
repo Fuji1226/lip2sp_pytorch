@@ -92,8 +92,11 @@ def main(cfg):
     print(f"device = {device}")
 
     model = make_model(cfg, device)
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:01_16-06-18/mspec80_60.ckpt")
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:01_16-07-30/world_melfb_10.ckpt")
+    
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:08_21-20-02/mspec80_300.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:08_22-42-07/mspec80_300.ckpt")
+
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:01_16-07-30/world_melfb_10.ckpt")
 
     if model_path.suffix == ".ckpt":
         try:
@@ -108,23 +111,23 @@ def main(cfg):
 
     data_root_list, mean_std_path, save_path_list = get_path_test(cfg, model_path)
 
-    # for data_root, save_path in zip(data_root_list, save_path_list):
-    #     test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
-    #     process_times = None
-    #     print("--- generate ---")
-    #     process_times = generate(
-    #         cfg=cfg,
-    #         model=model,
-    #         test_loader=test_loader,
-    #         dataset=test_dataset,
-    #         device=device,
-    #         save_path=save_path,
-    #     )
+        process_times = None
+        print("--- generate ---")
+        process_times = generate(
+            cfg=cfg,
+            model=model,
+            test_loader=test_loader,
+            dataset=test_dataset,
+            device=device,
+            save_path=save_path,
+        )
 
-    # for data_root, save_path in zip(data_root_list, save_path_list):
-    #     print("--- calc accuracy ---")
-    #     calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        print("--- calc accuracy ---")
+        calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
         
 
 if __name__ == "__main__":

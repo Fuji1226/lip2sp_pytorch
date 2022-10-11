@@ -46,19 +46,22 @@ use_gc : False
 # max_epoch
 max_epoch : 300
 
-# validation lossを計算する間隔
-display_val_loss_step : 1
-
 # data augmentationの有無
-# 空間
+# 見た目変換系
 use_color_jitter : False
 use_blur : False
 use_horizontal_flip : False
 use_pad : False
 use_rotation : False
-# 時間
+
+# 再生速度変換
 use_time_augment : False
-time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
+time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
+
+# 動画のフレームをランダムに削除
+use_delete_frame : False
+min_delete_frame_rate : 0
+max_delete_frame_rate : 50
 
 # dataloader
 batch_size : 12
@@ -98,9 +101,6 @@ change_mixing_prob : True
 mp_change_step : 100    # mixing_probを変更するepoch
 fixed_mixing_prob : True
 
-# 途中のメルスペクトログラムの可視化
-visualize_step : 400    # iteration
-
 # delta loss
 blur : True
 batch_norm : True
@@ -109,10 +109,10 @@ batch_norm : True
 apply_first_bn : False
 
 # lossの重みづけ
-use_learnable_loss : False
 output_loss_w : 1.0
 dec_output_loss_w : 1.0
 delta_loss_w : 1.0
+use_weighted_mse : False
 
 # feat_add_layer
 multi_task : False

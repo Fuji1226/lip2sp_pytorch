@@ -1,6 +1,6 @@
 ---
 
-name : "nar"
+name : "taco"
 
 # デバッグ
 debug : True
@@ -10,7 +10,7 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:25_17-04-10/mspec80_240.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/taco/lip_128128/2022:07:20_13-10-21/world_melfb_100.ckpt"
 
 # face or lip
 face_or_lip : "lip"
@@ -20,10 +20,10 @@ lip_path : "~/dataset/lip/lip_cropped"
 face_path : "~/dataset/lip/cropped"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/nar/train"
+save_path : "~/lip2sp_pytorch/result/taco/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/nar"
+ckpt_path : "~/lip2sp_pytorch/check_point/taco"
 ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
@@ -45,6 +45,9 @@ use_gc : False
 
 # max_epoch
 max_epoch : 300
+
+# validation lossを計算する間隔
+display_val_loss_step : 1
 
 # data augmentationの有無
 # 見た目変換系
@@ -88,23 +91,19 @@ warmup_lr_init : 1.0e-5
 # gradient clipping
 max_norm : 3.0
 
-# 動画に対して最初にbatch normalizationをするかどうか
-apply_first_bn : False
+# 学習方法（"tf" or "ss"）
+# tf : teacher forcing
+# ss : scheduled sampling
+training_method : "ss"
+tm_change_step : 0    # training_methodを変更するepoch(tf -> ss)
+
+# parameter for scheduled sampling
+threshold_change_step : 100
+max_threshold : 90
+min_threshold : 50
 
 # lossの重みづけ
-mse_weight : 1.0
-feat_add_weight : 0
-phoneme_weight : 0
+output_loss_w : 1.0
+dec_output_loss_w : 1.0
+delta_loss_w : 1.0
 use_weighted_mse : False
-
-# multi task
-use_feat_add : False
-use_phoneme : False
-
-# 時間方向の削減とアップサンプリングの方法
-upsample_method : "interpolate"   # conv or interpolate
-compress_rate : 2   # 2 or 4
-
-use_dec_attention : False
-
-separate_frontend : False

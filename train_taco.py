@@ -1,3 +1,4 @@
+from socketserver import ThreadingMixIn
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import wandb
@@ -7,18 +8,19 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+from functools import partial
 from librosa.display import specshow
 
 import torch
 from torch.nn.utils import clip_grad_norm_
-from timm.scheduler import CosineLRScheduler
+from torch.autograd import detect_anomaly
 
-from utils import make_train_val_loader, save_loss, get_path_train, check_mel_nar, count_params, set_config, calc_class_balance
-from model.model_nar import Lip2SP_NAR
+from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, count_params, set_config, calc_class_balance
+from model.model_taco import Lip2SPTaco
 from loss import MaskedLoss
 
 # wandbへのログイン
-wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
+wandb.login(key="ba729c3f218d8441552752401f49ba3c0c0e2b9f")
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -44,7 +46,7 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
 
 
 def make_model(cfg, device):
-    model = Lip2SP_NAR(
+    model = Lip2SPTaco(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
         res_layers=cfg.model.res_layers,
@@ -55,50 +57,35 @@ def make_model(cfg, device):
         md_n_groups=cfg.model.md_n_groups,
         c_attn=cfg.model.c_attn,
         s_attn=cfg.model.s_attn,
-        separate_frontend=cfg.train.separate_frontend,
         which_res=cfg.model.which_res,
+        which_encoder=cfg.model.which_encoder,
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
-        conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
         rnn_hidden_channels=cfg.model.rnn_hidden_channels,
         rnn_n_layers=cfg.model.rnn_n_layers,
-        dconv_inner_channels=cfg.model.dconv_inner_channels,
-        dconv_kernel_size=cfg.model.dconv_kernel_size,
-        dconv_n_layers=cfg.model.dconv_n_layers,
-        dec_n_layers=cfg.model.tc_n_layers,
-        dec_inner_channels=cfg.model.tc_inner_channels,
-        dec_kernel_size=cfg.model.tc_kernel_size,
-        tc_n_attn_layer=cfg.model.tc_n_attn_layer,
-        tc_n_head=cfg.model.tc_n_head,
-        tc_d_model=cfg.model.tc_d_model,
-        feat_add_channels=cfg.model.tc_feat_add_channels,
-        feat_add_layers=cfg.model.tc_feat_add_layers,
+        dec_n_layers=cfg.model.taco_dec_n_layers,
+        dec_hidden_channels=cfg.model.taco_dec_hidden_channels,
+        dec_conv_channels=cfg.model.taco_dec_conv_channels,
+        dec_conv_kernel_size=cfg.model.taco_dec_conv_kernel_size,
+        dec_use_attention=cfg.model.taco_use_attention,
         n_speaker=len(cfg.train.speaker),
         spk_emb_dim=cfg.model.spk_emb_dim,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        apply_first_bn=cfg.train.apply_first_bn,
-        use_feat_add=cfg.train.use_feat_add,
-        phoneme_classes=cfg.model.n_classes,
-        use_phoneme=cfg.train.use_phoneme,
-        use_dec_attention=cfg.train.use_dec_attention,
-        upsample_method=cfg.train.upsample_method,
-        compress_rate=cfg.train.compress_rate,
+        pre_inner_channels=cfg.model.pre_inner_channels,
+        post_inner_channels=cfg.model.post_inner_channels,
+        post_n_layers=cfg.model.post_n_layers,
+        post_kernel_size=cfg.model.post_kernel_size,
         dec_dropout=cfg.train.dec_dropout,
         res_dropout=cfg.train.res_dropout,
         reduction_factor=cfg.model.reduction_factor,
-        use_gc=cfg.train.use_gc,
     )
 
     count_params(model, "model")
     count_params(model.ResNet_GAP, "ResNet")
     count_params(model.encoder, "encoder")
     count_params(model.decoder, "decoder")
-    count_params(model.decoder.interp_layer, "dec_interp_layer")
-    count_params(model.decoder.conv_layers, "dec_conv_layers")
-    count_params(model.decoder.out_layer, "dec_out_layer")
-    
+    count_params(model.postnet, "postnet")
+
     # multi GPU
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
@@ -106,9 +93,9 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time):
-    epoch_loss = 0
-    epoch_loss_feat_add = 0
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, threshold, ckpt_time):
+    epoch_output_loss = 0
+    epoch_dec_output_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start") 
@@ -120,15 +107,22 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
         if cfg.train.use_gc:
-            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+            output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
         else:
-            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+            output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
+
         B, C, T = output.shape
 
-        loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
-        epoch_loss += loss.item()
-        wandb.log({"train_loss": loss})
-        loss.backward()
+        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker) 
+        epoch_output_loss += output_loss.item()
+        wandb.log({"train_output_loss": output_loss})
+        output_loss.backward(retain_graph=True)
+
+        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T, speaker=speaker) 
+        epoch_dec_output_loss += dec_output_loss.item()
+        wandb.log({"train_dec_output_loss": dec_output_loss})
+        dec_output_loss.backward()
+        
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
         optimizer.zero_grad()
@@ -137,24 +131,24 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
+                    check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
                 break
-        
+
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
+                check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
 
-    epoch_loss /= iter_cnt
-    epoch_loss_feat_add /= iter_cnt
-    return epoch_loss, epoch_loss_feat_add
+    epoch_output_loss /= iter_cnt
+    epoch_dec_output_loss /= iter_cnt
+    return epoch_output_loss, epoch_dec_output_loss
 
 
-def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
-    epoch_loss = 0
-    epoch_loss_feat_add = 0
+def val_one_epoch(model, val_loader, loss_f, device, cfg, training_method, threshold, ckpt_time):
+    epoch_output_loss = 0
+    epoch_dec_output_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
-    print("\ncalc val loss")
+    print("calc val loss")
     model.eval()
 
     for batch in val_loader:
@@ -162,33 +156,37 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
-        
+
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+                output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
             else:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+                output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
 
         B, C, T = output.shape
 
-        loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
-        epoch_loss += loss.item()
-        wandb.log({"val_loss": loss})
+        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker) 
+        epoch_output_loss += output_loss.item()
+        wandb.log({"val_output_loss": output_loss})
+
+        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T, speaker=speaker) 
+        epoch_dec_output_loss += dec_output_loss.item()
+        wandb.log({"val_dec_output_loss": dec_output_loss})
 
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
+                    check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
+                check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
             
-    epoch_loss /= iter_cnt
-    epoch_loss_feat_add /= iter_cnt
-    return epoch_loss, epoch_loss_feat_add
+    epoch_output_loss /= iter_cnt
+    epoch_dec_output_loss /= iter_cnt
+    return epoch_output_loss, epoch_dec_output_loss
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -206,7 +204,6 @@ def main(cfg):
     print(f"cpu_num = {os.cpu_count()}")
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = True
 
     # path
     data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
@@ -226,10 +223,10 @@ def main(cfg):
         class_weight = None
     loss_f = MaskedLoss(weight=class_weight, use_weighted_mse=cfg.train.use_weighted_mse)
 
-    train_loss_list = []
-    train_feat_add_loss_list = []
-    val_loss_list = []
-    val_feat_add_loss_list = []
+    train_output_loss_list = []
+    train_dec_output_loss_list = []
+    val_output_loss_list = []
+    val_dec_output_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
@@ -241,7 +238,7 @@ def main(cfg):
             params=model.parameters(),
             lr=cfg.train.lr, 
             betas=(cfg.train.beta_1, cfg.train.beta_2),
-            weight_decay=cfg.train.weight_decay,    
+            weight_decay=cfg.train.weight_decay    
         )
 
         # scheduler
@@ -267,39 +264,48 @@ def main(cfg):
             last_epoch = checkpoint["epoch"]
 
         wandb.watch(model, **cfg.wandb_conf.watch)
-    
+
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-            print(f"learning_rate = {scheduler.get_last_lr()[0]}")
-            # print(f"learning_rate = {scheduler.get_epoch_values(current_epoch)}")
 
-            # training
-            train_epoch_loss, train_epoch_loss_feat_add = train_one_epoch(
-                model=model, 
-                train_loader=train_loader, 
-                optimizer=optimizer, 
-                loss_f=loss_f, 
-                device=device, 
-                cfg=cfg, 
-                ckpt_time=ckpt_time,
-            )
-            train_loss_list.append(train_epoch_loss)
-            train_feat_add_loss_list.append(train_epoch_loss_feat_add)
+            if current_epoch < cfg.train.tm_change_step:
+                training_method = "tf"
+            else:
+                training_method = "ss"
 
-            # validation
-            val_epoch_loss, val_epoch_loss_feat_add = calc_val_loss(
-                model=model, 
-                val_loader=val_loader, 
-                loss_f=loss_f, 
-                device=device, 
+            if current_epoch >= cfg.train.threshold_change_step:
+                threshold = cfg.train.max_threshold
+            else:
+                threshold = cfg.train.min_threshold
+
+            epoch_output_loss, epoch_dec_output_loss = train_one_epoch(
+                model=model,
+                train_loader=train_loader,
+                optimizer=optimizer,
+                loss_f=loss_f,
+                device=device,
                 cfg=cfg,
+                training_method=training_method,
+                threshold=threshold,
                 ckpt_time=ckpt_time,
             )
-            val_loss_list.append(val_epoch_loss)
-            val_feat_add_loss_list.append(val_epoch_loss_feat_add)
-        
-            # 学習率の更新
+            train_output_loss_list.append(epoch_output_loss)
+            train_dec_output_loss_list.append(epoch_dec_output_loss)
+
+            epoch_output_loss, epoch_dec_output_loss = val_one_epoch(
+                model=model,
+                val_loader=val_loader,
+                loss_f=loss_f,
+                device=device,
+                cfg=cfg,
+                training_method=None,
+                threshold=None,
+                ckpt_time=ckpt_time,
+            )
+            val_output_loss_list.append(epoch_output_loss)
+            val_dec_output_loss_list.append(epoch_dec_output_loss)
+
             scheduler.step()
 
             # check point
@@ -312,19 +318,18 @@ def main(cfg):
                     ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
                 )
             
-            # save loss
-            save_loss(train_loss_list, val_loss_list, save_path, "loss")
-            save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
-                
+            save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
+            save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
+
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"
         torch.save(model.state_dict(), str(model_save_path))
         artifact_model = wandb.Artifact('model', type='model')
         artifact_model.add_file(str(model_save_path))
         wandb.log_artifact(artifact_model)
-            
+    
     wandb.finish()
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     main()

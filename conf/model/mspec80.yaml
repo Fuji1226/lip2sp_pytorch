@@ -53,6 +53,11 @@ in_channels : 5
 res_layers : 3
 res_inner_channels : 32
 norm_type_lip : "bn"
+inv_up_scale : 4
+sq_r : 16
+md_n_groups : 4
+c_attn : True
+s_attn : True
 which_res : "invmd" 
 
 # glu parameter
@@ -61,7 +66,7 @@ glu_kernel_size : 3   # 5 or 9
 glu_inner_channels : 128
 
 # transformer parameter
-n_layers : 2    # 1, 2 or 4
+n_layers : 1    # 1, 2 or 4
 d_model : 128   # 128 or 256
 n_head : 2    # 2 or 4
 dec_n_layers : 1
@@ -88,11 +93,18 @@ tc_d_model : 128
 tc_n_attn_layer : 1
 tc_n_head : 2
 
+# tacotron based decoder
+taco_dec_n_layers : 2
+taco_dec_hidden_channels : 128
+taco_dec_conv_channels : 32
+taco_dec_conv_kernel_size : 31
+taco_use_attention : False
+
 # conformer parameter
 conformer_conv_kernel_size : 31   # 7, 15 or 31
 
 # 使用するencoder
-which_encoder : "dconv"
+which_encoder : "gru"
 
 # 使用するdecoder
 # 自己回帰 : "transformer" or "glu"
@@ -127,8 +139,8 @@ n_classes : 44
 pre_in_channels : 160  # 音響特徴量から計算します
 pre_inner_channels : 32
 post_inner_channels : 256
-post_n_layers : 3
-post_kernel_size : 3
+post_n_layers : 3   # 5
+post_kernel_size : 3  # 5
 
 # enhancer parameter
 which_enhancer : "2D"   # 2D or 1D

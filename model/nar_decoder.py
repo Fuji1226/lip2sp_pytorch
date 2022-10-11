@@ -248,12 +248,6 @@ class ResTCDecoder(nn.Module):
             spk_emb = spk_emb.unsqueeze(-1).expand(-1, -1, out.shape[-1])   # (B, C) -> (B, C, T)
             out = torch.cat([out, spk_emb], dim=1)
             out = self.spk_emb_layer(out)
-        
-        # attention
-        if self.use_attention:
-            out = self.pre_attention_layer(out)
-            out = self.attention(out, data_len, layer="dec")   # (B, T, C)
-            out = self.post_attention_layer(out.permute(0, 2, 1))   # (B, C, T)
 
         for layer in self.conv_layers:
             out = layer(out)
@@ -267,9 +261,4 @@ if __name__ == "__main__":
     kernel_size = 3
     n_layers = 2
 
-    net = []
-    for _ in range(n_layers):
-        net.append(ResBlock(inner_channels, kernel_size, dropout=0.1))
-    net.append(nn.Conv1d(inner_channels, 80, 1))
-    net = nn.ModuleList(net)
-    count_params(net, "net")
+    

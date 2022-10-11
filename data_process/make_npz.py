@@ -11,8 +11,8 @@ from tqdm import tqdm
 from transform_no_chainer import load_data_for_npz
 
 # speakerのみ変更してください
-speaker = "F01_kablab"
-dirname = "lip_cropped_gray"
+speaker = "F01_kablab_fulldata"
+dirname = "lip_cropped"
 LIP_PATH = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
 LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files/{dirname}/train").expanduser()
 LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/{dirname}/mean_std").expanduser()

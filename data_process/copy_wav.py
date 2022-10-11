@@ -10,7 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 def main():
-    speaker = "M04_kablab"
+    speaker = "F01_kablab_20220930"
     audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
     save_path = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
     print(f"speaker = {speaker}")
@@ -23,7 +23,7 @@ def main():
                     continue
                 else:
                     wavs.append(os.path.join(curdir, file))
-
+    
     for i in tqdm(range(len(wavs))):
         shutil.copy(wavs[i], save_path)
 

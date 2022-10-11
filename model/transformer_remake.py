@@ -30,6 +30,7 @@ def get_subsequent_mask(x, diag_mask=False):
 def make_pad_mask(lengths, max_len):
     """
     口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+    マスクする場所をTrue
     """
     # この後の処理でリストになるので先にdeviceを取得しておく
     device = lengths.device

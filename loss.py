@@ -9,10 +9,11 @@ from data_process.feature import delta_feature, blur_pooling2D
 
 
 class MaskedLoss:
-    def __init__(self):
-        pass
+    def __init__(self, weight=None, use_weighted_mse=None):
+        self.weight = weight
+        self.use_weighted_mse = use_weighted_mse
         
-    def mse_loss(self, output, target, data_len, max_len):
+    def mse_loss(self, output, target, data_len, max_len, speaker):
         """
         パディングされた部分を考慮し、損失計算から省いたMSE loss
         output, target : (B, C, T)
@@ -22,6 +23,15 @@ class MaskedLoss:
 
         # 二乗誤差を計算
         loss = (output - target)**2
+
+        if self.use_weighted_mse:
+            weight_list = []
+            for spk in speaker:
+                weight_list.append(self.weight[spk])
+
+            weight = torch.tensor(weight_list).to(device=loss.device)
+            weight = weight.unsqueeze(-1).unsqueeze(-1)     # (B, 1, 1)
+            loss *= weight
 
         # maskがFalseのところは0にして平均を取る
         loss = torch.where(mask == 0, loss, torch.zeros_like(loss))
