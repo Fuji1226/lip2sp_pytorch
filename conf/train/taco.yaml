@@ -26,15 +26,15 @@ save_path : "~/lip2sp_pytorch/result/taco/train"
 ckpt_path : "~/lip2sp_pytorch/check_point/taco"
 ckpt_step : 10
 
-# 平均、標準偏差ディレクトリまでのパス
-lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
-lip_mean_std_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/mean_std"
-face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
+# 統計量までのパス
+lip_stat_path : "~/dataset/lip/np_files/lip_cropped/stat"
+lip_stat_path_st : "~/dataset/lip/np_files/lip_cropped_st/stat"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
-lip_pre_loaded_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/train"
-face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
+lip_pre_loaded_path_train : "~/dataset/lip/np_files/lip_cropped/train"
+lip_pre_loaded_path_val : "~/dataset/lip/np_files/lip_cropped/val"
+lip_pre_loaded_path_train_st : "~/dataset/lip/np_files/lip_cropped_st/train"
+lip_pre_loaded_path_val_st : "~/dataset/lip/np_files/lip_cropped_st/val"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]

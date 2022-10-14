@@ -7,7 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D
+from model.net import ResNet3D, Simple
+from model.resnet18 import ResNet18
 from model.invres import InvResNet3D
 from model.mdconv import InvResNetMD
 from model.transformer_remake import Encoder, Decoder, OfficialEncoder
@@ -51,16 +52,32 @@ class Lip2SP(nn.Module):
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
+        elif which_res == "simple":
+            self.ResNet_GAP = Simple(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        elif which_res == "resnet18":
+            self.ResNet_GAP = ResNet18(
+                in_channels=in_channels,
+                out_channels=rnn_hidden_channels,
+                hidden_channels=res_inner_channels,
+                dropout=res_dropout,
+            )
         elif which_res == "inv":
             self.ResNet_GAP = InvResNet3D(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
@@ -73,7 +90,7 @@ class Lip2SP(nn.Module):
         elif which_res == "invmd":
             self.ResNet_GAP = InvResNetMD(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,

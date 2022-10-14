@@ -1,11 +1,13 @@
 import sys
 from pathlib import Path
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 sys.path.append(str(Path("~/lip2sp_pytorch/model").expanduser()))
 
 import torch
 from torch import nn
 from torch.nn import functional as F
 
+from utils import count_params
 
 class NormLayer3D(nn.Module):
     def __init__(self, in_channels, norm_type):
@@ -33,28 +35,12 @@ class NormalConv(nn.Module):
             NormLayer3D(out_channels, norm_type),
             nn.ReLU(),
         )
-        if stride > 1:
-            self.pool_layer = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
-    
-        if in_channels != out_channels:
-            self.adjust_layer = nn.Sequential(
-                nn.Conv3d(in_channels, out_channels, kernel_size=1),
-                NormLayer3D(out_channels, norm_type),
-            )
 
     def forward(self, x):
         """
         x : (B, C, T, H, W)
         """
-        out = self.layers(x)
-        
-        if hasattr(self, "pool_layer"):
-            x = self.pool_layer(x)
-
-        if hasattr(self, "adjust_layer"):
-            x = self.adjust_layer(x)
-
-        return out + x
+        return self.layers(x)
 
 
 class FrontEnd(nn.Module):
@@ -186,25 +172,62 @@ class ResNet3D(nn.Module):
         return out
 
 
-class Simple(nn.Module):
-    def __init__(self):
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, stride, norm_type):
         super().__init__()
-        
+        self.layers = nn.Sequential(
+            NormalConv(in_channels, out_channels, stride, norm_type),
+            # NormalConv(out_channels, out_channels, 1, norm_type),
+        )
+        if stride > 1:
+            self.pool = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+
+        if in_channels != out_channels:
+            self.adjust_layer = nn.Conv3d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
-        return
+        out = self.layers(x)
+
+        if hasattr(self, "pool"):
+            x = self.pool(x)
+
+        if hasattr(self, "adjust_layer"):
+            x = self.adjust_layer(x)
+
+        return out + x
 
 
-def check_params(net):
-    x = torch.rand(1, 5, 48, 48, 150)
-    out = net(x)
-    params = 0
-    for p in net.parameters():
-        if p.requires_grad:
-            params += p.numel()
-    print(f"out = {out.shape}, params = {params}")
+class Simple(nn.Module):
+    def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
+        super().__init__()
+        self.conv3d = nn.Sequential(
+            NormalConv(in_channels, inner_channels, 2, norm_type),
+            nn.Dropout(dropout),
+
+            ResBlock(inner_channels, inner_channels * 2, 2, norm_type),            
+            nn.Dropout(dropout),
+
+            ResBlock(inner_channels * 2, inner_channels * 4, 2, norm_type),
+            nn.Dropout(dropout),
+            
+            ResBlock(inner_channels * 4, inner_channels * 8, 2, norm_type),
+            nn.Dropout(dropout),
+        )
+        self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        """
+        x : (B, C, H, W, T)
+        """
+        x = x.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+        out = self.conv3d(x)
+        out = torch.mean(out, dim=(3, 4))
+        out = self.out_layer(out)
+        return out
 
 
 if __name__ == "__main__":
-    net = ResNet3D(5, 128, 128, 3, 0.1, "bn")
-    check_params(net)
+    net = Simple(5, 128, 32, 3, 0.1, "bn")
+    x = torch.rand(1, 5, 48, 48, 150)
+    out = net(x)
+    count_params(net, "net")

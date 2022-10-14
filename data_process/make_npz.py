@@ -2,7 +2,10 @@ import os
 import sys
 from pathlib import Path
 sys.path.append(str(Path("~/lip2sp_pytorch/data_process").expanduser()))
+import re
+import random
 
+from sklearn.model_selection import train_test_split
 import numpy as np
 import torch
 import hydra
@@ -18,6 +21,30 @@ LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files/{dirname}/train").expanduser
 LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/{dirname}/mean_std").expanduser()
 LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files/{dirname}/test").expanduser()
 LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/{dirname}/mean_std").expanduser()
+
+corpus = ["ATR", "balanced", "BASIC5000"]
+train_size = 0.95
+test_size = 0.05
+val_size = 0.05
+
+
+def get_dataset(data_root, cfg):
+    train_data_list = []
+    val_data_list = []
+    test_data_list = []
+
+    for co in corpus:
+        data_path = [p for p in data_root.glob(f"*{cfg.model.name}.npz") if re.search(f"{co}", str(p))]
+        data_path = random.sample(data_path, len(data_path))
+
+        train_data, test_data = train_test_split(data_path, test_size=test_size, train_size=train_size)
+        train_data, val_data = train_test_split(train_data, test_size=val_size, train_size=train_size)
+
+        train_data_list += train_data
+        val_data_list += val_data
+        test_data_list += test_data
+
+    return train_data_list, val_data_list, test_data_list
 
 
 def get_dataset_lip(data_root):    

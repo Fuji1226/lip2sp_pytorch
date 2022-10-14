@@ -15,7 +15,7 @@ n_fft : 640
 hop_length : 160
 win_length : 640
 f_min : 0
-f_max : 7600
+f_max : 8000
 n_mel_channels : 80
 
 # input grayscale（グレースケールかRGBか）
@@ -41,6 +41,7 @@ feature_type : "world"
 
 # 非周期性指標の圧縮方法
 comp_mode : 'melfb'
+n_mel_fb : 4
 
 # 学習に使用する口唇動画のフレーム数
 lip_min_frame : 150
@@ -54,11 +55,13 @@ in_channels : 5
 
 # ResNet3D parameter
 res_layers : 3
-res_inner_channels : 16
+res_inner_channels : 32
 norm_type_lip : "bn"
-inv_up_scale : 6
+inv_up_scale : 4
 sq_r : 16
-md_n_groups : 3
+md_n_groups : 4
+c_attn : True
+s_attn : True
 which_res : "invmd" 
 
 # glu parameter
@@ -67,7 +70,7 @@ glu_kernel_size : 3   # 5 or 9
 glu_inner_channels : 64
 
 # transformer parameter
-n_layers : 2    # 1, 2 or 4
+n_layers : 1    # 1, 2 or 4
 d_model : 128   # 128 or 256
 n_head : 2    # 2 or 4
 dec_n_layers : 1
@@ -85,14 +88,21 @@ dconv_kernel_size : 5
 dconv_n_layers : 2
 
 # transposed convolution parameter
-tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
+tc_n_layers : 2   # 1層あたり2層の畳み込みを含みます
 tc_inner_channels : 64
-tc_kernel_size : 5
+tc_kernel_size : 3
 tc_feat_add_channels : 1
 tc_feat_add_layers : 2
 tc_d_model : 128
 tc_n_attn_layer : 1
 tc_n_head : 2
+
+# tacotron based decoder
+taco_dec_n_layers : 2
+taco_dec_hidden_channels : 128
+taco_dec_conv_channels : 32
+taco_dec_conv_kernel_size : 31
+taco_use_attention : False
 
 # conformer parameter
 conformer_conv_kernel_size : 15   # 7, 15 or 31

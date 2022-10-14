@@ -15,7 +15,8 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, count_params, set_config, calc_class_balance
+from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, \
+    count_params, set_config, calc_class_balance, check_attention_weight
 from model.model_taco import Lip2SPTaco
 from loss import MaskedLoss
 
@@ -107,9 +108,9 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
         if cfg.train.use_gc:
-            output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
+            output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
         else:
-            output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
+            output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
 
         B, C, T = output.shape
 
@@ -130,11 +131,13 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
+                check_attention_weight(att_w[0], cfg, "att_w_train", current_time, ckpt_time)
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
+            check_attention_weight(att_w[0], cfg, "att_w_train", current_time, ckpt_time)
             if cfg.model.name == "mspec80":
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
 
@@ -159,9 +162,9 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, training_method, thres
 
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
+                output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
             else:
-                output, dec_output = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
+                output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
 
         B, C, T = output.shape
 
@@ -176,11 +179,13 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, training_method, thres
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
+                check_attention_weight(att_w[0], cfg, "att_w_validation", current_time, ckpt_time)
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
+            check_attention_weight(att_w[0], cfg, "att_w_validation", current_time, ckpt_time)
             if cfg.model.name == "mspec80":
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
             
@@ -206,23 +211,24 @@ def main(cfg):
     torch.backends.cudnn.benchmark = True
 
     # path
-    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
+    train_data_root, val_data_root, stat_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
-    print(f"data_root = {data_root}")
-    print(f"mean_std_path = {mean_std_path}")
+    print(f"train_data_root = {train_data_root}")
+    print(f"val_data_root = {val_data_root}")
+    print(f"stat_path = {stat_path}")
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
+    train_loader, val_loader, _, _ = make_train_val_loader(cfg, train_data_root, val_data_root, stat_path)
 
     # 損失関数
     if len(cfg.train.speaker) > 1:
-        class_weight = calc_class_balance(cfg, data_root, device)
+        class_weight = calc_class_balance(cfg, train_data_root, device)
     else:
         class_weight = None
     loss_f = MaskedLoss(weight=class_weight, use_weighted_mse=cfg.train.use_weighted_mse)
-
+    
     train_output_loss_list = []
     train_dec_output_loss_list = []
     val_output_loss_list = []

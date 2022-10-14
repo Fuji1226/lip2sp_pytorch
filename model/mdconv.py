@@ -36,7 +36,10 @@ class MDConv(nn.Module):
         """
         x : (B, C, T, H, W)
         """
+        # チャンネル方向に分割
         x_split = torch.split(x, self.split_channels, dim=1)
+
+        # それぞれのグループに対して異なるカーネルサイズで空間方向に畳み込みを適用し、結合して戻す
         out = torch.cat([layer(input) for input, layer in zip(x_split, self.layers)], dim=1)
         return out
 
@@ -45,7 +48,6 @@ class InvResLayerMD(nn.Module):
     def __init__(self, in_channels, out_channels, n_groups, stride, norm_type, up_scale, sq_r, kernel_size=None, c_attn=True, s_attn=True):
         super().__init__()
         self.hidden_channels = int(in_channels * up_scale)
-
         self.split_channels = self.hidden_channels // n_groups
         self.pointwise_conv1 = nn.Sequential(
             nn.Conv3d(in_channels, self.hidden_channels, kernel_size=(3, 1, 1), padding=(1, 0, 0)),
@@ -115,7 +117,7 @@ class InvResNetMD(nn.Module):
             InvResLayerMD(inner_channels + 16, inner_channels + 32, n_groups, 2, norm_type, up_scale, sq_r, kernel_size=5, c_attn=c_attn, s_attn=s_attn),
             nn.Dropout(dropout),
 
-            # 最後は6×6で入力され、strideは2なのでmix convolutionは使用していない
+            # 最後は6×6で入力され、特徴マップがかなり小さいのでMix Convolutionは使用しない通常のInverted Residual Block
             InvResLayer3D(inner_channels + 32, inner_channels + 48, 2, norm_type, up_scale, sq_r, c_attn=c_attn, s_attn=False),
             nn.Dropout(dropout),
         )

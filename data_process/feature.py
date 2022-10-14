@@ -1,13 +1,3 @@
-"""
-mel2wav/feature.py
-
-wav2world、world2wavを追加
-
-メルスペクトログラムから動的特徴量を求めるdelta_featureを追加
-
-wave2mel, mel2wavをlibrosaに変更
-"""
-
 import numpy as np
 from librosa import filters
 from librosa.util import nnls
@@ -24,170 +14,152 @@ import librosa
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from zmq import device
 
 
 OVERLAP = 4
-EPS = 1.0e-8
+EPS = 1.0e-6
 
 
-def get_stft_params(fs, frame_period):
-    nshift = fs * frame_period // 1000
-    nperseg = nshift * OVERLAP
-    noverlap = nperseg - nshift
-    assert signal.check_COLA("hann", nperseg, noverlap)
-
-    return nshift, nperseg, noverlap
-
-
-def stft(x, fs, frame_period):
-    _, nperseg, noverlap = get_stft_params(fs, frame_period)
-    _, _, Zxx = signal.stft(x, fs=fs, window='hann',
-                            nperseg=nperseg, noverlap=noverlap)
-    return Zxx
-
-
-def istft(Zxx, fs, frame_period):
-    _, nperseg, noverlap = get_stft_params(fs, frame_period)
-    _, x = signal.istft(Zxx, fs=fs, window='hann',
-                        nperseg=nperseg, noverlap=noverlap)
-    return x
-
-
-def griffin_lim(H, fs, frame_period, n_iter=100, initial_phase=None, return_waveform=True):
-    if initial_phase is None:
-        initial_phase = (np.random.rand(
-            *H.shape).astype(H.dtype) * 2 - 1) * np.pi
-    assert H.shape == initial_phase.shape
-
-    Zxx = H * np.exp(1j * initial_phase)
-    for _ in range(n_iter):
-        x = istft(Zxx, fs, frame_period)
-        Zxx = stft(x, fs, frame_period)
-        Zxx = H * Zxx / np.maximum(np.abs(Zxx), 1e-16)
-
-    if return_waveform:
-        return istft(Zxx, fs, frame_period)
-    else:
-        return Zxx
-
-
-def fast_griffin_lim(H, fs, frame_period, alpha=0.99, n_iter=100, initial_phase=None):
-    raise NotImplementedError
-    if initial_phase is None:
-        initial_phase = (np.random.rand(
-            *H.shape).astype(H.dtype) * 2 - 1) * np.pi
-    assert H.shape == initial_phase.shape
-
-    c = H * np.exp(1j * initial_phase)
-    x = istft(c, fs, frame_period)
-    t_prev = stft(x, fs, frame_period)
-    for _ in range(n_iter):
-        x = istft(c, fs, frame_period)
-        t = stft(x, fs, frame_period)
-        c = t + alpha * (t - t_prev)
-        c = H * c / np.maximum(np.abs(c), 1e-16)
-        t_prev = t
-
-    return istft(c, fs, frame_period)
-
-
-def get_melfb(fs, frame_period, n_mels=80, fmin=70, fmax=None):
-    _, nperseg, _ = get_stft_params(fs, frame_period)
-    if n_mels is None:
-        fb = np.eye(nperseg // 2 + 1)
-    else:
-        if fmax is None:
-            fmax = float(fs) / 2 * 0.95
-
-        fb = filters.mel(fs, nperseg, n_mels=n_mels,
-                         fmin=fmin, fmax=fmax, htk=True, norm="slaney")
-
-    return fb
-
-
-def spec2mel(H, mel_fb=None, fs=None, frame_period=None, n_mels=80, fmin=70, fmax=None):
-    mel_fb = get_melfb(fs, frame_period, n_mels=n_mels, fmin=fmin, fmax=fmax)
-    return mel_fb @ H
-
-
-def wave2mel(wave, fs, frame_period, n_mels=80, fmin=70, fmax=None, return_linear=False):
+def wav2mel(wav, cfg, ref_max=False):
     """
-    wave : (T,)
-
-    return
-    ret : (C, T)
+    音声波形をメルスペクトログラムに変換
+    wav : (T,)
+    mel_spec : (C, T)
     """
-    hop_length, win_length, _ = get_stft_params(fs, frame_period)
-    y = librosa.feature.melspectrogram(
-        y=wave,
-        sr=fs,
-        n_fft=win_length,
-        hop_length=hop_length,
-        win_length=win_length,
+    mel_spec = librosa.feature.melspectrogram(
+        y=wav,
+        sr=cfg.model.sampling_rate,
+        n_fft=cfg.model.n_fft,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
         window="hann",
-        n_mels=n_mels,
-        fmin=fmin,
-        fmax=fmax,
+        n_mels=cfg.model.n_mel_channels,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
     )
-    y = librosa.power_to_db(y, ref=np.max)
-    ret = y
+    if ref_max:
+        mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
+    else:
+        mel_spec =  log10(mel_spec)
+    return mel_spec
 
-    return ret
+
+def wav2spec(wav, cfg, ref_max=False):
+    """
+    音声波形を対数パワースペクトログラムに変換
+    wav : (T,)
+    spec : (C, T)
+    """
+    spec = librosa.stft(
+        y=wav,
+        n_fft=cfg.model.n_fft,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
+        window="hann",
+    )
+    spec = np.abs(spec) ** 2
+
+    if ref_max:
+        spec = librosa.power_to_db(spec, ref=np.max)
+    else:
+        spec = log10(spec)
+    return spec
+    
+
+def calc_spec_and_mel(wav, cfg):
+    """
+    spec : 振幅スペクトログラム
+    mel_spec : 対数メルスペクトログラム
+    wav : (T,)
+    spec, mel_spec : (C, T)
+    """
+    spec = librosa.stft(
+        y=wav,
+        n_fft=cfg.model.n_fft,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
+        window="hann",
+    )
+
+    # 振幅スペクトログラム
+    spec = np.abs(spec)
+    
+    # パワー
+    spec_power = spec ** 2
+
+    # メルスペクトログラム
+    mel_spec = librosa.feature.melspectrogram(
+        S=spec_power,
+        sr=cfg.model.sampling_rate,
+        n_fft=cfg.model.n_fft,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
+        window="hann",
+        n_mels=cfg.model.n_mel_channels,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+    )
+    
+    # 対数
+    mel_spec = log10(mel_spec)
+    return spec, mel_spec
+
+
+def spec2mel(spec, cfg):
+    """
+    振幅スペクトログラムを対数メルスペクトログラムに変換
+    """
+    spec_power = spec ** 2
+    mel_spec = librosa.feature.melspectrogram(
+        S=spec_power,
+        sr=cfg.model.sampling_rate,
+        n_fft=cfg.model.n_fft,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
+        window="hann",
+        n_mels=cfg.model.n_mel_channels,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+    )
+    mel_spec = log10(mel_spec)
+    return mel_spec
 
 
 def log10(x, eps=EPS):
+    """
+    常用対数をとる
+    epsでクリッピング
+    """
     return np.log10(np.maximum(x, eps))
 
 
-def mel2wave(
-        Hmel, fs, frame_period,
-        fmin=70, fmax=None, n_iter=50,
-        sharpen=np.sqrt(1.4), eps=EPS):
-
-    hop_length, win_length, _ = get_stft_params(fs, frame_period)
-    spec = librosa.db_to_power(Hmel)
-    wave = librosa.feature.inverse.mel_to_audio(
-        spec,
-        sr=fs,
-        hop_length=hop_length,
-        win_length=win_length,
-        n_iter=n_iter
+def mel2wav(mel, cfg, sharp):
+    """
+    対数メルスペクトログラムからgriffin limによる音声合成
+    """
+    mel = 10 ** mel
+    mel = np.where(mel > EPS, mel, 0)
+    spec = librosa.feature.inverse.mel_to_stft(
+        M=mel,
+        sr=cfg.model.sampling_rate,
+        n_fft=cfg.model.n_fft,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
     )
-    return wave
 
+    # ちょっと音声が強調される。田口さんからの継承。
+    if sharp:
+        spec **= np.sqrt(1.4)
 
-def linear_interp_1d(arr, factor, axis=-1):
-    assert factor >= 1
-    if factor == 1:
-        return arr
-
-    idx_x = np.arange(arr.shape[axis])
-    idx_x = idx_x / idx_x.max()
-
-    idx_y = np.arange(arr.shape[axis] * factor)
-    idx_y = idx_y / idx_y.max()
-
-    return interp1d(idx_x, arr, kind='nearest', axis=axis)(idx_y)
-
-
-def melspec2linear(Hmel, time_factor, mel_fb=None, fs=None, frame_period=None, fmin=70, fmax=None):
-    if time_factor < 1:
-        raise ValueError
-    elif time_factor > 1:
-        Hmel = linear_interp_1d(Hmel, time_factor, axis=-1)
-
-    if mel_fb is None:
-        n_mels = Hmel.shape[0]
-        mel_fb = get_melfb(fs, frame_period, n_mels=n_mels,
-                           fmin=fmin, fmax=fmax)
-    return nnls(mel_fb, Hmel)
-
-
-def scale(x, in_scale, out_scale):
-    ret = (x - in_scale[0]) / (in_scale[1] - in_scale[0])
-    ret = ret * (out_scale[1] - out_scale[0]) + out_scale[0]
-    return ret
+    wav = librosa.griffinlim(
+        S=spec,
+        n_iter=100,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
+        n_fft=cfg.model.n_fft,
+        window="hann",
+    )
+    return wav
 
 
 def modspec_smoothing(array, fs, cut_off=30, axis=0, fbin=11):
@@ -198,18 +170,23 @@ def modspec_smoothing(array, fs, cut_off=30, axis=0, fbin=11):
 
 
 def wav2world(
-        wave, fs,
+        wave, fs, cfg,
         mcep_order=26, f0_smoothing=0,
         ap_smoothing=0, sp_smoothing=0,
         frame_period=None, f0_floor=None, f0_ceil=None,
-        f0_mode="harvest", sp_type="mcep", comp_mode='melfb', plot=False):
+        f0_mode="harvest", sp_type="mcep", plot=False):
+    """
+    音声波形からWORLD特徴量を計算
+    default_frame_period = 5.0
+    default_f0_floor = 71.0
+    default_f0_ceil = 800.0
+    """
     # setup default values
     wave = wave.astype('float64')
-    assert comp_mode == 'default' or 'melfb'
 
     frame_period = pyworld.default_frame_period \
         if frame_period is None else frame_period
-    f0_floor = pyworld.default_f0_floor if f0_floor is None else f0_floor
+    f0_floor = pyworld.default_f0_floor if f0_floor is None else f0_floor       
     f0_ceil = pyworld.default_f0_ceil if f0_ceil is None else f0_ceil
     
     # f0
@@ -265,11 +242,13 @@ def wav2world(
     else:
         clf0 = np.ones_like(f0) * f0_floor
     
-    if comp_mode == 'default':
+    if cfg.model.comp_mode == 'default':
         cap = pyworld.code_aperiodicity(ap, fs)
-    elif comp_mode == 'melfb':
+    elif cfg.model.comp_mode == 'melfb':
         # メルフィルタバンクを適用することでn_melsまで帯域圧縮
-        melfb = librosa.filters.mel(sr=fs, n_fft=1024, n_mels=4, fmin=0, fmax=7600)
+        melfb = librosa.filters.mel(
+            sr=fs, n_fft=1024, n_mels=cfg.model.n_mel_fb, fmin=cfg.model.f_min, fmax=cfg.model.f_max
+        )
         cap = np.matmul(melfb, ap.T).T  # (T, C)
     
     # coding sp
@@ -301,21 +280,19 @@ def wav2world(
 
 
 def world2wav(
-        sp, clf0, vuv, cap, fs, fbin,
+        sp, clf0, vuv, cap, fs, fbin, cfg,
         frame_period=None, mcep_postfilter=False,
-        sp_type="mcep", vuv_thr=0.5, comp_mode='melfb'):
+        sp_type="mcep", vuv_thr=0.5):
     """
     input 
     all feature : (T, C)
     """
-    assert comp_mode == 'melfb' or 'default'
-
     # setup
     frame_period = pyworld.default_frame_period \
         if frame_period is None else frame_period
 
     clf0 = np.ascontiguousarray(clf0.astype('float64'))
-    vuv = np.ascontiguousarray(vuv > vuv_thr).astype('int')
+    vuv = np.ascontiguousarray(vuv > vuv_thr).astype('int')     # 閾値を境に0,1の2値に分ける
     cap = np.ascontiguousarray(cap.astype('float64'))
     sp = np.ascontiguousarray(sp.astype('float64'))
     fft_len = fbin * 2 - 2
@@ -324,15 +301,17 @@ def world2wav(
     f0 = np.squeeze(np.exp(clf0)) * np.squeeze(vuv)
 
     # cap 2 ap
-    if comp_mode == 'default':
+    if cfg.model.comp_mode == 'default':
         cap = np.minimum(cap, 0.0)
         if cap.ndim != 2:
             cap = np.expand_dims(cap, 1)
         ap = pyworld.decode_aperiodicity(cap, fs, fft_len)
         ap -= ap.min()
         ap /= ap.max()
-    elif comp_mode == 'melfb':
-        melfb = librosa.filters.mel(sr=fs, n_fft=1024, n_mels=4, fmin=0, fmax=7600)
+    elif cfg.model.comp_mode == 'melfb':
+        melfb = librosa.filters.mel(
+            sr=fs, n_fft=1024, n_mels=cfg.model.n_mel_fb, fmin=cfg.model.f_min, fmax=cfg.model.f_max
+        )
         melfb = np.ascontiguousarray(melfb.astype('float64'))
         ap = librosa.util.nnls(melfb, cap.T).T  # (T, C)
         ap = np.ascontiguousarray(ap.astype('float64'))
@@ -360,52 +339,6 @@ def world2wav(
     return wave
 
 
-def world2wav_direct(feature, feat_mean, feat_std, cfg):
-    """
-    train_d.pyで使用
-    tensorで渡してこの中で変換
-    tensorでwavを返す
-    """
-    batch, c, t = feature.shape
-    feature = feature.to('cpu').detach().numpy().copy()
-    feat_mean = feat_mean.unsqueeze(1).to('cpu').detach().numpy().copy()
-    feat_std = feat_std.unsqueeze(1).to('cpu').detach().numpy().copy()
-    
-    # 正規化したので元のスケールに直す
-    feature *= feat_std
-    feature += feat_mean
-
-    # wav_save = np.zeros((batch, cfg.model))
-    wav_save = []
-    breakpoint()
-    for i in range(batch):
-        f = feature[i]
-        f = f.T
-        mcep = f[:, :-3]
-        clf0 = f[:, -3]
-        vuv = f[:, -2]
-        cap = f[:, -1]
-        wav = world2wav(
-            sp=mcep,
-            clf0=clf0,
-            vuv=vuv,
-            cap=cap,
-            fs=cfg.model.sampling_rate,
-            fbin=513,
-            frame_period=cfg.model.frame_period,
-            mcep_postfilter=True,
-        )
-        # wav_save[i] = wav
-        wav_save.append(wav)
-    wav = np.array(wav_save)
-    breakpoint()
-    wav = torch.from_numpy(wav_save)
-    return wav
-
-
-##########################################
-# add delta_feature
-##########################################
 def delta_feature(x, order=2, static=True, delta=True, deltadelta=True):
     """
     lip2sp/links/modules.pyにて動的特徴量の計算に使用されている、
@@ -460,9 +393,6 @@ def delta_feature(x, order=2, static=True, delta=True, deltadelta=True):
     return out
 
 
-##########################################
-# add blur_pooling
-##########################################
 def blur_pooling2D(x, device, ksize=3, stride=1):
     """
     input
@@ -505,25 +435,3 @@ def blur_pooling2D(x, device, ksize=3, stride=1):
     out = F.conv2d(x, filt, stride=(stride, stride), groups=x.shape[1])
     out = out.squeeze(1)
     return out
-
-
-
-
-def main():
-    batch = 1
-    channels = 4
-    frames = 3
-    x = torch.rand(batch, channels, frames)
-    print(x)
-    order = 2
-    out = delta_feature(x, order)
-    print(out)
-
-    x = torch.rand(batch, channels, frames)
-    x = x.unsqueeze(1)
-    blur_pooling2D(x)
-    return
-
-
-if __name__ == "__main__":
-    main()

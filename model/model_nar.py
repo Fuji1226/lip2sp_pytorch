@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D
-from model.dsconv import DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall
+from model.net import ResNet3D, Simple
+from model.resnet18 import ResNet18
 from model.invres import InvResNet3D
 from model.mdconv import InvResNetMD
 from model.transformer_remake import Encoder, OfficialEncoder
@@ -49,16 +49,32 @@ class Lip2SP_NAR(nn.Module):
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
+        elif which_res == "simple":
+            self.ResNet_GAP = Simple(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        elif which_res == "resnet18":
+            self.ResNet_GAP = ResNet18(
+                in_channels=in_channels,
+                out_channels=rnn_hidden_channels,
+                hidden_channels=res_inner_channels,
+                dropout=res_dropout,
+            )   
         elif which_res == "inv":
             self.ResNet_GAP = InvResNet3D(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
@@ -71,7 +87,7 @@ class Lip2SP_NAR(nn.Module):
         elif which_res == "invmd":
             self.ResNet_GAP = InvResNetMD(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
@@ -121,18 +137,12 @@ class Lip2SP_NAR(nn.Module):
                 dropout=res_dropout,
                 reduction_factor=reduction_factor,
             )
-        elif which_encoder == "dconv":
-            self.encoder = DilatedConvEncoder(
-                inner_channels=dconv_inner_channels,
-                kernel_size=dconv_kernel_size,
-                n_layers=dconv_n_layers,
-            )
 
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
 
         # decoder
         self.decoder = ResTCDecoder(
-            cond_channels=d_model,
+            cond_channels=rnn_hidden_channels,
             out_channels=out_channels,
             inner_channels=dec_inner_channels,
             n_layers=dec_n_layers,
@@ -153,7 +163,7 @@ class Lip2SP_NAR(nn.Module):
             compress_rate=compress_rate,
         )
 
-    def forward(self, lip=None, lip_delta=None, data_len=None, gc=None):
+    def forward(self, lip=None, data_len=None, gc=None):
         output = feat_add_out = phoneme = None
 
         # resnet

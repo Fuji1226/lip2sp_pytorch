@@ -10,14 +10,12 @@ check_train_data : False
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/generate"
 
-# 平均、標準偏差ディレクトリまでのパス
-lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
-lip_mean_std_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/mean_std"
-face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
+# 統計量までのパス
+lip_stat_path : "~/dataset/lip/np_files/lip_cropped/stat"
+lip_stat_path_st : "~/dataset/lip/np_files/lip_cropped_st/stat"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
-lip_pre_loaded_path_gray : "~/dataset/lip/np_files/lip_cropped_gray/test"
-face_pre_loaded_path : "~/dataset/lip/np_files/face/test"
+lip_pre_loaded_path_st : "~/dataset/lip/np_files/lip_cropped_st/test"
 
 speaker : ["F01_kablab"]

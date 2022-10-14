@@ -209,19 +209,20 @@ def main(cfg):
     torch.backends.cudnn.deterministic = True
 
     # path
-    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
+    train_data_root, val_data_root, stat_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
-    print(f"data_root = {data_root}")
-    print(f"mean_std_path = {mean_std_path}")
+    print(f"train_data_root = {train_data_root}")
+    print(f"val_data_root = {val_data_root}")
+    print(f"stat_path = {stat_path}")
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
+    train_loader, val_loader, _, _ = make_train_val_loader(cfg, train_data_root, val_data_root, stat_path)
 
     # 損失関数
     if len(cfg.train.speaker) > 1:
-        class_weight = calc_class_balance(cfg, data_root, device)
+        class_weight = calc_class_balance(cfg, train_data_root, device)
     else:
         class_weight = None
     loss_f = MaskedLoss(weight=class_weight, use_weighted_mse=cfg.train.use_weighted_mse)

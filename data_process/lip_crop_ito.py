@@ -1,3 +1,8 @@
+"""
+動画全体から口唇部分のみを切り取り
+speakerを変更してください
+かなり長いのでito frontで複数cpuを予約し,並列で実行するのがおすすめです
+"""
 import os
 from pathlib import Path
 import glob

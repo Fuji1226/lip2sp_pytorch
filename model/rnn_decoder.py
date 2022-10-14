@@ -86,10 +86,12 @@ class RNNDecoder(nn.Module):
             mask = make_pad_mask(data_len, T).squeeze(1)      # (B, T)
 
         out_list = []
+        att_w_list = []
         t = 0
         while True:
             if hasattr(self, "attention"):
                 att_c, att_w = self.attention(enc_output.permute(0, 2, 1), h_list[0], data_len, prev_att_w, mask)
+                att_w_list.append(att_w)
 
             # prenet
             prenet_out = self.prenet(prev_out).squeeze(-1)    # (B, C)
@@ -142,7 +144,13 @@ class RNNDecoder(nn.Module):
 
         # 時間方向に結合
         out = torch.cat(out_list, dim=-1)
-        return out
+
+        try:
+            att_w = torch.stack(att_w_list, dim=-1)
+        except:
+            att_w = None
+
+        return out, att_w
 
 
 if __name__ == "__main__":
@@ -165,7 +173,9 @@ if __name__ == "__main__":
         use_attention=True,
     )
 
-    out = net(enc_output, data_len, target, training_method="ss", threshold=50)
+    out, att_w = net(enc_output, data_len, target, training_method="ss", threshold=50)
     print(out.shape)
+    if att_w is not None:
+        print(att_w.shape)
 
     count_params(net, "net")

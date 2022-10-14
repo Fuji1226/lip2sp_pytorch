@@ -1,6 +1,5 @@
 """
-データのロード、前処理
-make_npz.pyを実行するとここの処理が行われます
+データの処理
 """
 
 import os
@@ -19,22 +18,21 @@ from pysptk import swipe
 import torchvision
 
 from utils import get_upsample
-from data_process.feature import wave2mel, wav2world
+from data_process.feature import wav2mel, wav2world
 
 
-def calc_sp(wave, cfg):
+def calc_sp(wav, cfg):
     """
     y : (T, C)
     """
-    if cfg.model.feature_type == "mspec":
+    if cfg.model.name == "mspec80":
         # 対数メルスペクトログラム
-        y = wave2mel(
-            wave, cfg.model.sampling_rate, cfg.model.frame_period, 
-            n_mels=cfg.model.n_mel_channels, fmin=cfg.model.f_min, fmax=cfg.model.f_max).T    
+        y = wav2mel(wav, cfg, ref_max=False).T
 
-    elif cfg.model.feature_type == "world":
+    elif cfg.model.name == "world_melfb":
+        # WORLD特徴量
         mcep, clf0, vuv, cap, fbin, _ = wav2world(
-            wave, cfg.model.sampling_rate, frame_period=cfg.model.frame_period, comp_mode=cfg.model.comp_mode)
+            wav, cfg.model.sampling_rate, frame_period=cfg.model.frame_period, cfg=cfg)
         y = np.hstack([mcep, clf0.reshape(-1, 1), vuv.reshape(-1, 1), cap])
     return y
 
@@ -67,8 +65,9 @@ def continuous_f0(f0, amin=70):
 
 def load_mp4(path, gray=False):
     """
-    可視化が楽だったので、torchvisionを利用して読み込む
+    口唇動画読み込み
     リサイズで画像のピクセル数を変更
+    グレースケールへの変更も行う
     """
     movie = cv2.VideoCapture(str(path))
     fps = int(movie.get(cv2.CAP_PROP_FPS))
@@ -89,6 +88,10 @@ def load_mp4(path, gray=False):
 
 
 def calc_feat_add_taguchi(wav, feature, cfg):
+    """
+    田口さんが使用されていたもの
+    f0の推定精度がworldのharvestの方が高そうだったので変更しました
+    """
     hop_length = cfg.model.sampling_rate * cfg.model.frame_period // 1000  
     
     power = librosa.feature.rms(y=wav, frame_length=hop_length*2, hop_length=hop_length).squeeze()
@@ -103,33 +106,37 @@ def calc_feat_add_taguchi(wav, feature, cfg):
     return feat_add, T
 
 
-def calc_feat_add(wav, feature, cfg):
+def calc_feat_add(wav, feature, cfg, use_spec=False):
     """
-    音声のrmsとf0を計算
-    """
-    # パワーを計算
-    power = librosa.feature.rms(y=wav, frame_length=cfg.model.hop_length*2, hop_length=cfg.model.hop_length).squeeze()
-    power = fill_nan(power)
-    power = librosa.amplitude_to_db(power, ref=np.max)
+    音声のrms(root mean square)とclf0(continuous log f0)を計算
+    multi task learningなどに使用できる
 
-    # 基本周波数を計算
+    use_specでrmsを音声波形から計算するかスペクトログラムから計算するかを選択
+    一応librosaにはスペクトログラムから計算した方が精度がいいと書いていたけど,音声波形からでも十分そうだった
+    """
+    # rms
+    if use_spec:
+        spec = librosa.stft(
+            y=wav,
+            n_fft=cfg.model.n_fft,
+            hop_length=cfg.model.hop_length,
+            win_length=cfg.model.win_length,
+            window="hann",
+        )
+        spec_mag, spec_phase = librosa.magphase(spec)
+        rms = librosa.feature.rms(S=spec_mag, frame_length=cfg.model.hop_length*4, hop_length=cfg.model.hop_length).squeeze()
+    else:
+        rms = librosa.feature.rms(y=wav, frame_length=cfg.model.hop_length*2, hop_length=cfg.model.hop_length).squeeze()
+    rms = fill_nan(rms)
+    rms = librosa.amplitude_to_db(rms, ref=np.max)
+
+    # worldの推定手法(harvest)で連続対数基本周波数を計算
     mcep, clf0, vuv, cap, fbin, _ = wav2world(
-        wave=wav, fs=cfg.model.sampling_rate, frame_period=cfg.model.frame_period,
+        wave=wav, fs=cfg.model.sampling_rate, frame_period=cfg.model.frame_period, cfg=cfg,
     )
 
-    # f0, voiced_flag, voiced_probs = librosa.pyin(
-    #     y=wav,
-    #     fmin=librosa.note_to_hz('C2'),
-    #     fmax=librosa.note_to_hz('C7'),
-    #     sr=cfg.model.sampling_rate,
-    #     frame_length=cfg.model.win_length,
-    #     win_length=cfg.model.win_length // 2,
-    #     hop_length=cfg.model.hop_length,
-    #     fill_na=None,
-    # )
-
-    T = min(power.shape[0], clf0.shape[0], feature.shape[0])
-    feat_add = np.vstack((clf0[:T], power[:T])).T   # (T, C)
+    T = min(rms.shape[0], clf0.shape[0], feature.shape[0])
+    feat_add = np.vstack((clf0[:T], rms[:T])).T   # (T, C)
     return feat_add, T
 
 

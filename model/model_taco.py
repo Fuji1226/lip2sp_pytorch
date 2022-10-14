@@ -135,8 +135,8 @@ class Lip2SPTaco(nn.Module):
             spk_emb = None
 
         # decoder
-        dec_output = self.decoder(enc_output, data_len, target, training_method, threshold)
+        dec_output, att_w = self.decoder(enc_output, data_len, target, training_method, threshold)
 
         # postnet
         out = self.postnet(dec_output)
-        return out, dec_output
+        return out, dec_output, att_w

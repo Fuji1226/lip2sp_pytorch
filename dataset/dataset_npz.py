@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
+import pickle
 import random
 import numpy as np
 from scipy.ndimage import gaussian_filter
@@ -24,6 +25,10 @@ from torch.utils.data import Dataset
 
 
 def get_speaker_idx(data_path):
+    """
+    話者名を数値に変換し,話者IDとする
+    複数話者音声合成で必要になります
+    """
     print("\nget speaker idx")
     speaker_idx = {}
     idx = 0
@@ -38,44 +43,71 @@ def get_speaker_idx(data_path):
     return speaker_idx
 
 
-def load_mean_std(mean_std_path, cfg):
-    print("\nload mean std")
-    each_lip_mean = []
-    each_lip_std = []
-    each_feat_mean = []
-    each_feat_std = []
-    each_feat_add_mean = []
-    each_feat_add_std = []
+def get_stat(stat_path, cfg):
+    """
+    事前に求めた統計量を読み込み
+    話者ごとに求めているので,複数話者の場合は全員分が読み込まれる
+    """
+    print("\nget stat")
+    filename = [
+        "lip_mean_list", "lip_var_list", "lip_len_list", 
+        "feat_mean_list", "feat_var_list", "feat_len_list", 
+        "feat_add_mean_list", "feat_add_var_list", "feat_add_len_list"
+    ]
 
-    for speaker in cfg.train.speaker:
-        print(f"load {speaker}")
-        spk_path = mean_std_path / speaker / f"train_{cfg.model.name}.npz"
-        npz_key = np.load(str(spk_path))
-        each_lip_mean.append(torch.from_numpy(npz_key['lip_mean']))
-        each_lip_std.append(torch.from_numpy(npz_key['lip_std']))
-        each_feat_mean.append(torch.from_numpy(npz_key['feat_mean']))
-        each_feat_std.append(torch.from_numpy(npz_key['feat_std']))
-        each_feat_add_mean.append(torch.from_numpy(npz_key['feat_add_mean']))
-        each_feat_add_std.append(torch.from_numpy(npz_key['feat_add_std']))
+    stat_dict = {}
+    for name in filename:
+        for speaker in cfg.train.speaker:
+            with open(str(stat_path / f"{speaker}" / f"{name}_{cfg.model.name}.bin"), "rb") as p:
+                stat_dict[name] = pickle.load(p)
+            print(f"{speaker} {name} loaded")
+    return stat_dict
 
-    lip_mean = sum(each_lip_mean) / len(each_lip_mean)
-    lip_std = sum(each_lip_std) / len(each_lip_std)
-    feat_mean = sum(each_feat_mean) / len(each_feat_mean)
-    feat_std = sum(each_feat_std) / len(each_feat_std)
-    feat_add_mean = sum(each_feat_add_mean) / len(each_feat_add_mean)
-    feat_add_std = sum(each_feat_add_std) / len(each_feat_add_std)
 
-    return lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
+def calc_mean_var_std(mean_list, var_list, len_list):
+    """
+    事前に求めておいた話者ごとの統計量を使用し,学習に使用する全データに対して平均と分散,標準偏差を計算
+    """
+    mean_square_list = list(np.square(mean_list))
+
+    square_mean_list = []
+    for var, mean_square in zip(var_list, mean_square_list):
+        square_mean_list.append(var + mean_square)
+
+    mean_len_list = []
+    square_mean_len_list = []
+    for mean, square_mean, len in zip(mean_list, square_mean_list, len_list):
+        mean_len_list.append(mean * len)
+        square_mean_len_list.append(square_mean * len)
+
+    mean = sum(mean_len_list) / sum(len_list)
+    var = sum(square_mean_len_list) / sum(len_list) - mean ** 2
+    std = np.sqrt(var)
+    return mean, var, std
 
 
 class KablabDataset(Dataset):
-    def __init__(self, data_path, mean_std_path, transform, cfg):
+    def __init__(self, data_path, stat_path, transform, cfg):
         super().__init__()
         self.data_path = data_path
         self.transform = transform
 
+        # 話者ID
         self.speaker_idx = get_speaker_idx(data_path)
-        self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, cfg)
+
+        # 統計量から平均と標準偏差を求める
+        stat_dict = get_stat(stat_path, cfg)
+        lip_mean, _, lip_std = calc_mean_var_std(stat_dict["lip_mean_list"], stat_dict["lip_var_list"], stat_dict["lip_len_list"])
+        feat_mean, _, feat_std = calc_mean_var_std(stat_dict["feat_mean_list"], stat_dict["feat_var_list"], stat_dict["feat_len_list"])
+        feat_add_mean, _, feat_add_std = calc_mean_var_std(stat_dict["feat_add_mean_list"], stat_dict["feat_add_var_list"], stat_dict["feat_add_len_list"])
+
+        self.lip_mean = torch.from_numpy(lip_mean)
+        self.lip_std = torch.from_numpy(lip_std)
+        self.feat_mean = torch.from_numpy(feat_mean)
+        self.feat_std = torch.from_numpy(feat_std)
+        self.feat_add_mean = torch.from_numpy(feat_add_mean)
+        self.feat_add_std = torch.from_numpy(feat_add_std)
+
         print(f"n = {self.__len__()}")
     
     def __len__(self):
@@ -84,6 +116,8 @@ class KablabDataset(Dataset):
     def __getitem__(self, index):
         data_path = self.data_path[index]
         speaker = data_path.parents[0].name
+
+        # 話者名を話者IDに変換
         speaker = torch.tensor(self.speaker_idx[speaker])
         label = data_path.stem
 
@@ -113,20 +147,6 @@ class KablabDataset(Dataset):
 
 class KablabTransform:
     def __init__(self, cfg, train_val_test=None):
-        assert train_val_test == "train" or "val" or "test"
-        self.lip_transforms = T.Compose([
-            # T.RandomAdjustSharpness(sharpness_factor=2, p=0.5),     
-            # T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2),    # 色変え
-            T.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 5)), # ぼかし
-            # T.RandomPosterize(bits=3, p=0.5),     # 画像が気持ち悪くなる。
-            # T.RandomAutocontrast(p=0.5),  # 動的特徴量がぐちゃぐちゃになる
-            # T.RandomEqualize(p=0.5),  # 動的特徴量がぐちゃぐちゃになる
-            T.RandomHorizontalFlip(p=0.5),  # 左右反転
-            # T.RandomPerspective(distortion_scale=0.5, p=0.5),     # 視点変更。画像が汚くなる。
-            # T.RandomResizedCrop(size=(48, 48), scale=(0.7, 1)),  # scaleの割合でクロップ範囲を決定し，リサイズ。精度が落ちたのでダメそう。
-            # T.RandomCrop(size=(48, 48), padding=4),     # 事前にパディングした上でクロップ。これも精度が下がるので，cropするのは良くないのかも。
-            T.RandomRotation(degrees=(0, 10)),     # degressの範囲で回転。これはやったほうが上がる。
-        ])
         self.color_jitter = T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2)
         self.blur = T.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 5)) 
         self.horizontal_flip = T.RandomHorizontalFlip(p=0.5)
@@ -163,13 +183,21 @@ class KablabTransform:
         標準化
         lip : (C, H, W, T)
         feature, feat_add : (C, T)
+        
+        lip_mean, lip_std : (C, H, W) or (C,)
+        feat_mean, feat_std, feat_add_mean, feat_add_std : (C,)
         """
-        lip_mean = lip_mean.unsqueeze(-1)
-        lip_std = lip_std.unsqueeze(-1)
-        feat_mean = feat_mean.unsqueeze(-1)
-        feat_std = feat_std.unsqueeze(-1)
-        feat_add_mean = feat_add_mean.unsqueeze(-1)
-        feat_add_std = feat_add_std.unsqueeze(-1)
+        # 時間方向にブロードキャストされるように次元を調整
+        if lip_mean.dim() == 3:
+            lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
+            lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
+        elif lip_mean.dim() == 1:
+            lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
+            lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
+        feat_mean = feat_mean.unsqueeze(-1)     # (C, 1)
+        feat_std = feat_std.unsqueeze(-1)       # (C, 1)
+        feat_add_mean = feat_add_mean.unsqueeze(-1)     # (C, 1)
+        feat_add_std = feat_add_std.unsqueeze(-1)       # (C, 1)
 
         lip = (lip -lip_mean) / lip_std        
         feature = (feature - feat_mean) / feat_std
@@ -180,22 +208,22 @@ class KablabTransform:
         """
         口唇動画の動的特徴量の計算
         田口さんからの継承
+        差分近似から求める感じです
+        lip : (C, H, W, T)
         """
-        # scipywのgaussian_filterを使用するため、一旦numpyに戻してます
-        if self.cfg.model.delta:
-            lip = lip.to('cpu').detach().numpy().copy()
-            if lip.shape[0] == 3:
-                lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]
-            lip_pad = lip_pad.astype(lip.dtype)
-            lip_pad = gaussian_filter(lip_pad, (0, 0.5, 0.5, 0), mode="reflect", truncate=2)
-            lip_pad = np.pad(lip_pad, ((0, 0), (0, 0), (0, 0), (1, 1)), "edge")
-            lip_diff = (lip_pad[..., 2:] - lip_pad[..., :-2]) / 2
-            lip_acc = lip_pad[..., 0:-2] + lip_pad[..., 2:] - 2 * lip_pad[..., 1:-1]
-            lip = np.vstack((lip, lip_diff, lip_acc))
-            lip = torch.from_numpy(lip)
+        lip = lip.to('cpu').detach().numpy().copy()
+        if lip.shape[0] == 3:
+            lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]
+        lip_pad = lip_pad.astype(lip.dtype)
+        lip_pad = gaussian_filter(lip_pad, (0, 0.5, 0.5, 0), mode="reflect", truncate=2)
+        lip_pad = np.pad(lip_pad, ((0, 0), (0, 0), (0, 0), (1, 1)), "edge")
+        lip_diff = (lip_pad[..., 2:] - lip_pad[..., :-2]) / 2
+        lip_acc = lip_pad[..., 0:-2] + lip_pad[..., 2:] - 2 * lip_pad[..., 1:-1]
+        lip = np.vstack((lip, lip_diff, lip_acc))
+        lip = torch.from_numpy(lip)
         return lip
 
-    def time_augment(self, lip, feature, feat_add, upsample, data_len):
+    def time_augment(self, lip, feature, feat_add, upsample, data_len, interp_mode="nearest"):
         """
         再生速度を変更する
         lip : (C, H, W, T)
@@ -218,10 +246,11 @@ class KablabTransform:
 
         # 音響特徴量を補完によって動画に合わせる
         # 時間周波数領域でリサンプリングを行うことで、ピッチが変わらないようにしています
+        # また、事前にmake_npz.pyで計算した音響特徴量は対数スケールになっているので、線形補完ではなく最近傍補完を使用しています
         feature = feature.unsqueeze(0)      # (1, C, T)
         feat_add = feat_add.unsqueeze(0)    # (1, C, T)
-        feature = F.interpolate(feature, scale_factor=rate, mode="nearest", recompute_scale_factor=False).squeeze(0)    # (C, T)
-        feat_add = F.interpolate(feat_add, scale_factor=rate, mode="nearest", recompute_scale_factor=False).squeeze(0)  # (C, T)
+        feature = F.interpolate(feature, scale_factor=rate, mode=interp_mode, recompute_scale_factor=False).squeeze(0)    # (C, T)
+        feat_add = F.interpolate(feat_add, scale_factor=rate, mode=interp_mode, recompute_scale_factor=False).squeeze(0)  # (C, T)
         
         # データの長さが変わったので、data_lenを更新して系列長を揃える
         data_len = torch.tensor(min(int(lip.shape[-1] * upsample), feature.shape[-1])).to(torch.int)
@@ -270,7 +299,8 @@ class KablabTransform:
         )
 
         # 口唇動画の動的特徴量の計算
-        lip = self.calc_delta(lip)
+        if self.cfg.model.delta:
+            lip = self.calc_delta(lip)
     
         return lip.to(torch.float32), feature.to(torch.float32), feat_add.to(torch.float32), data_len            
 
@@ -291,7 +321,7 @@ def collate_time_adjust(batch, cfg):
     feature_len = int(lip_len * upsample_scale)
 
     for l, f, f_add, d_len in zip(lip, feature, feat_add, data_len):
-        # 揃えるlenよりも短い時
+        # 揃えるlenよりも短い時は足りない分をゼロパディング
         if d_len <= feature_len:
             l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_len)
             f_padded = torch.zeros(f.shape[0], feature_len)
@@ -308,7 +338,7 @@ def collate_time_adjust(batch, cfg):
             f = f_padded
             f_add = f_add_padded
 
-        # 揃えるlenよりも長い時
+        # 揃えるlenよりも長い時はランダムに切り取り
         else:
             lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()
             feature_start_frame = int(lip_start_frame * upsample_scale)

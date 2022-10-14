@@ -193,30 +193,16 @@ class ResTCDecoder(nn.Module):
         self.compress_rate = compress_rate
         self.use_attention = use_attention
 
-        self.upsample_layer = nn.Sequential(
-            nn.ConvTranspose1d(cond_channels, inner_channels, kernel_size=compress_rate, stride=compress_rate),
-            nn.BatchNorm1d(inner_channels),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-        )
+        if upsample_method == "conv":
+            self.upsample_layer = nn.Sequential(
+                nn.ConvTranspose1d(cond_channels, inner_channels, kernel_size=compress_rate, stride=compress_rate),
+                nn.BatchNorm1d(inner_channels),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+            )
         self.interp_layer = nn.Conv1d(cond_channels, inner_channels, kernel_size=1)
 
         self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
-
-        self.feat_add_layer = FeadAddPredicter(inner_channels, feat_add_channels, kernel_size=3, n_layers=feat_add_layers, dropout=dropout)
-        self.adjust_feat_add_layer = nn.Conv1d(feat_add_channels, inner_channels, kernel_size=1)
-        self.phoneme_layer = PhonemePredicter(inner_channels, phoneme_classes)
-        self.gr_layer = GradientReversal(1.0)
-
-        if self.use_attention:
-            self.pre_attention_layer = nn.Conv1d(inner_channels, d_model, kernel_size=1)
-            self.attention = Encoder(
-                n_layers=n_attn_layer,
-                n_head=n_head,
-                d_model=d_model,
-                reduction_factor=reduction_factor,
-            )
-            self.post_attention_layer = nn.Conv1d(d_model, inner_channels, kernel_size=1)
 
         self.conv_layers = nn.ModuleList(
             ResBlock(inner_channels, kernel_size, dropout) for _ in range(n_layers)
@@ -238,7 +224,7 @@ class ResTCDecoder(nn.Module):
         if self.upsample_method == "conv":
             out_upsample = self.upsample_layer(out)
         elif self.upsample_method == "interpolate":
-            out_upsample = F.interpolate(out ,scale_factor=self.compress_rate)
+            out_upsample = F.interpolate(out ,scale_factor=self.compress_rate, mode="nearest")
             out_upsample = self.interp_layer(out_upsample)
 
         out = out_upsample
