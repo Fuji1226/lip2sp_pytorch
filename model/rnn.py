@@ -66,6 +66,9 @@ class GRUEncoder(nn.Module):
 
         if data_len is not None:
             out = pad_packed_sequence(out, batch_first=True)[0]
+            if out.shape[1] < T:
+                zero_pad = torch.zeros(out.shape[0], T - out.shape[1], out.shape[2]).to(device=out.device, dtype=out.dtype)
+                out = torch.cat([out, zero_pad], dim=1)
 
         out = self.fc(out)
         out = self.norm(out)
@@ -94,12 +97,16 @@ if __name__ == "__main__":
         if p.requires_grad:
             params += p.numel()
     print(f"out = {out.shape}, params = {params}")
-
     
     x = torch.rand(3, 2, 10).permute(0, 2, 1)
-    data_len = torch.tensor([5, 5, 15])
+    print(f"x = {x.shape}")
+    data_len = torch.tensor([5, 5, 8])
     data_len = torch.clamp(data_len, min=min(data_len), max=x.shape[1])
     x_pack = pack_padded_sequence(x, data_len.cpu(), batch_first=True, enforce_sorted=False)
-    x_recon = pad_packed_sequence(x_pack, batch_first=True)
-    print(f"x_pack = {x_pack}")
+    x_recon = pad_packed_sequence(x_pack, batch_first=True)[0]
+    zero_pad = torch.zeros(x_recon.shape[0], x.shape[1] - x_recon.shape[1], x_recon.shape[-1])
+    x_recon = torch.cat([x_recon, zero_pad], dim=1)
+    # print(f"x_pack = {x_pack}")
+    print(f"x_recon = {x_recon.shape}")
+    print(f"x = {x}")
     print(f"x_recon = {x_recon}")

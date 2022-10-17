@@ -8,6 +8,8 @@ from torch import nn
 from torch.nn import functional as F
 
 from utils import count_params
+from cbam import ChannnelAttention, SpatialAttention
+
 
 class NormLayer3D(nn.Module):
     def __init__(self, in_channels, norm_type):
@@ -226,8 +228,91 @@ class Simple(nn.Module):
         return out
 
 
+class Simple_NonRes(nn.Module):
+    def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
+        super().__init__()
+        self.conv3d = nn.Sequential(
+            NormalConv(in_channels, inner_channels, 2, norm_type),
+            nn.Dropout(dropout),
+
+            NormalConv(inner_channels, inner_channels * 2, 2, norm_type),            
+            nn.Dropout(dropout),
+
+            NormalConv(inner_channels * 2, inner_channels * 4, 2, norm_type),
+            nn.Dropout(dropout),
+            
+            NormalConv(inner_channels * 4, inner_channels * 8, 2, norm_type),
+            nn.Dropout(dropout),
+        )
+        self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        """
+        x : (B, C, H, W, T)
+        """
+        x = x.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+        out = self.conv3d(x)
+        out = torch.mean(out, dim=(3, 4))
+        out = self.out_layer(out)
+        return out
+
+
+class ResBlockBig(nn.Module):
+    def __init__(self, in_channels, out_channels, stride, norm_type):
+        super().__init__()
+        self.layers = nn.Sequential(
+            NormalConv(in_channels, out_channels, stride, norm_type),
+            NormalConv(out_channels, out_channels, 1, norm_type),
+        )
+        if stride > 1:
+            self.pool = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+
+        if in_channels != out_channels:
+            self.adjust_layer = nn.Conv3d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        out = self.layers(x)
+
+        if hasattr(self, "pool"):
+            x = self.pool(x)
+
+        if hasattr(self, "adjust_layer"):
+            x = self.adjust_layer(x)
+
+        return out + x
+
+
+class SimpleBig(nn.Module):
+    def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type):
+        super().__init__()
+        self.conv3d = nn.Sequential(
+            NormalConv(in_channels, inner_channels, 2, norm_type),
+            nn.Dropout(dropout),
+
+            ResBlockBig(inner_channels, inner_channels * 2, 2, norm_type),            
+            nn.Dropout(dropout),
+
+            ResBlockBig(inner_channels * 2, inner_channels * 4, 2, norm_type),
+            nn.Dropout(dropout),
+            
+            ResBlockBig(inner_channels * 4, inner_channels * 8, 2, norm_type),
+            nn.Dropout(dropout),
+        )
+        self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        """
+        x : (B, C, H, W, T)
+        """
+        x = x.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+        out = self.conv3d(x)
+        out = torch.mean(out, dim=(3, 4))
+        out = self.out_layer(out)
+        return out
+
+
 if __name__ == "__main__":
-    net = Simple(5, 128, 32, 3, 0.1, "bn")
+    net = Simple_NonRes(5, 128, 32, 3, 0.1, "bn")
     x = torch.rand(1, 5, 48, 48, 150)
     out = net(x)
     count_params(net, "net")

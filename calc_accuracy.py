@@ -55,8 +55,8 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     print(f"PESQ = {p}")
                     print(f"STOI = {s}")
 
-                    wav_gen = wav_gen.to("cpu").detach().numpy().copy()
-                    wav_in = wav_in.to("cpu").detach().numpy().copy()
+                    wav_gen = wav_gen.to("cpu").numpy()
+                    wav_in = wav_in.to("cpu").numpy()
 
                     # powerのrmse
                     power_gen = librosa.feature.rms(y=wav_gen, frame_length=cfg.model.hop_length*2, hop_length=cfg.model.hop_length).squeeze()
@@ -69,7 +69,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     rmse_power_list.append(rmse_power)
                     print(f"rmse_power = {rmse_power}")
 
-                    # f0 & vuv by librosa
+                    # rmse f0 & vuv accuracy by librosa
                     f0_gen, vuv_gen, voiced_probs_gen = librosa.pyin(
                         y=wav_gen,
                         fmin=librosa.note_to_hz('C2'),
@@ -104,13 +104,14 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     wav_in = wav_in.astype(np.float64)
                     f0_in, timeaxis_in = pyworld.harvest(wav_in, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)
                     sp_in = pyworld.cheaptrick(wav_in, f0_in, timeaxis_in, fs)
-                    coded_sp_gen = pyworld.code_spectral_envelope(sp_gen, fs, 24)
-                    coded_sp_in = pyworld.code_spectral_envelope(sp_in, fs, 24)
-                    mcd = melcd(coded_sp_gen, coded_sp_in, lengths=None)
+                    alpha = pysptk.util.mcepalpha(fs)
+                    mcep_gen = pysptk.mcep(sp_gen, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)[:, 1:]
+                    mcep_in = pysptk.mcep(sp_in, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)[:, 1:]
+                    mcd = melcd(mcep_gen, mcep_in, lengths=None)
                     mcd_list.append(mcd)
                     print(f"mcd = {mcd}")
 
-                    # f0 & vuv by world
+                    # rmse f0 & vuv accuracy by world
                     ap_gen = pyworld.d4c(wav_gen, f0_gen, timeaxis_gen, fs, threshold=0.85)
                     vuv_flag_gen = (ap_gen[:, 0] < 0.5) * (f0_gen > 1.0)
                     vuv_gen = vuv_flag_gen.astype('int')
@@ -159,11 +160,11 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
         f.write("--- Objective Evaluation Metrics ---\n")
         f.write(f"PESQ = {pesq:f}\n")
         f.write(f"STOI = {stoi:f}\n")
-        f.write(f"rmse_power = {rmse_power:f}dB\n")
-        f.write(f"rmse_f0_librosa = {rmse_f0_librosa:f}\n")
-        f.write(f"vuv_accuracy_librosa = {vuv_acc_librosa:f}%\n")
-        f.write(f"rmse_f0_world = {rmse_f0_world:f}\n")
-        f.write(f"vuv_accuracy_world = {vuv_acc_world:f}%\n")
+        f.write(f"rmse power = {rmse_power:f}dB\n")
+        f.write(f"rmsef0 librosa = {rmse_f0_librosa:f}\n")
+        f.write(f"vuv accuracy librosa = {vuv_acc_librosa:f}%\n")
+        f.write(f"rmse f0 world = {rmse_f0_world:f}\n")
+        f.write(f"vuv accuracy world = {vuv_acc_world:f}%\n")
         f.write(f"mel cepstral distortion = {mcd:f}dB\n")
 
         if process_times is not None:

@@ -93,7 +93,7 @@ def main(cfg):
 
     model = make_model(cfg, device)
     
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:14_02-52-55/mspec80_40.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st/2022:10:16_08-59-37/mspec80_300.ckpt")
 
     # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:01_16-07-30/world_melfb_10.ckpt")
 
@@ -108,10 +108,10 @@ def main(cfg):
         except:
             model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
-    data_root_list, mean_std_path, save_path_list = get_path_test(cfg, model_path)
-
+    data_root_list, stat_path, save_path_list = get_path_test(cfg, model_path)
+    
     for data_root, save_path in zip(data_root_list, save_path_list):
-        test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
+        test_loader, test_dataset = make_test_loader(cfg, data_root, stat_path)
 
         process_times = None
         print("--- generate ---")
@@ -126,7 +126,7 @@ def main(cfg):
 
     for data_root, save_path in zip(data_root_list, save_path_list):
         print("--- calc accuracy ---")
-        calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
+        calc_accuracy(save_path, save_path.parents[0], cfg, process_times=None)
         
 
 if __name__ == "__main__":

@@ -15,9 +15,9 @@ import pickle
 
 from transform_no_chainer import load_data_for_npz
 
-debug = True
+debug = False
 time_only = False
-speaker = "F01_kablab"
+speaker = "F01_kablab_fulldata"
 
 if debug:
     if time_only:
@@ -35,9 +35,6 @@ lip_train_data_path = Path(f"~/dataset/lip/np_files/{dirname}/train").expanduser
 lip_stat_path = Path(f"~/dataset/lip/np_files/{dirname}/stat").expanduser()
 lip_val_data_path = Path(f"~/dataset/lip/np_files/{dirname}/val").expanduser()
 lip_test_data_path = Path(f"~/dataset/lip/np_files/{dirname}/test").expanduser()
-
-corpus = ["ATR", "balanced", "BASIC5000"]
-train_size = 0.95
 
 
 def read_csv(csv_path, which_data):

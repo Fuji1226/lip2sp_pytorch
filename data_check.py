@@ -79,9 +79,10 @@ def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
     )
 
 
-def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std, sharp=True):
+def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
     """
     音響特徴量から音声波形を生成し、wavファイルを保存
+    sharpを使用するとちょっと合成音声が綺麗になります
     feature : (C, T)
     feat_mean, feat_std : (C,)
     """
@@ -126,7 +127,7 @@ def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std, sharp=True
         feature *= feat_std
         feature += feat_mean
 
-        wav = mel2wav(feature, cfg, sharp)
+        wav = mel2wav(feature, cfg)
 
         # 正規化
         wav /= np.max(np.abs(wav))

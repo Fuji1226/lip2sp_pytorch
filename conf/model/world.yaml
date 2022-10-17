@@ -16,6 +16,7 @@ win_length : 640
 f_min : 0
 f_max : 8000
 n_mel_channels : 80
+mcep_order : 25
 
 # input grayscale（グレースケールかRGBか）
 gray : False

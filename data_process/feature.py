@@ -133,10 +133,11 @@ def log10(x, eps=EPS):
     return np.log10(np.maximum(x, eps))
 
 
-def mel2wav(mel, cfg, sharp):
+def mel2wav(mel, cfg):
     """
     対数メルスペクトログラムからgriffin limによる音声合成
     """
+    # 振幅スペクトログラムへの変換
     mel = 10 ** mel
     mel = np.where(mel > EPS, mel, 0)
     spec = librosa.feature.inverse.mel_to_stft(
@@ -148,7 +149,7 @@ def mel2wav(mel, cfg, sharp):
     )
 
     # ちょっと音声が強調される。田口さんからの継承。
-    if sharp:
+    if cfg.model.sharp:
         spec **= np.sqrt(1.4)
 
     wav = librosa.griffinlim(
@@ -171,7 +172,7 @@ def modspec_smoothing(array, fs, cut_off=30, axis=0, fbin=11):
 
 def wav2world(
         wave, fs, cfg,
-        mcep_order=26, f0_smoothing=0,
+        mcep_order=25, f0_smoothing=0,
         ap_smoothing=0, sp_smoothing=0,
         frame_period=None, f0_floor=None, f0_ceil=None,
         f0_mode="harvest", sp_type="mcep", plot=False):
@@ -243,9 +244,13 @@ def wav2world(
         clf0 = np.ones_like(f0) * f0_floor
     
     if cfg.model.comp_mode == 'default':
+        # 中心周波数3,6,9,12,15kHzで、それぞれ6kHzの帯域を分析対象として非周期性指標を帯域ごとに圧縮する
+        # 公式の処理
+        # 本研究ではサンプリング周波数16kHzなので8kHzまでが分析の対象であり、この場合中心周波数3kHzで0-6kHzのみが分析する帯域となるので1次元に削減される
         cap = pyworld.code_aperiodicity(ap, fs)
     elif cfg.model.comp_mode == 'melfb':
-        # メルフィルタバンクを適用することでn_melsまで帯域圧縮
+        # メルフィルタバンクを利用した非周期性指標の圧縮
+        # 江崎さんが使用されていた
         melfb = librosa.filters.mel(
             sr=fs, n_fft=1024, n_mels=cfg.model.n_mel_fb, fmin=cfg.model.f_min, fmax=cfg.model.f_max
         )
@@ -256,9 +261,9 @@ def wav2world(
         sp = sp
     elif sp_type == "mcep":
         alpha = pysptk.util.mcepalpha(fs)
-        sp = pysptk.mcep(sp, order=mcep_order-1, alpha=alpha, itype=4)
+        sp = pysptk.mcep(sp, order=cfg.model.mcep_order-1, alpha=alpha, itype=4)
     elif sp_type == "mfcc":
-        sp = pyworld.code_spectral_envelope(sp, fs, mcep_order)
+        sp = pyworld.code_spectral_envelope(sp, fs, cfg.model.mcep_order)
     else:
         raise ValueError(sp_type)
 

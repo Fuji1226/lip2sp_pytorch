@@ -7,22 +7,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D, Simple
+from model.net import ResNet3D, Simple, Simple_NonRes, SimpleBig
 from model.resnet18 import ResNet18
-from model.invres import InvResNet3D
-from model.mdconv import InvResNetMD
+from model.dsconv import DSResNet3D
+from model.invres import InvResNet3D, InvResNet3D_DSOut, InvResNet3D_DSOut_NonRes
+from model.mdconv import InvResNetMD, InvResNetMD_DSOut, InvResNetMD_DSOut_NonRes, InvResNetMDBig
 from model.transformer_remake import Encoder, OfficialEncoder
 from model.conformer.encoder import ConformerEncoder
 from model.nar_decoder import ResTCDecoder
 from model.rnn import LSTMEncoder, GRUEncoder
-from model.dilated_conv import DilatedConvEncoder
 
 
 class Lip2SP_NAR(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
-        inv_up_scale, sq_r, md_n_groups, c_attn, s_attn,
-        separate_frontend, which_res,
+        inv_up_scale, sq_r, md_n_groups, c_attn, s_attn, res_n_add_channels,
+        separate_frontend, which_res, ds_attn,
         d_model, n_layers, n_head, conformer_conv_kernel_size,
         rnn_hidden_channels, rnn_n_layers,
         dconv_inner_channels, dconv_kernel_size, dconv_n_layers,
@@ -64,13 +64,35 @@ class Lip2SP_NAR(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
-        elif which_res == "resnet18":
-            self.ResNet_GAP = ResNet18(
+        elif which_res == "simple_nonres":
+            self.ResNet_GAP = Simple_NonRes(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        elif which_res == "simplebig":
+            self.ResNet_GAP = SimpleBig(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+            )
+        elif which_res == "ds":
+            self.ResNet_GAP = DSResNet3D(
                 in_channels=in_channels,
                 out_channels=rnn_hidden_channels,
-                hidden_channels=res_inner_channels,
+                inner_channels=res_inner_channels,
+                layers=res_layers,
                 dropout=res_dropout,
-            )   
+                norm_type=norm_type,
+                sq_r=sq_r,
+                attn=ds_attn,
+            )
         elif which_res == "inv":
             self.ResNet_GAP = InvResNet3D(
                 in_channels=in_channels, 
@@ -83,9 +105,83 @@ class Lip2SP_NAR(nn.Module):
                 sq_r=sq_r,
                 c_attn=c_attn,
                 s_attn=s_attn,
+                n_add_channels=res_n_add_channels,
+            )
+        elif which_res == "inv_dsout":
+            self.ResNet_GAP = InvResNet3D_DSOut(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+                up_scale=inv_up_scale,
+                sq_r=sq_r,
+                c_attn=c_attn,
+                s_attn=s_attn,
+                n_add_channels=res_n_add_channels,
+            )
+        elif which_res == "inv_dsout_nonres":
+            self.ResNet_GAP = InvResNet3D_DSOut_NonRes(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+                up_scale=inv_up_scale,
+                sq_r=sq_r,
+                c_attn=c_attn,
+                s_attn=s_attn,
+                n_add_channels=res_n_add_channels,
             )
         elif which_res == "invmd":
             self.ResNet_GAP = InvResNetMD(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+                up_scale=inv_up_scale,
+                sq_r=sq_r,
+                n_groups=md_n_groups,
+                c_attn=c_attn,
+                s_attn=s_attn,
+                n_add_channels=res_n_add_channels,
+            )
+        elif which_res == "invmd_dsout":
+            self.ResNet_GAP = InvResNetMD_DSOut(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+                up_scale=inv_up_scale,
+                sq_r=sq_r,
+                n_groups=md_n_groups,
+                c_attn=c_attn,
+                s_attn=s_attn,
+                n_add_channels=res_n_add_channels,
+            )
+        elif which_res == "invmd_dsout_nonres":
+            self.ResNet_GAP = InvResNetMD_DSOut_NonRes(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
+                up_scale=inv_up_scale,
+                sq_r=sq_r,
+                n_groups=md_n_groups,
+                c_attn=c_attn,
+                s_attn=s_attn,
+                n_add_channels=res_n_add_channels,
+            )
+        elif which_res == "invmdbig":
+            self.ResNet_GAP = InvResNetMDBig(
                 in_channels=in_channels, 
                 out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,

@@ -93,7 +93,15 @@ def get_path_test(cfg, model_path):
     stat_path = Path(stat_path).expanduser()
 
     save_path = Path(cfg.test.save_path).expanduser()
-    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+    
+    if cfg.model.name == "mspec":
+        if cfg.model.sharp:
+            save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / f"{model_path.stem}_sharp"
+        else:
+            save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+    else:
+        save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+
     train_save_path = save_path / "train_data" / "audio"
     test_save_path = save_path / "test_data" / "audio"
     os.makedirs(train_save_path, exist_ok=True)
