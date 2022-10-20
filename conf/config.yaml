@@ -1,5 +1,7 @@
 defaults:
-  - model: mspec80
+  - model: mspec80_trans
   - train: default
   - test : default
-  - wandb_conf : debug
+  - wandb_conf : default
+tag: "debug_test"
+model_path: None

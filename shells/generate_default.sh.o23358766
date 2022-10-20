@@ -1,0 +1,284 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年10月15日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/10/15 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/10/15 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          0       4  2022/10/31  余剰GPUを使わせていただきます
+takehisa        0       2  2022/10/31  (仮)
+fujita          6       5  2022/10/31  使います
+============================================================================
+Remaining      10
+
+wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
+/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+device = cuda
+model path
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40.ckpt
+
+--- get datasets ---
+load F01_kablab
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3831
+
+--- get datasets ---
+load F01_kablab
+
+--- make train dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3639
+
+--- make validation dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 192
+--- generate ---
+  0%|          | 0/3831 [00:00<?, ?it/s]  0%|          | 1/3831 [00:59<63:10:48, 59.39s/it]  0%|          | 2/3831 [01:29<44:43:34, 42.05s/it]  0%|          | 3/3831 [02:15<46:45:44, 43.98s/it]  0%|          | 4/3831 [03:29<59:19:49, 55.81s/it]  0%|          | 5/3831 [04:35<63:13:22, 59.49s/it]  0%|          | 6/3831 [05:19<57:37:02, 54.23s/it]  0%|          | 7/3831 [06:43<67:53:40, 63.92s/it]  0%|          | 8/3831 [07:40<65:23:54, 61.58s/it]  0%|          | 9/3831 [08:29<61:22:46, 57.81s/it]  0%|          | 10/3831 [09:08<55:19:46, 52.13s/it]  0%|          | 11/3831 [09:48<51:15:33, 48.31s/it]  0%|          | 12/3831 [10:39<51:59:22, 49.01s/it]  0%|          | 13/3831 [11:40<55:51:37, 52.67s/it]  0%|          | 14/3831 [12:42<58:58:00, 55.61s/it]  0%|          | 15/3831 [14:17<71:31:26, 67.48s/it]  0%|          | 16/3831 [15:06<65:34:24, 61.88s/it]  0%|          | 17/3831 [16:03<64:06:30, 60.51s/it]  0%|          | 18/3831 [16:48<59:02:01, 55.74s/it]  0%|          | 19/3831 [17:42<58:29:16, 55.24s/it]  1%|          | 20/3831 [18:15<51:31:11, 48.67s/it]  1%|          | 21/3831 [18:55<48:42:21, 46.02s/it]  1%|          | 22/3831 [19:44<49:33:20, 46.84s/it]  1%|          | 23/3831 [21:57<76:43:51, 72.54s/it]  1%|          | 24/3831 [22:39<67:15:21, 63.60s/it]  1%|          | 25/3831 [23:22<60:42:50, 57.43s/it]  1%|          | 26/3831 [25:48<88:32:43, 83.77s/it]  1%|          | 27/3831 [26:48<81:03:09, 76.71s/it]  1%|          | 28/3831 [27:52<76:59:16, 72.88s/it]  1%|          | 29/3831 [29:24<83:13:06, 78.80s/it]  1%|          | 30/3831 [30:27<77:58:41, 73.85s/it]  1%|          | 31/3831 [32:55<101:34:30, 96.23s/it]  1%|          | 32/3831 [34:03<92:26:33, 87.60s/it]   1%|          | 33/3831 [36:16<106:58:19, 101.40s/it]  1%|          | 34/3831 [37:51<104:56:43, 99.50s/it]   1%|          | 35/3831 [38:36<87:44:53, 83.22s/it]   1%|          | 36/3831 [39:15<73:45:43, 69.97s/it]  1%|          | 37/3831 [39:56<64:32:06, 61.24s/it]  1%|          | 38/3831 [40:59<64:53:00, 61.58s/it]  1%|          | 39/3831 [44:15<107:21:27, 101.92s/it]  1%|          | 40/3831 [45:20<95:40:22, 90.85s/it]    1%|          | 41/3831 [45:53<77:33:29, 73.67s/it]  1%|          | 42/3831 [46:44<70:06:41, 66.61s/it]  1%|          | 43/3831 [47:54<71:18:28, 67.77s/it]  1%|          | 44/3831 [48:55<69:13:12, 65.80s/it]  1%|          | 45/3831 [50:13<72:54:25, 69.33s/it]  1%|          | 46/3831 [51:40<78:33:56, 74.73s/it]  1%|          | 47/3831 [52:52<77:42:33, 73.93s/it]  1%|▏         | 48/3831 [53:33<67:22:17, 64.11s/it]  1%|▏         | 49/3831 [55:11<77:53:18, 74.14s/it]  1%|▏         | 50/3831 [56:55<87:20:57, 83.17s/it]  1%|▏         | 51/3831 [59:02<100:57:01, 96.14s/it]  1%|▏         | 52/3831 [59:49<85:28:02, 81.42s/it]   1%|▏         | 52/3831 [1:01:11<74:06:38, 70.60s/it]save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a01_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a01_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a02_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a02_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a03_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a03_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a04_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a04_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a05_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a05_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a06_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a06_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a07_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a07_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a08_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a08_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a09_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a09_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a10_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a10_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a11_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a11_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a12_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a12_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a13_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a13_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a14_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a14_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a15_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a15_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a16_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a16_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a17_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a17_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a18_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a18_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a19_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a19_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a20_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a20_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a21_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a21_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a22_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a22_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a23_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a23_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a24_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a24_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a25_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a25_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a26_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a26_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a27_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a27_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a28_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a28_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a29_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a29_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a30_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a30_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a31_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a31_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a32_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a32_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a33_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a33_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a34_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a34_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a35_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a35_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a36_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a36_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a37_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a37_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a38_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a38_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a39_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a39_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a40_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a40_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a41_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a41_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a42_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a42_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a43_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a43_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a44_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a44_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a45_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a45_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a46_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a46_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a47_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a47_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a48_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a48_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a49_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a49_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a50_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_a50_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_b01_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_b01_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_b02_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_b02_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_b03_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40/test_data/audio/ATR503_b03_0_mspec80/mspec_generate.wav
+--- calc accuracy ---
+
+Error executing job with overrides: ['train.debug=False', 'tag=build_prenet_dropout', 'model_path=/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:08_10-39-12_build_prenet_dropout/mspec80_40.ckpt']
+Traceback (most recent call last):
+  File "generate.py", line 304, in main
+    calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/calc_accuracy.py", line 18, in calc_accuracy
+    wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torchmetrics/audio/pesq.py", line 87, in __init__
+    raise ModuleNotFoundError(
+ModuleNotFoundError: PerceptualEvaluationSpeechQuality metric requires that `pesq` is installed. Either install as `pip install torchmetrics[audio]` or `pip install pesq`.
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

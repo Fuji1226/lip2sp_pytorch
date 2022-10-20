@@ -1,0 +1,54 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年10月09日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/10/09 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/10/09 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          8       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+takehisa        0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+fujita          8       5  2022/10/31  使います
+============================================================================
+Remaining       0
+
+Traceback (most recent call last):
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/glu_remake.py", line 17, in <module>
+    from ..wavenet.model.conv import CausalConv1d  
+ValueError: attempted relative import beyond top-level package
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/model_default.py", line 29, in <module>
+    from model.glu_remake import GLU
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/glu_remake.py", line 21, in <module>
+    from wavenet.model.conv import CausalConv1d   
+ModuleNotFoundError: No module named 'wavenet.model'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/glu_remake.py", line 17, in <module>
+    from ..wavenet.model.conv import CausalConv1d  
+ValueError: attempted relative import beyond top-level package
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "generate.py", line 33, in <module>
+    from train_default import make_model
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/train_default.py", line 18, in <module>
+    from model.model_default import Lip2SP
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/model_default.py", line 36, in <module>
+    from .glu_remake import GLU
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/glu_remake.py", line 21, in <module>
+    from wavenet.model.conv import CausalConv1d   
+ModuleNotFoundError: No module named 'wavenet.model'

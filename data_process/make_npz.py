@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-sys.path.append(str(Path("~/lip2sp_pytorch/data_process").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_process").expanduser()))
 
 import numpy as np
 import torch
@@ -14,12 +14,12 @@ except:
     from transform_no_chainer import load_data_for_npz
 
 # speakerのみ変更してください
-speaker = "M04_kablab"
-LIP_PATH = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
-LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/train").expanduser()
-LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
-LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/test").expanduser()
-LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
+speaker = "F01_kabulab"
+LIP_PATH = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
+LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/train").expanduser()
+LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/mean_std").expanduser()
+LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files_fujita/lip_cropped/test").expanduser()
+LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/mean_std").expanduser()
 
 
 def get_dataset_lip(data_root):    
@@ -36,12 +36,12 @@ def get_dataset_lip(data_root):
                 # ATRのjセットをテストデータにするので，ここで分けます
                 if '_j' in Path(file).stem:
                     audio_path = os.path.join(curdir, file)
-                    video_path = os.path.join(curdir, f"{Path(file).stem}_crop.mp4")
+                    video_path = os.path.join(curdir, f"{Path(file).stem}.mp4")
                     if os.path.isfile(video_path) and os.path.isfile(audio_path):
                             test_items.append([video_path, audio_path])
                 else:
                     audio_path = os.path.join(curdir, file)
-                    video_path = os.path.join(curdir, f"{Path(file).stem}_crop.mp4")
+                    video_path = os.path.join(curdir, f"{Path(file).stem}.mp4")
                     if os.path.isfile(video_path) and os.path.isfile(audio_path):
                             train_items.append([video_path, audio_path])
     return train_items, test_items
@@ -101,8 +101,8 @@ def save_data_train(items, len, cfg, data_save_path, mean_std_save_path, device,
                 audio_path=audio_path,
                 cfg=cfg,
             )
-
-            if cfg.model.name == "mspec80":
+       
+            if cfg.model.name == "mspec80_trans":
                 assert feature.shape[-1] == 80
             elif cfg.model.name == "mspec40":
                 assert feature.shape[-1] == 40

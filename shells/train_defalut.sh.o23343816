@@ -1,0 +1,35 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年10月13日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/10/13 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/10/13 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          4       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+takehisa        0       2  2022/10/31  (仮)
+fujita         12       5  2022/10/31  使います
+============================================================================
+Remaining       0
+
+wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
+/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+tag: mixed_random_postnetkernel10
+device = cuda
+cpu_num = 36
+gpu_num = 1
+Error executing job with overrides: ['train.debug=False', 'tag=mixed_random_postnetkernel10']
+Traceback (most recent call last):
+  File "train_default.py", line 257, in main
+    current_time += f'_{cfg.tag}'
+UnboundLocalError: local variable 'current_time' referenced before assignment
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

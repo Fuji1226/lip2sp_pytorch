@@ -20,10 +20,10 @@ lip_path : "~/dataset/lip/lip_cropped"
 face_path : "~/dataset/lip/cropped"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/nar/train"
+save_path : "~/lip2sp_pytorch_all/lip2sp_920_re/result/nar/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/nar"
+ckpt_path : "~/lip2sp_pytorch_all/lip2sp_920_re/check_point/nar"
 ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
@@ -35,7 +35,7 @@ lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
 # 使用する話者
-speaker : ["F01_kablab", "M01_kablab"]
+speaker : ["F01_kablab"]
 use_gc : False
 
 # max_epoch

@@ -1,0 +1,28 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年09月28日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/09/28 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/09/28 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       2  2022/09/30  長期間にわたってありがとうございました
+minami          2       2  2022/09/30  余剰GPUを使用させていただきます
+takehisa        0       2  2022/09/30  2枚確保させてください
+fujita          4       5  2022/10/31  使います
+============================================================================
+Remaining      10
+
+wandb: Currently logged in as: minami373. Use `wandb login --relogin` to force relogin
+Traceback (most recent call last):
+  File "generate.py", line 34, in <module>
+    from calc_accuracy import calc_accuracy
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/calc_accuracy.py", line 5, in <module>
+    from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
+ModuleNotFoundError: No module named 'torchmetrics'

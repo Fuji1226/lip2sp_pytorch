@@ -23,6 +23,7 @@ def get_subsequent_mask(x, diag_mask=False):
     else:
         subsequent_mask = (0 - torch.triu(
             torch.ones((1, len_x, len_x), device=x.device), diagonal=1)).bool()
+
     return subsequent_mask.to(device=x.device)
 
 
@@ -42,7 +43,7 @@ def make_pad_mask(lengths, max_len):
     seq_range = torch.arange(0, max_len, dtype=torch.int64)
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
-    mask = seq_range_expand >= seq_length_expand     
+    mask = seq_range_expand >= seq_length_expand  
     return mask.unsqueeze(1).to(device=device)
 
 
@@ -94,10 +95,14 @@ class ScaledDotProductAttention(nn.Module):
         self.temperature = temperature
         self.dropout = nn.Dropout(attn_dropout)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask=None, flg=False):
         attention = torch.matmul(q / self.temperature, k.transpose(2, 3))
+        if flg:
+            breakpoint()
+        breakpoint()
         if mask is not None:
             attention = attention.masked_fill(mask, torch.tensor(float('-inf')))    # maskがTrueを-inf
+
 
         attention = self.dropout(F.softmax(attention, dim=-1))
         output = torch.matmul(attention, v)
@@ -119,7 +124,7 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask=None, flg=False):
         """
         q, k, v : (B, T, C)
         return : (B, T, C)
@@ -134,11 +139,10 @@ class MultiHeadAttention(nn.Module):
 
         # (B, T, n_head, C // n_head)
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
-
         if mask is not None:
             mask = mask.unsqueeze(1)   # 各headに対してブロードキャストするため
 
-        q = self.attention(q, k, v, mask=mask)  # (B, n_head, len_q, d_v)
+        q = self.attention(q, k, v, mask=mask, flg=flg)  # (B, n_head, len_q, d_v)
 
         q = q.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
         q = self.dropout(self.fc(q))    # (b x lq x (n*dv)) -> (b, lq, d_model)
@@ -150,15 +154,23 @@ class MultiHeadAttention(nn.Module):
 class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_in, d_hid, dropout=0.1):
         super().__init__()
-        self.w_1 = nn.Linear(d_in, d_hid) # position-wise
-        self.w_2 = nn.Linear(d_hid, d_in) # position-wise
+        # self.w_1 = nn.Linear(d_in, d_hid) # position-wise
+        # self.w_2 = nn.Linear(d_hid, d_in) # position-wise
+        self.conv1 = nn.Conv1d(d_in, d_hid, kernel_size=1)
+        self.conv2 = nn.Conv1d(d_hid, d_in, kernel_size=1)
+
         self.layer_norm = nn.LayerNorm(d_in, eps=1e-6)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
+        #breakpoint()
         residual = x
-        out = self.w_2(F.relu(self.w_1(x)))
+        x = x.transpose(1, 2)
+        #out = self.w_2(F.relu(self.w_1(x)))
+        out = self.conv2(F.relu(self.conv1(x)))
+        out = out.transpose(1, 2)
         out = self.dropout(out)
+
         out += residual
         out = self.layer_norm(out)
         return out
@@ -185,8 +197,9 @@ class DecoderLayer(nn.Module):
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
 
     def forward(self, dec_input, enc_output, self_attention_mask=None, dec_enc_attention_mask=None, mode=None):
+      
         if mode == "training":
-            dec_output = self.dec_self_attention(dec_input, dec_input, dec_input, mask=self_attention_mask)
+            dec_output = self.dec_self_attention(dec_input, dec_input, dec_input, mask=self_attention_mask, flg=True)
             dec_output = self.dec_enc_attention(dec_output, enc_output, enc_output, mask=dec_enc_attention_mask)
             dec_output = self.fc(dec_output)
 
@@ -222,6 +235,8 @@ class Encoder(nn.Module):
         ])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
+        self.alpha = nn.Parameter(torch.ones(1))
+
     def forward(self, x, data_len=None, layer="enc"):
         """
         x : (B, C, T)
@@ -241,7 +256,7 @@ class Encoder(nn.Module):
             mask = None
 
         x = self.dropout(x)
-        x = x + posenc(x, device=x.device, start_index=0)
+        x = x + self.alpha * posenc(x, device=x.device, start_index=0)
         x = x.permute(0, -1, -2)  # (B, T, C)
         enc_output = self.layer_norm(x)
 
@@ -268,10 +283,17 @@ class Decoder(nn.Module):
             DecoderLayer(dec_d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout, diag_mask=self.diag_mask)
             for _ in range(dec_n_layers)
         ])
+
+        #self.mel_linear = nn.Linear()
         self.conv_o = nn.Conv1d(dec_d_model, self.out_channels * self.reduction_factor, kernel_size=1)
         self.layer_norm = nn.LayerNorm(dec_d_model, eps=1e-6)
 
+        self.alpha = nn.Parameter(torch.ones(1))
+
     def forward(self, enc_output, target=None, data_len=None, gc=None, mode=None):
+    
+        # print('dec first')
+        # print(target.shape)
         B = enc_output.shape[0]
         T = enc_output.shape[1]
         D = self.out_channels
@@ -283,8 +305,11 @@ class Decoder(nn.Module):
         # view for reduction factor
         if target is not None:
             target = target.permute(0, -1, -2)  # (B, T, C)
-            target = target.contiguous().view(B, -1, D * self.reduction_factor)
+            target = target.contiguous().view(B, -1, D * self.reduction_factor) #(B, T//2, C*2)
             target = target.permute(0, -1, -2)  # (B, C, T)
+            # print('target')
+            # print(target.shape)
+            # breakpoint()
         else:
             target = torch.zeros(B, D * self.reduction_factor, 1).to(device=enc_output.device, dtype=enc_output.dtype) 
         
@@ -292,19 +317,21 @@ class Decoder(nn.Module):
         if mode == "training":
             data_len = torch.div(data_len, self.reduction_factor)
             max_len = T
-            dec_enc_attention_mask = make_pad_mask(data_len, max_len)
+            dec_enc_attention_mask = make_pad_mask(data_len, max_len)  #(B, 1, len)
+            breakpoint()
             self_attention_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target, self.diag_mask) # (B, T, T)
-
         elif mode == "inference":
             dec_enc_attention_mask = None
             self_attention_mask = None
 
         # prenet
+
         target = self.dropout(self.prenet(target))
 
         # positional encoding & decoder layers
         if mode == "training":
-            target = target + posenc(target, device=target.device, start_index=0)
+            target = target + self.alpha * posenc(target, device=target.device, start_index=0)
+            #breakpoint()
             target = self.layer_norm(target.permute(0, -1, -2))     # (B, T, C)
             dec_layer_out = target
             for dec_layer in self.dec_layers:
@@ -313,14 +340,17 @@ class Decoder(nn.Module):
         elif mode == "inference":
             if self.start_idx is None:
                 self.start_idx = 0
-            target = target + posenc(target, device=target.device, start_index=self.start_idx)
+           
+            target = target + self.alpha * posenc(target, device=target.device, start_index=self.start_idx)
             target = self.layer_norm(target.permute(0, -1, -2))     # (B, T, C)
             self.start_idx += 1
             dec_layer_out = target
             for dec_layer in self.dec_layers:
                 dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask, dec_enc_attention_mask, mode)
 
-        dec_output = self.conv_o(dec_layer_out.permute(0, -1, -2))      # (B, C, T)
+        
+        #(B, len, hidden(256)) -> (B, mel, len)
+        dec_output = self.conv_o(dec_layer_out.permute(0, -1, -2))      # (B, len, hidden) -> (B, mel*2, len) 
         dec_output = dec_output.permute(0, -1, -2)  # (B, T, C)
         dec_output = dec_output.contiguous().view(B, -1, D)
         dec_output = dec_output.permute(0, -1, -2)  # (B, C, T)

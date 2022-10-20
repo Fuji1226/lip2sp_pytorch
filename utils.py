@@ -9,8 +9,9 @@ from librosa.display import specshow
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import json
 
-from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets, get_datasets_test, collate_time_adjust
+from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust
 
 
 def prime_factorize(n):
@@ -81,6 +82,14 @@ def get_path_train(cfg, current_time):
         save_path = save_path / cfg.train.face_or_lip / current_time
     os.makedirs(save_path, exist_ok=True)
 
+    from omegaconf import DictConfig, OmegaConf
+    wandb_cfg = OmegaConf.to_container(
+        cfg, resolve=True, throw_on_missing=True,
+    )
+    save_path_json = os.path.join(save_path, 'config.json')
+    config_save = open(save_path_json, mode='w')
+    json.dump(wandb_cfg, config_save, indent=4)
+
     return data_root, mean_std_path, ckpt_path, save_path, ckpt_time
 
 
@@ -93,6 +102,8 @@ def get_path_test(cfg, model_path):
         train_data_root = cfg.train.lip_pre_loaded_path
         test_data_root = cfg.test.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
+
+        #test_data_root = cfg.train.lip_pre_loaded_path
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
@@ -248,7 +259,7 @@ def make_test_loader(cfg, data_root, mean_std_path):
         num_workers=0,      
         pin_memory=True,
         drop_last=True,
-        collate_fn=None,
+        collate_fn=None
     )
     return test_loader, test_dataset
 
@@ -308,11 +319,11 @@ def check_mel_default(target, output, dec_output, cfg, filename, current_time, c
     plt.title("dec_output")
 
     plt.tight_layout()
-    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
+    save_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
     if ckpt_time is not None:
-        save_path = save_path / cfg.train.name / ckpt_time
+        save_path = save_path / cfg.train.name / cfg.tag
     else:
-        save_path = save_path / cfg.train.name / current_time
+        save_path = save_path / cfg.train.name / cfg.tag
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})

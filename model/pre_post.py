@@ -11,9 +11,22 @@ class Prenet(nn.Module):
             nn.Conv1d(in_channels, inner_channels, kernel_size=1),
             nn.ReLU(),
             nn.Dropout(p=dropout),
-            nn.Conv1d(inner_channels, out_channels, kernel_size=1),
+            nn.Conv1d(inner_channels, inner_channels, kernel_size=1),
             nn.ReLU(),
+            nn.Dropout(p=dropout),
+            nn.Conv1d(inner_channels, out_channels, 1),
+            nn.ReLU()
         )
+
+        # self.conv1 = nn.Conv1d(in_channels, inner_channels, kernel_size=1)
+        # self.conv2 = nn.Conv1d(inner_channels, inner_channels, kernel_size=1)
+        # self.conv3 = nn.Conv1d(inner_channels, out_channels, kernel_size=1)
+
+        self.project_pre = nn.Conv1d(out_channels, out_channels, 1, bias=False)
+        self.layer_norm = nn.LayerNorm(out_channels)
+
+        self.dropout = dropout
+        
 
     def forward(self, x):
         """
@@ -21,31 +34,49 @@ class Prenet(nn.Module):
         x : (B, C=feature channels, T)
         y : (B, C=d_model, T)
         """
-        return self.fc(x)
+        # out = F.relu(self.conv1(x))
+        # out = F.dropout(out, self.dropout, training=True)
+
+        # out = F.relu(self.conv2(out))
+        # out = F.dropout(out, self.dropout)
+
+        # out = F.relu(self.conv3(out))
+        out = self.fc(x)
+
+        out = self.project_pre(out)
+        out = self.layer_norm(out.transpose(-1, -2))
+
+        #breakpoint()
+        return out.transpose(-1, -2)
 
 
 class Postnet(nn.Module):
-    def __init__(self, in_channels, inner_channels, out_channels, n_layers=5, dropout=0.5):
+    def __init__(self, in_channels, inner_channels, out_channels, n_layers=5, dropout=0.5, kernel_size=9):
         super().__init__()
+        self.padding = kernel_size -1
+
         conv = []
-        conv.append(nn.Conv1d(in_channels, inner_channels, kernel_size=5, padding=2, bias=True))
+        conv.append(nn.Conv1d(in_channels, inner_channels, kernel_size=kernel_size, padding=self.padding, bias=True))
         conv.append(nn.BatchNorm1d(inner_channels))
         conv.append(nn.Tanh())
         conv.append(nn.Dropout(p=dropout))
         
         for _ in range(n_layers - 2):
-            conv.append(nn.Conv1d(inner_channels, inner_channels, kernel_size=5, padding=2, bias=True))
+            conv.append(nn.Conv1d(inner_channels, inner_channels, kernel_size=kernel_size, padding=self.padding, bias=True))
             conv.append(nn.BatchNorm1d(inner_channels))
             conv.append(nn.Tanh())
             conv.append(nn.Dropout(p=dropout))
 
-        conv.append(nn.Conv1d(inner_channels, out_channels, kernel_size=5, padding=2, bias=True))
+        conv.append(nn.Conv1d(inner_channels, out_channels, kernel_size=kernel_size, padding=self.padding, bias=True))
         self.conv_layers = nn.ModuleList(conv)
 
     def forward(self, x):
-        y = x
+        y = x 
         for layer in self.conv_layers:
-            y = layer(y)
+            if isinstance(layer, nn.Conv1d):
+                y = layer(y)[..., :-self.padding]
+            else:
+                y = layer(y)
         return x + y
 
 

@@ -1,0 +1,263 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年10月09日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/10/09 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/10/09 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          8       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+takehisa        0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+fujita          8       5  2022/10/31  使います
+============================================================================
+Remaining       0
+
+wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
+/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+device = cuda
+model path
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/glu_test1/mspec80_300.ckpt
+
+--- get datasets ---
+load F01_kablab
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 53
+--- generate ---
+  0%|          | 0/53 [00:00<?, ?it/s]  2%|▏         | 1/53 [01:47<1:33:04, 107.40s/it]  4%|▍         | 2/53 [03:01<1:14:31, 87.68s/it]   6%|▌         | 3/53 [05:06<1:27:15, 104.71s/it]  8%|▊         | 4/53 [06:58<1:28:04, 107.84s/it]  9%|▉         | 5/53 [09:01<1:30:27, 113.08s/it] 11%|█▏        | 6/53 [11:06<1:31:44, 117.12s/it] 13%|█▎        | 7/53 [12:32<1:22:09, 107.17s/it] 15%|█▌        | 8/53 [13:50<1:13:12, 97.61s/it]  17%|█▋        | 9/53 [15:09<1:07:19, 91.82s/it] 19%|█▉        | 10/53 [16:11<59:23, 82.88s/it]  21%|██        | 11/53 [17:02<51:11, 73.13s/it] 23%|██▎       | 12/53 [18:11<48:56, 71.63s/it] 25%|██▍       | 13/53 [19:33<49:53, 74.83s/it] 26%|██▋       | 14/53 [20:56<50:12, 77.25s/it] 28%|██▊       | 15/53 [22:28<51:47, 81.77s/it] 30%|███       | 16/53 [23:43<49:09, 79.71s/it] 32%|███▏      | 17/53 [24:42<44:03, 73.44s/it] 34%|███▍      | 18/53 [26:11<45:36, 78.19s/it] 36%|███▌      | 19/53 [27:24<43:24, 76.60s/it] 38%|███▊      | 20/53 [28:39<41:50, 76.09s/it] 40%|███▉      | 21/53 [30:24<45:10, 84.71s/it] 42%|████▏     | 22/53 [31:25<40:09, 77.71s/it] 43%|████▎     | 23/53 [33:47<48:28, 96.96s/it] 45%|████▌     | 24/53 [35:15<45:36, 94.37s/it] 47%|████▋     | 25/53 [36:54<44:35, 95.55s/it] 49%|████▉     | 26/53 [38:15<41:08, 91.44s/it] 51%|█████     | 27/53 [39:19<35:58, 83.04s/it] 53%|█████▎    | 28/53 [40:26<32:40, 78.42s/it] 55%|█████▍    | 29/53 [41:09<27:04, 67.70s/it] 57%|█████▋    | 30/53 [42:17<25:55, 67.63s/it] 58%|█████▊    | 31/53 [43:14<23:40, 64.56s/it] 60%|██████    | 32/53 [44:33<24:07, 68.93s/it] 62%|██████▏   | 33/53 [45:30<21:44, 65.23s/it] 64%|██████▍   | 34/53 [46:47<21:45, 68.73s/it] 66%|██████▌   | 35/53 [48:29<23:37, 78.74s/it] 68%|██████▊   | 36/53 [49:53<22:48, 80.47s/it] 70%|██████▉   | 37/53 [51:14<21:26, 80.43s/it] 72%|███████▏  | 38/53 [53:26<24:01, 96.07s/it] 74%|███████▎  | 39/53 [55:54<26:03, 111.67s/it] 75%|███████▌  | 40/53 [57:09<21:46, 100.51s/it] 77%|███████▋  | 41/53 [58:57<20:33, 102.82s/it] 79%|███████▉  | 42/53 [1:00:30<18:20, 100.07s/it] 81%|████████  | 43/53 [1:01:51<15:41, 94.17s/it]  83%|████████▎ | 44/53 [1:03:25<14:07, 94.13s/it] 85%|████████▍ | 45/53 [1:04:17<10:52, 81.57s/it] 87%|████████▋ | 46/53 [1:05:07<08:25, 72.16s/it] 89%|████████▊ | 47/53 [1:06:52<08:10, 81.79s/it] 91%|█████████ | 48/53 [1:07:43<06:03, 72.69s/it] 92%|█████████▏| 49/53 [1:09:41<05:44, 86.23s/it] 94%|█████████▍| 50/53 [1:12:07<05:12, 104.10s/it] 96%|█████████▌| 51/53 [1:12:50<02:51, 85.92s/it]  98%|█████████▊| 52/53 [1:14:03<01:22, 82.12s/it] 98%|█████████▊| 52/53 [1:15:29<01:27, 87.10s/it]save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j01_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j01_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j02_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j02_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j03_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j03_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j04_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j04_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j05_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j05_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j06_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j06_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j07_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j07_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j08_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j08_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j09_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j09_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j10_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j10_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j11_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j11_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j12_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j12_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j13_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j13_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j14_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j14_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j15_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j15_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j16_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j16_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j17_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j17_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j18_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j18_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j19_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j19_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j20_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j20_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j21_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j21_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j22_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j22_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j23_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j23_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j24_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j24_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j25_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j25_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j26_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j26_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j27_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j27_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j28_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j28_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j29_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j29_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j30_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j30_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j31_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j31_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j32_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j32_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j33_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j33_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j34_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j34_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j35_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j35_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j36_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j36_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j37_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j37_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j38_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j38_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j39_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j39_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j40_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j40_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j41_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j41_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j42_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j42_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j43_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j43_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j44_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j44_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j45_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j45_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j46_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j46_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j47_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j47_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j48_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j48_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j49_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j49_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j50_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j50_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j51_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j51_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j52_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j52_0_mspec80/mspec_generate.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j53_0_mspec80/mspec_AbS.wav
+save
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/generate/lip/glu_test1/mspec80_300/test_data/audio/ATR503_j53_0_mspec80/mspec_generate.wav
+--- calc accuracy ---
+
+Error executing job with overrides: ['train.debug=False', 'model=mspec80_glu', 'model_path=/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/glu_test1/mspec80_300.ckpt', 'tag=tag_test']
+Traceback (most recent call last):
+  File "generate.py", line 139, in main
+    calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/calc_accuracy.py", line 18, in calc_accuracy
+    wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torchmetrics/audio/pesq.py", line 87, in __init__
+    raise ModuleNotFoundError(
+ModuleNotFoundError: PerceptualEvaluationSpeechQuality metric requires that `pesq` is installed. Either install as `pip install torchmetrics[audio]` or `pip install pesq`.
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

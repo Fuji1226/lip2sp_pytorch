@@ -1,0 +1,85 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年10月14日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/10/14 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/10/14 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          4       4  2022/10/31  余剰GPUを使わせていただきます
+takehisa        0       2  2022/10/31  (仮)
+fujita         12       5  2022/10/31  使います
+============================================================================
+Remaining       0
+
+wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
+/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+device = cuda
+model path
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/spec_augument_mixed_3times/mspec80_100.ckpt
+
+--- get datasets ---
+load F01_kablab
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3831
+
+--- get datasets ---
+load F01_kablab
+
+--- make train dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3639
+
+--- make validation dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 192
+--- generate ---
+  0%|          | 0/3831 [00:00<?, ?it/s]  0%|          | 0/3831 [00:00<?, ?it/s]
+Error executing job with overrides: ['train.debug=False', 'tag=spec_augument_mixed_3times', 'model_path=/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/spec_augument_mixed_3times/mspec80_100.ckpt']
+Traceback (most recent call last):
+  File "generate.py", line 285, in main
+    process_times = generate(
+  File "generate.py", line 65, in generate
+    output, dec_output, feat_add_out = model(lip)
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/model_default.py", line 179, in forward
+    enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 259, in forward
+    enc_output = enc_layer(enc_output, mask)
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 183, in forward
+    enc_output = self.fc(enc_output)
+  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 165, in forward
+    out = self.w_2(F.relu(self.w_1(X)))
+NameError: name 'X' is not defined
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

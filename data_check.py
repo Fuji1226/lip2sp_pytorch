@@ -119,6 +119,8 @@ def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std, ref):
             win_length=cfg.model.win_length,
             n_iter=100,
         )
+        print('save')
+        print(str(save_path / f"mspec_{file_name}.wav"))
         write(str(save_path / f"mspec_{file_name}.wav"), rate=cfg.model.sampling_rate, data=wav)
 
     return wav

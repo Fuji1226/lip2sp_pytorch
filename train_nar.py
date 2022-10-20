@@ -18,7 +18,7 @@ from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
 
 # wandbへのログイン
-wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
+wandb.login()
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -44,6 +44,7 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
 
 
 def make_model(cfg, device):
+    #breakpoint()
     model = Lip2SP_NAR(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
@@ -167,7 +168,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
     return epoch_loss, epoch_loss_feat_add
 
 
-@hydra.main(version_base=None, config_name="config", config_path="conf")
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4

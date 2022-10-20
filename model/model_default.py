@@ -15,11 +15,14 @@ import sys
 from pathlib import Path
 
 # 親ディレクトリからのimport用
-sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch_all/lip2sp_920_re").expanduser()))
 
+import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import random
 
 try:
     from model.net import ResNet3D
@@ -36,6 +39,29 @@ except:
     from .glu_remake import GLU
     from .nar_decoder import FeadAddPredicter
 
+def spec_augment(y, time_ratio=0.1, freq_ratio=0.1):
+    #breakpoint()
+    x = y.to('cpu').clone().detach().numpy()
+    
+    nu, tau = x.shape[1:]
+
+    for _ in range(8):
+        flg1 = random.random()
+        flg2 = random.random()
+        f = np.random.randint(int(nu*freq_ratio))
+        t = np.random.randint(int(tau*time_ratio))
+
+        if flg1 < 0.5:
+            if f > 0:
+                f0 = np.random.randint(nu-f)
+                x[:, f0:f0+f] = x[:, f0:f0+f].mean((-2, -1))[:, None, None]
+        if flg2 < 0.5:
+            if t > 0:
+                t0 = np.random.randint(tau-t)
+                x[..., t0:t0+t] = x[..., t0:t0+t].mean((-2, -1))[:, None, None]
+
+        ans = torch.tensor(x, dtype=y.dtype, device=y.device)
+        return ans
 
 class Lip2SP(nn.Module):
     def __init__(
@@ -70,6 +96,9 @@ class Lip2SP(nn.Module):
             norm_type=norm_type,
         )
 
+        #re-centering(linear projection)
+        self.re_centering = nn.Linear(d_model, d_model)
+    
         # encoder
         if self.which_encoder == "transformer":
             self.encoder = Encoder(
@@ -137,10 +166,15 @@ class Lip2SP(nn.Module):
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化
         self.reset_state()
 
+    
         # encoder
         if self.apply_first_bn:
             lip = self.first_batch_norm(lip)
-        lip_feature = self.ResNet_GAP(lip)
+        lip_feature = self.ResNet_GAP(lip) #(B, C, T)
+        
+        #re-centering(linear projection)
+        lip_feature = self.re_centering(lip_feature.transpose(1, 2))
+        lip_feature = lip_feature.transpose(1, 2)
         
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
 
@@ -171,13 +205,13 @@ class Lip2SP(nn.Module):
 
             elif training_method == "ss":
                 with torch.no_grad():
-                    dec_output = self.decoder_forward(enc_output, prev, data_len)
+                    mixid_prev = prev
 
-                    # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
-                    mixing_prob = torch.zeros_like(prev) + mixing_prob
-                    judge = torch.bernoulli(mixing_prob)
-                    mixed_prev = torch.where(judge == 1, prev, dec_output)
-
+                    mix_cnt = random.randint(1, 3)
+                    for _ in range(mix_cnt):
+                        mixed_prev = self.prev_degradetion(enc_output, mixid_prev, data_len, mixing_prob)
+               
+                    mixed_prev = spec_augment(mixed_prev)
                 # 混ぜたやつでもう一回計算させる
                 dec_output = self.decoder_forward(enc_output, mixed_prev, data_len)
         # 推論時
@@ -234,3 +268,14 @@ class Lip2SP(nn.Module):
 
     def reset_state(self):
         self.decoder.reset_state()
+
+    
+    def prev_degradetion(self, enc_output, prev, data_len, mixing_prob):
+        dec_output = self.decoder_forward(enc_output, prev, data_len)
+
+        # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
+        mixing_prob = torch.zeros_like(prev) + mixing_prob
+        judge = torch.bernoulli(mixing_prob)
+
+        mixed_prev = torch.where(judge == 1, prev, dec_output)
+        return mixed_prev

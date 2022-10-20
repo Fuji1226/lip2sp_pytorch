@@ -6,8 +6,8 @@ make_npz.pyを実行するとここの処理が行われます
 import os
 import sys
 from pathlib import Path
-sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
-sys.path.append(str(Path("~/lip2sp_pytorch/data_process").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch_all/lip2sp_920_re").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_process").expanduser()))
 
 from pathlib import Path
 import cv2

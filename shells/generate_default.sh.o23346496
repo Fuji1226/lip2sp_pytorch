@@ -1,0 +1,60 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年10月14日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/10/14 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/10/14 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          4       4  2022/10/31  余剰GPUを使わせていただきます
+takehisa        0       2  2022/10/31  (仮)
+fujita         12       5  2022/10/31  使います
+============================================================================
+Remaining       0
+
+wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
+/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+device = cuda
+model path
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:06_22-00-00_random_FFN_conv/mspec80_30.ckpt
+
+--- get datasets ---
+load F01_kablab
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3831
+
+--- get datasets ---
+load F01_kablab
+
+--- make train dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3639
+
+--- make validation dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 192
+--- generate ---
+  0%|          | 0/3831 [00:00<?, ?it/s]  0%|          | 1/3831 [00:50<53:50:47, 50.61s/it]  0%|          | 2/3831 [01:12<35:40:22, 33.54s/it]  0%|          | 3/3831 [01:47<36:31:57, 34.36s/it]  0%|          | 4/3831 [02:46<46:54:47, 44.13s/it]  0%|          | 5/3831 [03:42<51:28:35, 48.44s/it]  0%|          | 6/3831 [04:26<49:53:13, 46.95s/it]  0%|          | 7/3831 [05:41<59:22:44, 55.90s/it]  0%|          | 8/3831 [06:31<57:25:43, 54.08s/it]  0%|          | 9/3831 [07:15<54:16:04, 51.12s/it]  0%|          | 10/3831 [07:45<47:17:51, 44.56s/it]  0%|          | 11/3831 [08:20<44:06:47, 41.57s/it]  0%|          | 12/3831 [09:11<47:03:10, 44.35s/it]  0%|          | 13/3831 [10:04<49:50:38, 47.00s/it]  0%|          | 14/3831 [10:55<51:04:13, 48.17s/it]  0%|          | 15/3831 [12:18<62:11:51, 58.68s/it]  0%|          | 16/3831 [12:50<53:46:12, 50.74s/it]  0%|          | 17/3831 [13:32<50:52:43, 48.02s/it]  0%|          | 18/3831 [14:13<48:49:28, 46.10s/it]  0%|          | 19/3831 [14:52<46:31:28, 43.94s/it]  1%|          | 20/3831 [15:26<43:08:54, 40.76s/it]  1%|          | 21/3831 [16:03<42:08:49, 39.82s/it]  1%|          | 22/3831 [16:39<40:41:37, 38.46s/it]  1%|          | 23/3831 [17:34<46:11:05, 43.66s/it]  1%|          | 24/3831 [18:08<42:59:30, 40.65s/it]  1%|          | 25/3831 [18:43<41:09:48, 38.94s/it]  1%|          | 26/3831 [19:18<39:53:25, 37.74s/it]  1%|          | 27/3831 [20:06<43:19:06, 41.00s/it]  1%|          | 28/3831 [21:00<47:09:30, 44.64s/it]  1%|          | 29/3831 [22:01<52:31:56, 49.74s/it]Terminated

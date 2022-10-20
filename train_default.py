@@ -13,13 +13,14 @@ from librosa.display import specshow
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
+from synthesis import generate_for_train_check
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default
+from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader
 from model.model_default import Lip2SP
 from loss import MaskedLoss
 
 # wandbへのログイン
-wandb.login(key="ba729c3f218d8441552752401f49ba3c0c0e2b9f")
+wandb.login()
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -105,24 +106,31 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
         else:
             output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
-
         B, C, T = output.shape
 
         if cfg.train.multi_task:
             loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            loss_feat_add.backward(retain_graph=True)
+            #loss_feat_add.backward(retain_graph=True)
             epoch_loss_feat_add += loss_feat_add.item()
             wandb.log({"train_loss_feat_add": loss_feat_add})
 
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
         epoch_output_loss += output_loss.item()
         wandb.log({"train_output_loss": output_loss})
-        output_loss.backward(retain_graph=True)
+        #output_loss.backward(retain_graph=True)
 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
         epoch_dec_output_loss += dec_output_loss.item()
         wandb.log({"train_dec_output_loss": dec_output_loss})
-        dec_output_loss.backward()
+        #dec_output_loss.backward()
+
+        if not cfg.train.multi_task:
+            loss = output_loss + dec_output_loss
+            loss.backward()
+        else:
+            loss = output_loss + dec_output_loss + feat_add_out
+            loss.backward()
+
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
@@ -222,7 +230,8 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(version_base=None, config_name="config", config_path="conf")
+
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -236,6 +245,7 @@ def main(cfg):
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
+    print(f'tag: {cfg.tag}')
 
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -245,6 +255,10 @@ def main(cfg):
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
 
+
+    # 現在時刻を取得
+    current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
+    current_time += f'_{cfg.tag}'
     # path
     data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
@@ -255,6 +269,7 @@ def main(cfg):
 
     # Dataloader作成
     train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
+    test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
     # 損失関数
     loss_f = MaskedLoss()
@@ -265,7 +280,9 @@ def main(cfg):
     val_dec_output_loss_list = []
     val_feat_add_loss_list = []
 
+    cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
+ 
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
@@ -277,7 +294,6 @@ def main(cfg):
             betas=(cfg.train.beta_1, cfg.train.beta_2),
             weight_decay=cfg.train.weight_decay    
         )
-
         # scheduler
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer=optimizer,
@@ -384,6 +400,17 @@ def main(cfg):
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
+
+            
+            generate_for_train_check(
+                cfg = cfg,
+                model = model,
+                test_loader = test_loader,
+                dataset=test_dataset,
+                device=device,
+                save_path=save_path,
+                epoch=epoch
+            )
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

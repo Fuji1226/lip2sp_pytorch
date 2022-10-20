@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# prologue.sh
+#
+# prologue.sh is executed by PJM prologue.
+#
+
+exec /usr/local/tool/prologue.sh
+

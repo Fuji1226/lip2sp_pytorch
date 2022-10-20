@@ -3,10 +3,10 @@
 name : "default"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 0
+debug_iter : 10
 
 # checkpointから再開する場合
 check_point_start : False
@@ -20,10 +20,10 @@ lip_path : "~/dataset/lip/lip_cropped"
 face_path : "~/dataset/lip/cropped"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/default/train"
+save_path : "~/lip2sp_pytorch_all/lip2sp_920_re/result/default/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/default"
+ckpt_path : "~/lip2sp_pytorch_all/lip2sp_920_re/check_point/default"
 ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
@@ -35,11 +35,11 @@ lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
 
 # 使用する話者
-speaker : ["F01_kablab", "M01_kablab"]
+speaker : ["F01_kablab"]
 use_gc : False
 
 # max_epoch
-max_epoch : 300
+max_epoch : 1000
 
 # validation lossを計算する間隔
 display_val_loss_step : 1
@@ -56,8 +56,8 @@ use_time_augment : False
 time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # dataloader
-batch_size : 32
-num_workers : 32
+batch_size : 8
+num_workers : 8
 
 # dropout
 dec_dropout : 0.5
