@@ -25,7 +25,7 @@ cd "${dir_project}"
 file_main="train_default.py"
 
 
-tag=prenet_normal_layer1_synthsis
+tag=mask_test
 # これより下に，Pythonなどを実行するコマンドを書きます。
 # 実際はもう少しごちゃごちゃした内容を記述していることが多いです。
 python $file_main train.debug=False tag=$tag

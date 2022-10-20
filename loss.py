@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from model.transformer_remake import make_pad_mask
+from model.transformer_remake import make_pad_mask_for_loss
 from data_process.feature import delta_feature, blur_pooling2D
 
 
@@ -18,7 +18,7 @@ class MaskedLoss:
         output, target : (B, C, T)
         """
         # マスク作成
-        mask = make_pad_mask(data_len, max_len) 
+        mask = make_pad_mask_for_loss(data_len, max_len, output) 
 
         # 二乗誤差を計算
         loss = (output - target)**2

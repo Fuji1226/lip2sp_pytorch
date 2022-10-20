@@ -10,3 +10,4 @@ result/
 # shells/
 wandb/
 # wavenet/
+env/

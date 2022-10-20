@@ -17,14 +17,18 @@ def get_subsequent_mask(x, diag_mask=False):
     decoderのself attentionを因果的にするためのマスク
     """
     len_x = x.shape[-1]
+    batch_size = x.shape[0]
     if diag_mask:
         subsequent_mask = (0 - torch.triu(
             torch.ones((1, len_x, len_x), device=x.device), diagonal=0)).bool()
     else:
         subsequent_mask = (0 - torch.triu(
             torch.ones((1, len_x, len_x), device=x.device), diagonal=1)).bool()
+    
+    subsequent_mask = subsequent_mask.repeat(batch_size, 1, 1).to(device=x.device)
+    return subsequent_mask
 
-    return subsequent_mask.to(device=x.device)
+# def get_triangle_mask()
 
 
 def make_pad_mask(lengths, max_len):
@@ -43,9 +47,31 @@ def make_pad_mask(lengths, max_len):
     seq_range = torch.arange(0, max_len, dtype=torch.int64)
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
-    mask = seq_range_expand >= seq_length_expand  
-    return mask.unsqueeze(1).to(device=device)
+    mask = seq_range_expand >= seq_length_expand
+    mask = mask.unsqueeze(1).repeat(1, max_len, 1).to(device=device)
+    
+    return mask
 
+def make_pad_mask_for_loss(lengths, max_len, output):
+    """
+    口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+    """
+    # この後の処理でリストになるので先にdeviceを取得しておく
+    device = lengths.device
+
+    if not isinstance(lengths, list):
+        lengths = lengths.tolist()
+    bs = int(len(lengths))
+    if max_len is None:
+        max_len = int(max(lengths))
+
+    seq_range = torch.arange(0, max_len, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    mask = seq_range_expand >= seq_length_expand
+    mask = mask.unsqueeze(1).repeat(1, output.shape[1], 1).to(device=device)
+
+    return mask
 
 def token_mask(x):
     """
@@ -97,9 +123,9 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, q, k, v, mask=None, flg=False):
         attention = torch.matmul(q / self.temperature, k.transpose(2, 3))
-        if flg:
-            breakpoint()
-        breakpoint()
+        # if flg:
+        #     breakpoint()
+        # breakpoint()
         if mask is not None:
             attention = attention.masked_fill(mask, torch.tensor(float('-inf')))    # maskがTrueを-inf
 
@@ -318,8 +344,7 @@ class Decoder(nn.Module):
             data_len = torch.div(data_len, self.reduction_factor)
             max_len = T
             dec_enc_attention_mask = make_pad_mask(data_len, max_len)  #(B, 1, len)
-            breakpoint()
-            self_attention_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target, self.diag_mask) # (B, T, T)
+            self_attention_mask = make_pad_mask(data_len, max_len) | get_subsequent_mask(target, self.diag_mask) # (B, T, T)
         elif mode == "inference":
             dec_enc_attention_mask = None
             self_attention_mask = None
