@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D, DSResNet3D, DSResNet3DCbam, DSResNet3DCbamSmall, InvResNet3D
+from model.net import ResNet3D, Simple, Simple_NonRes, SimpleBig
 from model.transformer_remake import Encoder, OfficialEncoder
 from model.conformer.encoder import ConformerEncoder
 from model.audio_enc import SpeakerEncoderConv, SpeakerEncoderRNN, ContentEncoder
@@ -35,42 +35,6 @@ class LipEncoder(nn.Module):
 
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
-                in_channels=in_channels, 
-                out_channels=d_model, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type_lip,
-            )
-        elif which_res == "ds":
-            self.ResNet_GAP = DSResNet3D(
-                in_channels=in_channels, 
-                out_channels=d_model, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type_lip,
-            )
-        elif which_res == "ds_cbam":
-            self.ResNet_GAP = DSResNet3DCbam(
-                in_channels=in_channels, 
-                out_channels=d_model, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type_lip,
-            )
-        elif which_res == "ds_cbam_small":
-            self.ResNet_GAP = DSResNet3DCbamSmall(
-                in_channels=in_channels, 
-                out_channels=d_model, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type_lip,
-            )
-        elif which_res == "inv":
-            self.ResNet_GAP = InvResNet3D(
                 in_channels=in_channels, 
                 out_channels=d_model, 
                 inner_channels=res_inner_channels,

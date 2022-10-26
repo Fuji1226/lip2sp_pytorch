@@ -9,18 +9,20 @@ import torch.nn.functional as F
 
 from model.net import ResNet3D, Simple, Simple_NonRes, SimpleBig
 from model.transformer_remake import Encoder, Decoder, OfficialEncoder
+from model.vq import VQ
 from model.pre_post import Postnet
 from model.conformer.encoder import ConformerEncoder
 from model.glu_remake import GLU
 from model.rnn import LSTMEncoder, GRUEncoder
 
 
-class Lip2SP(nn.Module):
+class Lip2SP_VQ(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
         separate_frontend, which_res,
         d_model, n_layers, n_head, dec_n_layers, dec_d_model, conformer_conv_kernel_size,
         rnn_hidden_channels, rnn_n_layers,
+        vq_emb_dim, vq_num_emb,
         glu_inner_channels, glu_layers, glu_kernel_size,
         n_speaker, spk_emb_dim,
         pre_inner_channels, post_inner_channels, post_n_layers, post_kernel_size,
@@ -114,8 +116,13 @@ class Lip2SP(nn.Module):
                 reduction_factor=reduction_factor,
             )
 
+        # vq
+        self.pre_vq_layer = nn.Conv1d(rnn_hidden_channels, vq_emb_dim, kernel_size=1)
+        self.vq = VQ(emb_dim=vq_emb_dim, num_emb=vq_num_emb)
+
+        # speaker embedding
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
-        self.spk_emb_layer = nn.Linear(rnn_hidden_channels + spk_emb_dim, rnn_hidden_channels)
+        self.spk_emb_layer = nn.Linear(vq_emb_dim + spk_emb_dim, vq_emb_dim)
 
         # decoder
         if self.which_decoder == "transformer":
@@ -136,7 +143,7 @@ class Lip2SP(nn.Module):
                 out_channels=out_channels,
                 pre_in_channels=out_channels * reduction_factor, 
                 pre_inner_channels=pre_inner_channels,
-                cond_channels=rnn_hidden_channels,
+                cond_channels=vq_emb_dim,
                 reduction_factor=reduction_factor, 
                 n_layers=glu_layers,
                 kernel_size=glu_kernel_size,
@@ -159,13 +166,16 @@ class Lip2SP(nn.Module):
         
         # encoder
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
+        enc_output = self.pre_vq_layer(enc_output.permute(0, 2, 1))     # (B, C, T)
+        quantize, vq_loss, embed_idx = self.vq(enc_output)
+        quantize = quantize.permute(0, 2, 1)    # (B, T, C) 
 
         # speaker embedding
         if gc is not None:
             spk_emb = self.emb_layer(gc)    # (B, C)
-            spk_emb = spk_emb.unsqueeze(1).expand(-1, enc_output.shape[1], -1)
-            enc_output = torch.cat([enc_output, spk_emb], dim=-1)
-            enc_output = self.spk_emb_layer(enc_output)
+            spk_emb = spk_emb.unsqueeze(1).expand(-1, quantize.shape[1], -1)
+            spk_emb = torch.cat([quantize, spk_emb], dim=-1)
+            spk_emb = self.spk_emb_layer(spk_emb)
         else:
             spk_emb = None
 
@@ -173,11 +183,11 @@ class Lip2SP(nn.Module):
         # 学習時
         if prev is not None:
             if training_method == "tf":
-                dec_output = self.decoder_forward(enc_output, prev, data_len)
+                dec_output = self.decoder_forward(quantize, prev, data_len)
 
             elif training_method == "ss":
                 with torch.no_grad():
-                    dec_output = self.decoder_forward(enc_output, prev, data_len)
+                    dec_output = self.decoder_forward(quantize, prev, data_len)
 
                     # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
                     mixing_prob = torch.zeros_like(prev) + mixing_prob
@@ -185,14 +195,14 @@ class Lip2SP(nn.Module):
                     mixed_prev = torch.where(judge == 1, prev, dec_output)
 
                 # 混ぜたやつでもう一回計算させる
-                dec_output = self.decoder_forward(enc_output, mixed_prev, data_len)
+                dec_output = self.decoder_forward(quantize, mixed_prev, data_len)
         # 推論時
         else:
-            dec_output = self.decoder_inference(enc_output)
+            dec_output = self.decoder_inference(quantize)
 
         # postnet
         out = self.postnet(dec_output) 
-        return out, dec_output
+        return out, dec_output, vq_loss
 
     def decoder_forward(self, enc_output, prev=None, data_len=None, mode="training"):
         """

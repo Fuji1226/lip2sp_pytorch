@@ -67,12 +67,12 @@ md_n_groups : 4
 c_attn : False
 s_attn : False
 ds_attn : False
-which_res : "inv_dsout_nonres"
+which_res : "simplebig"
 
 # glu parameter
 glu_layers : 4    # 4 or 6
-glu_kernel_size : 3   # 5 or 9
-glu_inner_channels : 128
+glu_kernel_size : 5   # 5 or 9
+glu_inner_channels : 256
 
 # transformer parameter
 n_layers : 1    # 1, 2 or 4
@@ -84,18 +84,18 @@ dec_n_head : 4
 diag_mask : False
 
 # rnn parameter
-rnn_hidden_channels : 128
-rnn_n_layers : 1
+rnn_hidden_channels : 512
+rnn_n_layers : 2
 
 # dilated conv paramater
-dconv_inner_channels : 128
-dconv_kernel_size : 5
+dconv_inner_channels : 256
+dconv_kernel_size : 3
 dconv_n_layers : 2
 
 # transposed convolution parameter
-tc_n_layers : 2   # 1層あたり2層の畳み込みを含みます
-tc_inner_channels : 128
-tc_kernel_size : 3
+tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
+tc_inner_channels : 256
+tc_kernel_size : 5
 tc_feat_add_channels : 1
 tc_feat_add_layers : 2
 tc_d_model : 128
@@ -124,7 +124,7 @@ which_decoder : "glu"
 ae_emb_dim : 4
 vae_emb_dim : 64
 vq_emb_dim : 64
-vq_num_emb : 256    
+vq_num_emb : 128    
 spk_emb_dim : 256
 norm_type_audio : "in"
 content_d_model : 256
@@ -148,8 +148,8 @@ n_classes : 44
 pre_in_channels : 160  # 音響特徴量から計算します
 pre_inner_channels : 32
 post_inner_channels : 256
-post_n_layers : 3   # 5
-post_kernel_size : 3  # 5
+post_n_layers : 5   # 5
+post_kernel_size : 5  # 5
 
 # enhancer parameter
 which_enhancer : "2D"   # 2D or 1D

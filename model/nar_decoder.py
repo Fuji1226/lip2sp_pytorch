@@ -7,10 +7,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.grad_reversal import GradientReversal
-from model.transformer_remake import Encoder
-from utils import count_params
-
 
 class TCDecoder(nn.Module):
     def __init__(self, cond_channels, out_channels, inner_channels, n_layers, kernel_size, dropout):

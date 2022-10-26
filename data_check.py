@@ -26,57 +26,81 @@ def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
     lip : (C, H, W, T)
     lip_mean, lip_std : (C, H, W) or (C,)
     """
-    # gray scale
-    if lip.shape[0] == 3:
-        lip_orig = lip[:1, ...]    
-    # rgb
-    elif lip.shape[0] == 5:
-        lip_orig = lip[:3, ...]
-    lip_delta = lip[-2, ...].unsqueeze(0)
-    lip_deltadelta = lip[-1, ...].unsqueeze(0)
+    if cfg.model.delta:
+        # gray scale
+        if lip.shape[0] == 3:
+            lip_orig = lip[:1, ...]    
+        # rgb
+        elif lip.shape[0] == 5:
+            lip_orig = lip[:3, ...]
+        lip_delta = lip[-2, ...].unsqueeze(0)
+        lip_deltadelta = lip[-1, ...].unsqueeze(0)
     
-    # 標準化したので元のスケールに直す
-    if lip_std.dim() == 1:
-        lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
-        lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
-        lip_orig = torch.mul(lip_orig, lip_std)
-        lip_orig = torch.add(lip_orig, lip_mean)
-        lip_delta = torch.mul(lip_delta, lip_std)
-        lip_delta = torch.add(lip_delta, lip_mean)
-        lip_deltadelta = torch.mul(lip_deltadelta, lip_std)
-        lip_deltadelta = torch.add(lip_deltadelta, lip_mean)
-    elif lip_std.dim() == 3:
-        lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
-        lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
-        lip_orig = torch.mul(lip_orig, lip_std)
-        lip_orig = torch.add(lip_orig, lip_mean)
-        lip_delta = torch.mul(lip_delta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-        lip_delta = torch.add(lip_delta, torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-        lip_deltadelta = torch.mul(lip_deltadelta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-        lip_deltadelta = torch.add(lip_deltadelta, torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-    
-    lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-    lip_delta = lip_delta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-    lip_deltadelta = lip_deltadelta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-    lip_orig = lip_orig.to('cpu')
-    lip_delta = lip_delta.to('cpu')
-    lip_deltadelta = lip_deltadelta.to('cpu')
+        # 標準化したので元のスケールに直す
+        if lip_std.dim() == 1:
+            lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
+            lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
+            lip_orig = torch.mul(lip_orig, lip_std)
+            lip_orig = torch.add(lip_orig, lip_mean)
+            lip_delta = torch.mul(lip_delta, lip_std)
+            lip_delta = torch.add(lip_delta, lip_mean)
+            lip_deltadelta = torch.mul(lip_deltadelta, lip_std)
+            lip_deltadelta = torch.add(lip_deltadelta, lip_mean)
+        elif lip_std.dim() == 3:
+            lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
+            lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
+            lip_orig = torch.mul(lip_orig, lip_std)
+            lip_orig = torch.add(lip_orig, lip_mean)
+            lip_delta = torch.mul(lip_delta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
+            lip_delta = torch.add(lip_delta, torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
+            lip_deltadelta = torch.mul(lip_deltadelta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
+            lip_deltadelta = torch.add(lip_deltadelta, torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
+        
+        lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
+        lip_delta = lip_delta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
+        lip_deltadelta = lip_deltadelta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
+        lip_orig = lip_orig.to('cpu')
+        lip_delta = lip_delta.to('cpu')
+        lip_deltadelta = lip_deltadelta.to('cpu')
 
-    torchvision.io.write_video(
-        filename=str(save_path / "lip.mp4"),
-        video_array=lip_orig,
-        fps=cfg.model.fps
-    )
-    torchvision.io.write_video(
-        filename=str(save_path / "lip_d.mp4"),
-        video_array=lip_delta,
-        fps=cfg.model.fps
-    )
-    torchvision.io.write_video(
-        filename=str(save_path / "lip_dd.mp4"),
-        video_array=lip_deltadelta,
-        fps=cfg.model.fps
-    )
+        torchvision.io.write_video(
+            filename=str(save_path / "lip.mp4"),
+            video_array=lip_orig,
+            fps=cfg.model.fps
+        )
+        torchvision.io.write_video(
+            filename=str(save_path / "lip_d.mp4"),
+            video_array=lip_delta,
+            fps=cfg.model.fps
+        )
+        torchvision.io.write_video(
+            filename=str(save_path / "lip_dd.mp4"),
+            video_array=lip_deltadelta,
+            fps=cfg.model.fps
+        )
+    else:
+        lip_orig = lip
+
+        # 標準化したので元のスケールに直す
+        if lip_std.dim() == 1:
+            lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
+            lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
+            lip_orig = torch.mul(lip_orig, lip_std)
+            lip_orig = torch.add(lip_orig, lip_mean)
+        elif lip_std.dim() == 3:
+            lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
+            lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
+            lip_orig = torch.mul(lip_orig, lip_std)
+            lip_orig = torch.add(lip_orig, lip_mean)
+        
+        lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
+        lip_orig = lip_orig.to('cpu')
+
+        torchvision.io.write_video(
+            filename=str(save_path / "lip.mp4"),
+            video_array=lip_orig,
+            fps=cfg.model.fps
+        )
 
 
 def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):

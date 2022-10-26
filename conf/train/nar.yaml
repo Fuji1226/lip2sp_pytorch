@@ -55,17 +55,21 @@ use_pad : False
 use_rotation : False
 
 # 再生速度変換
-use_time_augment : False
+use_time_augment : True
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
-# 動画のフレームをランダムに削除
-use_delete_frame : False
-min_delete_frame_rate : 0
-max_delete_frame_rate : 50
+# 動画のフレームをランダムマスキング
+use_frame_masking : False
+frame_masking_rate : 40
+
+# 動画の連続したフレームをある程度まとめてマスキング
+use_segment_masking : True
+which_seg_mask : "seg_mean"
+segment_masking_length : 20
 
 # dataloader
 batch_size : 12
-num_workers : 12
+num_workers : 6
 
 # dropout
 dec_dropout : 0.1

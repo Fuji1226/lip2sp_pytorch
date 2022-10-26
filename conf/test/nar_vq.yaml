@@ -1,14 +1,14 @@
 ---
 
-# debug
 debug : True
 debug_data_len : 1
 
-# face or lip
 face_or_lip : "lip_st"
 
+check_train_data : False
+
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/default/generate"
+save_path : "~/lip2sp_pytorch/result/nar_vq/generate"
 
 # 統計量までのパス
 lip_stat_path : "~/dataset/lip/np_files/lip_cropped/stat"
@@ -18,4 +18,4 @@ lip_stat_path_st : "~/dataset/lip/np_files/lip_cropped_st/stat"
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
 lip_pre_loaded_path_st : "~/dataset/lip/np_files/lip_cropped_st/test"
 
-speaker : ["F01_kablab"]
+speaker : ["F01_kablab_fulldata"]

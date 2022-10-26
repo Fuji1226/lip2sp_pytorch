@@ -15,7 +15,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
 from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, count_params, set_config, calc_class_balance
-from model.model_default import Lip2SP
+from model.model_default_vq import Lip2SP_VQ
 from loss import MaskedLoss
 
 # wandbへのログイン
@@ -45,7 +45,7 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
 
 
 def make_model(cfg, device):
-    model = Lip2SP(
+    model = Lip2SP_VQ(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
         res_layers=cfg.model.res_layers,
@@ -61,6 +61,8 @@ def make_model(cfg, device):
         conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
         rnn_hidden_channels=cfg.model.rnn_hidden_channels,
         rnn_n_layers=cfg.model.rnn_n_layers,
+        vq_emb_dim=cfg.model.vq_emb_dim,
+        vq_num_emb=cfg.model.vq_num_emb,
         glu_inner_channels=cfg.model.glu_inner_channels,
         glu_layers=cfg.model.glu_layers,
         glu_kernel_size=cfg.model.glu_kernel_size,
@@ -105,6 +107,7 @@ def make_model(cfg, device):
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
+    epoch_vq_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start") 
@@ -118,21 +121,23 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         # output : postnet後の出力
         # dec_output : postnet前の出力
         if cfg.train.use_gc:
-            output, dec_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+            output, dec_output, vq_loss = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
         else:
-            output, dec_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+            output, dec_output, vq_loss = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker) 
-        epoch_output_loss += output_loss.item()
-        wandb.log({"train_output_loss": output_loss})
-        output_loss.backward(retain_graph=True)
-
         dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T, speaker=speaker) 
+        loss = output_loss + dec_output_loss + vq_loss
+        loss.backward()
+
+        epoch_output_loss += output_loss.item()
         epoch_dec_output_loss += dec_output_loss.item()
+        epoch_vq_loss += vq_loss.item()
+        wandb.log({"train_output_loss": output_loss})
         wandb.log({"train_dec_output_loss": dec_output_loss})
-        dec_output_loss.backward()
+        wandb.log({"train_vq_loss": vq_loss})
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
@@ -152,12 +157,14 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
 
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
-    return epoch_output_loss, epoch_dec_output_loss
+    epoch_vq_loss /= iter_cnt
+    return epoch_output_loss, epoch_dec_output_loss, epoch_vq_loss
 
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
+    epoch_vq_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("calc val loss")
@@ -171,19 +178,22 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, dec_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+                output, dec_output, vq_loss = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
             else:
-                output, dec_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+                output, dec_output, vq_loss = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker) 
-        epoch_output_loss += output_loss.item()
-        wandb.log({"val_output_loss": output_loss})
-
         dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T, speaker=speaker) 
+        loss = output_loss + dec_output_loss + vq_loss
+
+        epoch_output_loss += output_loss.item()
         epoch_dec_output_loss += dec_output_loss.item()
-        wandb.log({"val_dec_output_loss": dec_output_loss})
+        epoch_vq_loss += vq_loss.item()
+        wandb.log({"train_output_loss": output_loss})
+        wandb.log({"train_dec_output_loss": dec_output_loss})
+        wandb.log({"train_vq_loss": vq_loss})
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -198,7 +208,8 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
-    return epoch_output_loss, epoch_dec_output_loss
+    epoch_vq_loss /= iter_cnt
+    return epoch_output_loss, epoch_dec_output_loss, epoch_vq_loss
 
 
 def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
@@ -253,8 +264,10 @@ def main(cfg):
 
     train_output_loss_list = []
     train_dec_output_loss_list = []
+    train_vq_loss_list = []
     val_output_loss_list = []
     val_dec_output_loss_list = []
+    val_vq_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
@@ -321,7 +334,7 @@ def main(cfg):
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
 
             # training
-            train_epoch_loss_output, train_epoch_loss_dec_output = train_one_epoch(
+            epoch_output_loss, epoch_dec_output_loss, epoch_vq_loss = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
@@ -333,11 +346,12 @@ def main(cfg):
                 epoch=current_epoch,
                 ckpt_time=ckpt_time,
             )
-            train_output_loss_list.append(train_epoch_loss_output)
-            train_dec_output_loss_list.append(train_epoch_loss_dec_output)
+            train_output_loss_list.append(epoch_output_loss)
+            train_dec_output_loss_list.append(epoch_dec_output_loss)
+            train_vq_loss_list.append(epoch_vq_loss)
 
             # validation
-            val_epoch_loss_output, val_epoch_loss_dec_output = calc_val_loss(
+            epoch_output_loss, epoch_dec_output_loss, epoch_vq_loss = calc_val_loss(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
@@ -347,8 +361,9 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 ckpt_time=ckpt_time,
             )
-            val_output_loss_list.append(val_epoch_loss_output)
-            val_dec_output_loss_list.append(val_epoch_loss_dec_output)
+            val_output_loss_list.append(epoch_output_loss)
+            val_dec_output_loss_list.append(epoch_dec_output_loss)
+            val_vq_loss_list.append(epoch_vq_loss)
         
             scheduler.step()
 
@@ -364,6 +379,7 @@ def main(cfg):
             
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
+            save_loss(train_vq_loss_list, val_vq_loss_list, save_path, "vq_loss")
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

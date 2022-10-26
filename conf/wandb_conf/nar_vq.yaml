@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_nar_vq
+    entity:
+    mode: online
+    name : nar_vq
+watch:
+    log: all
+    log_freq: 100

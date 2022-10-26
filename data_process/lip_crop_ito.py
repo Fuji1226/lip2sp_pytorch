@@ -11,12 +11,14 @@ import dlib
 import numpy as np
 from tqdm import tqdm
 
-speaker = "F01_kablab_20220930"
+
+speaker = "F01_kablab"
 data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
 save_dir = f"/home/usr4/r70264c/dataset/lip/lip_cropped/{speaker}"
 txt_path = f"/home/usr4/r70264c/dataset/lip/cropped_error_data_{speaker}.txt"
 
 debug = False
+
 
 # 口唇のランドマーク検出
 def Lip_Cropping(frame, det):

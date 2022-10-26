@@ -13,7 +13,7 @@ import torch
 
 from data_check import save_data
 from train_nar import make_model
-from utils import make_test_loader, get_path_test
+from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature
 from calc_accuracy import calc_accuracy
 from data_process.phoneme_encode import get_keys_from_value
 
@@ -39,18 +39,26 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
     process_times = []
 
+    input_length = cfg.model.lip_min_frame
+    shift_frame = input_length // 3
+
     iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
         wav, lip, feature, feat_add, upsample, data_len, speaker, label = batch
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
 
+        n_last_frame = lip.shape[-1] % shift_frame
+        lip_sep = gen_separate(lip, input_length, shift_frame)
+
         start_time = time.time()
 
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+                output, feat_add_out, phoneme = model(lip=lip_sep, gc=speaker)
             else:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+                output, feat_add_out, phoneme = model(lip=lip_sep)
+
+        output = gen_cat_feature(output, shift_frame, n_last_frame, upsample)
 
         end_time = time.time()
         process_time = end_time - start_time
@@ -93,7 +101,7 @@ def main(cfg):
 
     model = make_model(cfg, device)
     
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st/2022:10:16_08-59-37/mspec80_300.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st/2022:10:19_11-43-58/mspec80_300.ckpt")
 
     # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:01_16-07-30/world_melfb_10.ckpt")
 

@@ -1,5 +1,5 @@
-import sys
 from pathlib import Path
+import sys
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 sys.path.append(str(Path("~/lip2sp_pytorch/model").expanduser()))
 
@@ -11,16 +11,17 @@ from model.net import ResNet3D, Simple, Simple_NonRes, SimpleBig
 from model.transformer_remake import Encoder, OfficialEncoder
 from model.conformer.encoder import ConformerEncoder
 from model.nar_decoder import ResTCDecoder
-from model.rnn import LSTMEncoder, GRUEncoder
 from model.vq import VQ
+from model.rnn import LSTMEncoder, GRUEncoder
 
 
-class Lip2SP_NAR(nn.Module):
+class Lip2SP_NARVQ(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
         separate_frontend, which_res,
         d_model, n_layers, n_head, conformer_conv_kernel_size,
         rnn_hidden_channels, rnn_n_layers,
+        vq_emb_dim, vq_num_emb,
         dec_n_layers, dec_inner_channels, dec_kernel_size,
         tc_n_attn_layer, tc_n_head, tc_d_model,
         feat_add_channels, feat_add_layers, 
@@ -38,8 +39,6 @@ class Lip2SP_NAR(nn.Module):
         self.out_channels = out_channels
         self.use_gc = use_gc
         self.separate_frontend = separate_frontend
-
-        self.first_batch_norm = nn.BatchNorm3d(in_channels)
 
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
@@ -117,11 +116,16 @@ class Lip2SP_NAR(nn.Module):
                 reduction_factor=reduction_factor,
             )
 
+        # speaker embedding
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
+
+        # vq
+        self.pre_vq_layer = nn.Conv1d(rnn_hidden_channels, vq_emb_dim, kernel_size=1)
+        self.vq = VQ(emb_dim=vq_emb_dim, num_emb=vq_num_emb)
 
         # decoder
         self.decoder = ResTCDecoder(
-            cond_channels=rnn_hidden_channels,
+            cond_channels=vq_emb_dim,
             out_channels=out_channels,
             inner_channels=dec_inner_channels,
             n_layers=dec_n_layers,
@@ -150,6 +154,9 @@ class Lip2SP_NAR(nn.Module):
         
         # encoder
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
+        enc_output = self.pre_vq_layer(enc_output.permute(0, 2, 1))     # (B, C, T)
+        quantize, vq_loss, embed_idx = self.vq(enc_output)
+        quantize = quantize.permute(0, 2, 1)    # (B, T, C) 
 
         # speaker embedding
         if gc is not None:
@@ -158,6 +165,6 @@ class Lip2SP_NAR(nn.Module):
             spk_emb = None
 
         # decoder
-        output, feat_add_out, phoneme, out_upsample = self.decoder(enc_output, spk_emb, data_len)
+        output, feat_add_out, phoneme, out_upsample = self.decoder(quantize, spk_emb, data_len)
         
-        return output, feat_add_out, phoneme
+        return output, feat_add_out, phoneme, vq_loss

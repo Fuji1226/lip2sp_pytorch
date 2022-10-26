@@ -50,24 +50,14 @@ def make_model(cfg, device):
         res_layers=cfg.model.res_layers,
         res_inner_channels=cfg.model.res_inner_channels,
         norm_type=cfg.model.norm_type_lip,
-        inv_up_scale=cfg.model.inv_up_scale,
-        sq_r=cfg.model.sq_r,
-        md_n_groups=cfg.model.md_n_groups,
-        c_attn=cfg.model.c_attn,
-        s_attn=cfg.model.s_attn,
-        res_n_add_channels=cfg.model.res_n_add_channels,
         separate_frontend=cfg.train.separate_frontend,
         which_res=cfg.model.which_res,
-        ds_attn=cfg.model.ds_attn,
         d_model=cfg.model.d_model,
         n_layers=cfg.model.n_layers,
         n_head=cfg.model.n_head,
         conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
         rnn_hidden_channels=cfg.model.rnn_hidden_channels,
         rnn_n_layers=cfg.model.rnn_n_layers,
-        dconv_inner_channels=cfg.model.dconv_inner_channels,
-        dconv_kernel_size=cfg.model.dconv_kernel_size,
-        dconv_n_layers=cfg.model.dconv_n_layers,
         dec_n_layers=cfg.model.tc_n_layers,
         dec_inner_channels=cfg.model.tc_inner_channels,
         dec_kernel_size=cfg.model.tc_kernel_size,
@@ -110,7 +100,6 @@ def make_model(cfg, device):
 
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
-    epoch_loss_feat_add = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start") 
@@ -147,13 +136,11 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
                 check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
 
     epoch_loss /= iter_cnt
-    epoch_loss_feat_add /= iter_cnt
-    return epoch_loss, epoch_loss_feat_add
+    return epoch_loss
 
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
-    epoch_loss_feat_add = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("\ncalc val loss")
@@ -189,8 +176,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
                 check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
             
     epoch_loss /= iter_cnt
-    epoch_loss_feat_add /= iter_cnt
-    return epoch_loss, epoch_loss_feat_add
+    return epoch_loss
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -230,9 +216,7 @@ def main(cfg):
     loss_f = MaskedLoss(weight=class_weight, use_weighted_mse=cfg.train.use_weighted_mse)
 
     train_loss_list = []
-    train_feat_add_loss_list = []
     val_loss_list = []
-    val_feat_add_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
@@ -278,7 +262,7 @@ def main(cfg):
             # print(f"learning_rate = {scheduler.get_epoch_values(current_epoch)}")
 
             # training
-            train_epoch_loss, train_epoch_loss_feat_add = train_one_epoch(
+            epoch_loss = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
@@ -287,11 +271,10 @@ def main(cfg):
                 cfg=cfg, 
                 ckpt_time=ckpt_time,
             )
-            train_loss_list.append(train_epoch_loss)
-            train_feat_add_loss_list.append(train_epoch_loss_feat_add)
+            train_loss_list.append(epoch_loss)
 
             # validation
-            val_epoch_loss, val_epoch_loss_feat_add = calc_val_loss(
+            epoch_loss = calc_val_loss(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
@@ -299,8 +282,7 @@ def main(cfg):
                 cfg=cfg,
                 ckpt_time=ckpt_time,
             )
-            val_loss_list.append(val_epoch_loss)
-            val_feat_add_loss_list.append(val_epoch_loss_feat_add)
+            val_loss_list.append(epoch_loss)
         
             # 学習率の更新
             scheduler.step()
@@ -317,7 +299,6 @@ def main(cfg):
             
             # save loss
             save_loss(train_loss_list, val_loss_list, save_path, "loss")
-            save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

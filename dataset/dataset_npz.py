@@ -23,6 +23,8 @@ import torch.nn.functional as F
 from torchvision import transforms as T
 from torch.utils.data import Dataset
 
+from data_check import save_lip_video
+
 
 def get_speaker_idx(data_path):
     """
@@ -52,15 +54,19 @@ def get_stat(stat_path, cfg):
     filename = [
         "lip_mean_list", "lip_var_list", "lip_len_list", 
         "feat_mean_list", "feat_var_list", "feat_len_list", 
-        "feat_add_mean_list", "feat_add_var_list", "feat_add_len_list"
+        "feat_add_mean_list", "feat_add_var_list", "feat_add_len_list",
     ]
 
     stat_dict = {}
     for name in filename:
         for speaker in cfg.train.speaker:
             with open(str(stat_path / f"{speaker}" / f"{name}_{cfg.model.name}.bin"), "rb") as p:
-                stat_dict[name] = pickle.load(p)
+                if name in stat_dict:
+                    stat_dict[name] += pickle.load(p)
+                else:
+                    stat_dict[name] = pickle.load(p)
             print(f"{speaker} {name} loaded")
+        print(f"n_stat_{name} = {len(stat_dict[name])}\n")
     return stat_dict
 
 
@@ -91,6 +97,7 @@ class KablabDataset(Dataset):
         super().__init__()
         self.data_path = data_path
         self.transform = transform
+        self.cfg = cfg
 
         # 話者ID
         self.speaker_idx = get_speaker_idx(data_path)
@@ -142,6 +149,11 @@ class KablabDataset(Dataset):
             feat_add_mean=self.feat_add_mean, 
             feat_add_std=self.feat_add_std, 
         )
+        if self.cfg.train.debug:
+            save_path = Path("~/lip2sp_pytorch/check/lip_augment2").expanduser()
+            os.makedirs(save_path, exist_ok=True)
+            save_lip_video(self.cfg, save_path, lip, self.lip_mean, self.lip_std)
+            print("save")
         return wav, lip, feature, feat_add, upsample, data_len, speaker, label
 
 
@@ -176,6 +188,20 @@ class KablabTransform:
             lip = self.pad(lip)
         if self.cfg.train.use_rotation:
             lip = self.rotation(lip)
+        return lip
+
+    def crop(self, lip, center):
+        """
+        ランダムクロップ
+        lip : (T, C, H, W)
+        """
+        if center:
+            top = left = 3
+        else:
+            top = torch.randint(0, 8, (1,))
+            left = torch.randint(0, 8, (1,))
+        height = width = 48
+        lip = T.functional.crop(lip, top, left, height, width)
         return lip
 
     def normalization(self, lip, feature, feat_add, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
@@ -260,17 +286,93 @@ class KablabTransform:
         assert lip.shape[-1] == feature.shape[-1] // upsample
         return lip, feature, feat_add, data_len
 
-    def delete_frame(self, lip):
+    def frame_masking(self, lip, lip_mean):
         """
-        口唇動画のフレームをランダムに削除
+        口唇動画のフレームをランダムにマスキング
+        動的特徴量との併用に適していないので微妙
         lip : (C, H, W, T)
         """
-        rate = torch.randint(self.cfg.train.min_delete_frame_rate, self.cfg.train.max_delete_frame_rate, (1,)) / 100
-        delete_idx = [i for i in range(lip.shape[-1])]
-        n_delete_frame = int(lip.shape[-1] * rate)
-        delete_idx = sorted(random.sample(delete_idx, n_delete_frame))
-        for i in delete_idx:
-            lip[..., i] = 0
+        C, H, W, T = lip.shape
+
+        # 削除する割合を決定
+        rate = torch.randint(0, self.cfg.train.frame_masking_rate, (1,)) / 100
+        mask_idx = [i for i in range(T)]
+        n_mask_frame = int(T * rate)
+
+        # インデックス全体から削除する分だけランダムサンプリング
+        mask_idx = sorted(random.sample(mask_idx, n_mask_frame))
+
+        if lip_mean.dim() == 3:
+            for i in mask_idx:
+                lip[..., i] = lip_mean
+        elif lip_mean.dim() == 1:
+            for i in mask_idx:
+                lip[..., i] = lip_mean.unsqueeze(-1).unsqueeze(-1).expand(-1, H, W)
+        return lip
+
+    def segment_masking(self, lip, lip_mean):
+        """
+        口唇動画の連続したフレームをある程度まとめてマスキング
+        lip : (C, H, W, T)
+        """
+        C, H, W, T = lip.shape
+
+        # 最初の50フレーム(1秒分)から削除するセグメントの開始フレームを選択
+        mask_start_idx = torch.randint(0, 50, (1,))
+        idx = [i for i in range(T)]
+
+        # マスクする系列長を決定
+        mask_length = torch.randint(0, self.cfg.train.segment_masking_length, (1,))
+
+        # 1秒あたりdel_seg_length分だけまとめて削除するためのインデックスを選択
+        while True:
+            mask_seg_idx = idx[mask_start_idx:mask_start_idx + mask_length]
+
+            if lip_mean.dim() == 3:
+                for i in mask_seg_idx:
+                    lip[..., i] = lip_mean
+            elif lip_mean.dim() == 1:
+                for i in mask_seg_idx:
+                    lip[..., i] = lip_mean.unsqueeze(-1).unsqueeze(-1).expand(-1, H, W)
+
+            # 次の開始フレームを50フレーム先にすることで1秒ごとになる
+            mask_start_idx += 50
+
+            # 次の削除範囲が動画自体の系列長を超えてしまうならループを抜ける
+            if mask_start_idx + mask_length > T:
+                break
+        
+        return lip
+
+    def segment_masking_segmean(self, lip):
+        """
+        segment maskingと同様だが,segment内の平均値で全て埋めるところが違い
+        一般的に使用されているのがこっちなのでこれが無難
+        lip : (C, H, W, T)
+        """
+        C, H, W, T = lip.shape
+
+        # 最初の50フレーム(1秒分)から削除するセグメントの開始フレームを選択
+        mask_start_idx = torch.randint(0, 50, (1,))
+        idx = [i for i in range(T)]
+
+        # マスクする系列長を決定
+        mask_length = torch.randint(0, self.cfg.train.segment_masking_length, (1,))
+
+        # 1秒あたりdel_seg_length分だけまとめて削除するためのインデックスを選択
+        while True:
+            mask_seg_idx = idx[mask_start_idx:mask_start_idx + mask_length]
+            seg_mean = torch.mean(lip[..., idx[mask_start_idx:mask_start_idx + mask_length]].to(torch.float), dim=-1).to(torch.uint8)
+            for i in mask_seg_idx:
+                lip[..., i] = seg_mean
+
+            # 次の開始フレームを50フレーム先にすることで1秒ごとになる
+            mask_start_idx += 50
+
+            # 次の削除範囲が動画自体の系列長を超えてしまうならループを抜ける
+            if mask_start_idx + mask_length > T:
+                break
+        
         return lip
 
     def __call__(self, lip, feature, feat_add, upsample, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
@@ -283,15 +385,36 @@ class KablabTransform:
 
         # data augmentation
         if self.train_val_test == "train":
+            # 見た目変換
             lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
             lip = self.apply_lip_trans(lip)
             lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
 
+            # 再生速度変更
             if self.cfg.train.use_time_augment:
                 lip, feature, feat_add, data_len = self.time_augment(lip, feature, feat_add, upsample, data_len)
 
-            if self.cfg.train.use_delete_frame:
-                lip = self.delete_frame(lip)
+            # 動画のマスキング
+            # 両方使用する場合にはどちらか一方だけが適用される
+            if self.cfg.train.use_frame_masking and self.cfg.train.use_segment_masking:
+                augment_choice = torch.randint(0, 2, (1,))
+                if augment_choice == 0:
+                    if self.cfg.train.use_frame_masking:
+                        lip = self.frame_masking(lip, lip_mean)
+                elif augment_choice == 1:
+                    if self.cfg.train.use_segment_masking:
+                        if self.cfg.train.which_seg_mask == "mean":
+                            lip = self.segment_masking(lip, lip_mean)
+                        elif self.cfg.train.which_seg_mask == "seg_mean":
+                            lip = self.segment_masking_segmean(lip)
+            else:
+                if self.cfg.train.use_frame_masking:
+                    lip = self.frame_masking(lip, lip_mean)
+                if self.cfg.train.use_segment_masking:
+                    if self.cfg.train.which_seg_mask == "mean":
+                        lip = self.segment_masking(lip, lip_mean)
+                    elif self.cfg.train.which_seg_mask == "seg_mean":
+                        lip = self.segment_masking_segmean(lip)
 
         # 標準化
         lip, feature, feat_add = self.normalization(

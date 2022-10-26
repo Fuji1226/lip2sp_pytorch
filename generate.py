@@ -90,8 +90,8 @@ def main(cfg):
 
     model = make_model(cfg, device)
 
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:08_21-19-57/mspec80_300.ckpt")
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:08_22-00-27/mspec80_300.ckpt")
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip_st/2022:10:19_15-51-04/mspec80_170.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip_st/2022:10:20_03-48-02/mspec80_170.ckpt")
 
     # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip/2022:10:01_11-24-06/world_melfb_300.ckpt")
 

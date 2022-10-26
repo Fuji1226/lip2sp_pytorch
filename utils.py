@@ -17,9 +17,6 @@ from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adj
 def get_upsample(fps, fs, frame_period):
     """
     動画のfpsと音響特徴量のフレームあたりの秒数から対応関係を求める
-    基本設定
-    frame_period = 10, fps = 50
-    upsample = 2
     """
     nframes = 1000 // frame_period
     upsample = nframes // fps
@@ -28,13 +25,17 @@ def get_upsample(fps, fs, frame_period):
 
 def set_config(cfg):
     if cfg.train.debug:
-        cfg.train.batch_size = 4
-        cfg.train.num_workers = 4
+        cfg.train.batch_size = 1
+        cfg.train.num_workers = 1
 
     if len(cfg.train.speaker) > 1:
         cfg.train.use_gc = True
     else:
         cfg.train.use_gc = False
+
+    # if cfg.train.use_time_augment or cfg.train.use_frame_masking or cfg.train.use_segment_masking:
+    #     cfg.model.delta = False
+    #     cfg.model.in_channels = 3
 
 
 def get_path_train(cfg, current_time):
@@ -276,12 +277,25 @@ def calc_class_balance(cfg, data_root, device):
     """
     話者ごとのデータ量の偏りを計算
     """
-    data_path = get_datasets(
-        data_root=data_root,
-        cfg=cfg,
-    )
-
+    # data_path = get_datasets(
+    #     data_root=data_root,
+    #     cfg=cfg,
+    # )
     print("\ncalc_class_balance")
+    data_path = {}
+    for speaker in cfg.train.speaker:
+        print(f"{speaker}")
+        spk_path_list = []
+        spk_path = data_root / speaker
+
+        for corpus in cfg.train.corpus:
+            spk_path_co = [p for p in spk_path.glob(f"*{cfg.model.name}.npz") if re.search(f"{corpus}", str(p))]
+            if len(spk_path_co) > 1:
+                print(f"load {corpus}")
+            spk_path_list += spk_path_co
+
+        data_path[speaker] = spk_path_list
+
     num_data = []
     for key, value in data_path.items():
         print(f"{key} : {len(value)}")
@@ -470,3 +484,56 @@ def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
+
+
+def gen_separate(lip, input_length, shift_frame):
+    """
+    合成時に系列長を学習時と揃えるための処理
+    lip : (B, C, H, W, T)
+    input_length : モデル学習時の系列長
+    shift_frame : シフト幅
+    """
+    _, C, H, W, _ = lip.shape
+    start_frame = 0
+    lip_list = []
+
+    while True:
+        if lip.shape[-1] <= start_frame + input_length:
+            lip_list.append(lip[..., -input_length:])
+            break
+        else:
+            lip_list.append(lip[..., start_frame:start_frame + input_length])
+        
+        start_frame += shift_frame
+
+    lip = torch.cat(lip_list, dim=0)    # (B, C, H, W, T)
+    return lip
+
+
+def gen_cat_feature(feature, shift_frame, n_last_frame, upsample):
+    """
+    gen_separateで分割して出力した結果を結合
+    feature : (B, C, T)
+    input_length : モデル学習時の系列長
+    shift_frame : シフト幅
+    """
+    feat_list = []
+    shift_frame = int(shift_frame * upsample)
+    n_last_frame = int(n_last_frame * upsample)
+
+    for i in range(feature.shape[0]):
+        if i == 0:
+            feat_list.append(feature[i, ...])
+
+        elif i == feature.shape[0] - 1:
+            if n_last_frame != 0:
+                feat_list.append(feature[i, :, -n_last_frame:])
+            else:
+                feat_list.append(feature[i, :, -shift_frame:])
+
+        else:
+            feat_list.append(feature[i, :, -shift_frame:])
+
+    feature = torch.cat(feat_list, dim=-1).unsqueeze(0)     # (1, C, T)
+    return feature
+    

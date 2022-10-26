@@ -17,7 +17,7 @@ from transform_no_chainer import load_data_for_npz
 
 debug = False
 time_only = False
-speaker = "F01_kablab_fulldata"
+speaker = "M04_kablab"
 
 if debug:
     if time_only:

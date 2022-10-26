@@ -1,6 +1,6 @@
 ---
 
-name : "vq"
+name : "nar_vq"
 
 # デバッグ
 debug : True
@@ -10,7 +10,7 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/vq/lip_9696_time_only/2022:08:25_17-04-10/mspec80_240.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar_vq/lip_9696_time_only/2022:08:25_17-04-10/mspec80_240.ckpt"
 
 # face or lip
 face_or_lip : "lip_st"
@@ -20,10 +20,10 @@ lip_path : "~/dataset/lip/lip_cropped"
 face_path : "~/dataset/lip/cropped"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/vq/train"
+save_path : "~/lip2sp_pytorch/result/nar_vq/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/vq"
+ckpt_path : "~/lip2sp_pytorch/check_point/nar_vq"
 ckpt_step : 10
 
 # 統計量までのパス
@@ -50,25 +50,25 @@ max_epoch : 300
 # 見た目変換系
 use_color_jitter : False
 use_blur : False
-use_horizontal_flip : False
+use_horizontal_flip : True
 use_pad : False
 use_rotation : False
 
 # 再生速度変換
-use_time_augment : False
+use_time_augment : True
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画のフレームをランダムマスキング
-use_frame_masking : False
-frame_masking_rate : 50
+use_frame_masking : True
+frame_masking_rate : 40
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : False
+use_segment_masking : True
 segment_masking_length : 20
 
 # dataloader
 batch_size : 12
-num_workers : 12
+num_workers : 6
 
 # dropout
 dec_dropout : 0.1
