@@ -27,8 +27,8 @@ file_main="generate.py"
 
 # これより下に，Pythonなどを実行するコマンドを書きます。
 # 実際はもう少しごちゃごちゃした内容を記述していることが多いです。
-model=/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:14_23-18-39_build_prenet_dropout_layer2/mspec80_140.ckpt
-tag=build_prenet_layer1
+model=/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:25_15-23-11_mask_test_loss_test_layer2_mentanance/mspec80_250.ckpt
+tag=mask_test_loss_test_layer2_mentanance
 
 python $file_main train.debug=False tag=$tag model_path=$model
 # python $file_main model.n_layers=1,2 -m

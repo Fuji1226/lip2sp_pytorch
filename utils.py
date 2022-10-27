@@ -265,6 +265,7 @@ def make_test_loader(cfg, data_root, mean_std_path):
 
 
 def check_mel_default(target, output, dec_output, cfg, filename, current_time, ckpt_time=None):
+    tag = f'{current_time}_{cfg.tag}'
     target = target.to('cpu').detach().numpy().copy()
     output = output.to('cpu').detach().numpy().copy()
     dec_output = dec_output.to('cpu').detach().numpy().copy()
@@ -321,9 +322,10 @@ def check_mel_default(target, output, dec_output, cfg, filename, current_time, c
     plt.tight_layout()
     save_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
     if ckpt_time is not None:
-        save_path = save_path / cfg.train.name / cfg.tag
+        save_path = save_path / cfg.train.name / tag
     else:
-        save_path = save_path / cfg.train.name / cfg.tag
+        save_path = save_path / cfg.train.name / tag
+    print(save_path)
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})

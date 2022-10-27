@@ -1,0 +1,45 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年11月03日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/11/03 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/11/03 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          2       4  2022/10/31  余剰GPUを使わせていただきます
+takehisa        4       4  2022/11/30  なかなか動かないので一旦多めに
+fujita          6       5  2022/10/31  使います
+============================================================================
+Remaining       4
+
+wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
+/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+In 'config': Could not find 'train/default'
+
+Available options in 'train':
+	ae
+	classifier
+	conformer
+	enhancer
+	gan
+	lip_bert
+	lipreading
+	nar
+	progressive
+	transformer
+	vae
+	vq
+Config search path:
+	provider=hydra, path=pkg://hydra.conf
+	provider=main, path=file:///home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/conf
+	provider=schema, path=structured://
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

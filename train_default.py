@@ -145,7 +145,8 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
                     if cfg.train.multi_task:
                         check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
                 break
-
+        
+       
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
@@ -246,7 +247,7 @@ def main(cfg):
         cfg, resolve=True, throw_on_missing=True,
     )
     print(f'tag: {cfg.tag}')
-
+    #breakpoint()
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
@@ -329,7 +330,7 @@ def main(cfg):
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-
+          
             # 学習方法の変更
             if current_epoch < cfg.train.tm_change_step:
                 training_method = "tf"  # teacher forcing

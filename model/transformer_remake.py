@@ -2,14 +2,17 @@
 transformerの完成版です
 """
 
+from turtle import pos
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 try:
     from .pre_post import Prenet
+    from .transformer_module import MultiHeadAttentionRelative
 except:
     from pre_post import Prenet
+    from transformer_module import MultiHeadAttentionRelative
 
 
 def get_subsequent_mask(x, diag_mask=False):
@@ -70,7 +73,27 @@ def make_pad_mask_for_loss(lengths, max_len, output):
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
     mask = seq_range_expand >= seq_length_expand
     mask = mask.unsqueeze(1).repeat(1, output.shape[1], 1).to(device=device)
+    return mask
 
+def make_pad_mask_for_loss_test(lengths, max_len):
+    """
+    口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+    """
+    # この後の処理でリストになるので先にdeviceを取得しておく
+    device = lengths.device
+
+    if not isinstance(lengths, list):
+        lengths = lengths.tolist()
+    bs = int(len(lengths))
+    if max_len is None:
+        max_len = int(max(lengths))
+
+    seq_range = torch.arange(0, max_len, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    mask = seq_range_expand >= seq_length_expand
+    mask = mask.unsqueeze(1).to(device=device)
+    
     return mask
 
 def token_mask(x):
@@ -113,6 +136,26 @@ def posenc(x, device, start_index=0):
     positional_encoding = torch.from_numpy(positional_encoding).to(device)
     positional_encoding = positional_encoding.to(torch.float32)
     return positional_encoding
+
+
+class RelativePosition(nn.Module):
+    def __init__(self, num_units, max_relative_position):
+        super().__init__()
+        self.num_units = num_units
+        self.max_relative_position = max_relative_position
+        self.embeddings_table = nn.Parameter(torch.Tensor(max_relative_position * 2 + 1, num_units))
+        nn.init.xavier_uniform_(self.embeddings_table)
+
+    def forward(self, length_q, length_k):
+        range_vec_q = torch.arange(length_q)
+        range_vec_k = torch.arange(length_k)
+        distance_mat = range_vec_k[None, :] - range_vec_q[:, None]
+        distance_mat_clipped = torch.clamp(distance_mat, -self.max_relative_position, self.max_relative_position)
+        final_mat = distance_mat_clipped + self.max_relative_position
+        final_mat = torch.LongTensor(final_mat).cuda()
+        embeddings = self.embeddings_table[final_mat].cuda()
+
+        return embeddings
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -215,11 +258,17 @@ class EncoderLayer(nn.Module):
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, diag_mask=False):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, diag_mask=False, relative_pos=False):
         super().__init__()
         self.diag_mask = diag_mask
-        self.dec_self_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
-        self.dec_enc_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
+
+        if relative_pos:
+            self.dec_self_attention = MultiHeadAttentionRelative(n_head, d_model, d_k, d_v, dropout)
+            self.dec_enc_attention =  MultiHeadAttentionRelative(n_head, d_model, d_k, d_v, dropout)
+        else:
+
+            self.dec_self_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
+            self.dec_enc_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
 
     def forward(self, dec_input, enc_output, self_attention_mask=None, dec_enc_attention_mask=None, mode=None):
@@ -294,7 +343,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(
         self, dec_n_layers, n_head, dec_d_model, pre_in_channels, pre_inner_channels, out_channels,
-        n_position, reduction_factor, dropout=0.1, use_gc=False, diag_mask=False):
+        n_position, reduction_factor, dropout=0.1, use_gc=False, diag_mask=False, relative_pos=False):
         super().__init__()
         self.d_k = dec_d_model // n_head
         self.d_v = dec_d_model // n_head
