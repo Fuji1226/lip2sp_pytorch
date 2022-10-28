@@ -101,9 +101,7 @@ def main(cfg):
 
     model = make_model(cfg, device)
     
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st/2022:10:19_11-43-58/mspec80_300.ckpt")
-
-    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip/2022:10:01_16-07-30/world_melfb_10.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st/2022:10:27_09-53-47/mspec80_400.ckpt")
 
     if model_path.suffix == ".ckpt":
         try:

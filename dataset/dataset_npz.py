@@ -190,11 +190,14 @@ class KablabTransform:
             lip = self.rotation(lip)
         return lip
 
-    def crop(self, lip, center):
+    def random_crop(self, lip, center):
         """
         ランダムクロップ
         lip : (T, C, H, W)
         """
+        _, _, H, W = lip.shape
+        assert H == 56 and W == 56
+
         if center:
             top = left = 3
         else:
@@ -203,6 +206,33 @@ class KablabTransform:
         height = width = 48
         lip = T.functional.crop(lip, top, left, height, width)
         return lip
+
+    def spatial_masking(self, lip, lip_mean):
+        """
+        空間領域におけるマスク
+        lip : (T, C, H, W)
+        """
+        T, C, H, W = lip.shape
+        input_type = lip.dtype
+        lip = lip.to(torch.float32)
+        unfold = nn.Unfold(kernel_size=H // self.cfg.train.spatial_divide_factor, stride=H // self.cfg.train.spatial_divide_factor)
+        fold = nn.Fold(output_size=(H, W), kernel_size=H // self.cfg.train.spatial_divide_factor, stride=H // self.cfg.train.spatial_divide_factor)
+
+        lip = unfold(lip)
+        n_mask = torch.randint(0, self.cfg.train.n_spatial_mask, (1,))
+        mask_idx = [i for i in range(lip.shape[-1])]
+        mask_idx = random.sample(mask_idx, n_mask)
+
+        if lip_mean.dim() == 1:
+            lip_mean = lip_mean.unsqueeze(0).unsqueeze(-1).unsqueeze(-1)     # (1, C, 1, 1)
+            lip_mean = lip_mean.expand(T, -1, H // self.cfg.train.spatial_divide_factor, H // self.cfg.train.spatial_divide_factor)
+            lip_mean = lip_mean.reshape(T, -1)
+        
+        for i in mask_idx:
+            lip[..., i] = lip_mean
+        
+        lip = fold(lip)
+        return lip.to(input_type)
 
     def normalization(self, lip, feature, feat_add, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
         """
@@ -239,7 +269,7 @@ class KablabTransform:
         """
         lip = lip.to('cpu').detach().numpy().copy()
         if lip.shape[0] == 3:
-            lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]
+            lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]     # ここのRGBの配合の比率は謎
         lip_pad = lip_pad.astype(lip.dtype)
         lip_pad = gaussian_filter(lip_pad, (0, 0.5, 0.5, 0), mode="reflect", truncate=2)
         lip_pad = np.pad(lip_pad, ((0, 0), (0, 0), (0, 0), (1, 1)), "edge")
@@ -388,6 +418,16 @@ class KablabTransform:
             # 見た目変換
             lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
             lip = self.apply_lip_trans(lip)
+
+            if lip.shape[-1] == 56:
+                if self.cfg.train.use_random_crop:
+                    lip = self.random_crop(lip, center=False)
+                else:
+                    lip = self.random_crop(lip, center=True)
+
+            if self.cfg.train.use_spatial_masking:
+                lip = self.spatial_masking(lip, lip_mean)
+
             lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
 
             # 再生速度変更
@@ -415,6 +455,11 @@ class KablabTransform:
                         lip = self.segment_masking(lip, lip_mean)
                     elif self.cfg.train.which_seg_mask == "seg_mean":
                         lip = self.segment_masking_segmean(lip)
+        else:
+            if lip.shape[1] == 56:
+                lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
+                lip = self.random_crop(lip, center=True)
+                lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
 
         # 標準化
         lip, feature, feat_add = self.normalization(

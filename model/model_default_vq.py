@@ -182,20 +182,16 @@ class Lip2SP_VQ(nn.Module):
         # decoder
         # 学習時
         if prev is not None:
-            if training_method == "tf":
+            with torch.no_grad():
                 dec_output = self.decoder_forward(quantize, prev, data_len)
 
-            elif training_method == "ss":
-                with torch.no_grad():
-                    dec_output = self.decoder_forward(quantize, prev, data_len)
+                # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
+                mixing_prob = torch.zeros_like(prev) + mixing_prob
+                judge = torch.bernoulli(mixing_prob)
+                mixed_prev = torch.where(judge == 1, prev, dec_output)
 
-                    # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
-                    mixing_prob = torch.zeros_like(prev) + mixing_prob
-                    judge = torch.bernoulli(mixing_prob)
-                    mixed_prev = torch.where(judge == 1, prev, dec_output)
-
-                # 混ぜたやつでもう一回計算させる
-                dec_output = self.decoder_forward(quantize, mixed_prev, data_len)
+            # 混ぜたやつでもう一回計算させる
+            dec_output = self.decoder_forward(quantize, mixed_prev, data_len)
         # 推論時
         else:
             dec_output = self.decoder_inference(quantize)

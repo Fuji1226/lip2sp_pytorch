@@ -1,7 +1,6 @@
 """
 lip_croppedを作り,make_corpus_dir.pyでコーパスごとのディレクトリに分けた後で使用
 データ全体を学習用,検証用,テスト用データに分割し,それらのパスをcsv形式で保存しておく
-これにより実験の再現性が保たれます
 
 テスト用 : ATR503のJセット(53文)
 学習用 : 残り全部の95%
@@ -17,9 +16,10 @@ from tqdm import tqdm
 
 
 # speakerのみ変更してください
-speaker = "M04_kablab"
-lip_path = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
-save_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
+speaker = "F01_kablab"
+margin = 0.3
+lip_path = Path(f"~/dataset/lip/lip_cropped_{margin}/{speaker}").expanduser()
+save_path = Path(f"~/dataset/lip/data_split_csv_{margin}").expanduser()
 corpus = ["ATR", "balanced", "BASIC5000"]
 train_size = 0.95
 

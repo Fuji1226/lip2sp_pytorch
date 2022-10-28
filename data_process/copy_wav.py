@@ -10,9 +10,9 @@ from pathlib import Path
 from tqdm import tqdm
 
 def main():
-    speaker = "F01_kablab_20220930"
+    speaker = "F01_kablab"
     audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-    save_path = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
+    save_path = Path(f"~/dataset/lip/lip_cropped_0.3/{speaker}").expanduser()
     print(f"speaker = {speaker}")
     wavs = []
     for curdir, dirs, files in os.walk(audio_path):

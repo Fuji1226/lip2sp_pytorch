@@ -14,7 +14,7 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, count_params, set_config, calc_class_balance
+from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, count_params, set_config, calc_class_balance, mixing_prob_controller
 from model.model_default import Lip2SP
 from loss import MaskedLoss
 
@@ -201,21 +201,6 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
     return epoch_output_loss, epoch_dec_output_loss
 
 
-def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
-    """
-    mixing_prob_change_stepを超えたらmixing_probを0.01ずつ下げていく
-    0.1になったら維持
-    """
-    if epoch >= mixing_prob_change_step:
-        if mixing_prob <= 0.1:
-            return mixing_prob
-        else:
-            mixing_prob -= 0.01
-            return mixing_prob
-    else:
-        return mixing_prob
-
-
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
     set_config(cfg)
@@ -293,28 +278,15 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
+        prob_list = mixing_prob_controller(cfg)
+
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
 
-            # 学習方法の変更
-            if current_epoch < cfg.train.tm_change_step:
-                training_method = "tf"  # teacher forcing
-            else:
-                training_method = "ss"  # scheduled sampling
-
-            # mixing_probの変更
-            if cfg.train.change_mixing_prob:
-                if current_epoch >= cfg.train.mp_change_step:
-                    if cfg.train.fixed_mixing_prob:
-                        mixing_prob = 0.1
-                    else:
-                        mixing_prob = torch.randint(10, 50, (1,)) / 100     # [0.1, 0.5]でランダム
-                        mixing_prob = mixing_prob.item()
-                else:
-                    mixing_prob = cfg.train.mixing_prob
-            else:
-                mixing_prob = cfg.train.mixing_prob
+            training_method = "ss"
+            mixing_prob = prob_list[current_epoch - 1]
+            wandb.log({"mixing_prob": mixing_prob})
 
             print(f"training_method : {training_method}")
             print(f"mixing_prob = {mixing_prob}")

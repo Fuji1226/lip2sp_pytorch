@@ -17,7 +17,8 @@ from transform_no_chainer import load_data_for_npz
 
 debug = False
 time_only = False
-speaker = "M04_kablab"
+speaker = "F01_kablab"
+margin = 0.3
 
 if debug:
     if time_only:
@@ -30,11 +31,11 @@ else:
     else:
         dirname = "lip_cropped_st"
 
-csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
-lip_train_data_path = Path(f"~/dataset/lip/np_files/{dirname}/train").expanduser()
-lip_stat_path = Path(f"~/dataset/lip/np_files/{dirname}/stat").expanduser()
-lip_val_data_path = Path(f"~/dataset/lip/np_files/{dirname}/val").expanduser()
-lip_test_data_path = Path(f"~/dataset/lip/np_files/{dirname}/test").expanduser()
+csv_path = Path(f"~/dataset/lip/data_split_csv_{margin}").expanduser()
+lip_train_data_path = Path(f"~/dataset/lip/np_files/{dirname}_{margin}/train").expanduser()
+lip_stat_path = Path(f"~/dataset/lip/np_files/{dirname}_{margin}/stat").expanduser()
+lip_val_data_path = Path(f"~/dataset/lip/np_files/{dirname}_{margin}/val").expanduser()
+lip_test_data_path = Path(f"~/dataset/lip/np_files/{dirname}_{margin}/test").expanduser()
 
 
 def read_csv(csv_path, which_data):
@@ -142,7 +143,6 @@ def main(cfg):
     """
     print(f"speaker = {speaker}, mode = {cfg.model.name}, time_only = {time_only}")
 
-    csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
     train_data_list = read_csv(csv_path, "train")
     val_data_list = read_csv(csv_path, "val")
     test_data_list = read_csv(csv_path, "test")

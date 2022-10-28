@@ -146,7 +146,7 @@ class Lip2SP(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
-    def forward(self, lip, lip_d=None, lip_dd=None, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
+    def forward(self, lip, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
         """
         lip : (B, C, H, W, T)
         prev, out, dec_output : (B, C, T)
@@ -172,20 +172,16 @@ class Lip2SP(nn.Module):
         # decoder
         # 学習時
         if prev is not None:
-            if training_method == "tf":
+            with torch.no_grad():
                 dec_output = self.decoder_forward(enc_output, prev, data_len)
 
-            elif training_method == "ss":
-                with torch.no_grad():
-                    dec_output = self.decoder_forward(enc_output, prev, data_len)
+                # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
+                mixing_prob = torch.zeros_like(prev) + mixing_prob
+                judge = torch.bernoulli(mixing_prob)
+                mixed_prev = torch.where(judge == 1, prev, dec_output)
 
-                    # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
-                    mixing_prob = torch.zeros_like(prev) + mixing_prob
-                    judge = torch.bernoulli(mixing_prob)
-                    mixed_prev = torch.where(judge == 1, prev, dec_output)
-
-                # 混ぜたやつでもう一回計算させる
-                dec_output = self.decoder_forward(enc_output, mixed_prev, data_len)
+            # 混ぜたやつでもう一回計算させる
+            dec_output = self.decoder_forward(enc_output, mixed_prev, data_len)
         # 推論時
         else:
             dec_output = self.decoder_inference(enc_output)

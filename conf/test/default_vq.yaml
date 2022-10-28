@@ -5,7 +5,7 @@ debug : True
 debug_data_len : 1
 
 # face or lip
-face_or_lip : "lip"
+face_or_lip : "lip_st"
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/default_vq/generate"

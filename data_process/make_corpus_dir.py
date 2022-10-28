@@ -1,5 +1,5 @@
 """
-lip_croppedを作った後に,それらをコーパスごとのディレクトリに分離する
+lip_croppedを作成し,copy_wavを行った後に,それらをコーパスごとのディレクトリに分離する
 """
 from pathlib import Path
 import os
@@ -8,9 +8,10 @@ from tqdm import tqdm
 
 debug = False
 
-speaker = "M04_kablab"
+speaker = "F01_kablab"
+margin = 0.3
 corpus = ["ATR", "balanced", "BASIC5000"]
-data_dir = Path(f"~/dataset/lip/lip_cropped/{speaker}").expanduser()
+data_dir = Path(f"~/dataset/lip/lip_cropped_{margin}/{speaker}").expanduser()
 
 def main():
     print(f"speaker = {speaker}")

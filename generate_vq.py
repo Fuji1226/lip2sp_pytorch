@@ -12,7 +12,7 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data
-from train_default import make_model
+from train_default_vq import make_model
 from calc_accuracy import calc_accuracy
 from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature
 
@@ -52,9 +52,9 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, dec_output = model(lip=lip_sep, gc=speaker)
+                output, dec_output, vq_loss = model(lip=lip_sep, gc=speaker)
             else:
-                output, dec_output = model(lip=lip_sep)
+                output, dec_output, vq_loss = model(lip=lip_sep)
 
         output = gen_cat_feature(output, shift_frame, n_last_frame, upsample)
 
@@ -98,7 +98,7 @@ def main(cfg):
 
     model = make_model(cfg, device)
 
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default/lip_st/2022:10:27_09-53-53/mspec80_350.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/default_vq/lip_st/2022:10:27_14-27-14/mspec80_300.ckpt")
 
     if model_path.suffix == ".ckpt":
         try:

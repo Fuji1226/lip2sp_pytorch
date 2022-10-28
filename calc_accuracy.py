@@ -90,7 +90,11 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                         hop_length=cfg.model.hop_length,
                         fill_na=None,
                     )
-                    rmse_f0 = np.sqrt(np.mean((f0_gen - f0_in)**2))
+
+                    rmse_f0 = (f0_gen - f0_in) ** 2
+                    rmse_f0 = np.where(vuv_in == 1, rmse_f0, 0)     # 有声区間のみ
+                    rmse_f0 = np.sqrt(np.mean(rmse_f0))
+
                     vuv_acc = np.sum((vuv_gen == vuv_in)) / vuv_in.size
                     vuv_acc *= 100
                     rmse_f0_list_librosa.append(rmse_f0)
@@ -119,7 +123,10 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     vuv_flag_in = (ap_in[:, 0] < 0.5) * (f0_gen > 1.0)
                     vuv_in = vuv_flag_in.astype('int')
 
-                    rmse_f0 = np.sqrt(np.mean((f0_gen - f0_in)**2))
+                    rmse_f0 = (f0_gen - f0_in) ** 2
+                    rmse_f0 = np.where(vuv_in == 1, rmse_f0, 0)     # 有声区間のみ
+                    rmse_f0 = np.sqrt(np.mean(rmse_f0))
+
                     vuv_acc = np.sum((vuv_gen == vuv_in)) / vuv_in.size
                     vuv_acc *= 100
                     rmse_f0_list_world.append(rmse_f0)

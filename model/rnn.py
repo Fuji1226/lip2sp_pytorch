@@ -88,7 +88,7 @@ if __name__ == "__main__":
             params += p.numel()
     print(f"out = {out.shape}, params = {params}")
 
-    net = GRUEncoder(hid, 1, bidirectional=True, dropout=0.1, reduction_factor=2)
+    net = GRUEncoder(hid, 2, bidirectional=True, dropout=0.1, reduction_factor=2)
     x = torch.rand(batch, hid, 150)
     data_len = torch.tensor([x.shape[-1] * 2, x.shape[-1]])
     out = net(x, data_len)

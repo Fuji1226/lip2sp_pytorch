@@ -84,7 +84,7 @@ dec_n_head : 4
 diag_mask : False
 
 # rnn parameter
-rnn_hidden_channels : 512
+rnn_hidden_channels : 256
 rnn_n_layers : 2
 
 # dilated conv paramater
@@ -124,7 +124,7 @@ which_decoder : "glu"
 ae_emb_dim : 4
 vae_emb_dim : 64
 vq_emb_dim : 64
-vq_num_emb : 128    
+vq_num_emb : 256
 spk_emb_dim : 256
 norm_type_audio : "in"
 content_d_model : 256

@@ -33,10 +33,6 @@ def set_config(cfg):
     else:
         cfg.train.use_gc = False
 
-    # if cfg.train.use_time_augment or cfg.train.use_frame_masking or cfg.train.use_segment_masking:
-    #     cfg.model.delta = False
-    #     cfg.model.in_channels = 3
-
 
 def get_path_train(cfg, current_time):
     # data
@@ -50,6 +46,11 @@ def get_path_train(cfg, current_time):
         train_data_root = cfg.train.lip_pre_loaded_path_train_st
         val_data_root = cfg.train.lip_pre_loaded_path_val_st
         stat_path = cfg.train.lip_stat_path_st
+    if cfg.train.face_or_lip == "lip_st_03":
+        print("use lip_st_0.3")
+        train_data_root = cfg.train.lip_pre_loaded_path_train_st_03
+        val_data_root = cfg.train.lip_pre_loaded_path_val_st_03
+        stat_path = cfg.train.lip_stat_path_st_03
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -484,6 +485,18 @@ def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
+
+
+def mixing_prob_controller(cfg):
+    prob_list = []
+    mixing_prob = 0
+    for i in range(cfg.train.max_epoch):
+        mixing_prob = cfg.train.exp_factor ** i
+        if mixing_prob > cfg.train.min_mixing_prob:
+            prob_list.append(mixing_prob)
+        else:
+            prob_list.append(cfg.train.min_mixing_prob)
+    return prob_list
 
 
 def gen_separate(lip, input_length, shift_frame):

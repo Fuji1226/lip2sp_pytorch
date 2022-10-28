@@ -387,33 +387,42 @@ def plot_f0(cfg, save_path, f0_input, f0_AbS, f0_gen):
     """
     基本周波数のプロット
     """
+    time = np.arange(0, f0_input.shape[0]) / 100
+
     plt.close("all")
     plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
 
-    time = np.arange(0, f0_input.shape[0]) / 100
-
-    ax = plt.subplot(3, 1, 1)
-    ax.plot(time, f0_input)
+    plt.plot(time, f0_input, label="input")
+    plt.plot(time, f0_AbS, label="Analysis by Synthesis")
+    plt.plot(time, f0_gen, label="Synthesis")
+    plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
     plt.xlabel("Time[s]")
-    plt.ylabel("f0[hz]")
-    plt.title("Input")
+    plt.ylabel("f0[Hz]")
+    plt.title("f0")
     plt.grid()
 
-    ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
-    ax.plot(time, f0_AbS)
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[hz]")
-    plt.title("Analysis by Synthesis")
-    plt.grid()
+    # ax = plt.subplot(3, 1, 1)
+    # ax.plot(time, f0_input)
+    # plt.xlabel("Time[s]")
+    # plt.ylabel("f0[hz]")
+    # plt.title("Input")
+    # plt.grid()
 
-    ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
-    ax.plot(time, f0_gen)
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[hz]")
-    plt.title("Synthesis")
-    plt.grid()
+    # ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
+    # ax.plot(time, f0_AbS)
+    # plt.xlabel("Time[s]")
+    # plt.ylabel("f0[hz]")
+    # plt.title("Analysis by Synthesis")
+    # plt.grid()
 
-    plt.tight_layout()
+    # ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
+    # ax.plot(time, f0_gen)
+    # plt.xlabel("Time[s]")
+    # plt.ylabel("f0[hz]")
+    # plt.title("Synthesis")
+    # plt.grid()
+
+    # plt.tight_layout()
     plt.savefig(str(save_path / "f0.png"))
 
 
@@ -450,33 +459,19 @@ def plot_f0_from_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None,
         frame_period=cfg.model.frame_period,
     )
     
-    plt.close("all")
-    plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
-
     time = np.arange(0, f0_input.shape[0]) / 100
 
-    ax = plt.subplot(3, 1, 1)
-    ax.plot(time, f0_input)
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[hz]")
-    plt.title("Input")
-    plt.grid()
+    plt.close("all")
+    plt.figure()
 
-    ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
-    ax.plot(time, f0_AbS)
+    plt.plot(time, f0_input, label="input")
+    # plt.plot(time, f0_AbS, label="Analysis by Synthesis")
+    plt.plot(time, f0_gen, label="Synthesis")
+    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
     plt.xlabel("Time[s]")
-    plt.ylabel("f0[hz]")
-    plt.title("Analysis by Synthesis")
+    plt.ylabel("f0[Hz]")
+    plt.title("f0")
     plt.grid()
-
-    ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
-    ax.plot(time, f0_gen)
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[hz]")
-    plt.title("Synthesis")
-    plt.grid()
-
-    plt.tight_layout()
     plt.savefig(str(save_path / "f0.png"))
 
 

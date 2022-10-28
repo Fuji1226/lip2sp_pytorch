@@ -1,5 +1,5 @@
 """
-save_landmark.pyで保存したランドマークを使用して口唇部分を切り取る
+detを使用して顔全体を切り取る
 """
 
 import os
@@ -11,50 +11,49 @@ from tqdm import tqdm
 import random
 
 
-debug = False
+debug = True
 debug_iter = 10
 
 margin = 0.3
 speaker = "F01_kablab"
 data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
+det_dir = Path(f"~/dataset/lip/det_debug/{speaker}").expanduser()
 
 if debug:
-    save_dir = Path(f"~/dataset/lip/lip_cropped_debug_{margin}/{speaker}").expanduser()    
+    save_dir = Path(f"~/dataset/lip/face_cropped_debug/{speaker}").expanduser()    
 else:
-    save_dir = Path(f"~/dataset/lip/lip_cropped_{margin}/{speaker}").expanduser()
+    save_dir = Path(f"~/dataset/lip/face_cropped/{speaker}").expanduser()
 
 
-def get_crop_info(landmark_path):
-    df = pd.read_csv(str(landmark_path), header=None)
+def get_crop_info(det_path):
+    df = pd.read_csv(str(det_path), header=None)
 
     coords_list = []
     for i in range(len(df)):
-        coords = df.iloc[i][96:].values
-        xy_list = []
-        for j in range(0, len(coords), 2):
-            xy_list.append([coords[j], coords[j + 1]])
-        
-        coords_list.append(xy_list)
+        coords = df.iloc[i].values
+        coords_list.append(coords)
 
     coords_mean = []
     crop_size = 0
     for coords in coords_list:
-        coords_mean.append(np.mean(coords, axis=0).astype("int"))
-
-        left_point = coords[0][0]
-        right_point = coords[6][0]    
-        each_crop_size = right_point - left_point
-
+        coords_mean.append([np.mean(coords[:2]).astype("int"), np.mean(coords[2:]).astype("int")])
+        width = coords[1] - coords[0]
+        height = coords[3] - coords[2]
+        if width > height:
+            each_crop_size = width
+        else:
+            each_crop_size = height
+        
         if each_crop_size > crop_size:
             crop_size = each_crop_size
 
-    crop_size += int(crop_size * margin)
+    print(coords_mean)
+    print(crop_size)
+
     return coords_mean, crop_size
 
-
-def lip_crop(data_path, landmark_path, save_dir):
-    coords_mean, crop_size = get_crop_info(landmark_path)
+def face_crop(data_path, det_path, save_dir):
+    coords_mean, crop_size = get_crop_info(det_path)
     movie = cv2.VideoCapture(str(data_path))
     fps = movie.get(cv2.CAP_PROP_FPS)
     n_frame = movie.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -94,10 +93,10 @@ def main():
     iter_cnt = 0
 
     for data_path in tqdm(data_path_list):
-        landmark_path = landmark_dir / f"{data_path.stem}_landmark.csv"
+        det_path = det_dir / f"{data_path.stem}_det.csv"
 
-        if landmark_path.exists():
-            lip_crop(data_path, landmark_path, save_dir)
+        if det_path.exists():
+            face_crop(data_path, det_path, save_dir)
         else:
             continue
 
