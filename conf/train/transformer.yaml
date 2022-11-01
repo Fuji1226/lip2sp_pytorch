@@ -39,7 +39,7 @@ speaker : ["F01_kablab"]
 use_gc : False
 
 # max_epoch
-max_epoch : 1000
+max_epoch : 5000
 
 # validation lossを計算する間隔
 display_val_loss_step : 1
@@ -84,7 +84,7 @@ max_norm : 3.0
 # tf : teacher forcing
 # ss : scheduled sampling
 training_method : "tf"
-tm_change_step : 10000    # training_methodを変更するepoch(tf -> ss)
+tm_change_step : 0    # training_methodを変更するepoch(tf -> ss)
 
 # parameter for scheduled sampling
 num_passes : 1     # 繰り返し回数(使ってません…)

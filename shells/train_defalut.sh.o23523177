@@ -1,0 +1,586 @@
+
+  - 現在の研究室のGPU使用状況は，
+    「onsei_check_gpus」というコマンドで確認できます。
+  - 自分が確保したいGPUの枚数は，
+    「onsei_register_desired_gpus」というコマンドで登録できます。
+    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
+      onsei_register_desired_gpus 0 9999/12/31
+    - 8枚確保したい場合の例（期限を2022年11月04日に設定し，コメントを付ける）
+      onsei_register_desired_gpus 8 2022/11/04 '研究締切のためすみません'
+    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
+      onsei_register_desired_gpus 2 2022/11/04 '余剰GPUを使わせていただきます'
+
+USER      RUNNING DESIRED     TO DATE  COMMENT
+============================================================================
+hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
+minami          3       4  2022/10/31  余剰GPUを使わせていただきます
+takehisa        0       4  2022/11/30  なかなか動かないので一旦多めに
+fujita          7       5  2022/10/31  使います
+============================================================================
+Remaining       6
+
+wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
+/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+tag: teacher_forcing_dropoutprenet
+device = cuda
+cpu_num = 36
+gpu_num = 1
+
+--- data directory check ---
+data_root = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/train
+mean_std_path = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/mean_std
+ckpt_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:28_21-32-34_teacher_forcing_dropoutprenet
+save_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/train/lip/2022:10:28_21-32-34_teacher_forcing_dropoutprenet
+
+--- get datasets ---
+load F01_kablab
+
+--- make train dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3639
+
+--- make validation dataset ---
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 192
+
+--- get datasets ---
+load F01_kablab
+
+get speaker idx
+speaker_idx = {'F01_kablab': 0}
+
+load mean std
+load F01_kablab
+n = 3831
+wandb: wandb version 0.13.4 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.12.21
+wandb: Run data is saved locally in /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/outputs/2022-10-28/21-32-34/wandb/run-20221028_213234-1gm465ds
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run teacher_forcing_dropoutprenet_mspec80
+wandb: ⭐️ View project at https://wandb.ai/naoaki/lip2sp_default
+wandb: 🚀 View run at https://wandb.ai/naoaki/lip2sp_default/runs/1gm465ds
+##### 1 #####
+training_method : tf
+mixing_prob = 0.5
+learning_rate = 0.001
+iter start
+iter 0/454
+iter 1/454
+iter 2/454
+iter 3/454
+iter 4/454
+iter 5/454
+iter 6/454
+iter 7/454
+iter 8/454
+iter 9/454
+iter 10/454
+iter 11/454
+iter 12/454
+iter 13/454
+iter 14/454
+iter 15/454
+iter 16/454
+iter 17/454
+iter 18/454
+iter 19/454
+iter 20/454
+iter 21/454
+iter 22/454
+iter 23/454
+iter 24/454
+iter 25/454
+iter 26/454
+iter 27/454
+iter 28/454
+iter 29/454
+iter 30/454
+iter 31/454
+iter 32/454
+iter 33/454
+iter 34/454
+iter 35/454
+iter 36/454
+iter 37/454
+iter 38/454
+iter 39/454
+iter 40/454
+iter 41/454
+iter 42/454
+iter 43/454
+iter 44/454
+iter 45/454
+iter 46/454
+iter 47/454
+iter 48/454
+iter 49/454
+iter 50/454
+iter 51/454
+iter 52/454
+iter 53/454
+iter 54/454
+iter 55/454
+iter 56/454
+iter 57/454
+iter 58/454
+iter 59/454
+iter 60/454
+iter 61/454
+iter 62/454
+iter 63/454
+iter 64/454
+iter 65/454
+iter 66/454
+iter 67/454
+iter 68/454
+iter 69/454
+iter 70/454
+iter 71/454
+iter 72/454
+iter 73/454
+iter 74/454
+iter 75/454
+iter 76/454
+iter 77/454
+iter 78/454
+iter 79/454
+iter 80/454
+iter 81/454
+iter 82/454
+iter 83/454
+iter 84/454
+iter 85/454
+iter 86/454
+iter 87/454
+iter 88/454
+iter 89/454
+iter 90/454
+iter 91/454
+iter 92/454
+iter 93/454
+iter 94/454
+iter 95/454
+iter 96/454
+iter 97/454
+iter 98/454
+iter 99/454
+iter 100/454
+iter 101/454
+iter 102/454
+iter 103/454
+iter 104/454
+iter 105/454
+iter 106/454
+iter 107/454
+iter 108/454
+iter 109/454
+iter 110/454
+iter 111/454
+iter 112/454
+iter 113/454
+iter 114/454
+iter 115/454
+iter 116/454
+iter 117/454
+iter 118/454
+iter 119/454
+iter 120/454
+iter 121/454
+iter 122/454
+iter 123/454
+iter 124/454
+iter 125/454
+iter 126/454
+iter 127/454
+iter 128/454
+iter 129/454
+iter 130/454
+iter 131/454
+iter 132/454
+iter 133/454
+iter 134/454
+iter 135/454
+iter 136/454
+iter 137/454
+iter 138/454
+iter 139/454
+iter 140/454
+iter 141/454
+iter 142/454
+iter 143/454
+iter 144/454
+iter 145/454
+iter 146/454
+iter 147/454
+iter 148/454
+iter 149/454
+iter 150/454
+iter 151/454
+iter 152/454
+iter 153/454
+iter 154/454
+iter 155/454
+iter 156/454
+iter 157/454
+iter 158/454
+iter 159/454
+iter 160/454
+iter 161/454
+iter 162/454
+iter 163/454
+iter 164/454
+iter 165/454
+iter 166/454
+iter 167/454
+iter 168/454
+iter 169/454
+iter 170/454
+iter 171/454
+iter 172/454
+iter 173/454
+iter 174/454
+iter 175/454
+iter 176/454
+iter 177/454
+iter 178/454
+iter 179/454
+iter 180/454
+iter 181/454
+iter 182/454
+iter 183/454
+iter 184/454
+iter 185/454
+iter 186/454
+iter 187/454
+iter 188/454
+iter 189/454
+iter 190/454
+iter 191/454
+iter 192/454
+iter 193/454
+iter 194/454
+iter 195/454
+iter 196/454
+iter 197/454
+iter 198/454
+iter 199/454
+iter 200/454
+iter 201/454
+iter 202/454
+iter 203/454
+iter 204/454
+iter 205/454
+iter 206/454
+iter 207/454
+iter 208/454
+iter 209/454
+iter 210/454
+iter 211/454
+iter 212/454
+iter 213/454
+iter 214/454
+iter 215/454
+iter 216/454
+iter 217/454
+iter 218/454
+iter 219/454
+iter 220/454
+iter 221/454
+iter 222/454
+iter 223/454
+iter 224/454
+iter 225/454
+iter 226/454
+iter 227/454
+iter 228/454
+iter 229/454
+iter 230/454
+iter 231/454
+iter 232/454
+iter 233/454
+iter 234/454
+iter 235/454
+iter 236/454
+iter 237/454
+iter 238/454
+iter 239/454
+iter 240/454
+iter 241/454
+iter 242/454
+iter 243/454
+iter 244/454
+iter 245/454
+iter 246/454
+iter 247/454
+iter 248/454
+iter 249/454
+iter 250/454
+iter 251/454
+iter 252/454
+iter 253/454
+iter 254/454
+iter 255/454
+iter 256/454
+iter 257/454
+iter 258/454
+iter 259/454
+iter 260/454
+iter 261/454
+iter 262/454
+iter 263/454
+iter 264/454
+iter 265/454
+iter 266/454
+iter 267/454
+iter 268/454
+iter 269/454
+iter 270/454
+iter 271/454
+iter 272/454
+iter 273/454
+iter 274/454
+iter 275/454
+iter 276/454
+iter 277/454
+iter 278/454
+iter 279/454
+iter 280/454
+iter 281/454
+iter 282/454
+iter 283/454
+iter 284/454
+iter 285/454
+iter 286/454
+iter 287/454
+iter 288/454
+iter 289/454
+iter 290/454
+iter 291/454
+iter 292/454
+iter 293/454
+iter 294/454
+iter 295/454
+iter 296/454
+iter 297/454
+iter 298/454
+iter 299/454
+iter 300/454
+iter 301/454
+iter 302/454
+iter 303/454
+iter 304/454
+iter 305/454
+iter 306/454
+iter 307/454
+iter 308/454
+iter 309/454
+iter 310/454
+iter 311/454
+iter 312/454
+iter 313/454
+iter 314/454
+iter 315/454
+iter 316/454
+iter 317/454
+iter 318/454
+iter 319/454
+iter 320/454
+iter 321/454
+iter 322/454
+iter 323/454
+iter 324/454
+iter 325/454
+iter 326/454
+iter 327/454
+iter 328/454
+iter 329/454
+iter 330/454
+iter 331/454
+iter 332/454
+iter 333/454
+iter 334/454
+iter 335/454
+iter 336/454
+iter 337/454
+iter 338/454
+iter 339/454
+iter 340/454
+iter 341/454
+iter 342/454
+iter 343/454
+iter 344/454
+iter 345/454
+iter 346/454
+iter 347/454
+iter 348/454
+iter 349/454
+iter 350/454
+iter 351/454
+iter 352/454
+iter 353/454
+iter 354/454
+iter 355/454
+iter 356/454
+iter 357/454
+iter 358/454
+iter 359/454
+iter 360/454
+iter 361/454
+iter 362/454
+iter 363/454
+iter 364/454
+iter 365/454
+iter 366/454
+iter 367/454
+iter 368/454
+iter 369/454
+iter 370/454
+iter 371/454
+iter 372/454
+iter 373/454
+iter 374/454
+iter 375/454
+iter 376/454
+iter 377/454
+iter 378/454
+iter 379/454
+iter 380/454
+iter 381/454
+iter 382/454
+iter 383/454
+iter 384/454
+iter 385/454
+iter 386/454
+iter 387/454
+iter 388/454
+iter 389/454
+iter 390/454
+iter 391/454
+iter 392/454
+iter 393/454
+iter 394/454
+iter 395/454
+iter 396/454
+iter 397/454
+iter 398/454
+iter 399/454
+iter 400/454
+iter 401/454
+iter 402/454
+iter 403/454
+iter 404/454
+iter 405/454
+iter 406/454
+iter 407/454
+iter 408/454
+iter 409/454
+iter 410/454
+iter 411/454
+iter 412/454
+iter 413/454
+iter 414/454
+iter 415/454
+iter 416/454
+iter 417/454
+iter 418/454
+iter 419/454
+iter 420/454
+iter 421/454
+iter 422/454
+iter 423/454
+iter 424/454
+iter 425/454
+iter 426/454
+iter 427/454
+iter 428/454
+iter 429/454
+iter 430/454
+iter 431/454
+iter 432/454
+iter 433/454
+iter 434/454
+iter 435/454
+iter 436/454
+iter 437/454
+iter 438/454
+iter 439/454
+iter 440/454
+iter 441/454
+iter 442/454
+iter 443/454
+iter 444/454
+iter 445/454
+iter 446/454
+iter 447/454
+iter 448/454
+iter 449/454
+iter 450/454
+iter 451/454
+iter 452/454
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/data_check/default/2022:10:28_21-32-33_teacher_forcing_dropoutprenet
+iter 453/454
+calc val loss
+iter 0/24
+iter 1/24
+iter 2/24
+iter 3/24
+iter 4/24
+iter 5/24
+iter 6/24
+iter 7/24
+iter 8/24
+iter 9/24
+iter 10/24
+iter 11/24
+iter 12/24
+iter 13/24
+iter 14/24
+iter 15/24
+iter 16/24
+iter 17/24
+iter 18/24
+iter 19/24
+iter 20/24
+iter 21/24
+iter 22/24
+/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/data_check/default/2022:10:28_21-32-33_teacher_forcing_dropoutprenet
+iter 23/24
+wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
+wandb: - 0.828 MB of 0.828 MB uploaded (0.000 MB deduped)wandb: \ 0.828 MB of 0.828 MB uploaded (0.000 MB deduped)wandb: | 0.828 MB of 0.828 MB uploaded (0.000 MB deduped)wandb: / 0.828 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: - 0.828 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: \ 0.828 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: | 0.828 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: / 0.886 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: - 1.034 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: \ 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: | 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: / 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: - 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: \ 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: | 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: / 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: - 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: \ 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb: | 1.337 MB of 1.337 MB uploaded (0.000 MB deduped)wandb:                                                                                
+wandb: 
+wandb: Run history:
+wandb: train_dec_output_loss █▇▄▄▃▃▃▂▃▂▂▂▂▂▂▂▂▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:     train_output_loss █▅▃▃▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:   val_dec_output_loss █▇▃▄▅▄▆▅▄▄▄▁▆█▄▅▆▅▃▄▁▃▆█
+wandb:       val_output_loss ▇▇▃▄▄▃▆▄▄▄▄▁▆█▃▅▆▅▃▄▁▃▅█
+wandb: 
+wandb: Run summary:
+wandb: train_dec_output_loss 0.27003
+wandb:     train_output_loss 0.26949
+wandb:   val_dec_output_loss 0.38829
+wandb:       val_output_loss 0.38769
+wandb: 
+wandb: Synced teacher_forcing_dropoutprenet_mspec80: https://wandb.ai/naoaki/lip2sp_default/runs/1gm465ds
+wandb: Synced 5 W&B file(s), 5 media file(s), 3 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20221028_213234-1gm465ds/logs
+Error executing job with overrides: ['train=transformer', 'train.debug=False', 'tag=teacher_forcing_dropoutprenet']
+Traceback (most recent call last):
+  File "train_default.py", line 406, in main
+    generate_for_train_check(
+  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/synthesis.py", line 26, in generate_for_train_check
+    output, dec_output, feat_add_out, vq_los = model(lip)
+ValueError: not enough values to unpack (expected 4, got 3)
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

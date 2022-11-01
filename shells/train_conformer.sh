@@ -25,7 +25,7 @@ cd "${dir_project}"
 file_main="train_default.py"
 
 
-tag=conformer_test
+tag=conformer_noraml_prenet
 # これより下に，Pythonなどを実行するコマンドを書きます。
 # 実際はもう少しごちゃごちゃした内容を記述していることが多いです。
 python $file_main train.debug=False tag=$tag model=mspec80_conformer train=conformer

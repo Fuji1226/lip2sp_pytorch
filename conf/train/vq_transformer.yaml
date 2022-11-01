@@ -1,0 +1,114 @@
+---
+
+name : "default"
+
+# デバッグ
+debug : False
+debug_data_len : 1000
+debug_max_epoch : 200
+debug_iter : 10
+
+# checkpointから再開する場合
+check_point_start : False
+start_ckpt_path : "~/lip2sp_pytorch/check_point/default/lip_128128/2022:07:20_13-10-21/world_melfb_100.ckpt"
+
+# face or lip
+face_or_lip : "lip"
+
+# データを置いているディレクトリまでのパス
+lip_path : "~/dataset/lip/lip_cropped"
+face_path : "~/dataset/lip/cropped"
+
+# 学習したモデルのパラメータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch_all/lip2sp_920_re/result/default/train"
+
+# check point path
+ckpt_path : "~/lip2sp_pytorch_all/lip2sp_920_re/check_point/default"
+ckpt_step : 10
+
+# 平均、標準偏差ディレクトリまでのパス
+lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
+face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
+
+# 口唇動画、音響特徴量ディレクトリまでのパス
+lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
+face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
+
+# 使用する話者
+speaker : ["F01_kablab"]
+use_gc : False
+
+# max_epoch
+max_epoch : 1000
+
+# validation lossを計算する間隔
+display_val_loss_step : 1
+
+# data augmentationの有無
+# 空間
+use_color_jitter : False
+use_blur : False
+use_horizontal_flip : False
+use_pad : False
+use_rotation : False
+# 時間
+use_time_augment : False
+time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
+
+# dataloader
+batch_size : 8
+num_workers : 8
+
+# dropout
+dec_dropout : 0.5
+res_dropout : 0.1
+
+# optimizer
+lr : 0.001
+lr_lf : 0.0001
+beta_1 : 0.9
+beta_2 : 0.999
+weight_decay : 1.0e-6
+
+# scheduler
+lr_decay_rate : 0.5
+lr_decay_step : 4   # max_epoch // lr_decay_stepでlr_decay_rate倍に学習率を変更
+multi_lr_decay_step : [200,]   # 学習率を変更するepoch
+warmup_t : 20
+warmup_lr_init : 1.0e-5
+
+# gradient clipping
+max_norm : 3.0
+
+# 学習方法（"tf" or "ss"）
+# tf : teacher forcing
+# ss : scheduled sampling
+training_method : "tf"
+tm_change_step : 0    # training_methodを変更するepoch(tf -> ss)
+
+# parameter for scheduled sampling
+num_passes : 1     # 繰り返し回数(使ってません…)
+mixing_prob : 0.5  # 混合率(低いほうがより学習が難しくなる)
+change_mixing_prob : True
+mp_change_step : 100    # mixing_probを変更するepoch
+fixed_mixing_prob : True
+
+# 途中のメルスペクトログラムの可視化
+visualize_step : 400    # iteration
+
+# delta loss
+blur : True
+batch_norm : True
+
+# 動画に対して最初にbatch normalizationをするかどうか
+apply_first_bn : False
+
+# lossの重みづけ
+use_learnable_loss : False
+output_loss_w : 1.0
+dec_output_loss_w : 1.0
+delta_loss_w : 1.0
+
+# feat_add_layer
+multi_task : False
+add_feat_add : False

@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+import torch.nn.functional as F
 #from d2l import torch as d2l
 import math
 
@@ -181,3 +182,69 @@ class MultiHeadAttentionRelative(nn.Module):
         #x = [batch size, query len, hid dim]
         
         return x
+
+
+class VectorQuantizer(nn.Module):
+  def __init__(self, embedding_dim, conv_dim=4048, num_embeddings=512, commitment_cost=0.25):
+    super(VectorQuantizer, self).__init__()
+
+    self.pre_conv = nn.Conv1d(embedding_dim, conv_dim, kernel_size=1)
+    self.post_conv = nn.Conv1d(conv_dim, embedding_dim, kernel_size=1)
+
+    self._embedding_dim = conv_dim
+    self._num_embeddings = num_embeddings
+    self._commitment_cost = commitment_cost
+    # コードブック(ボトルネック)
+    self._w = nn.Embedding(self._num_embeddings, self._embedding_dim)
+    self._w.weight.data.uniform_(-1/self._num_embeddings, 1/self._num_embeddings)
+     
+  def forward(self, inputs):
+    '''
+    inputs: N×C×H×W -> (B, len, C)
+    '''
+    #breakpoint()
+    # N×C×H×WをN×H×W×Cに変換する. (Cは埋め込みベクトルの次元)
+    #inputs = inputs.permute(0, 2, 3, 1).contiguous()
+
+    inputs = self.pre_conv(inputs.transpose(1, 2))
+    #print(f'shape: {inputs.shape}')
+    inputs = inputs.transpose(1, 2)
+
+    input_shape = inputs.size()
+    
+    input_flattened = inputs.reshape(-1, self._embedding_dim) # すべて縦に並べる
+    distances = (torch.sum(input_flattened ** 2, dim=1, keepdim=True) 
+                    - 2 * torch.matmul(input_flattened, self._w.weight.t())
+                    + torch.sum(self._w.weight ** 2, dim=1))
+    encoding_indices = torch.argmax(-distances, 1).unsqueeze(1)
+    # one-hotベクトルに変換
+    encodings = torch.zeros(encoding_indices.shape[0], self._num_embeddings, device=inputs.device)
+    encodings.scatter_(1, encoding_indices, 1) # one-hot
+    # 埋め込み表現を取得し、元のインプットの形に戻す。
+    quantized = torch.matmul(encodings, self._w.weight) # one-hot ⇒ ベクトル
+    quantized = quantized.view(input_shape) 
+     
+    # 損失の計算
+    # 二乗誤差で計算. sgの部分はdetach()で勾配を計算しないようにする
+    e_latent_loss = F.mse_loss(quantized.detach(), inputs)
+    q_latent_loss = F.mse_loss(quantized, inputs.detach())
+    loss = q_latent_loss + self._commitment_cost * e_latent_loss
+     
+    # sgの部分はdetach()で勾配を計算しない
+    quantized = inputs + (quantized - inputs).detach()
+  
+    #quantized = quantized.permute(0, 3, 1, 2).contiguous()
+    # perplexityを計算 
+    avg_probs = torch.mean(encodings, dim=0)
+    perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
+    
+
+    quantized = self.post_conv(quantized.transpose(1, 2))
+    quantized = quantized.transpose(1, 2)
+    return quantized, loss
+    # return {'distances': distances,
+    #         'quantize': quantized,
+    #         'loss': loss, 
+    #         'encodings': encodings,
+    #         'encoding_indices': encoding_indices,
+    #         'perplexity': perplexity}
