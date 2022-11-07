@@ -9,7 +9,7 @@ from torch.autograd import Variable
 from loss import MaskedLoss
 
 
-def update_discriminator(model_d, optimizer_d, x, y, y_hat,
+def update_discriminator(model_d, optimizer_d, y, y_hat,
                          mask, phase, eps=1e-20):
     
     T = mask.sum().item()
@@ -63,3 +63,6 @@ def update_generator(model_g, model_d, optimizer_g,
         optimizer_g.step()
 
     return loss_mse.item(), loss_adv.item(), loss_g.item()
+
+
+    

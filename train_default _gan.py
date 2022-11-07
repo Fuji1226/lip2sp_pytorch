@@ -19,6 +19,9 @@ from utils import make_train_val_loader, get_path_train, save_loss, check_feat_a
 from model.model_default import Lip2SP
 from loss import MaskedLoss
 
+from gan_utils.optimizers import make_optimizer
+from gan_utils.updater import update_discriminator, update_generator
+from gan_utils.utils import make_descriminator
 # wandbへのログイン
 wandb.login()
 
@@ -84,6 +87,7 @@ def make_model(cfg, device):
         model = torch.nn.DataParallel(model)
         print(f"\nusing {torch.cuda.device_count()} GPU")
     return model.to(device)
+
 
 
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time):
@@ -287,18 +291,27 @@ def main(cfg):
  
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
-        model = make_model(cfg, device)
+        base_model = make_model(cfg, device)
+        base_model_path = Path("/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/transfomer_check/mspec80_300.ckpt")
+        
+        model_g = make_model(cfg, device)
+        model_d = make_descriminator(cfg.model.n_mel_channels)
         
         # optimizer
-        optimizer = torch.optim.Adam(
-            params=model.parameters(),
-            lr=cfg.train.lr, 
-            betas=(cfg.train.beta_1, cfg.train.beta_2),
-            weight_decay=cfg.train.weight_decay    
-        )
+        optimizer_g, optimizer_d = make_optimizer(model_g, model_d
+                                      lr = cfg.train.lr,
+                                      beta1=cfg.train.beta_1,
+                                      beta2=cfg.train.beta_2,
+                                      ganmma=cfg.train.lr_decay_rate)
         # scheduler
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer=optimizer,
+        scheduler_g = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer=optimizer_g,
+            milestones=cfg.train.multi_lr_decay_step,
+            gamma=cfg.train.lr_decay_rate,
+        )
+        
+        scheduler_d = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer=optimizer_d,
             milestones=cfg.train.multi_lr_decay_step,
             gamma=cfg.train.lr_decay_rate,
         )
@@ -312,21 +325,6 @@ def main(cfg):
         # )
 
         last_epoch = 0
-
-        if cfg.train.check_point_start:
-            checkpoint_path = cfg.train.start_ckpt_path
-            checkpoint = torch.load(checkpoint_path)
-            model.load_state_dict(checkpoint["model"])
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            scheduler.load_state_dict(checkpoint["scheduler"])
-            random.setstate(checkpoint["random"])
-            np.random.set_state(checkpoint["np_random"])
-            torch.set_rng_state(checkpoint["torch"])
-            torch.random.set_rng_state(checkpoint["torch_random"])
-            torch.cuda.set_rng_state(checkpoint["cuda_random"])
-            last_epoch = checkpoint["epoch"]
-
-        wandb.watch(model, **cfg.wandb_conf.watch)
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
@@ -353,7 +351,7 @@ def main(cfg):
 
             print(f"training_method : {training_method}")
             print(f"mixing_prob = {mixing_prob}")
-            print(f"learning_rate = {scheduler.get_last_lr()[0]}")
+            print(f"learning_rate = {scheduler_g.get_last_lr()[0]}")
 
             # training
             train_epoch_loss_output, train_epoch_loss_dec_output, train_epoch_loss_feat_add = train_one_epoch(

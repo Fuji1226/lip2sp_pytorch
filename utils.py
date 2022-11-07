@@ -417,3 +417,45 @@ def check_feat_add(target, output, cfg, filename, current_time, ckpt_time=None):
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
+    
+    
+def make_pad_mask(lengths, max_len):
+    """
+    口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+    """
+    # この後の処理でリストになるので先にdeviceを取得しておく
+    device = lengths.device
+
+    if not isinstance(lengths, list):
+        lengths = lengths.tolist()
+    bs = int(len(lengths))
+    if max_len is None:
+        max_len = int(max(lengths))
+
+    seq_range = torch.arange(0, max_len, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    mask = seq_range_expand >= seq_length_expand
+    mask = mask.unsqueeze(1).repeat(1, max_len, 1).to(device=device)
+    
+    return mask
+
+def make_pad_mask_for_loss(lengths, max_len, output):
+    """
+    口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+    """
+    # この後の処理でリストになるので先にdeviceを取得しておく
+    device = lengths.device
+
+    if not isinstance(lengths, list):
+        lengths = lengths.tolist()
+    bs = int(len(lengths))
+    if max_len is None:
+        max_len = int(max(lengths))
+
+    seq_range = torch.arange(0, max_len, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    mask = seq_range_expand >= seq_length_expand
+    mask = mask.unsqueeze(1).repeat(1, output.shape[1], 1).to(device=device)
+    return mask
