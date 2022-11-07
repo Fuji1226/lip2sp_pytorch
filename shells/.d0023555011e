@@ -1,9 +1,0 @@
-#!/bin/sh
-#
-# epilogue
-#
-# epilogue is executed by PJM epilogue.
-#
-
-exec /usr/local/tool/epilogue.sh
-

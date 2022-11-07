@@ -233,6 +233,7 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
         drop_last=True,
         collate_fn=partial(collate_time_adjust, cfg=cfg),
     )
+   
     return train_loader, val_loader, train_dataset, val_dataset
 
 
@@ -261,6 +262,7 @@ def make_test_loader(cfg, data_root, mean_std_path):
         drop_last=True,
         collate_fn=None
     )
+  
     return test_loader, test_dataset
 
 
@@ -320,7 +322,7 @@ def check_mel_default(target, output, dec_output, cfg, filename, current_time, c
     plt.title("dec_output")
 
     plt.tight_layout()
-    save_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
+    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
     if ckpt_time is not None:
         save_path = save_path / cfg.train.name / tag
     else:

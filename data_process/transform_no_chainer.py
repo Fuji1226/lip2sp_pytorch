@@ -6,8 +6,8 @@ make_npz.pyを実行するとここの処理が行われます
 import os
 import sys
 from pathlib import Path
-sys.path.append(str(Path("~/lip2sp_pytorch_all/lip2sp_920_re").expanduser()))
-sys.path.append(str(Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_process").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch/data_process").expanduser()))
 
 from pathlib import Path
 import cv2
@@ -136,7 +136,7 @@ def load_data_for_npz(video_path, audio_path, cfg):
     wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
     wav = wav / np.max(np.abs(wav), axis=0)
     upsample = get_upsample(fps, fs, cfg.model.frame_period)
-    
+   
     # 音響特徴量への変換
     feature = calc_sp(wav, cfg)
     feat_add, T = calc_feat_add(wav, feature, cfg)

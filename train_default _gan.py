@@ -153,7 +153,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
                 if cfg.train.multi_task:
                     check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
 
-        
+        break
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt

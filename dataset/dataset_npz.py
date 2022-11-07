@@ -43,6 +43,7 @@ def get_datasets_test(data_root, cfg):
     """
     print("\n--- get datasets ---")
     items = []
+    
     for speaker in cfg.test.speaker:
         print(f"load {speaker}")
         spk_path = data_root / speaker

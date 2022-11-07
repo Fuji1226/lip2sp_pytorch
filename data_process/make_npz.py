@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-sys.path.append(str(Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_process").expanduser()))
+sys.path.append(str(Path("~/lip2sp_pytorch/data_process").expanduser()))
 
 import numpy as np
 import torch
@@ -16,10 +16,10 @@ except:
 # speakerのみ変更してください
 speaker = "F01_kabulab"
 LIP_PATH = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/train").expanduser()
-LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/mean_std").expanduser()
-LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files_fujita/lip_cropped/test").expanduser()
-LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/mean_std").expanduser()
+LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/train").expanduser()
+LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
+LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/test").expanduser()
+LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files/lip_cropped/mean_std").expanduser()
 
 
 def get_dataset_lip(data_root):    
@@ -101,7 +101,8 @@ def save_data_train(items, len, cfg, data_save_path, mean_std_save_path, device,
                 audio_path=audio_path,
                 cfg=cfg,
             )
-       
+
+            
             if cfg.model.name == "mspec80_trans":
                 assert feature.shape[-1] == 80
             elif cfg.model.name == "mspec40":
@@ -115,6 +116,7 @@ def save_data_train(items, len, cfg, data_save_path, mean_std_save_path, device,
             
             assert feat_add.shape[-1] == 2
             
+           
             # データの保存
             os.makedirs(os.path.join(data_save_path, speaker), exist_ok=True)
             np.savez(
@@ -330,12 +332,7 @@ def main(cfg):
     )
     print("Done")
 
-
-    # # 顔
-    # print("--- face data processing ---")
-    # save_data(
-    #     data_root=FACE_PATH,
-    #     train_data_save_path=cfg.train.face_pre_loaded_path,
+    #lip2sp_pytorche_path=cfg.train.face_pre_loaded_path,
     #     train_mean_std_save_path=cfg.train.face_mean_std_path,
     #     test_data_save_path=cfg.test.face_pre_loaded_path,
     #     test_mean_std_save_path=cfg.test.face_mean_std_path,

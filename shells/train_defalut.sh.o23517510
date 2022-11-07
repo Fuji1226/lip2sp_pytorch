@@ -1,118 +1,0 @@
-
-  - 現在の研究室のGPU使用状況は，
-    「onsei_check_gpus」というコマンドで確認できます。
-  - 自分が確保したいGPUの枚数は，
-    「onsei_register_desired_gpus」というコマンドで登録できます。
-    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
-      onsei_register_desired_gpus 0 9999/12/31
-    - 8枚確保したい場合の例（期限を2022年11月04日に設定し，コメントを付ける）
-      onsei_register_desired_gpus 8 2022/11/04 '研究締切のためすみません'
-    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
-      onsei_register_desired_gpus 2 2022/11/04 '余剰GPUを使わせていただきます'
-
-USER      RUNNING DESIRED     TO DATE  COMMENT
-============================================================================
-hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
-minami          6       4  2022/10/31  余剰GPUを使わせていただきます
-takehisa        0       4  2022/11/30  なかなか動かないので一旦多めに
-fujita          7       5  2022/10/31  使います
-============================================================================
-Remaining       3
-
-wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
-/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
-  warnings.warn(msg, UserWarning)
-tag: teacher_forcing
-device = cuda
-cpu_num = 36
-gpu_num = 1
-
---- data directory check ---
-data_root = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/train
-mean_std_path = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/mean_std
-ckpt_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:28_11-42-24_teacher_forcing
-save_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/train/lip/2022:10:28_11-42-24_teacher_forcing
-
---- get datasets ---
-load F01_kablab
-
---- make train dataset ---
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 3639
-
---- make validation dataset ---
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 192
-
---- get datasets ---
-load F01_kablab
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 3831
-wandb: wandb version 0.13.4 is available!  To upgrade, please run:
-wandb:  $ pip install wandb --upgrade
-wandb: Tracking run with wandb version 0.12.21
-wandb: Run data is saved locally in /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/outputs/2022-10-28/11-42-23/wandb/run-20221028_114224-27gpdu33
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run teacher_forcing_mspec80
-wandb: ⭐️ View project at https://wandb.ai/naoaki/lip2sp_default
-wandb: 🚀 View run at https://wandb.ai/naoaki/lip2sp_default/runs/27gpdu33
-##### 1 #####
-training_method : tf
-mixing_prob = 0.5
-learning_rate = 0.001
-iter start
-iter 0/454
-> /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py(236)forward()
--> residual = x
-(Pdb) [?1034h
-wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
-wandb: - 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb:                                                                                
-wandb: Synced teacher_forcing_mspec80: https://wandb.ai/naoaki/lip2sp_default/runs/27gpdu33
-wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
-wandb: Find logs at: ./wandb/run-20221028_114224-27gpdu33/logs
-Error executing job with overrides: ['train=transformer', 'train.debug=False', 'tag=teacher_forcing']
-Traceback (most recent call last):
-  File "train_default.py", line 358, in main
-    train_epoch_loss_output, train_epoch_loss_dec_output, train_epoch_loss_feat_add = train_one_epoch(
-  File "train_default.py", line 108, in train_one_epoch
-    output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1128, in _call_impl
-    result = forward_call(*input, **kwargs)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/model_default.py", line 179, in forward
-    enc_output = self.encoder(lip_feature, data_len)    # (B, T, C)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
-    return forward_call(*input, **kwargs)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 339, in forward
-    enc_output = enc_layer(enc_output, mask)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
-    return forward_call(*input, **kwargs)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 256, in forward
-    enc_output = self.fc(enc_output)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
-    return forward_call(*input, **kwargs)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 236, in forward
-    residual = x
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 236, in forward
-    residual = x
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 88, in trace_dispatch
-    return self.dispatch_line(frame)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 113, in dispatch_line
-    if self.quitting: raise BdbQuit
-bdb.BdbQuit
-
-Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

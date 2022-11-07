@@ -6,7 +6,7 @@ from librosa.display import specshow
 
 def generate_for_train_check(cfg, model, test_loader, dataset, device, save_path, epoch):
     model.eval()
-
+    print('start synthesis')
     lip_mean = dataset.lip_mean.to(device)
     lip_std = dataset.lip_std.to(device)
     feat_mean = dataset.feat_mean.to(device)
@@ -17,6 +17,7 @@ def generate_for_train_check(cfg, model, test_loader, dataset, device, save_path
     process_times = []
 
     iter_cnt = 0
+    
     for batch in test_loader:
         wav, lip, feature, feat_add, upsample, data_len, speaker, label = batch
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
@@ -41,47 +42,79 @@ def generate_for_train_check(cfg, model, test_loader, dataset, device, save_path
         feature = feature[0].to('cpu').detach().numpy().copy()
         output = output[0].to('cpu').detach().numpy().copy()
         dec_output = dec_output[0].to('cpu').detach().numpy().copy()
-
-        plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
-        ax = plt.subplot(3, 1, 1)
-        specshow(
-        data=feature, 
-        x_axis="time", 
+        #breakpoint()
+        fig, ax = plt.subplots(3, figsize=(7.5, 7.5*1.6), dpi=200)
+        img1 = specshow(
+        data=feature,  
         y_axis="mel", 
         sr=16000,
         cmap="viridis",
+        ax=ax[0]
         )
-        plt.colorbar(format="%+2.f dB")
-        plt.xlabel("Time[s]")
-        plt.ylabel("Frequency[Hz]")
-        plt.title("target")
-        ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
-        specshow(
+        fig.colorbar(img1, ax=ax[0])
+        img1.set_clim(-5.0, 5.0)
+        #ax[0].set_clim(-4., 4.)
+
+        # import sys
+        # sys.exit(1)
+
+        #plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
+        #ax = plt.subplot(3, 1, 1)
+        img2 = specshow(
         data=output, 
-        x_axis="time", 
         y_axis="mel", 
         sr=16000,
         cmap="viridis",
+        ax=ax[1]
         )
-        plt.colorbar(format="%+2.f dB")
-        plt.xlabel("Time[s]")
-        plt.ylabel("Frequency[Hz]")
-        plt.title("output")
-
-        ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
-        specshow(
+        fig.colorbar(img2, ax=ax[1])
+        img2.set_clim(-5.0, 5.0)
+        
+        img3 = specshow(
         data=dec_output, 
         x_axis="time", 
         y_axis="mel", 
         sr=16000,
         cmap="viridis",
+        ax=ax[2]
         )
-        plt.colorbar(format="%+2.f dB")
-        plt.xlabel("Time[s]")
-        plt.ylabel("Frequency[Hz]")
-        plt.title("dec_output")
-        plt.tight_layout()
+        fig.colorbar(img3, ax=ax[2])
+        img3.set_clim(-5.0, 5.0)
+        #pp.set_clim(-4., 4,)
+        
+        #ax = .colorbar(format="%+2.f dB")
+        # plt.xlabel("Time[s]")
+        # plt.ylabel("Frequency[Hz]")
+        # plt.title("target")
+        # ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
+        # specshow(
+        # data=output, 
+        # x_axis="time", 
+        # y_axis="mel", 
+        # sr=16000,
+        # cmap="viridis",
+        # )
+        # ax.set_clim(-4., 4.)
+        # plt.colorbar(format="%+2.f dB")
+        # plt.xlabel("Time[s]")
+        # plt.ylabel("Frequency[Hz]")
+        # plt.title("output")
 
+        # ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
+        # specshow(
+        # data=dec_output, 
+        # x_axis="time", 
+        # y_axis="mel", 
+        # sr=16000,
+        # cmap="viridis",
+        # )
+        # ax.set_clim(-4., 4.)
+        # plt.colorbar(format="%+2.f dB")
+        # plt.xlabel("Time[s]")
+        # plt.ylabel("Frequency[Hz]")
+        # plt.title("dec_output")
+        # plt.tight_layout()
+        
         plt.savefig(str(_save_path))
         plt.close()
         print('synthesis finished')

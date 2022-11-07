@@ -1,105 +1,0 @@
-
-  - 現在の研究室のGPU使用状況は，
-    「onsei_check_gpus」というコマンドで確認できます。
-  - 自分が確保したいGPUの枚数は，
-    「onsei_register_desired_gpus」というコマンドで登録できます。
-    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
-      onsei_register_desired_gpus 0 9999/12/31
-    - 8枚確保したい場合の例（期限を2022年11月03日に設定し，コメントを付ける）
-      onsei_register_desired_gpus 8 2022/11/03 '研究締切のためすみません'
-    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
-      onsei_register_desired_gpus 2 2022/11/03 '余剰GPUを使わせていただきます'
-
-USER      RUNNING DESIRED     TO DATE  COMMENT
-============================================================================
-hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
-minami          2       4  2022/10/31  余剰GPUを使わせていただきます
-takehisa        4       4  2022/11/30  なかなか動かないので一旦多めに
-fujita          6       5  2022/10/31  使います
-============================================================================
-Remaining       4
-
-wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
-/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
-  warnings.warn(msg, UserWarning)
-tag: teacher_forcing
-device = cuda
-cpu_num = 36
-gpu_num = 1
-
---- data directory check ---
-data_root = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/train
-mean_std_path = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/mean_std
-ckpt_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/2022:10:27_09-51-37_teacher_forcing
-save_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/train/lip/2022:10:27_09-51-37_teacher_forcing
-
---- get datasets ---
-load F01_kablab
-
---- make train dataset ---
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 3639
-
---- make validation dataset ---
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 192
-
---- get datasets ---
-load F01_kablab
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 3831
-wandb: wandb version 0.13.4 is available!  To upgrade, please run:
-wandb:  $ pip install wandb --upgrade
-wandb: Tracking run with wandb version 0.12.21
-wandb: Run data is saved locally in /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/outputs/2022-10-27/09-51-36/wandb/run-20221027_095137-yu4aem0l
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run teacher_forcing_mspec80
-wandb: ⭐️ View project at https://wandb.ai/naoaki/lip2sp_default
-wandb: 🚀 View run at https://wandb.ai/naoaki/lip2sp_default/runs/yu4aem0l
-> /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py(270)__init__()
--> self.dec_self_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
-(Pdb) 
-wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
-wandb: - 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb:                                                                                
-wandb: Synced teacher_forcing_mspec80: https://wandb.ai/naoaki/lip2sp_default/runs/yu4aem0l
-wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
-wandb: Find logs at: ./wandb/run-20221027_095137-yu4aem0l/logs
-Error executing job with overrides: ['train=transformer', 'train.debug=False', 'tag=teacher_forcing']
-Traceback (most recent call last):
-  File "train_default.py", line 289, in main
-    model = make_model(cfg, device)
-  File "train_default.py", line 49, in make_model
-    model = Lip2SP(
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/model_default.py", line 124, in __init__
-    self.decoder = Decoder(
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 357, in __init__
-    self.dec_layers = nn.ModuleList([
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 358, in <listcomp>
-    DecoderLayer(dec_d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout, diag_mask=self.diag_mask)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 270, in __init__
-    self.dec_self_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/transformer_remake.py", line 270, in __init__
-    self.dec_self_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 88, in trace_dispatch
-    return self.dispatch_line(frame)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/bdb.py", line 113, in dispatch_line
-    if self.quitting: raise BdbQuit
-bdb.BdbQuit
-
-Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
-[?1034h

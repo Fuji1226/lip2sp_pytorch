@@ -7,7 +7,7 @@ csv/
 data_check/
 outputs/
 result/
-# shells/
+shells/
 wandb/
 # wavenet/
 env/
