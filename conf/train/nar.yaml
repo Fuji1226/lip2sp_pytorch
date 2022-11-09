@@ -10,10 +10,10 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:25_17-04-10/mspec80_240.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_st_03/2022:11:05_00-21-19/mspec80_10.ckpt"
 
 # face or lip
-face_or_lip : "lip_st_03"
+face_or_lip : "lip_st_gray_03"
 
 # データを置いているディレクトリまでのパス
 lip_path : "~/dataset/lip/lip_cropped"
@@ -26,11 +26,6 @@ save_path : "~/lip2sp_pytorch/result/nar/train"
 ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 10
 
-# 統計量までのパス
-lip_stat_path : "~/dataset/lip/np_files/lip_cropped/stat"
-lip_stat_path_st : "~/dataset/lip/np_files/lip_cropped_st/stat"
-lip_stat_path_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/stat"
-
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train : "~/dataset/lip/np_files/lip_cropped/train"
 lip_pre_loaded_path_val : "~/dataset/lip/np_files/lip_cropped/val"
@@ -38,12 +33,16 @@ lip_pre_loaded_path_train_st : "~/dataset/lip/np_files/lip_cropped_st/train"
 lip_pre_loaded_path_val_st : "~/dataset/lip/np_files/lip_cropped_st/val"
 lip_pre_loaded_path_train_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/train"
 lip_pre_loaded_path_val_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/val"
+lip_pre_loaded_path_train_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/train"
+lip_pre_loaded_path_val_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/val"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
+# corpus : ["ATR"]
 
 # 使用する話者
 speaker : ["F01_kablab"]
+# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_gc : False
 
 # max_epoch
@@ -53,18 +52,18 @@ max_epoch : 600
 # 見た目変換系
 use_color_jitter : False
 use_blur : False
-use_horizontal_flip : True
+use_horizontal_flip : False
 use_pad : False
 use_rotation : False
-use_random_crop : True
+use_random_crop : False
 
 # 空間領域にランダムマスキング
-use_spatial_masking : True
+use_spatial_masking : False
 spatial_divide_factor : 4
 n_spatial_mask : 4
 
 # 再生速度変換
-use_time_augment : True
+use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画のフレームをランダムマスキング
@@ -72,13 +71,13 @@ use_frame_masking : False
 frame_masking_rate : 40
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : True
+use_segment_masking : False
 which_seg_mask : "seg_mean"
 segment_masking_length : 20
 
 # dataloader
 batch_size : 12
-num_workers : 0
+num_workers : 12
 
 # dropout
 dec_dropout : 0.1

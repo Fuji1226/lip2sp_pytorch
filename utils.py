@@ -37,24 +37,20 @@ def set_config(cfg):
 def get_path_train(cfg, current_time):
     # data
     if cfg.train.face_or_lip == "lip":
-        print("use lip")
         train_data_root = cfg.train.lip_pre_loaded_path_train
         val_data_root = cfg.train.lip_pre_loaded_path_val
-        stat_path = cfg.train.lip_stat_path
     if cfg.train.face_or_lip == "lip_st":
-        print("use lip_st")
         train_data_root = cfg.train.lip_pre_loaded_path_train_st
         val_data_root = cfg.train.lip_pre_loaded_path_val_st
-        stat_path = cfg.train.lip_stat_path_st
     if cfg.train.face_or_lip == "lip_st_03":
-        print("use lip_st_0.3")
         train_data_root = cfg.train.lip_pre_loaded_path_train_st_03
         val_data_root = cfg.train.lip_pre_loaded_path_val_st_03
-        stat_path = cfg.train.lip_stat_path_st_03
+    if cfg.train.face_or_lip == "lip_st_gray_03":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_st_gray_03
+        val_data_root = cfg.train.lip_pre_loaded_path_val_st_gray_03
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
-    stat_path = Path(stat_path).expanduser()
 
     ckpt_time = None
     if cfg.train.check_point_start:
@@ -77,22 +73,25 @@ def get_path_train(cfg, current_time):
         save_path = save_path / cfg.train.face_or_lip / current_time
     os.makedirs(save_path, exist_ok=True)
 
-    return train_data_root, val_data_root, stat_path, ckpt_path, save_path, ckpt_time
+    return train_data_root, val_data_root, ckpt_path, save_path, ckpt_time
 
 
 def get_path_test(cfg, model_path):
     if cfg.test.face_or_lip == "lip":
         train_data_root = cfg.train.lip_pre_loaded_path_train
         test_data_root = cfg.test.lip_pre_loaded_path
-        stat_path = cfg.train.lip_stat_path
     if cfg.test.face_or_lip == "lip_st":
         train_data_root = cfg.train.lip_pre_loaded_path_train_st
         test_data_root = cfg.test.lip_pre_loaded_path_st
-        stat_path = cfg.train.lip_stat_path_st
+    if cfg.test.face_or_lip == "lip_st_03":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_st_03
+        test_data_root = cfg.test.lip_pre_loaded_path_st_03
+    if cfg.test.face_or_lip == "lip_st_gray_03":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_st_gray_03
+        test_data_root = cfg.test.lip_pre_loaded_path_st_gray_03
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
-    stat_path = Path(stat_path).expanduser()
 
     save_path = Path(cfg.test.save_path).expanduser()
     
@@ -109,13 +108,10 @@ def get_path_test(cfg, model_path):
     os.makedirs(train_save_path, exist_ok=True)
     os.makedirs(test_save_path, exist_ok=True)
 
-    # data_root_list = [test_data_root, train_data_root]
-    # save_path_list = [test_save_path, train_save_path]
-
     data_root_list = [test_data_root]
     save_path_list = [test_save_path]
 
-    return data_root_list, stat_path, save_path_list
+    return data_root_list, save_path_list, train_data_root
 
 
 def get_path_test_vc(cfg, model_path, speaker, reference):
@@ -193,7 +189,7 @@ def get_datasets_test(data_root, cfg):
     return items
 
 
-def make_train_val_loader(cfg, train_data_root, val_data_root, stat_path):
+def make_train_val_loader(cfg, train_data_root, val_data_root):
     # パスを取得
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
@@ -212,14 +208,14 @@ def make_train_val_loader(cfg, train_data_root, val_data_root, stat_path):
     print("\n--- make train dataset ---")
     train_dataset = KablabDataset(
         data_path=train_data_path,
-        stat_path = stat_path,
+        train_data_path=train_data_path,
         transform=train_trans,
         cfg=cfg,
     )
     print("\n--- make validation dataset ---")
     val_dataset = KablabDataset(
         data_path=val_data_path,
-        stat_path=stat_path,
+        train_data_path=train_data_path,
         transform=val_trans,
         cfg=cfg,
     )
@@ -246,19 +242,18 @@ def make_train_val_loader(cfg, train_data_root, val_data_root, stat_path):
     return train_loader, val_loader, train_dataset, val_dataset
 
 
-def make_test_loader(cfg, data_root, stat_path):
-    test_data_path = get_datasets_test(
-        data_root=data_root,
-        cfg=cfg,
-    )
+def make_test_loader(cfg, data_root, train_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
+
     test_trans = KablabTransform(
         cfg=cfg,
         train_val_test="test",
     )
     test_dataset = KablabDataset(
         data_path=test_data_path,
-        stat_path = stat_path,
+        train_data_path=train_data_path,
         transform=test_trans,
         cfg=cfg,
     )
@@ -278,10 +273,6 @@ def calc_class_balance(cfg, data_root, device):
     """
     話者ごとのデータ量の偏りを計算
     """
-    # data_path = get_datasets(
-    #     data_root=data_root,
-    #     cfg=cfg,
-    # )
     print("\ncalc_class_balance")
     data_path = {}
     for speaker in cfg.train.speaker:

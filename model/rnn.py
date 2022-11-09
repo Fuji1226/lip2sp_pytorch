@@ -32,6 +32,9 @@ class LSTMEncoder(nn.Module):
 
         if data_len is not None:
             out = pad_packed_sequence(out, batch_first=True)[0]
+            if out.shape[1] < T:
+                zero_pad = torch.zeros(out.shape[0], T - out.shape[1], out.shape[2]).to(device=out.device, dtype=out.dtype)
+                out = torch.cat([out, zero_pad], dim=1)
 
         out = self.fc(out)
         out = self.norm(out)

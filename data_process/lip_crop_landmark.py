@@ -15,7 +15,7 @@ debug = False
 debug_iter = 10
 
 margin = 0.3
-speaker = "F01_kablab"
+speaker = "M01_kablab"
 data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
 landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
 

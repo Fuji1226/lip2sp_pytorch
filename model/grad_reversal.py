@@ -1,4 +1,3 @@
-from turtle import forward
 from typing import Tuple
 import torch
 import torch.nn as nn
@@ -24,21 +23,3 @@ class GradientReversal(nn.Module):
  
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return GradientReversalFunction.apply(x, self.scale)
-
-
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.layers = nn.Sequential(
-            nn.Conv1d(1, 1, kernel_size=1),
-            nn.Conv1d(1, 1, kernel_size=1),
-            nn.Conv1d(1, 1, kernel_size=1),
-        )
-        self.fc = nn.Conv1d(1, 1, kernel_size=1)
-        self.grl = GradientReversal(scale=1.0)
-
-    def forward(self, x):
-        out = self.layers(x)
-        out = self.grl(out)
-        out = self.fc(out)
-        return out

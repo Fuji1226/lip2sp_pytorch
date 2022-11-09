@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_taco
+    entity:
+    mode: online
+    name : taco
+watch:
+    log: all
+    log_freq: 100

@@ -15,7 +15,7 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, \
+from utils import make_train_val_loader, get_path_train, mixing_prob_controller, save_loss, check_feat_add, check_mel_default, \
     count_params, set_config, calc_class_balance, check_attention_weight
 from model.model_taco import Lip2SPTaco
 from loss import MaskedLoss
@@ -53,11 +53,6 @@ def make_model(cfg, device):
         res_layers=cfg.model.res_layers,
         res_inner_channels=cfg.model.res_inner_channels,
         norm_type=cfg.model.norm_type_lip,
-        inv_up_scale=cfg.model.inv_up_scale,
-        sq_r=cfg.model.sq_r,
-        md_n_groups=cfg.model.md_n_groups,
-        c_attn=cfg.model.c_attn,
-        s_attn=cfg.model.s_attn,
         which_res=cfg.model.which_res,
         which_encoder=cfg.model.which_encoder,
         d_model=cfg.model.d_model,
@@ -94,7 +89,7 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, threshold, ckpt_time):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     iter_cnt = 0
@@ -108,9 +103,9 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
 
         if cfg.train.use_gc:
-            output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
+            output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
         else:
-            output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
+            output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
@@ -146,7 +141,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     return epoch_output_loss, epoch_dec_output_loss
 
 
-def val_one_epoch(model, val_loader, loss_f, device, cfg, training_method, threshold, ckpt_time):
+def val_one_epoch(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     iter_cnt = 0
@@ -162,9 +157,9 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, training_method, thres
 
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold, gc=speaker)               
+                output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
             else:
-                output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, threshold=threshold)               
+                output, dec_output, att_w = model(lip=lip, data_len=data_len, target=feature, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
@@ -271,19 +266,15 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
+        prob_list = mixing_prob_controller(cfg)
+
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
 
-            if current_epoch < cfg.train.tm_change_step:
-                training_method = "tf"
-            else:
-                training_method = "ss"
-
-            if current_epoch >= cfg.train.threshold_change_step:
-                threshold = cfg.train.max_threshold
-            else:
-                threshold = cfg.train.min_threshold
+            training_method = "ss"
+            mixing_prob = prob_list[current_epoch - 1]
+            wandb.log({"mixing_prob": mixing_prob})
 
             epoch_output_loss, epoch_dec_output_loss = train_one_epoch(
                 model=model,
@@ -293,7 +284,7 @@ def main(cfg):
                 device=device,
                 cfg=cfg,
                 training_method=training_method,
-                threshold=threshold,
+                mixing_prob=mixing_prob,
                 ckpt_time=ckpt_time,
             )
             train_output_loss_list.append(epoch_output_loss)
@@ -306,7 +297,7 @@ def main(cfg):
                 device=device,
                 cfg=cfg,
                 training_method=None,
-                threshold=None,
+                mixing_prob=None,
                 ckpt_time=ckpt_time,
             )
             val_output_loss_list.append(epoch_output_loss)

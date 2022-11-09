@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 debug = False
 
-speaker = "F01_kablab"
+speaker = "M01_kablab"
 margin = 0.3
 corpus = ["ATR", "balanced", "BASIC5000"]
 data_dir = Path(f"~/dataset/lip/lip_cropped_{margin}/{speaker}").expanduser()

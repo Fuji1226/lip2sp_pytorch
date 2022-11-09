@@ -20,10 +20,10 @@ n_mel_channels : 80
 mcep_order : 25
 
 # input grayscale（グレースケールかRGBか）
-gray : False
+gray : True
 
 # input first and second derivative.（動的特徴量を使うかどうか）
-delta : True
+delta : False
 
 # frame period
 frame_period : 10
@@ -54,7 +54,7 @@ sharp : False
 # model_info
 #################################
 # in_channels
-in_channels : 5
+in_channels : 1
 
 # ResNet3D parameter
 res_layers : 3
@@ -67,7 +67,7 @@ md_n_groups : 4
 c_attn : False
 s_attn : False
 ds_attn : False
-which_res : "simplebig"
+which_res : "md"
 
 # glu parameter
 glu_layers : 4    # 4 or 6
@@ -104,10 +104,10 @@ tc_n_head : 2
 
 # tacotron based decoder
 taco_dec_n_layers : 2
-taco_dec_hidden_channels : 128
+taco_dec_hidden_channels : 512
 taco_dec_conv_channels : 32
 taco_dec_conv_kernel_size : 31
-taco_use_attention : False
+taco_use_attention : True
 
 # conformer parameter
 conformer_conv_kernel_size : 31   # 7, 15 or 31
@@ -123,8 +123,8 @@ which_decoder : "glu"
 # audio encoder
 ae_emb_dim : 4
 vae_emb_dim : 64
-vq_emb_dim : 64
-vq_num_emb : 256
+vq_emb_dim : 256
+vq_num_emb : 64
 spk_emb_dim : 256
 norm_type_audio : "in"
 content_d_model : 256

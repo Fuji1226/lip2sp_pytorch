@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class SpeakerClassifier(nn.Module):
+class SpeakerClassifierRNN(nn.Module):
     def __init__(self, in_channels, hidden_dim, n_layers, bidirectional, n_speaker):
         super().__init__()
         self.lstm = nn.LSTM(in_channels, hidden_dim, num_layers=n_layers, batch_first=True, bidirectional=bidirectional)
@@ -26,7 +26,38 @@ class SpeakerClassifier(nn.Module):
         return out
 
 
+class SpeakerClassifier(nn.Module):
+    def __init__(self, in_channels, hidden_channels, n_speaker):
+        super().__init__()
+        self.layer = nn.Sequential(
+            nn.Linear(in_channels, hidden_channels),
+            nn.BatchNorm1d(hidden_channels),
+            nn.ReLU(),
+            nn.Linear(hidden_channels, hidden_channels),
+            nn.BatchNorm1d(hidden_channels),
+            nn.ReLU(),
+        )
+        self.last_layer = nn.Linear(hidden_channels, n_speaker)
+
+    def forward(self, x):
+        """
+        x : (B, C, T)
+        """
+        out = torch.mean(x, dim=-1)     # (B, C)
+        out = self.layer(out)
+        out = self.last_layer(out)
+        return out
+
+
 if __name__ == "__main__":
-    x = torch.rand(1, 10, 1)
-    net = SpeakerClassifier(1, 4, 2, True, n_speaker=2)
+    B = 12
+    C = 256
+    T = 150
+    x = torch.rand(B, C, T)
+    net = SpeakerClassifier(
+        in_channels=C,
+        hidden_channels=int(C * 2),
+        n_speaker=4,
+    )
     out = net(x)
+    print(out, out.shape)

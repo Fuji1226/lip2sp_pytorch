@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 
 # speakerのみ変更してください
-speaker = "F01_kablab"
+speaker = "M01_kablab"
 margin = 0.3
 lip_path = Path(f"~/dataset/lip/lip_cropped_{margin}/{speaker}").expanduser()
 save_path = Path(f"~/dataset/lip/data_split_csv_{margin}").expanduser()

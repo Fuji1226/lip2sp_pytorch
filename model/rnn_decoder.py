@@ -36,19 +36,19 @@ class RNNDecoder(nn.Module):
                 reduction_factor=reduction_factor,
             )
 
-        gru = []
+        lstm = []
         for layer in range(n_layers):
-            gru.append(
-                nn.GRUCell(
+            lstm.append(
+                nn.LSTMCell(
                     enc_channels + hidden_channels if layer == 0 else hidden_channels,
                     hidden_channels,
                 ),
             )
-        self.gru = nn.ModuleList(gru)
+        self.lstm = nn.ModuleList(lstm)
 
-        self.out_layer = nn.Conv1d(int(hidden_channels * 2), self.out_channels * self.reduction_factor, kernel_size=1)
+        self.out_layer = nn.Conv1d(enc_channels + hidden_channels, self.out_channels * self.reduction_factor, kernel_size=1)
 
-    def forward(self, enc_output, data_len, target=None, training_method=None, threshold=None):
+    def forward(self, enc_output, data_len, target=None, training_method=None, mixing_prob=None):
         """
         enc_output : (B, T, C)
         data_len : (B,)
@@ -70,12 +70,16 @@ class RNNDecoder(nn.Module):
             target = torch.zeros(B, D * self.reduction_factor, 1).to(device=enc_output.device, dtype=enc_output.dtype) 
 
         h_list = []
-        for _ in range(len(self.gru)):
+        c_list = []
+        for _ in range(len(self.lstm)):
             h_list.append(
                 torch.zeros(B, self.hidden_channels).to(device=enc_output.device, dtype=enc_output.dtype)
             )
+            c_list.append(
+                torch.zeros(B, self.hidden_channels).to(device=enc_output.device, dtype=enc_output.dtype)
+            )
 
-        go_frame = torch.zeros(B, int(D * 2), 1)
+        go_frame = torch.zeros(B, int(D * 2), 1).to(device=enc_output.device, dtype=enc_output.dtype)
         prev_out = go_frame
 
         if hasattr(self, "attention"):
@@ -104,9 +108,9 @@ class RNNDecoder(nn.Module):
             rnn_input = self.dropout(rnn_input)
             
             # rnn
-            h_list[0] = self.gru[0](rnn_input, h_list[0])
-            for i in range(1, len(self.gru)):
-                h_list[i] = self.gru[i](h_list[i - 1], h_list[i])
+            h_list[0], c_list[0] = self.lstm[0](rnn_input, (h_list[0], c_list[0]))
+            for i in range(1, len(self.lstm)):
+                h_list[i], c_list[i] = self.lstm[i](h_list[i - 1], (h_list[i], c_list[i]))
 
             if hasattr(self, "attention"):
                 hcs = torch.cat([h_list[-1], att_c], dim=-1)    # (B, C)
@@ -121,14 +125,14 @@ class RNNDecoder(nn.Module):
                 
             elif training_method == "ss":
                 """
-                threshold = 0 : teacher forcing
-                threshold = 100 : using decoder prediction completely
+                mixing_prob = 1 : teacher forcing
+                mixing_prob = 0 : using decoder prediction completely
                 """
-                rand = torch.randint(1, 101, (1,))
-                if rand > threshold:
-                    prev_out = out
-                else:
+                judge = torch.bernoulli(torch.tensor(mixing_prob))
+                if judge:
                     prev_out = target[:, :, t].unsqueeze(-1)
+                else:
+                    prev_out = out
             else:
                 prev_out = out
 
@@ -173,7 +177,7 @@ if __name__ == "__main__":
         use_attention=True,
     )
 
-    out, att_w = net(enc_output, data_len, target, training_method="ss", threshold=50)
+    out, att_w = net(enc_output, data_len, target, training_method="ss", mixing_prob=50)
     print(out.shape)
     if att_w is not None:
         print(att_w.shape)

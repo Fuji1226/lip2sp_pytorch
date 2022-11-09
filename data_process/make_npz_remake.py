@@ -17,8 +17,9 @@ from transform_no_chainer import load_data_for_npz
 
 debug = False
 time_only = False
-speaker = "F01_kablab"
+speaker = "M01_kablab"
 margin = 0.3
+gray = True
 
 if debug:
     if time_only:
@@ -30,6 +31,9 @@ else:
         dirname = "lip_cropped"
     else:
         dirname = "lip_cropped_st"
+
+if gray:
+    dirname = f"{dirname}_gray"
 
 csv_path = Path(f"~/dataset/lip/data_split_csv_{margin}").expanduser()
 lip_train_data_path = Path(f"~/dataset/lip/np_files/{dirname}_{margin}/train").expanduser()
@@ -141,7 +145,8 @@ def main(cfg):
     """
     顔をやるか口唇切り取ったやつをやるかでpathを変更してください
     """
-    print(f"speaker = {speaker}, mode = {cfg.model.name}, time_only = {time_only}")
+    cfg.model.gray = gray
+    print(f"speaker = {speaker}, mode = {cfg.model.name}, time_only = {time_only}, gray = {cfg.model.gray}")
 
     train_data_list = read_csv(csv_path, "train")
     val_data_list = read_csv(csv_path, "val")

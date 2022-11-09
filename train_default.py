@@ -218,16 +218,15 @@ def main(cfg):
     torch.backends.cudnn.benchmark = True
 
     # path
-    train_data_root, val_data_root, stat_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
+    train_data_root, val_data_root, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
     print(f"train_data_root = {train_data_root}")
     print(f"val_data_root = {val_data_root}")
-    print(f"stat_path = {stat_path}")
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, _, _ = make_train_val_loader(cfg, train_data_root, val_data_root, stat_path)
+    train_loader, val_loader, _, _ = make_train_val_loader(cfg, train_data_root, val_data_root)
 
     # 損失関数
     if len(cfg.train.speaker) > 1:
@@ -264,8 +263,12 @@ def main(cfg):
         last_epoch = 0
 
         if cfg.train.check_point_start:
-            checkpoint_path = cfg.train.start_ckpt_path
-            checkpoint = torch.load(checkpoint_path)
+            print("load check point")
+            checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
+            if torch.cuda.is_available():
+                checkpoint = torch.load(checkpoint_path)
+            else:
+                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["model"])
             optimizer.load_state_dict(checkpoint["optimizer"])
             scheduler.load_state_dict(checkpoint["scheduler"])

@@ -21,6 +21,9 @@ from utils import get_upsample
 from data_process.feature import wav2mel, wav2world
 
 
+imsize = 56
+
+
 def calc_sp(wav, cfg):
     """
     y : (T, C)
@@ -63,7 +66,7 @@ def continuous_f0(f0, amin=70):
     return f0, vuv
 
 
-def load_mp4(path, gray=False):
+def load_mp4(path, cfg):
     """
     口唇動画読み込み
     リサイズで画像のピクセル数を変更
@@ -74,10 +77,10 @@ def load_mp4(path, gray=False):
     movie.release()
 
     lip, _, _ = torchvision.io.read_video(str(path), pts_unit="sec")    # lip : (T, W, H, C)
-    resizer = torchvision.transforms.Resize((56, 56))
+    resizer = torchvision.transforms.Resize((imsize, imsize))
     lip_resize = resizer(lip.permute(0, -1, 1, 2))  # (T, C, W, H)
 
-    if gray:
+    if cfg.model.gray:
         rgb2gray = torchvision.transforms.Grayscale()
         lip_resize = rgb2gray(lip_resize)
         assert lip_resize.shape[1] == 1
@@ -145,7 +148,7 @@ def load_data_for_npz(video_path, audio_path, cfg):
     lip : (C, H, W, T)
     feature, feat_add : (T, C)
     """
-    lip, fps = load_mp4(str(video_path), cfg.model.gray)   # lipはtensor
+    lip, fps = load_mp4(str(video_path), cfg)   # lipはtensor
     wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
     wav = wav / np.max(np.abs(wav), axis=0)
     upsample = get_upsample(fps, fs, cfg.model.frame_period)

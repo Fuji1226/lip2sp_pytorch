@@ -5,7 +5,7 @@ debug : True
 debug_data_len : 1
 
 # face or lip
-face_or_lip : "lip_st"
+face_or_lip : "lip_st_03"
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/default/generate"
@@ -13,9 +13,13 @@ save_path : "~/lip2sp_pytorch/result/default/generate"
 # 統計量までのパス
 lip_stat_path : "~/dataset/lip/np_files/lip_cropped/stat"
 lip_stat_path_st : "~/dataset/lip/np_files/lip_cropped_st/stat"
+lip_stat_path_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/stat"
+lip_stat_path_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/stat"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
 lip_pre_loaded_path_st : "~/dataset/lip/np_files/lip_cropped_st/test"
+lip_pre_loaded_path_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/test"
+lip_pre_loaded_path_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/test"
 
-speaker : ["F01_kablab"]
+speaker : ["F01_kablab_fulldata"]

@@ -9,10 +9,15 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 
+
+speaker = "M01_kablab"
+margin = 0.3
+audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
+save_path = Path(f"~/dataset/lip/lip_cropped_{margin}/{speaker}").expanduser()
+
+
 def main():
-    speaker = "F01_kablab"
-    audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-    save_path = Path(f"~/dataset/lip/lip_cropped_0.3/{speaker}").expanduser()
+    os.makedirs(save_path, exist_ok=True)
     print(f"speaker = {speaker}")
     wavs = []
     for curdir, dirs, files in os.walk(audio_path):

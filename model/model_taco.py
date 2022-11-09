@@ -7,9 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D
-from model.invres import InvResNet3D
-from model.mdconv import InvResNetMD
+from model.net import ResNet3D, Simple, Simple_NonRes, SimpleBig
 from model.transformer_remake import Encoder, Decoder, OfficialEncoder
 from model.pre_post import Postnet
 from model.rnn import LSTMEncoder, GRUEncoder
@@ -19,7 +17,6 @@ from model.rnn_decoder import RNNDecoder
 class Lip2SPTaco(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
-        inv_up_scale, sq_r, md_n_groups, c_attn, s_attn,
         which_res, which_encoder,
         d_model, n_layers, n_head,
         rnn_hidden_channels, rnn_n_layers,
@@ -31,38 +28,38 @@ class Lip2SPTaco(nn.Module):
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
-        elif which_res == "inv":
-            self.ResNet_GAP = InvResNet3D(
+        elif which_res == "simple":
+            self.ResNet_GAP = Simple(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
-                up_scale=inv_up_scale,
-                sq_r=sq_r,
-                c_attn=c_attn,
-                s_attn=s_attn,
             )
-        elif which_res == "invmd":
-            self.ResNet_GAP = InvResNetMD(
+        elif which_res == "simple_nonres":
+            self.ResNet_GAP = Simple_NonRes(
                 in_channels=in_channels, 
-                out_channels=d_model, 
+                out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
                 layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
-                up_scale=inv_up_scale,
-                sq_r=sq_r,
-                n_groups=md_n_groups,
-                c_attn=c_attn,
-                s_attn=s_attn,
+            )
+        elif which_res == "simplebig":
+            self.ResNet_GAP = SimpleBig(
+                in_channels=in_channels, 
+                out_channels=rnn_hidden_channels, 
+                inner_channels=res_inner_channels,
+                layers=res_layers, 
+                dropout=res_dropout,
+                norm_type=norm_type,
             )
         
         # encoder
@@ -96,9 +93,8 @@ class Lip2SPTaco(nn.Module):
                 reduction_factor=reduction_factor,
             )
 
-        # speaker embedding
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
-        self.spk_emb_layer = nn.Linear(d_model + spk_emb_dim, d_model)
+        self.spk_emb_layer = nn.Linear(rnn_hidden_channels + spk_emb_dim, rnn_hidden_channels)
 
         # decoder
         self.decoder = RNNDecoder(
@@ -118,7 +114,7 @@ class Lip2SPTaco(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
-    def forward(self, lip, data_len, target=None, gc=None, training_method=None, threshold=None):
+    def forward(self, lip, data_len, target=None, gc=None, training_method=None, mixing_prob=None):
         # resnet
         lip_feature = self.ResNet_GAP(lip)
         
@@ -135,7 +131,7 @@ class Lip2SPTaco(nn.Module):
             spk_emb = None
 
         # decoder
-        dec_output, att_w = self.decoder(enc_output, data_len, target, training_method, threshold)
+        dec_output, att_w = self.decoder(enc_output, data_len, target, training_method, mixing_prob)
 
         # postnet
         out = self.postnet(dec_output)

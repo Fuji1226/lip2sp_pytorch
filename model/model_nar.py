@@ -7,12 +7,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D, Simple, Simple_NonRes, SimpleBig
+from model.net import ResNet3D, MultiDilatedResNet3D
 from model.transformer_remake import Encoder, OfficialEncoder
 from model.conformer.encoder import ConformerEncoder
 from model.nar_decoder import ResTCDecoder
 from model.rnn import LSTMEncoder, GRUEncoder
 from model.vq import VQ
+from model.grad_reversal import GradientReversal
+from model.classifier import SpeakerClassifier
 
 
 class Lip2SP_NAR(nn.Module):
@@ -50,43 +52,25 @@ class Lip2SP_NAR(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
-        elif which_res == "simple":
-            self.ResNet_GAP = Simple(
+        elif which_res == "md":
+            self.ResNet_GAP = MultiDilatedResNet3D(
                 in_channels=in_channels, 
                 out_channels=rnn_hidden_channels, 
                 inner_channels=res_inner_channels,
-                layers=res_layers, 
                 dropout=res_dropout,
                 norm_type=norm_type,
+                n_groups=4,
             )
-        elif which_res == "simple_nonres":
-            self.ResNet_GAP = Simple_NonRes(
-                in_channels=in_channels, 
-                out_channels=rnn_hidden_channels, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
-        elif which_res == "simplebig":
-            self.ResNet_GAP = SimpleBig(
-                in_channels=in_channels, 
-                out_channels=rnn_hidden_channels, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
-
+        
         # encoder
-        if self.which_encoder == "transformer":
+        if which_encoder == "transformer":
             self.encoder = Encoder(
                 n_layers=n_layers, 
                 n_head=n_head, 
                 d_model=d_model, 
                 reduction_factor=reduction_factor,  
             )
-        elif self.which_encoder == "conformer":
+        elif which_encoder == "conformer":
             self.encoder = ConformerEncoder(
                 encoder_dim=d_model, 
                 num_layers=n_layers, 

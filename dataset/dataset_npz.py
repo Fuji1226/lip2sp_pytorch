@@ -15,6 +15,7 @@ sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import pickle
 import random
+from tqdm import tqdm
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import torch
@@ -45,35 +46,66 @@ def get_speaker_idx(data_path):
     return speaker_idx
 
 
-def get_stat(stat_path, cfg):
-    """
-    事前に求めた統計量を読み込み
-    話者ごとに求めているので,複数話者の場合は全員分が読み込まれる
-    """
-    print("\nget stat")
-    filename = [
-        "lip_mean_list", "lip_var_list", "lip_len_list", 
-        "feat_mean_list", "feat_var_list", "feat_len_list", 
-        "feat_add_mean_list", "feat_add_var_list", "feat_add_len_list",
-    ]
+# def get_stat(stat_path, cfg):
+#     """
+#     事前に求めた統計量を読み込み
+#     話者ごとに求めているので,複数話者の場合は全員分が読み込まれる
+#     """
+#     print("\nget stat")
+#     filename = [
+#         "lip_mean_list", "lip_var_list", "lip_len_list", 
+#         "feat_mean_list", "feat_var_list", "feat_len_list", 
+#         "feat_add_mean_list", "feat_add_var_list", "feat_add_len_list",
+#     ]
 
-    stat_dict = {}
-    for name in filename:
-        for speaker in cfg.train.speaker:
-            with open(str(stat_path / f"{speaker}" / f"{name}_{cfg.model.name}.bin"), "rb") as p:
-                if name in stat_dict:
-                    stat_dict[name] += pickle.load(p)
-                else:
-                    stat_dict[name] = pickle.load(p)
-            print(f"{speaker} {name} loaded")
-        print(f"n_stat_{name} = {len(stat_dict[name])}\n")
-    return stat_dict
+#     stat_dict = {}
+#     for name in filename:
+#         for speaker in cfg.train.speaker:
+#             with open(str(stat_path / f"{speaker}" / f"{name}_{cfg.model.name}.bin"), "rb") as p:
+#                 if name in stat_dict:
+#                     stat_dict[name] += pickle.load(p)
+#                 else:
+#                     stat_dict[name] = pickle.load(p)
+#             print(f"{speaker} {name} loaded")
+#         print(f"n_stat_{name} = {len(stat_dict[name])}\n")
+#     return stat_dict
+
+
+def get_stat_load_data(train_data_path):
+    print("\nget stat")
+    lip_mean_list = []
+    lip_var_list = []
+    lip_len_list = []
+    feat_mean_list = []
+    feat_var_list = []
+    feat_len_list = []
+    feat_add_mean_list = []
+    feat_add_var_list = []
+    feat_add_len_list = []
+
+    for path in tqdm(train_data_path):
+        npz_key = np.load(str(path))
+
+        lip = npz_key['lip']
+        feature = npz_key['feature']
+        feat_add = npz_key['feat_add']
+
+        lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
+        lip_var_list.append(np.var(lip, axis=(1, 2, 3)))
+        lip_len_list.append(lip.shape[-1])
+
+        feat_mean_list.append(np.mean(feature, axis=0))
+        feat_var_list.append(np.var(feature, axis=0))
+        feat_len_list.append(feature.shape[0])
+
+        feat_add_mean_list.append(np.mean(feat_add, axis=0))
+        feat_add_var_list.append(np.var(feat_add, axis=0))
+        feat_add_len_list.append(feat_add.shape[0])
+        
+    return lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list, feat_add_mean_list, feat_add_var_list, feat_add_len_list
 
 
 def calc_mean_var_std(mean_list, var_list, len_list):
-    """
-    事前に求めておいた話者ごとの統計量を使用し,学習に使用する全データに対して平均と分散,標準偏差を計算
-    """
     mean_square_list = list(np.square(mean_list))
 
     square_mean_list = []
@@ -93,7 +125,7 @@ def calc_mean_var_std(mean_list, var_list, len_list):
 
 
 class KablabDataset(Dataset):
-    def __init__(self, data_path, stat_path, transform, cfg):
+    def __init__(self, data_path, train_data_path, transform, cfg):
         super().__init__()
         self.data_path = data_path
         self.transform = transform
@@ -103,10 +135,15 @@ class KablabDataset(Dataset):
         self.speaker_idx = get_speaker_idx(data_path)
 
         # 統計量から平均と標準偏差を求める
-        stat_dict = get_stat(stat_path, cfg)
-        lip_mean, _, lip_std = calc_mean_var_std(stat_dict["lip_mean_list"], stat_dict["lip_var_list"], stat_dict["lip_len_list"])
-        feat_mean, _, feat_std = calc_mean_var_std(stat_dict["feat_mean_list"], stat_dict["feat_var_list"], stat_dict["feat_len_list"])
-        feat_add_mean, _, feat_add_std = calc_mean_var_std(stat_dict["feat_add_mean_list"], stat_dict["feat_add_var_list"], stat_dict["feat_add_len_list"])
+        # stat_dict = get_stat(stat_path, cfg)
+        # lip_mean, _, lip_std = calc_mean_var_std(stat_dict["lip_mean_list"], stat_dict["lip_var_list"], stat_dict["lip_len_list"])
+        # feat_mean, _, feat_std = calc_mean_var_std(stat_dict["feat_mean_list"], stat_dict["feat_var_list"], stat_dict["feat_len_list"])
+        # feat_add_mean, _, feat_add_std = calc_mean_var_std(stat_dict["feat_add_mean_list"], stat_dict["feat_add_var_list"], stat_dict["feat_add_len_list"])
+
+        lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list, feat_add_mean_list, feat_add_var_list, feat_add_len_list = get_stat_load_data(train_data_path)
+        lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
+        feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
+        feat_add_mean, _, feat_add_std = calc_mean_var_std(feat_add_mean_list, feat_add_var_list, feat_add_len_list)
 
         self.lip_mean = torch.from_numpy(lip_mean)
         self.lip_std = torch.from_numpy(lip_std)
@@ -150,7 +187,7 @@ class KablabDataset(Dataset):
             feat_add_std=self.feat_add_std, 
         )
         if self.cfg.train.debug:
-            save_path = Path("~/lip2sp_pytorch/check/lip_augment2").expanduser()
+            save_path = Path("~/lip2sp_pytorch/check/lip_augment").expanduser()
             os.makedirs(save_path, exist_ok=True)
             save_lip_video(self.cfg, save_path, lip, self.lip_mean, self.lip_std)
             print("save")
@@ -268,8 +305,13 @@ class KablabTransform:
         lip : (C, H, W, T)
         """
         lip = lip.to('cpu').detach().numpy().copy()
+
+        # rgb or gray
         if lip.shape[0] == 3:
             lip_pad = 0.30*lip[0:1] + 0.59*lip[1:2] + 0.11*lip[2:3]     # ここのRGBの配合の比率は謎
+        elif lip.shape[0] == 1:
+            lip_pad = lip
+
         lip_pad = lip_pad.astype(lip.dtype)
         lip_pad = gaussian_filter(lip_pad, (0, 0.5, 0.5, 0), mode="reflect", truncate=2)
         lip_pad = np.pad(lip_pad, ((0, 0), (0, 0), (0, 0), (1, 1)), "edge")
@@ -460,7 +502,7 @@ class KablabTransform:
                 lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
                 lip = self.random_crop(lip, center=True)
                 lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
-
+        
         # 標準化
         lip, feature, feat_add = self.normalization(
             lip, feature, feat_add, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std

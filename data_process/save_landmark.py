@@ -12,11 +12,12 @@ import csv
 
 
 debug = False
-save_landmark = False
-num_start = 0
-num_end = 1000
+save_landmark = True
+num_start = 3850
+num_end = 3900
 
-speaker = "F01_kablab"
+# finished : F01, F01_20220930, F02, F03, M04
+speaker = "M01_kablab"  # 3700まで終わった
 data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
 txt_path = Path(f"~/dataset/lip/landmark_error_{speaker}.txt").expanduser()
 

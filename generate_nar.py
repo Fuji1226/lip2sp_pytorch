@@ -101,7 +101,7 @@ def main(cfg):
 
     model = make_model(cfg, device)
     
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st/2022:10:27_09-53-47/mspec80_400.ckpt")
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_03/2022:11:05_16-30-58/mspec80_600.ckpt")
 
     if model_path.suffix == ".ckpt":
         try:
@@ -114,10 +114,10 @@ def main(cfg):
         except:
             model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
-    data_root_list, stat_path, save_path_list = get_path_test(cfg, model_path)
+    data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
     
     for data_root, save_path in zip(data_root_list, save_path_list):
-        test_loader, test_dataset = make_test_loader(cfg, data_root, stat_path)
+        test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
 
         process_times = None
         print("--- generate ---")
