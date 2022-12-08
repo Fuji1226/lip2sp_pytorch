@@ -10,10 +10,10 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_st_03/2022:11:05_00-21-19/mspec80_10.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:13_12-37-46/mspec80_10.ckpt"
 
 # face or lip
-face_or_lip : "lip_st_gray_03"
+face_or_lip : "face_nn_gray_0_50"
 
 # データを置いているディレクトリまでのパス
 lip_path : "~/dataset/lip/lip_cropped"
@@ -27,14 +27,29 @@ ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 10
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path_train : "~/dataset/lip/np_files/lip_cropped/train"
-lip_pre_loaded_path_val : "~/dataset/lip/np_files/lip_cropped/val"
-lip_pre_loaded_path_train_st : "~/dataset/lip/np_files/lip_cropped_st/train"
-lip_pre_loaded_path_val_st : "~/dataset/lip/np_files/lip_cropped_st/val"
 lip_pre_loaded_path_train_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/train"
 lip_pre_loaded_path_val_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/val"
+
 lip_pre_loaded_path_train_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/train"
 lip_pre_loaded_path_val_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/val"
+
+lip_pre_loaded_path_train_gray_08_25 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_25/train"
+lip_pre_loaded_path_val_gray_08_25 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_25/val"
+
+lip_pre_loaded_path_train_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_50/train"
+lip_pre_loaded_path_val_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_50/val"
+
+lip_pre_loaded_path_nn_train_gray_03_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.3_50/train"
+lip_pre_loaded_path_nn_val_gray_03_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.3_50/val"
+
+lip_pre_loaded_path_nn_train_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/train"
+lip_pre_loaded_path_nn_val_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/val"
+
+face_pre_loaded_path_nn_train_gray_0_50 : "~/dataset/lip/np_files/face_cropped_nn_gray_0_50/train"
+face_pre_loaded_path_nn_val_gray_0_50 : "~/dataset/lip/np_files/face_cropped_nn_gray_0_50/val"
+
+face_pre_loaded_path_nn_train_0_50 : "~/dataset/lip/np_files/face_cropped_nn_0_50/train"
+face_pre_loaded_path_nn_val_0_50 : "~/dataset/lip/np_files/face_cropped_nn_0_50/val"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
@@ -44,6 +59,8 @@ corpus : ["ATR", "BASIC5000", "balanced"]
 speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_gc : False
+finetuning : False
+where_spk_emb : "after_enc"
 
 # max_epoch
 max_epoch : 600
@@ -71,17 +88,19 @@ use_frame_masking : False
 frame_masking_rate : 40
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : False
+use_segment_masking : True
 which_seg_mask : "seg_mean"
-segment_masking_length : 20
+min_segment_masking_length : 0
+max_segment_masking_length : 25
 
 # dataloader
-batch_size : 12
-num_workers : 12
+batch_size : 16
+num_workers : 16
 
 # dropout
 dec_dropout : 0.1
 res_dropout : 0.1
+rnn_dropout : 0.1
 
 # optimizer
 lr : 0.001
@@ -100,23 +119,7 @@ warmup_lr_init : 1.0e-5
 # gradient clipping
 max_norm : 3.0
 
-# 動画に対して最初にbatch normalizationをするかどうか
-apply_first_bn : False
-
 # lossの重みづけ
 mse_weight : 1.0
-feat_add_weight : 0
-phoneme_weight : 0
-use_weighted_mse : False
-
-# multi task
-use_feat_add : False
-use_phoneme : False
-
-# 時間方向の削減とアップサンプリングの方法
-upsample_method : "interpolate"   # conv or interpolate
-compress_rate : 2   # 2 or 4
-
-use_dec_attention : False
-
-separate_frontend : False
+classifier_weight : 0
+use_weighted_mean : False

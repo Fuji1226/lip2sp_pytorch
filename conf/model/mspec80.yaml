@@ -7,7 +7,6 @@ name : mspec80
 #################################
 # video parameter
 fps : 50
-video_channels : 3
 
 # audio parameter
 sampling_rate : 16000
@@ -50,6 +49,9 @@ lip_max_frame : 151
 # griffin-limで合成するときに人為的に補正
 sharp : False
 
+# mulaw量子化の学習中においてパディングを無視するためのインデックス
+mulaw_ignore_idx : -1
+
 #################################
 # model_info
 #################################
@@ -57,34 +59,22 @@ sharp : False
 in_channels : 1
 
 # ResNet3D parameter
-res_layers : 3
 res_inner_channels : 32
-res_n_add_channels : 32
-norm_type_lip : "bn"
-inv_up_scale : 4
-sq_r : 16
-md_n_groups : 4
-c_attn : False
-s_attn : False
-ds_attn : False
-which_res : "md"
+which_res : "default"
 
 # glu parameter
 glu_layers : 4    # 4 or 6
 glu_kernel_size : 5   # 5 or 9
 glu_inner_channels : 256
 
+# encoder
+enc_channels : 256
+
 # transformer parameter
-n_layers : 1    # 1, 2 or 4
-d_model : 128   # 128 or 256
-n_head : 2    # 2 or 4
-dec_n_layers : 1
-dec_d_model : 256
-dec_n_head : 4
-diag_mask : False
+trans_enc_n_layers : 2    # 1, 2 or 4
+trans_enc_n_head : 4    # 2 or 4
 
 # rnn parameter
-rnn_hidden_channels : 256
 rnn_n_layers : 2
 
 # dilated conv paramater

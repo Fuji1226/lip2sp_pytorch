@@ -26,15 +26,14 @@ class RNNDecoder(nn.Module):
         self.prenet = Prenet(pre_in_channels, hidden_channels, pre_inner_channels)
         self.dropout = nn.Dropout(dropout)
 
-        if use_attention:
-            self.attention = LocationSenstiveAttention(
-                enc_channels=enc_channels,
-                dec_channels=hidden_channels,
-                hidden_channels=hidden_channels,
-                conv_channels=conv_channels,
-                conv_kernel_size=conv_kernel_size,
-                reduction_factor=reduction_factor,
-            )
+        self.attention = LocationSenstiveAttention(
+            enc_channels=enc_channels,
+            dec_channels=hidden_channels,
+            hidden_channels=hidden_channels,
+            conv_channels=conv_channels,
+            conv_kernel_size=conv_kernel_size,
+            reduction_factor=reduction_factor,
+        )
 
         lstm = []
         for layer in range(n_layers):
@@ -82,28 +81,23 @@ class RNNDecoder(nn.Module):
         go_frame = torch.zeros(B, int(D * 2), 1).to(device=enc_output.device, dtype=enc_output.dtype)
         prev_out = go_frame
 
-        if hasattr(self, "attention"):
-            prev_att_w = None
-            self.attention.reset_state()
+        prev_att_w = None
+        self.attention.reset_state()
 
-            data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
-            mask = make_pad_mask(data_len, T).squeeze(1)      # (B, T)
+        data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+        mask = make_pad_mask(data_len, T).squeeze(1)      # (B, T)
 
         out_list = []
         att_w_list = []
         t = 0
         while True:
-            if hasattr(self, "attention"):
-                att_c, att_w = self.attention(enc_output.permute(0, 2, 1), h_list[0], data_len, prev_att_w, mask)
-                att_w_list.append(att_w)
+            att_c, att_w = self.attention(enc_output.permute(0, 2, 1), h_list[0], data_len, prev_att_w, mask)
+            att_w_list.append(att_w)
 
             # prenet
             prenet_out = self.prenet(prev_out).squeeze(-1)    # (B, C)
 
-            if hasattr(self, "attention"):
-                rnn_input = torch.cat([prenet_out, att_c], dim=1)    
-            else:
-                rnn_input = torch.cat([prenet_out, enc_output[..., t]], dim=1)
+            rnn_input = torch.cat([prenet_out, att_c], dim=1)    
 
             rnn_input = self.dropout(rnn_input)
             
@@ -112,7 +106,6 @@ class RNNDecoder(nn.Module):
             for i in range(1, len(self.lstm)):
                 h_list[i], c_list[i] = self.lstm[i](h_list[i - 1], (h_list[i], c_list[i]))
 
-            if hasattr(self, "attention"):
                 hcs = torch.cat([h_list[-1], att_c], dim=-1)    # (B, C)
             else:
                 hcs = torch.cat([h_list[-1], enc_output[..., t]], dim=-1)    # (B, C)
@@ -139,8 +132,7 @@ class RNNDecoder(nn.Module):
             out_list.append(out.reshape(B, D, -1))
 
             # 累積アテンション重み
-            if hasattr(self, "attention"):
-                prev_att_w = att_w if prev_att_w is None else prev_att_w + att_w
+            prev_att_w = att_w if prev_att_w is None else prev_att_w + att_w
 
             t += 1
             if t >= T:
@@ -149,10 +141,7 @@ class RNNDecoder(nn.Module):
         # 時間方向に結合
         out = torch.cat(out_list, dim=-1)
 
-        try:
-            att_w = torch.stack(att_w_list, dim=-1)
-        except:
-            att_w = None
+        att_w = torch.stack(att_w_list, dim=-1)
 
         return out, att_w
 

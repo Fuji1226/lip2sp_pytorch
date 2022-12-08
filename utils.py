@@ -12,6 +12,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
+from dataset.dataset_npz_ssl import KablabDatasetSSL, KablabTransformSSL, collate_time_adjust_ssl
+from data_process.feature import wav2mel
+from data_process.mulaw import mulaw_quantize, inv_mulaw_quantize
 
 
 def get_upsample(fps, fs, frame_period):
@@ -23,31 +26,48 @@ def get_upsample(fps, fs, frame_period):
     return int(upsample)
 
 
+def get_padding(kernel_size, dilation=1):
+    return (kernel_size*dilation - dilation) // 2
+
+
 def set_config(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 1
         cfg.train.num_workers = 1
 
-    if len(cfg.train.speaker) > 1:
-        cfg.train.use_gc = True
-    else:
-        cfg.train.use_gc = False
+    if cfg.train.face_or_lip == "lip_gray_08_25":
+        cfg.model.fps = 25
+        cfg.model.reduction_factor = 4
+        cfg.model.lip_min_frame = 75
+        cfg.model.lip_max_frame = 76
 
 
 def get_path_train(cfg, current_time):
     # data
-    if cfg.train.face_or_lip == "lip":
-        train_data_root = cfg.train.lip_pre_loaded_path_train
-        val_data_root = cfg.train.lip_pre_loaded_path_val
-    if cfg.train.face_or_lip == "lip_st":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_st
-        val_data_root = cfg.train.lip_pre_loaded_path_val_st
     if cfg.train.face_or_lip == "lip_st_03":
         train_data_root = cfg.train.lip_pre_loaded_path_train_st_03
         val_data_root = cfg.train.lip_pre_loaded_path_val_st_03
-    if cfg.train.face_or_lip == "lip_st_gray_03":
+    elif cfg.train.face_or_lip == "lip_st_gray_03":
         train_data_root = cfg.train.lip_pre_loaded_path_train_st_gray_03
         val_data_root = cfg.train.lip_pre_loaded_path_val_st_gray_03
+    elif cfg.train.face_or_lip == "lip_gray_08_25":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_25
+        val_data_root = cfg.train.lip_pre_loaded_path_val_gray_08_25
+    elif cfg.train.face_or_lip == "lip_gray_08_50":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_50
+        val_data_root = cfg.train.lip_pre_loaded_path_val_gray_08_50
+    elif cfg.train.face_or_lip == "lip_nn_gray_03_50":
+        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_03_50
+        val_data_root = cfg.train.lip_pre_loaded_path_nn_val_gray_03_50
+    elif cfg.train.face_or_lip == "lip_nn_gray_08_50":
+        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_08_50
+        val_data_root = cfg.train.lip_pre_loaded_path_nn_val_gray_08_50
+    elif cfg.train.face_or_lip == "face_nn_gray_0_50":
+        train_data_root = cfg.train.face_pre_loaded_path_nn_train_gray_0_50
+        val_data_root = cfg.train.face_pre_loaded_path_nn_val_gray_0_50
+    elif cfg.train.face_or_lip == "face_nn_0_50":
+        train_data_root = cfg.train.face_pre_loaded_path_nn_train_0_50
+        val_data_root = cfg.train.face_pre_loaded_path_nn_val_0_50
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -77,31 +97,36 @@ def get_path_train(cfg, current_time):
 
 
 def get_path_test(cfg, model_path):
-    if cfg.test.face_or_lip == "lip":
-        train_data_root = cfg.train.lip_pre_loaded_path_train
-        test_data_root = cfg.test.lip_pre_loaded_path
-    if cfg.test.face_or_lip == "lip_st":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_st
-        test_data_root = cfg.test.lip_pre_loaded_path_st
     if cfg.test.face_or_lip == "lip_st_03":
         train_data_root = cfg.train.lip_pre_loaded_path_train_st_03
         test_data_root = cfg.test.lip_pre_loaded_path_st_03
-    if cfg.test.face_or_lip == "lip_st_gray_03":
+    elif cfg.test.face_or_lip == "lip_st_gray_03":
         train_data_root = cfg.train.lip_pre_loaded_path_train_st_gray_03
         test_data_root = cfg.test.lip_pre_loaded_path_st_gray_03
+    elif cfg.test.face_or_lip == "lip_gray_08_25":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_25
+        test_data_root = cfg.test.lip_pre_loaded_path_gray_08_25
+    elif cfg.test.face_or_lip == "lip_gray_08_50":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_50
+        test_data_root = cfg.test.lip_pre_loaded_path_gray_08_50
+    elif cfg.test.face_or_lip == "lip_nn_gray_03_50":
+        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_03_50
+        test_data_root = cfg.test.lip_pre_loaded_path_nn_gray_03_50
+    elif cfg.test.face_or_lip == "lip_nn_gray_08_50":
+        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_08_50
+        test_data_root = cfg.test.lip_pre_loaded_path_nn_gray_08_50
+    elif cfg.test.face_or_lip == "face_nn_gray_0_50":
+        train_data_root = cfg.train.face_pre_loaded_path_nn_train_gray_0_50
+        test_data_root = cfg.test.face_pre_loaded_path_nn_gray_0_50
+    elif cfg.test.face_or_lip == "face_nn_0_50":
+        train_data_root = cfg.train.face_pre_loaded_path_nn_train_0_50
+        test_data_root = cfg.test.face_pre_loaded_path_nn_0_50
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
 
     save_path = Path(cfg.test.save_path).expanduser()
-    
-    if cfg.model.name == "mspec":
-        if cfg.model.sharp:
-            save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / f"{model_path.stem}_sharp"
-        else:
-            save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
-    else:
-        save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
 
     train_save_path = save_path / "train_data" / "audio"
     test_save_path = save_path / "test_data" / "audio"
@@ -110,6 +135,8 @@ def get_path_test(cfg, model_path):
 
     data_root_list = [test_data_root]
     save_path_list = [test_save_path]
+    # data_root_list = [train_data_root]
+    # save_path_list = [train_save_path]
 
     return data_root_list, save_path_list, train_data_root
 
@@ -126,6 +153,7 @@ def get_path_test_vc(cfg, model_path, speaker, reference):
 
     save_path = Path(cfg.test.save_path).expanduser()
     save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+
     train_save_path = save_path / "train_data" / str(speaker) / str(reference) / "audio"
     test_save_path = save_path / "test_data" / str(speaker) / str(reference) / "audio"
     os.makedirs(train_save_path, exist_ok=True)
@@ -195,14 +223,8 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
     val_data_path = get_datasets(val_data_root, cfg)
 
     # 学習用，検証用それぞれに対してtransformを作成
-    train_trans = KablabTransform(
-        cfg=cfg,
-        train_val_test="train",
-    )
-    val_trans = KablabTransform(
-        cfg=cfg,
-        train_val_test="val",
-    )
+    train_trans = KablabTransform(cfg, "train")
+    val_trans = KablabTransform(cfg, "val")
 
     # dataset作成
     print("\n--- make train dataset ---")
@@ -242,16 +264,84 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
     return train_loader, val_loader, train_dataset, val_dataset
 
 
+def make_train_val_loader_ssl(cfg, train_data_root, val_data_root):
+    # パスを取得
+    train_data_path = get_datasets(train_data_root, cfg)
+    val_data_path = get_datasets(val_data_root, cfg)
+
+    # 学習用，検証用それぞれに対してtransformを作成
+    train_trans = KablabTransformSSL(cfg, "train")
+    val_trans = KablabTransformSSL(cfg, "val")
+
+    # dataset作成
+    print("\n--- make train dataset ---")
+    train_dataset = KablabDatasetSSL(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = KablabDatasetSSL(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    # それぞれのdata loaderを作成
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_ssl, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_ssl, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
 def make_test_loader(cfg, data_root, train_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
 
-    test_trans = KablabTransform(
-        cfg=cfg,
-        train_val_test="test",
-    )
+    test_trans = KablabTransform(cfg, "test")
     test_dataset = KablabDataset(
+        data_path=test_data_path,
+        train_data_path=train_data_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return test_loader, test_dataset
+
+
+def make_test_loader_ssl(cfg, data_root, train_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
+    test_data_path = sorted(test_data_path)
+
+    test_trans = KablabTransformSSL(cfg, "test")
+    test_dataset = KablabDatasetSSL(
         data_path=test_data_path,
         train_data_path=train_data_path,
         transform=test_trans,
@@ -461,6 +551,87 @@ def check_feat_add(target, output, cfg, filename, current_time, ckpt_time=None):
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
 
 
+def check_wav(target, output, cfg, filename_mel, filename_wav_target, filename_wav_output, current_time, ckpt_time=None):
+    """
+    target, output : (1, T)
+    """
+    target = target.squeeze(0)
+    output = output.squeeze(0)
+    target = target.to('cpu').detach().numpy().copy()
+    output = output.to('cpu').detach().numpy().copy()
+    target /= np.max(np.abs(target))
+    output /= np.max(np.abs(output))
+    wandb.log({f"{filename_wav_target}": wandb.Audio(target, sample_rate=cfg.model.sampling_rate)})
+    wandb.log({f"{filename_wav_output}": wandb.Audio(output, sample_rate=cfg.model.sampling_rate)})
+
+    target = wav2mel(target, cfg, ref_max=True)
+    output = wav2mel(output, cfg, ref_max=True)
+    
+    plt.close("all")
+    plt.figure()
+    ax = plt.subplot(2, 1, 1)
+    specshow(
+        data=target, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=cfg.model.sampling_rate, 
+        hop_length=cfg.model.hop_length,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+        cmap="viridis",
+    )
+    plt.colorbar(format="%+2.f dB")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Frequency[Hz]")
+    plt.title("target")
+    
+    ax = plt.subplot(2, 1, 2, sharex=ax, sharey=ax)
+    specshow(
+        data=output, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=cfg.model.sampling_rate, 
+        hop_length=cfg.model.hop_length, 
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+        cmap="viridis",
+    )
+    plt.colorbar(format="%+2.f dB")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Frequency[Hz]")
+    plt.title("output")
+
+    plt.tight_layout()
+    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
+    os.makedirs(save_path, exist_ok=True)
+    plt.savefig(str(save_path / f"{filename_mel}.png"))
+    wandb.log({f"{filename_mel}": wandb.Image(str(save_path / f"{filename_mel}.png"))})
+
+
+def check_movie(target, output, lip_mean, lip_std, cfg, filename, current_time, ckpt_time=None):
+    """
+    target, output : (C, H, W, T)
+    """
+    target = target.to('cpu').detach()
+    output = output.to('cpu').detach()
+    lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
+    lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
+    target = torch.add(torch.mul(target, lip_std), lip_mean)
+    output = torch.add(torch.mul(output, lip_std), lip_mean)
+    target = target.permute(-1, 0, 1, 2).to(torch.uint8)  # (T, C, H, W)
+    output = output.permute(-1, 0, 1, 2).to(torch.uint8)  # (T, C, H, W)
+    if cfg.model.gray:
+        target = target.expand(-1, 3, -1, -1)
+        output = output.expand(-1, 3, -1, -1)
+
+    wandb.log({f"{filename}_target": wandb.Video(target.numpy(), fps=cfg.model.fps, format="mp4")})
+    wandb.log({f"{filename}_output": wandb.Video(output.numpy(), fps=cfg.model.fps, format="mp4")})
+
+
 def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
     att_w = att_w.to('cpu').detach().numpy().copy()
     plt.close()
@@ -518,8 +689,9 @@ def gen_cat_feature(feature, shift_frame, n_last_frame, upsample):
     """
     gen_separateで分割して出力した結果を結合
     feature : (B, C, T)
-    input_length : モデル学習時の系列長
     shift_frame : シフト幅
+    n_last_frame : 分割した最終ブロックのフレーム数
+    upsample : 口唇動画から音響特徴量へのアップサンプリング係数
     """
     feat_list = []
     shift_frame = int(shift_frame * upsample)
@@ -541,3 +713,27 @@ def gen_cat_feature(feature, shift_frame, n_last_frame, upsample):
     feature = torch.cat(feat_list, dim=-1).unsqueeze(0)     # (1, C, T)
     return feature
     
+
+def gen_cat_wav(wav, shift_frame, n_last_frame, upsample, hop_length):
+    """
+    wav : (B, C, T)
+    """
+    wav_list = []
+    shift_frame = int(shift_frame * upsample * hop_length)
+    n_last_frame = int(n_last_frame * upsample * hop_length)
+
+    for i in range(wav.shape[0]):
+        if i == 0:
+            wav_list.append(wav[i, ...])
+
+        elif i == wav.shape[0] - 1:
+            if n_last_frame != 0:
+                wav_list.append(wav[i, :, -n_last_frame:])
+            else:
+                wav_list.append(wav[i, :, -shift_frame:])
+
+        else:
+            wav_list.append(wav[i, :, -shift_frame:])
+
+    wav = torch.cat(wav_list, dim=-1).unsqueeze(0)     # (1, C, T)
+    return wav

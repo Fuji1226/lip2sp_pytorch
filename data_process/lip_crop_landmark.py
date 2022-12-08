@@ -11,18 +11,20 @@ from tqdm import tqdm
 import random
 
 
-debug = False
-debug_iter = 10
+debug = True
+debug_iter = 5
 
-margin = 0.3
+margin = 0.8
+fps = 50
 speaker = "M01_kablab"
-data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
+data_root = Path(f"~/dataset/lip/face_aligned_debug/{speaker}").expanduser()
+landmark_dir = Path(f"~/dataset/lip/landmark_aligned_debug/{speaker}").expanduser()
 
+dir_name = "lip_cropped"
 if debug:
-    save_dir = Path(f"~/dataset/lip/lip_cropped_debug_{margin}/{speaker}").expanduser()    
+    save_dir = Path(f"~/dataset/lip/{dir_name}_debug_{margin}_{fps}/{speaker}").expanduser()
 else:
-    save_dir = Path(f"~/dataset/lip/lip_cropped_{margin}/{speaker}").expanduser()
+    save_dir = Path(f"~/dataset/lip/{dir_name}_{margin}_{fps}/{speaker}").expanduser()
 
 
 def get_crop_info(landmark_path):
@@ -62,7 +64,7 @@ def lip_crop(data_path, landmark_path, save_dir):
     assert n_frame == len(coords_mean)
 
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-    out = cv2.VideoWriter(f"{save_dir}/{data_path.stem}_crop.mp4", int(fourcc), fps, (int(crop_size), int(crop_size)))
+    out = cv2.VideoWriter(f"{save_dir}/{data_path.stem}.mp4", int(fourcc), fps, (int(crop_size), int(crop_size)))
 
     iter_cnt = 0
     while True:
@@ -94,7 +96,7 @@ def main():
     iter_cnt = 0
 
     for data_path in tqdm(data_path_list):
-        landmark_path = landmark_dir / f"{data_path.stem}_landmark.csv"
+        landmark_path = landmark_dir / f"{data_path.stem}.csv"
 
         if landmark_path.exists():
             lip_crop(data_path, landmark_path, save_dir)

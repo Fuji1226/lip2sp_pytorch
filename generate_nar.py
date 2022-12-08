@@ -13,7 +13,7 @@ import torch
 
 from data_check import save_data
 from train_nar import make_model
-from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature
+from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature, gen_cat_wav, set_config
 from calc_accuracy import calc_accuracy
 from data_process.phoneme_encode import get_keys_from_value
 
@@ -44,8 +44,12 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
     iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+        wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        wav_q = wav_q.to(device)
+        lip = lip.to(device)
+        feature = feature.to(device)
+        data_len = data_len.to(device)
+        speaker = speaker.to(device)
 
         n_last_frame = lip.shape[-1] % shift_frame
         lip_sep = gen_separate(lip, input_length, shift_frame)
@@ -54,9 +58,9 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, feat_add_out, phoneme = model(lip=lip_sep, gc=speaker)
+                output, classifier_out = model(lip=lip_sep, gc=speaker)
             else:
-                output, feat_add_out, phoneme = model(lip=lip_sep)
+                output, classifier_out = model(lip=lip_sep)
 
         output = gen_cat_feature(output, shift_frame, n_last_frame, upsample)
 
@@ -83,25 +87,39 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         )
 
         iter_cnt += 1
-        # if iter_cnt == 53:
-        #     break
+        if iter_cnt >= 53:
+            break
         
     return process_times
 
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    if len(cfg.train.speaker) > 1:
-        cfg.train.use_gc = True
-    else:
-        cfg.train.use_gc = False
+    set_config(cfg)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     model = make_model(cfg, device)
+
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/face_nn_gray_0_50/2022:11:22_00-30-18/mspec80_300.ckpt")   # F01 face
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/face_nn_gray_0_50/2022:11:28_02-55-07/mspec80_300.ckpt")   # F01 face crop flip
+    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/face_nn_gray_0_50/2022:11:28_11-05-43/mspec80_300.ckpt")   # F01 face time masking
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/face_nn_0_50/2022:11:25_09-52-00/mspec80_300.ckpt")   # F01 face rgb
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_nn_gray_03_50/2022:11:22_01-09-23/mspec80_300.ckpt")   # F01 lip 03
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_nn_gray_08_50/2022:11:22_00-52-54/mspec80_300.ckpt")   # F01 lip 08
     
-    model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_03/2022:11:05_16-30-58/mspec80_600.ckpt")
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:11_22-41-12/mspec80_400.ckpt")   # F02
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:11_22-06-16/mspec80_400.ckpt")   # M01
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:11_22-57-59/mspec80_400.ckpt")   # M04
+
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:16_12-19-35/mspec80_400.ckpt")   # multi no spk_emb
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:16_15-07-32/mspec80_400.ckpt")   # multi spk_emb after enc
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:16_11-19-13/mspec80_400.ckpt")   # multi spk_emb classifier 0.05 after enc
+    # model_path = Path("/home/usr4/r70264c/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:16_00-32-31/mspec80_400.ckpt")   # multi spk_emb classifier 0.05 after res
+
+    cfg.train.face_or_lip = model_path.parents[1].name
+    cfg.test.face_or_lip = model_path.parents[1].name
 
     if model_path.suffix == ".ckpt":
         try:
@@ -131,8 +149,10 @@ def main(cfg):
         )
 
     for data_root, save_path in zip(data_root_list, save_path_list):
-        print("--- calc accuracy ---")
-        calc_accuracy(save_path, save_path.parents[0], cfg, process_times=None)
+        for speaker in cfg.test.speaker:
+            save_path_spk = save_path / speaker
+            print("--- calc accuracy ---")
+            calc_accuracy(save_path_spk, save_path.parents[0], cfg, process_times=None)
         
 
 if __name__ == "__main__":

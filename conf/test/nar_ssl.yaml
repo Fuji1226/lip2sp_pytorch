@@ -1,0 +1,24 @@
+---
+
+# debug
+debug : True
+debug_data_len : 1
+
+# face or lip
+face_or_lip : "face_nn_0_50"
+
+# generate.pyを実行したときのデータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch/result/nar_ssl/generate"
+
+# 口唇動画、音響特徴量ディレクトリまでのパス
+lip_pre_loaded_path_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/test"
+lip_pre_loaded_path_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/test"
+lip_pre_loaded_path_gray_08_25 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_25/test"
+lip_pre_loaded_path_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_50/test"
+lip_pre_loaded_path_nn_gray_03_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.3_50/test"
+lip_pre_loaded_path_nn_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/test"
+face_pre_loaded_path_nn_gray_0_50 : "~/dataset/lip/np_files/face_cropped_nn_gray_0_50/test"
+face_pre_loaded_path_nn_0_50 : "~/dataset/lip/np_files/face_cropped_nn_0_50/test"
+
+speaker : ["F01_kablab"]
+# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]

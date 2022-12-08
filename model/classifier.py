@@ -30,10 +30,10 @@ class SpeakerClassifier(nn.Module):
     def __init__(self, in_channels, hidden_channels, n_speaker):
         super().__init__()
         self.layer = nn.Sequential(
-            nn.Linear(in_channels, hidden_channels),
+            nn.Linear(in_channels, hidden_channels, bias=False),
             nn.BatchNorm1d(hidden_channels),
             nn.ReLU(),
-            nn.Linear(hidden_channels, hidden_channels),
+            nn.Linear(hidden_channels, hidden_channels, bias=False),
             nn.BatchNorm1d(hidden_channels),
             nn.ReLU(),
         )
@@ -47,17 +47,3 @@ class SpeakerClassifier(nn.Module):
         out = self.layer(out)
         out = self.last_layer(out)
         return out
-
-
-if __name__ == "__main__":
-    B = 12
-    C = 256
-    T = 150
-    x = torch.rand(B, C, T)
-    net = SpeakerClassifier(
-        in_channels=C,
-        hidden_channels=int(C * 2),
-        n_speaker=4,
-    )
-    out = net(x)
-    print(out, out.shape)

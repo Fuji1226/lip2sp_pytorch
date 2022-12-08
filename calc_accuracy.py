@@ -8,7 +8,7 @@ import torchaudio
 import matplotlib.pyplot as plt
 import numpy as np
 import librosa
-from data_process.transform_no_chainer import fill_nan
+from data_process.transform import fill_nan
 from nnmnkwii.metrics import melcd
 import pyworld
 import pysptk

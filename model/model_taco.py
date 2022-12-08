@@ -7,10 +7,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D, Simple, Simple_NonRes, SimpleBig
-from model.transformer_remake import Encoder, Decoder, OfficialEncoder
+from model.net import ResNet3D
 from model.pre_post import Postnet
-from model.rnn import LSTMEncoder, GRUEncoder
+from model.rnn import LSTMEncoder
 from model.rnn_decoder import RNNDecoder
 
 
@@ -34,64 +33,15 @@ class Lip2SPTaco(nn.Module):
                 dropout=res_dropout,
                 norm_type=norm_type,
             )
-        elif which_res == "simple":
-            self.ResNet_GAP = Simple(
-                in_channels=in_channels, 
-                out_channels=rnn_hidden_channels, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
-        elif which_res == "simple_nonres":
-            self.ResNet_GAP = Simple_NonRes(
-                in_channels=in_channels, 
-                out_channels=rnn_hidden_channels, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
-        elif which_res == "simplebig":
-            self.ResNet_GAP = SimpleBig(
-                in_channels=in_channels, 
-                out_channels=rnn_hidden_channels, 
-                inner_channels=res_inner_channels,
-                layers=res_layers, 
-                dropout=res_dropout,
-                norm_type=norm_type,
-            )
         
         # encoder
-        if which_encoder == "transformer":
-            self.encoder = Encoder(
-                n_layers=n_layers, 
-                n_head=n_head, 
-                d_model=d_model, 
-                reduction_factor=reduction_factor,  
-            )
-        elif which_encoder == "official":
-            self.encoder = OfficialEncoder(
-                d_model=d_model,
-                nhead=n_head,
-                num_layers=n_layers,
-            )
-        elif which_encoder == "lstm":
-            self.encoder = LSTMEncoder(
-                hidden_channels=rnn_hidden_channels,
-                n_layers=rnn_n_layers,
-                bidirectional=True,
-                dropout=res_dropout,
-                reduction_factor=reduction_factor,
-            )
-        elif which_encoder == "gru":
-            self.encoder = GRUEncoder(
-                hidden_channels=rnn_hidden_channels,
-                n_layers=rnn_n_layers,
-                bidirectional=True,
-                dropout=res_dropout,
-                reduction_factor=reduction_factor,
-            )
+        self.encoder = LSTMEncoder(
+            hidden_channels=rnn_hidden_channels,
+            n_layers=rnn_n_layers,
+            bidirectional=True,
+            dropout=res_dropout,
+            reduction_factor=reduction_factor,
+        )
 
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
         self.spk_emb_layer = nn.Linear(rnn_hidden_channels + spk_emb_dim, rnn_hidden_channels)

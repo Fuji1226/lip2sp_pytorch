@@ -90,6 +90,27 @@ def posenc(x, device, start_index=0):
     return positional_encoding
 
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 300):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        """
+        Args:
+            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        """
+        x = x + self.pe[:x.size(0)]
+        return self.dropout(x)
+
+
 class ScaledDotProductAttention(nn.Module):
     def __init__(self, temperature, attn_dropout=0.1):
         super().__init__()
@@ -224,7 +245,7 @@ class Encoder(nn.Module):
         ])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, x, data_len=None, layer="enc"):
+    def forward(self, x, data_len=None):
         """
         x : (B, C, T)
         enc_output : (B, T, C)
@@ -232,13 +253,8 @@ class Encoder(nn.Module):
         B, C, T = x.shape
 
         if data_len is not None:
-            if layer == "enc":
-                data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
-            elif layer == "dec":
-                pass
-            max_len = T
-            mask = make_pad_mask(data_len, max_len)
-            
+            data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+            mask = make_pad_mask(data_len, T)
         else:
             mask = None
 
@@ -415,30 +431,10 @@ class PhonemeDecoder(nn.Module):
         self.start_idx = None
 
 
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
-        super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(max_len, 1, d_model)
-        pe[:, 0, 0::2] = torch.sin(position * div_term)
-        pe[:, 0, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        """
-        Args:
-            x: Tensor, shape [seq_len, batch_size, embedding_dim]
-        """
-        x = x + self.pe[:x.size(0)]
-        return self.dropout(x)
-
-
 class OfficialEncoder(nn.Module):
-    def __init__(self, d_model, nhead, num_layers):
+    def __init__(self, d_model, nhead, num_layers, reduction_factor):
         super().__init__()
+        self.reduction_factor = reduction_factor
         self.pos_encoder = PositionalEncoding(d_model)
         enc_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
@@ -451,6 +447,7 @@ class OfficialEncoder(nn.Module):
         B, C, T = x.shape
         x = x.permute(2, 0, 1)
         if data_len is not None:
+            data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
             pad_mask = make_pad_mask(data_len, T).squeeze(1)
         else:
             pad_mask = None

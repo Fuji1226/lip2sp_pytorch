@@ -10,10 +10,11 @@ import random
 from librosa.display import specshow
 
 import torch
+import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from utils import make_train_val_loader, save_loss, get_path_train, check_mel_nar, count_params, set_config, calc_class_balance
+from utils import make_train_val_loader, save_loss, get_path_train, check_mel_nar, check_wav, count_params, set_config, calc_class_balance
 from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
 
@@ -29,7 +30,15 @@ torch.cuda.manual_seed_all(777)
 random.seed(777)
 
 
-def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
+def save_checkpoint(
+    model, optimizer, scheduler,
+    train_loss_list,
+    train_mse_loss_list,
+    train_classifier_loss_list,
+    val_loss_list,
+    val_mse_loss_list,
+    val_classifier_loss_list,
+    epoch, ckpt_path):
 	torch.save({
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
@@ -39,6 +48,12 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
         "torch": torch.get_rng_state(),
         "torch_random": torch.random.get_rng_state(),
         'cuda_random' : torch.cuda.get_rng_state(),
+        'train_loss_list': train_loss_list,
+        'train_mse_loss_list': train_mse_loss_list,
+        'train_classifier_loss_list': train_classifier_loss_list,
+        'val_loss_list': val_loss_list,
+        'val_mse_loss_list': val_mse_loss_list,
+        'val_classifier_loss_list': val_classifier_loss_list,
         'epoch': epoch
     }, ckpt_path)
 
@@ -47,49 +62,30 @@ def make_model(cfg, device):
     model = Lip2SP_NAR(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
-        res_layers=cfg.model.res_layers,
         res_inner_channels=cfg.model.res_inner_channels,
-        norm_type=cfg.model.norm_type_lip,
-        separate_frontend=cfg.train.separate_frontend,
         which_res=cfg.model.which_res,
-        d_model=cfg.model.d_model,
-        n_layers=cfg.model.n_layers,
-        n_head=cfg.model.n_head,
-        conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
-        rnn_hidden_channels=cfg.model.rnn_hidden_channels,
+        enc_channels=cfg.model.enc_channels,
         rnn_n_layers=cfg.model.rnn_n_layers,
+        trans_n_layers=cfg.model.trans_enc_n_layers,
+        trans_n_head=cfg.model.trans_enc_n_head,
         dec_n_layers=cfg.model.tc_n_layers,
         dec_inner_channels=cfg.model.tc_inner_channels,
         dec_kernel_size=cfg.model.tc_kernel_size,
-        tc_n_attn_layer=cfg.model.tc_n_attn_layer,
-        tc_n_head=cfg.model.tc_n_head,
-        tc_d_model=cfg.model.tc_d_model,
-        feat_add_channels=cfg.model.tc_feat_add_channels,
-        feat_add_layers=cfg.model.tc_feat_add_layers,
         n_speaker=len(cfg.train.speaker),
         spk_emb_dim=cfg.model.spk_emb_dim,
         which_encoder=cfg.model.which_encoder,
         which_decoder=cfg.model.which_decoder,
-        apply_first_bn=cfg.train.apply_first_bn,
-        use_feat_add=cfg.train.use_feat_add,
-        phoneme_classes=cfg.model.n_classes,
-        use_phoneme=cfg.train.use_phoneme,
-        use_dec_attention=cfg.train.use_dec_attention,
-        upsample_method=cfg.train.upsample_method,
-        compress_rate=cfg.train.compress_rate,
+        where_spk_emb=cfg.train.where_spk_emb,
         dec_dropout=cfg.train.dec_dropout,
         res_dropout=cfg.train.res_dropout,
+        rnn_dropout=cfg.train.rnn_dropout,
         reduction_factor=cfg.model.reduction_factor,
-        use_gc=cfg.train.use_gc,
     )
 
     count_params(model, "model")
     count_params(model.ResNet_GAP, "ResNet")
     count_params(model.encoder, "encoder")
     count_params(model.decoder, "decoder")
-    count_params(model.decoder.interp_layer, "dec_interp_layer")
-    count_params(model.decoder.conv_layers, "dec_conv_layers")
-    count_params(model.decoder.out_layer, "dec_out_layer")
     
     # multi GPU
     if torch.cuda.device_count() > 1:
@@ -100,6 +96,8 @@ def make_model(cfg, device):
 
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
+    epoch_mse_loss = 0
+    epoch_classifier_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start") 
@@ -107,18 +105,34 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
+        wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        wav_q = wav_q.to(device)
+        lip = lip.to(device)
+        feature = feature.to(device)
+        data_len = data_len.to(device)
+        speaker = speaker.to(device)
 
         if cfg.train.use_gc:
-            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+            output, classifier_out = model(lip=lip, data_len=data_len, gc=speaker)
         else:
-            output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+            output, classifier_out = model(lip=lip, data_len=data_len)
         B, C, T = output.shape
 
-        loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
+        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
+        if cfg.train.use_gc:
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100, speaker=speaker)
+        else:
+            classifier_loss = torch.tensor(0)
+
+        loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
+
         epoch_loss += loss.item()
+        epoch_mse_loss += mse_loss.item()
+        epoch_classifier_loss += classifier_loss.item()
         wandb.log({"train_loss": loss})
+        wandb.log({"train_mse_loss": mse_loss})
+        wandb.log({"train_classifier_loss": classifier_loss})
+
         loss.backward()
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
@@ -136,11 +150,15 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
                 check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
 
     epoch_loss /= iter_cnt
-    return epoch_loss
+    epoch_mse_loss /= iter_cnt
+    epoch_classifier_loss /= iter_cnt
+    return epoch_loss, epoch_mse_loss, epoch_classifier_loss
 
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
+    epoch_mse_loss = 0
+    epoch_classifier_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("\ncalc val loss")
@@ -148,21 +166,35 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-
-        lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
+        wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        wav_q = wav_q.to(device)
+        lip = lip.to(device)
+        feature = feature.to(device)
+        data_len = data_len.to(device)
+        speaker = speaker.to(device)
         
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len, gc=speaker)
+                output, classifier_out = model(lip=lip, data_len=data_len, gc=speaker)
             else:
-                output, feat_add_out, phoneme = model(lip=lip, data_len=data_len)
+                output, classifier_out = model(lip=lip, data_len=data_len)
 
         B, C, T = output.shape
 
-        loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
+        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
+        if cfg.train.use_gc:
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100, speaker=speaker)
+        else:
+            classifier_loss = torch.tensor(0)
+
+        loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
+
         epoch_loss += loss.item()
+        epoch_mse_loss += mse_loss.item()
+        epoch_classifier_loss += classifier_loss.item()
         wandb.log({"val_loss": loss})
+        wandb.log({"val_mse_loss": mse_loss})
+        wandb.log({"val_classifier_loss": classifier_loss})
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -171,12 +203,18 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
                     check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
                 break
 
-        if iter_cnt % (all_iter - 1) == 0:
+        if all_iter - 1 > 0:
+            if iter_cnt % (all_iter - 1) == 0:
+                if cfg.model.name == "mspec80":
+                    check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
+        else:
             if cfg.model.name == "mspec80":
                 check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
             
     epoch_loss /= iter_cnt
-    return epoch_loss
+    epoch_mse_loss /= iter_cnt
+    epoch_classifier_loss /= iter_cnt
+    return epoch_loss, epoch_mse_loss, epoch_classifier_loss
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -204,18 +242,28 @@ def main(cfg):
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
 
-    # Dataloader作成
+    # Dataloader
     train_loader, val_loader, _, _ = make_train_val_loader(cfg, train_data_root, val_data_root)
+
+    # finetuning
+    if cfg.train.finetuning:
+        assert len(cfg.train.speaker) == 1
+        print(f"finetuning {cfg.train.speaker}")
+        cfg.train.speaker = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
     # 損失関数
     if len(cfg.train.speaker) > 1:
         class_weight = calc_class_balance(cfg, train_data_root, device)
     else:
         class_weight = None
-    loss_f = MaskedLoss(weight=class_weight, use_weighted_mse=cfg.train.use_weighted_mse)
+    loss_f = MaskedLoss(weight=class_weight, use_weighted_mean=cfg.train.use_weighted_mean)
 
     train_loss_list = []
+    train_mse_loss_list = []
+    train_classifier_loss_list = []
     val_loss_list = []
+    val_mse_loss_list = []
+    val_classifier_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
@@ -255,6 +303,12 @@ def main(cfg):
             torch.random.set_rng_state(checkpoint["torch_random"])
             torch.cuda.set_rng_state(checkpoint["cuda_random"])
             last_epoch = checkpoint["epoch"]
+            train_loss_list = checkpoint["train_loss_list"]
+            train_mse_loss_list = checkpoint["train_mse_loss_list"]
+            train_classifier_loss_list = checkpoint["train_classifier_loss_list"]
+            val_loss_list = checkpoint["val_loss_list"]
+            val_mse_loss_list = checkpoint["val_mse_loss_list"]
+            val_classifier_loss_list = checkpoint["val_classifier_loss_list"]
 
         wandb.watch(model, **cfg.wandb_conf.watch)
     
@@ -262,10 +316,9 @@ def main(cfg):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
-            # print(f"learning_rate = {scheduler.get_epoch_values(current_epoch)}")
 
             # training
-            epoch_loss = train_one_epoch(
+            epoch_loss, epoch_mse_loss, epoch_classifier_loss = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
@@ -275,9 +328,11 @@ def main(cfg):
                 ckpt_time=ckpt_time,
             )
             train_loss_list.append(epoch_loss)
+            train_mse_loss_list.append(epoch_mse_loss)
+            train_classifier_loss_list.append(epoch_classifier_loss)
 
             # validation
-            epoch_loss = calc_val_loss(
+            epoch_loss, epoch_mse_loss, epoch_classifier_loss = calc_val_loss(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
@@ -286,6 +341,8 @@ def main(cfg):
                 ckpt_time=ckpt_time,
             )
             val_loss_list.append(epoch_loss)
+            val_mse_loss_list.append(epoch_mse_loss)
+            val_classifier_loss_list.append(epoch_classifier_loss)
         
             # 学習率の更新
             scheduler.step()
@@ -296,12 +353,20 @@ def main(cfg):
                     model=model,
                     optimizer=optimizer,
                     scheduler=scheduler,
+                    train_loss_list=train_loss_list,
+                    train_mse_loss_list=train_mse_loss_list,
+                    train_classifier_loss_list=train_classifier_loss_list,
+                    val_loss_list=val_loss_list,
+                    val_mse_loss_list=val_mse_loss_list,
+                    val_classifier_loss_list=val_classifier_loss_list,
                     epoch=current_epoch,
                     ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
                 )
             
             # save loss
             save_loss(train_loss_list, val_loss_list, save_path, "loss")
+            save_loss(train_mse_loss_list, val_mse_loss_list, save_path, "mse_loss")
+            save_loss(train_classifier_loss_list, val_classifier_loss_list, save_path, "classifier_loss")
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

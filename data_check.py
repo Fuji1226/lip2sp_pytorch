@@ -111,7 +111,7 @@ def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
         )
 
 
-def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
+def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
     """
     音響特徴量から音声波形を生成し、wavファイルを保存
     sharpを使用するとちょっと合成音声が綺麗になります
@@ -147,7 +147,7 @@ def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
         )
         # 正規化
         wav /= np.max(np.abs(wav))
-        write(str(save_path / f"world_{file_name}.wav"), rate=cfg.model.sampling_rate, data=wav)
+        # write(str(save_path / f"world_{file_name}.wav"), rate=cfg.model.sampling_rate, data=wav)
 
     # メルスペクトログラム
     if cfg.model.feature_type == "mspec":
@@ -163,7 +163,7 @@ def save_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
 
         # 正規化
         wav /= np.max(np.abs(wav))
-        write(str(save_path / f"mspec_{file_name}.wav"), rate=cfg.model.sampling_rate, data=wav)
+        # write(str(save_path / f"mspec_{file_name}.wav"), rate=cfg.model.sampling_rate, data=wav)
 
     return wav
 
@@ -610,7 +610,7 @@ def plot_world(cfg, save_path, wav_input, wav_AbS, wav_gen):
     plot_ap(cfg, save_path, ap_input.T, ap_AbS.T, ap_gen.T)
 
 
-def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip_std, feat_mean, feat_std, enhanced_output=None):
+def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip_std, feat_mean, feat_std):
     """
     出力データの保存
     """
@@ -622,7 +622,6 @@ def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip
 
     wav = wav.to('cpu').numpy()
 
-    # 口唇動画の保存
     save_lip_video(
         cfg=cfg,
         save_path=save_path,
@@ -631,11 +630,7 @@ def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip
         lip_std=lip_std
     )
 
-    # 原音声のwavファイルを保存
-    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)
-
-    # 原音声の音響特徴量から求めた合成音声のwavファイルを保存
-    wav_AbS = save_wav(
+    wav_AbS = calc_wav(
         cfg=cfg,
         save_path=save_path,
         file_name="AbS",
@@ -643,8 +638,8 @@ def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip
         feat_mean=feat_mean,
         feat_std=feat_std,
     )
-    # モデルで推定した音響特徴量から求めた合成音声のwavファイルを保存
-    wav_gen = save_wav(
+
+    wav_gen = calc_wav(
         cfg=cfg,
         save_path=save_path,
         file_name="generate",
@@ -658,7 +653,10 @@ def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip
     wav = wav[:n_sample]
     wav_AbS = wav_AbS[:n_sample]
     wav_gen = wav_gen[:n_sample]
-    assert wav.shape[0] == wav_AbS.shape[0] == wav_gen.shape[0]
+
+    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)
+    write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=wav_AbS)
+    write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=wav_gen)
 
     # プロット
     plot_wav(cfg, save_path, wav, wav_AbS, wav_gen)

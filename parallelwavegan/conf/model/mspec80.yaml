@@ -1,0 +1,69 @@
+---
+
+name : mspec80
+
+#################################
+# data_info
+#################################
+# video parameter
+fps : 50
+
+# audio parameter
+sampling_rate : 16000
+n_fft : 640
+hop_length : 160
+win_length : 640
+f_min : 0
+f_max : 8000
+n_mel_channels : 80
+mcep_order : 25
+
+# input grayscale（グレースケールかRGBか）
+gray : True
+
+# input first and second derivative.（動的特徴量を使うかどうか）
+delta : False
+
+# frame period
+frame_period : 10
+
+# acoutic feature frames in training
+length : 300    
+
+# phoneme length
+phoneme_length : 30
+
+# reduction factor
+reduction_factor : 2
+
+# "world" or "mspec"（音響特徴量の選択）
+feature_type : "mspec"
+
+# 非周期性指標の圧縮方法
+comp_mode : 'default'
+
+# 学習に使用する口唇動画のフレーム数
+lip_min_frame : 50
+lip_max_frame : 51
+
+# griffin-limで合成するときに人為的に補正
+sharp : False
+
+# mulaw量子化の学習中においてパディングを無視するためのインデックス
+mulaw_ignore_idx : -1
+
+#################################
+# model_info
+#################################
+in_channels : 1
+out_channels : 1
+gen_inner_channels : 64
+cond_channels : 80
+upsample_scales : [10, 4, 2, 2]
+gen_n_layers : 30
+gen_n_stacks : 3
+disc_inner_channels : 64
+disc_n_layers : 10
+kernel_size : 3
+dropout : 0.1
+use_weight_norm : True

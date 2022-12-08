@@ -1,5 +1,5 @@
 """
-detを使用して顔全体を切り取る
+bboxを使用して顔全体を切り取る
 """
 
 import os
@@ -11,18 +11,34 @@ from tqdm import tqdm
 import random
 
 
-debug = True
+debug = False
 debug_iter = 10
+margin = 0
+fps = 50
 
-margin = 0.3
-speaker = "F01_kablab"
+speaker = "F03_kablab"
 data_root = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-det_dir = Path(f"~/dataset/lip/det_debug/{speaker}").expanduser()
+det_dir = Path(f"~/dataset/lip/bbox_nn/{speaker}").expanduser()
 
 if debug:
-    save_dir = Path(f"~/dataset/lip/face_cropped_debug/{speaker}").expanduser()    
+    save_dir = Path(f"~/dataset/lip/face_cropped_nn_debug_{margin}_{fps}/{speaker}").expanduser()    
 else:
-    save_dir = Path(f"~/dataset/lip/face_cropped/{speaker}").expanduser()
+    save_dir = Path(f"~/dataset/lip/face_cropped_nn_{margin}_{fps}/{speaker}").expanduser()
+
+
+def mooving_average(coords_mean):
+    mov_avg_list = []
+    for i in range(len(coords_mean)):
+        if i < 2:
+            mov_avg_list.append(coords_mean[i])
+        elif i >= len(coords_mean) - 2:
+            mov_avg_list.append(coords_mean[i])
+        else:
+            x_mean = (coords_mean[i - 2][0] + coords_mean[i - 1][0] + coords_mean[i][0] + coords_mean[i + 1][0] + coords_mean[i + 2][0]) // 5
+            y_mean = (coords_mean[i - 2][1] + coords_mean[i - 1][1] + coords_mean[i][1] + coords_mean[i + 1][1] + coords_mean[i + 2][1]) // 5
+            mov_avg_list.append([x_mean, y_mean])
+
+    return mov_avg_list
 
 
 def get_crop_info(det_path):
@@ -36,9 +52,9 @@ def get_crop_info(det_path):
     coords_mean = []
     crop_size = 0
     for coords in coords_list:
-        coords_mean.append([np.mean(coords[:2]).astype("int"), np.mean(coords[2:]).astype("int")])
-        width = coords[1] - coords[0]
-        height = coords[3] - coords[2]
+        coords_mean.append([np.mean(coords[0::2]).astype("int"), np.mean(coords[1::2]).astype("int")])
+        width = coords[2] - coords[0]
+        height = coords[3] - coords[1]
         if width > height:
             each_crop_size = width
         else:
@@ -47,8 +63,8 @@ def get_crop_info(det_path):
         if each_crop_size > crop_size:
             crop_size = each_crop_size
 
-    print(coords_mean)
-    print(crop_size)
+    crop_size += int(crop_size * margin)
+    coords_mean = mooving_average(coords_mean)
 
     return coords_mean, crop_size
 
@@ -61,7 +77,7 @@ def face_crop(data_path, det_path, save_dir):
     assert n_frame == len(coords_mean)
 
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-    out = cv2.VideoWriter(f"{save_dir}/{data_path.stem}_crop.mp4", int(fourcc), fps, (int(crop_size), int(crop_size)))
+    out = cv2.VideoWriter(f"{save_dir}/{data_path.stem}.mp4", int(fourcc), fps, (int(crop_size), int(crop_size)))
 
     iter_cnt = 0
     while True:
@@ -88,12 +104,13 @@ def main():
     if debug:
         data_path_list = random.sample(data_path_list, len(data_path_list))
 
-    print(f"speaker = {speaker}, margin = {margin}")
+    print(f"speaker = {speaker}, margin = {margin}, fps = {fps}")
 
     iter_cnt = 0
 
     for data_path in tqdm(data_path_list):
-        det_path = det_dir / f"{data_path.stem}_det.csv"
+        # det_path = det_dir / f"{data_path.stem}_det.csv"
+        det_path = det_dir / f"{data_path.stem}.csv"
 
         if det_path.exists():
             face_crop(data_path, det_path, save_dir)
@@ -104,7 +121,7 @@ def main():
         if debug:
             if debug_iter < iter_cnt:
                 break
-
+    
 
 if __name__ == "__main__":
     main()

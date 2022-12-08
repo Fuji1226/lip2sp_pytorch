@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: parallelwavegan
+    entity:
+    mode: online
+    name : nar
+watch:
+    log: all
+    log_freq: 100

@@ -25,6 +25,7 @@ from torchvision import transforms as T
 from torch.utils.data import Dataset
 
 from data_check import save_lip_video
+from data_process.mulaw import mulaw_quantize, inv_mulaw_quantize
 
 
 def get_speaker_idx(data_path):
@@ -34,41 +35,21 @@ def get_speaker_idx(data_path):
     """
     print("\nget speaker idx")
     speaker_idx = {}
-    idx = 0
+    idx_set = {
+        "F01_kablab" : 0,
+        "F02_kablab" : 1,
+        "M01_kablab" : 2,
+        "M04_kablab" : 3,
+        "F01_kablab_fulldata" : 100,
+    }
     for path in sorted(data_path):
         speaker = path.parents[0].name
         if speaker in speaker_idx:
             continue
         else:
-            speaker_idx[speaker] = idx
-            idx += 1
+            speaker_idx[speaker] = idx_set[speaker]
     print(f"speaker_idx = {speaker_idx}")
     return speaker_idx
-
-
-# def get_stat(stat_path, cfg):
-#     """
-#     事前に求めた統計量を読み込み
-#     話者ごとに求めているので,複数話者の場合は全員分が読み込まれる
-#     """
-#     print("\nget stat")
-#     filename = [
-#         "lip_mean_list", "lip_var_list", "lip_len_list", 
-#         "feat_mean_list", "feat_var_list", "feat_len_list", 
-#         "feat_add_mean_list", "feat_add_var_list", "feat_add_len_list",
-#     ]
-
-#     stat_dict = {}
-#     for name in filename:
-#         for speaker in cfg.train.speaker:
-#             with open(str(stat_path / f"{speaker}" / f"{name}_{cfg.model.name}.bin"), "rb") as p:
-#                 if name in stat_dict:
-#                     stat_dict[name] += pickle.load(p)
-#                 else:
-#                     stat_dict[name] = pickle.load(p)
-#             print(f"{speaker} {name} loaded")
-#         print(f"n_stat_{name} = {len(stat_dict[name])}\n")
-#     return stat_dict
 
 
 def get_stat_load_data(train_data_path):
@@ -85,6 +66,7 @@ def get_stat_load_data(train_data_path):
 
     for path in tqdm(train_data_path):
         npz_key = np.load(str(path))
+        # print(path)
 
         lip = npz_key['lip']
         feature = npz_key['feature']
@@ -135,11 +117,6 @@ class KablabDataset(Dataset):
         self.speaker_idx = get_speaker_idx(data_path)
 
         # 統計量から平均と標準偏差を求める
-        # stat_dict = get_stat(stat_path, cfg)
-        # lip_mean, _, lip_std = calc_mean_var_std(stat_dict["lip_mean_list"], stat_dict["lip_var_list"], stat_dict["lip_len_list"])
-        # feat_mean, _, feat_std = calc_mean_var_std(stat_dict["feat_mean_list"], stat_dict["feat_var_list"], stat_dict["feat_len_list"])
-        # feat_add_mean, _, feat_add_std = calc_mean_var_std(stat_dict["feat_add_mean_list"], stat_dict["feat_add_var_list"], stat_dict["feat_add_len_list"])
-
         lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list, feat_add_mean_list, feat_add_var_list, feat_add_len_list = get_stat_load_data(train_data_path)
         lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
@@ -173,7 +150,8 @@ class KablabDataset(Dataset):
         upsample = torch.from_numpy(npz_key['upsample'])
         data_len = torch.from_numpy(npz_key['data_len'])
 
-        lip, feature, feat_add, data_len = self.transform(
+        wav_q, lip, feature, feat_add, data_len = self.transform(
+            wav=wav,
             lip=lip,
             feature=feature,
             feat_add=feat_add,
@@ -191,7 +169,7 @@ class KablabDataset(Dataset):
             os.makedirs(save_path, exist_ok=True)
             save_lip_video(self.cfg, save_path, lip, self.lip_mean, self.lip_std)
             print("save")
-        return wav, lip, feature, feat_add, upsample, data_len, speaker, label
+        return wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label
 
 
 class KablabTransform:
@@ -429,7 +407,7 @@ class KablabTransform:
         idx = [i for i in range(T)]
 
         # マスクする系列長を決定
-        mask_length = torch.randint(0, self.cfg.train.segment_masking_length, (1,))
+        mask_length = torch.randint(self.cfg.train.min_segment_masking_length, self.cfg.train.max_segment_masking_length, (1,))
 
         # 1秒あたりdel_seg_length分だけまとめて削除するためのインデックスを選択
         while True:
@@ -447,7 +425,7 @@ class KablabTransform:
         
         return lip
 
-    def __call__(self, lip, feature, feat_add, upsample, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
+    def __call__(self, wav, lip, feature, feat_add, upsample, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
         """
         lip : (C, H, W, T)
         feature, feat_add : (T, C)
@@ -511,16 +489,24 @@ class KablabTransform:
         # 口唇動画の動的特徴量の計算
         if self.cfg.model.delta:
             lip = self.calc_delta(lip)
+
+        # mulaw量子化
+        wav = wav.numpy()
+        wav_q = mulaw_quantize(wav)
+        wav_q = torch.from_numpy(wav_q)
+        wav = torch.from_numpy(wav)
     
-        return lip.to(torch.float32), feature.to(torch.float32), feat_add.to(torch.float32), data_len            
+        return wav_q, lip.to(torch.float32), feature.to(torch.float32), feat_add.to(torch.float32), data_len            
 
 
 def collate_time_adjust(batch, cfg):
     """
     フレーム数の調整を行う
     """
-    wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
+    wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
 
+    wav_adjusted = []
+    wav_q_adjusted = []
     lip_adjusted = []
     feature_adjusted = []
     feat_add_adjusted = []
@@ -529,13 +515,23 @@ def collate_time_adjust(batch, cfg):
     lip_len = torch.randint(cfg.model.lip_min_frame, cfg.model.lip_max_frame, (1,)).item()
     upsample_scale = upsample[0].item()
     feature_len = int(lip_len * upsample_scale)
+    wav_len = int(feature_len * cfg.model.hop_length)
 
-    for l, f, f_add, d_len in zip(lip, feature, feat_add, data_len):
+    for w, w_q, l, f, f_add, d_len in zip(wav, wav_q, lip, feature, feat_add, data_len):
         # 揃えるlenよりも短い時は足りない分をゼロパディング
         if d_len <= feature_len:
+            w_padded = torch.zeros(wav_len)
+            w_q_padded = torch.zeros(wav_len) + cfg.model.mulaw_ignore_idx
+            w_q_padded = w_q_padded.to(torch.int64)
             l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_len)
             f_padded = torch.zeros(f.shape[0], feature_len)
             f_add_padded = torch.zeros(f_add.shape[0], feature_len)
+
+            w = w[:wav_len]
+            w_q = w_q[:wav_len]
+            for t in range(w.shape[0]):
+                w_padded[t] = w[t]
+                w_q_padded[t] = w_q[t]
 
             for t in range(l.shape[-1]):
                 l_padded[..., t] = l[..., t]
@@ -544,6 +540,8 @@ def collate_time_adjust(batch, cfg):
                 f_padded[:, t] = f[:, t]
                 f_add_padded[:, t] = f_add[:, t]
 
+            w = w_padded
+            w_q = w_q_padded
             l = l_padded
             f = f_padded
             f_add = f_add_padded
@@ -552,23 +550,33 @@ def collate_time_adjust(batch, cfg):
         else:
             lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()
             feature_start_frame = int(lip_start_frame * upsample_scale)
+            wav_start_sample = int(feature_start_frame * cfg.model.hop_length)
+
+            w = w[wav_start_sample:wav_start_sample + wav_len]
+            w_q = w_q[wav_start_sample:wav_start_sample + wav_len]
             l = l[..., lip_start_frame:lip_start_frame + lip_len]
             f = f[:, feature_start_frame:feature_start_frame + feature_len]
             f_add = f_add[:, feature_start_frame:feature_start_frame + feature_len]
 
+        assert w.shape[0] == wav_len
+        assert w_q.shape[0] == wav_len
         assert l.shape[-1] == lip_len
         assert f.shape[-1] == feature_len
         assert f_add.shape[-1] == feature_len
 
+        wav_adjusted.append(w)
+        wav_q_adjusted.append(w_q)
         lip_adjusted.append(l)
         feature_adjusted.append(f)
         feat_add_adjusted.append(f_add)
 
+    wav = torch.stack(wav_adjusted)
+    wav_q = torch.stack(wav_q_adjusted)
     lip = torch.stack(lip_adjusted)
     feature = torch.stack(feature_adjusted)
     feat_add = torch.stack(feat_add_adjusted)
     data_len = torch.stack(data_len)
     speaker = torch.stack(speaker)
 
-    return lip, feature, feat_add, upsample, data_len, speaker, label
+    return wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label
 
