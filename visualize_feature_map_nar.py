@@ -9,9 +9,12 @@ import random
 import time
 from tqdm import tqdm
 
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import torch
 
-from data_check import save_data
+from data_check import visualize_feature_map_video, visualize_feature_map_image
 from train_nar import make_model
 from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature, gen_cat_wav, set_config
 from calc_accuracy import calc_accuracy
@@ -26,7 +29,11 @@ torch.cuda.manual_seed_all(0)
 random.seed(0)
 
 
-def generate(cfg, model, test_loader, dataset, device, save_path):
+save_video = False
+save_image = True
+
+
+def generate(cfg, model, test_loader, dataset, device, save_path, mean_or_max):
     model.eval()
 
     lip_mean = dataset.lip_mean.to(device)
@@ -58,9 +65,9 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
 
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, classifier_out, fmaps = model(lip=lip_sep, gc=speaker)
+                output, classifier_out, fmaps = model(lip=lip, gc=speaker)
             else:
-                output, classifier_out, fmaps = model(lip=lip_sep)
+                output, classifier_out, fmaps = model(lip=lip)
 
         output = gen_cat_feature(output, shift_frame, n_last_frame, upsample)
 
@@ -69,25 +76,20 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         process_times.append(process_time)
 
         speaker_label = get_keys_from_value(speaker_idx, speaker[0])
-        _save_path = save_path / speaker_label / label[0]
+        _save_path = save_path / speaker_label / label[0] / f"fmaps_{mean_or_max}"
         os.makedirs(_save_path, exist_ok=True)
 
-        save_data(
-            cfg=cfg,
-            save_path=_save_path,
-            wav=wav,
-            lip=lip,
-            feature=feature,
-            feat_add=feat_add,
-            output=output,
-            lip_mean=lip_mean,
-            lip_std=lip_std,
-            feat_mean=feat_mean,
-            feat_std=feat_std,
-        )
+        for fmap in fmaps:
+            try:
+                if save_video:
+                    visualize_feature_map_video(fmap, _save_path, mean_or_max)
+                if save_image:
+                    visualize_feature_map_image(fmap, _save_path, mean_or_max)
+            except:
+                continue
 
         iter_cnt += 1
-        if iter_cnt >= 53:
+        if iter_cnt >= 5:
             break
         
     return process_times
@@ -100,19 +102,19 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
+    mean_or_max = "mean"
+
     model = make_model(cfg, device)
 
-    start_epoch = 390
+    start_epoch = 300
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
     for num_gen_epoch in num_gen_epoch_list:
-
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.3_50_gray/2022:12:09_13-29-45/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 lip 03
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.8_50_gray/2022:12:09_13-46-31/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 lip 08
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:09_14-02-12/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:12_10-27-44/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face delta
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face time masking
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face time masking
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.3_50_gray/2022:12:09_13-29-45/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 lip 03
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.8_50_gray/2022:12:09_13-46-31/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 lip 08
 
         cfg.train.face_or_lip = model_path.parents[1].name
         cfg.test.face_or_lip = model_path.parents[1].name
@@ -130,25 +132,20 @@ def main(cfg):
 
         data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
         
-        # for data_root, save_path in zip(data_root_list, save_path_list):
-        #     test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
-
-        #     process_times = None
-        #     print("--- generate ---")
-        #     process_times = generate(
-        #         cfg=cfg,
-        #         model=model,
-        #         test_loader=test_loader,
-        #         dataset=test_dataset,
-        #         device=device,
-        #         save_path=save_path,
-        #     )
-
         for data_root, save_path in zip(data_root_list, save_path_list):
-            for speaker in cfg.test.speaker:
-                save_path_spk = save_path / speaker
-                print("--- calc accuracy ---")
-                calc_accuracy(save_path_spk, save_path.parents[0], cfg, process_times=None)
+            test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
+
+            process_times = None
+            print("--- generate ---")
+            process_times = generate(
+                cfg=cfg,
+                model=model,
+                test_loader=test_loader,
+                dataset=test_dataset,
+                device=device,
+                save_path=save_path,
+                mean_or_max=mean_or_max,
+            )
         
 
 if __name__ == "__main__":

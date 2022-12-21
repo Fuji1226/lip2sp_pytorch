@@ -17,6 +17,8 @@ class UpSampleNet(nn.Module):
             convs.append(
                 nn.Sequential(
                     nn.Conv2d(1, 1, kernel_size=kernel_size, padding=padding, bias=False),
+                    # nn.BatchNorm2d(1),
+                    # nn.ReLU(),
                 )
             )
         self.convs = nn.ModuleList(convs)
@@ -35,7 +37,11 @@ class UpSampleNet(nn.Module):
 class ConvinUpSampleNet(nn.Module):
     def __init__(self, in_channels, upsample_scales):
         super().__init__()
-        self.conv_in = nn.Conv1d(in_channels, in_channels, kernel_size=3, padding=1, bias=False)
+        self.conv_in = nn.Sequential(
+            nn.Conv1d(in_channels, in_channels, kernel_size=3, padding=1, bias=False),
+            # nn.BatchNorm1d(in_channels),
+            # nn.ReLU(),   
+        )
         self.upsample_layers = UpSampleNet(upsample_scales)
 
     def forward(self, x):
@@ -53,6 +59,7 @@ class WaveNetResBlock(nn.Module):
         self.out_layer = nn.Conv1d(inner_channels, inner_channels, kernel_size=1)
         self.skip_layer = nn.Conv1d(inner_channels, inner_channels, kernel_size=1)
         self.dropout = nn.Dropout(dropout)
+        # self.bn = nn.BatchNorm1d(inner_channels)
 
     def forward(self, x, c):
         """
@@ -70,6 +77,7 @@ class WaveNetResBlock(nn.Module):
 
         skip_out = self.skip_layer(out)
         out = (self.out_layer(out) + x) * math.sqrt(0.5)
+        # out = self.bn(out)
 
         return out, skip_out
 

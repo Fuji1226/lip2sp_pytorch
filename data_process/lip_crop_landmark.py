@@ -11,14 +11,14 @@ from tqdm import tqdm
 import random
 
 
-debug = True
+debug = False
 debug_iter = 5
 
-margin = 0.8
+margin = 0.3
 fps = 50
-speaker = "M01_kablab"
-data_root = Path(f"~/dataset/lip/face_aligned_debug/{speaker}").expanduser()
-landmark_dir = Path(f"~/dataset/lip/landmark_aligned_debug/{speaker}").expanduser()
+speaker = "F01_kablab"
+data_root = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()
+landmark_dir = Path(f"~/dataset/lip/landmark_aligned/{speaker}").expanduser()
 
 dir_name = "lip_cropped"
 if debug:

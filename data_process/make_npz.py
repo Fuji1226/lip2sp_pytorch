@@ -16,32 +16,31 @@ import pickle
 from transform import load_data_for_npz
 
 debug = False
-speaker = "F03_kablab"
+speaker = "F01_kablab"
 margin = 0
 fps = 50
-gray = True
-
-dirname = "face_cropped_nn"
-
-if debug:
-    save_dirname = f"{dirname}_debug"
-else:
-    save_dirname = dirname
-
-if gray:
-    save_dirname = f"{save_dirname}_gray"
+gray = False
 
 csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
-data_dir = Path(f"~/dataset/lip/{dirname}_{margin}_{fps}/{speaker}").expanduser()
-lip_train_data_path = Path(f"~/dataset/lip/np_files/{save_dirname}_{margin}_{fps}/train").expanduser()
-lip_val_data_path = Path(f"~/dataset/lip/np_files/{save_dirname}_{margin}_{fps}/val").expanduser()
-lip_test_data_path = Path(f"~/dataset/lip/np_files/{save_dirname}_{margin}_{fps}/test").expanduser()
+data_dir = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()
+landmark_dir = Path(f"~/dataset/lip/landmark_aligned/{speaker}").expanduser()
+dir_name = f"face_aligned_{margin}_{fps}"
+
+if gray:
+    dir_name = f"{dir_name}_gray"
+
+if debug:
+    dir_name = f"{dir_name}_debug"
+
+lip_train_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/train").expanduser()
+lip_val_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/val").expanduser()
+lip_test_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/test").expanduser()
 
 
 def read_csv(csv_path, which_data):
     with open(str(csv_path / speaker / f"{which_data}.csv"), "r") as f:
         reader = csv.reader(f)
-        data_list = [[data_dir / f"{row[0]}.mp4", data_dir / f"{row[0]}.wav"] for row in reader]
+        data_list = [[data_dir / f"{row[0]}.mp4", data_dir / f"{row[0]}.wav", landmark_dir / f"{row[0]}.csv"] for row in reader]
     return data_list
     
 
@@ -53,14 +52,15 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
     print(f"save {which_data}")
     for i in tqdm(range(len)):
         try:
-            video_path, audio_path = data_list[i]
+            video_path, audio_path, landmark_path = data_list[i]
 
             # 話者ラベル(F01_kablabとかです)
             speaker = audio_path.parents[0].name
 
-            wav, (lip, feature, feat_add, upsample), data_len = load_data_for_npz(
+            wav, lip, feature, feat_add, upsample, data_len, landmark = load_data_for_npz(
                 video_path=video_path,
                 audio_path=audio_path,
+                landmark_path=landmark_path,
                 cfg=cfg,
             )
 
@@ -77,6 +77,7 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
                 lip=lip,
                 feature=feature,
                 feat_add=feat_add,
+                landmark=landmark,
                 upsample=upsample,
                 data_len=data_len,
             )

@@ -5,12 +5,12 @@ import numpy as np
 import cv2
 import pandas as pd
 
-speaker = "F02_kablab"
+speaker = "F01_kablab"
 landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
 data_dir = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
 desired_left_eye = (0.35, 0.35)
 desired_face_size = 256
-debug = False
+debug = True
 debug_iter = 5
 
 if debug:
@@ -71,9 +71,13 @@ def get_landmark(landmark_path):
 def crop(aligner, data_path, landmark_path, save_dir):
     coords_list = get_landmark(landmark_path)
     movie = cv2.VideoCapture(str(data_path))
+    width = movie.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = movie.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = movie.get(cv2.CAP_PROP_FPS)
     n_frame = movie.get(cv2.CAP_PROP_FRAME_COUNT)
     assert n_frame == len(coords_list)
+
+    print(width, height)
 
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     out = cv2.VideoWriter(f"{save_dir}/{data_path.stem}.mp4", int(fourcc), fps, (int(desired_face_size), int(desired_face_size)))

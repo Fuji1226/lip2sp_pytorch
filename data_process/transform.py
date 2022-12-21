@@ -6,16 +6,14 @@ import os
 import sys
 from pathlib import Path
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
-sys.path.append(str(Path("~/lip2sp_pytorch/data_process").expanduser()))
 
-from pathlib import Path
 import cv2
 import numpy as np
-import torch
 import librosa
 from scipy.interpolate import interp1d
 from pysptk import swipe
 import torchvision
+import pandas as pd
 
 from utils import get_upsample
 from data_process.feature import wav2mel, wav2world
@@ -90,6 +88,17 @@ def load_mp4(path, cfg):
     return lip_resize, fps
 
 
+def load_landmark(path):
+    df = pd.read_csv(str(path), header=None)
+
+    landmark_list = []
+    for i in range(len(df)):
+        coords = df.iloc[i].values
+        landmark_list.append([coords[0::2], coords[1::2]])
+    
+    return np.array(landmark_list)  # (T, 2, 68)
+
+
 def calc_feat_add_taguchi(wav, feature, cfg):
     """
     田口さんが使用されていたもの
@@ -143,7 +152,7 @@ def calc_feat_add(wav, feature, cfg, use_spec=False):
     return feat_add, T
 
 
-def load_data_for_npz(video_path, audio_path, cfg):
+def load_data_for_npz(video_path, audio_path, landmark_path, cfg):
     """
     lip : (C, H, W, T)
     feature, feat_add : (T, C)
@@ -152,6 +161,7 @@ def load_data_for_npz(video_path, audio_path, cfg):
     wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
     wav = wav / np.max(np.abs(wav), axis=0)
     upsample = get_upsample(fps, fs, cfg.model.frame_period)
+    landmark = load_landmark(landmark_path)     # (T, 2, 68)
     
     # 音響特徴量への変換
     feature = calc_sp(wav, cfg)
@@ -162,9 +172,8 @@ def load_data_for_npz(video_path, audio_path, cfg):
     feature = feature[:data_len]
     feat_add = feat_add[:data_len]
     lip = lip[..., :data_len // upsample]
+    landmark = landmark[:data_len // upsample, ...]
 
-    lip = lip.to('cpu').detach().numpy().copy()
+    lip = lip.to('cpu').numpy()
 
-    ret = (lip, feature, feat_add, upsample)
-
-    return wav, ret, data_len
+    return wav, lip, feature, feat_add, upsample, data_len, landmark

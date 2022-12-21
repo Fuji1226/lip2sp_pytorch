@@ -42,16 +42,21 @@ class LSTMEncoder(nn.Module):
 
 
 class GRUEncoder(nn.Module):
-    def __init__(self, hidden_channels, n_layers, bidirectional, dropout, reduction_factor):
+    def __init__(self, hidden_channels, n_layers, bidirectional, dropout, reduction_factor, which_norm):
         super().__init__()
         self.reduction_factor = reduction_factor
+        self.which_norm = which_norm
         self.dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(hidden_channels, hidden_channels, num_layers=n_layers, batch_first=True, bidirectional=bidirectional)
         if bidirectional:
             self.fc = nn.Linear(hidden_channels * 2, hidden_channels)
         else:
             self.fc = nn.Linear(hidden_channels, hidden_channels)
-        self.norm = nn.LayerNorm(hidden_channels)
+
+        if which_norm == "ln":
+            self.norm = nn.LayerNorm(hidden_channels)
+        elif which_norm == "bn":
+            self.norm = nn.BatchNorm1d(hidden_channels)
 
     def forward(self, x, data_len=None):
         """
@@ -74,7 +79,12 @@ class GRUEncoder(nn.Module):
                 out = torch.cat([out, zero_pad], dim=1)
 
         out = self.fc(out)
-        out = self.norm(out)
+
+        if self.which_norm == "ln":
+            out = self.norm(out)
+        elif self.which_norm == "bn":
+            out = self.norm(out.permute(0, 2, 1)).permute(0, 2, 1)
+
         return F.relu(out)
 
 

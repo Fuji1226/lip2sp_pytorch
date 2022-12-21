@@ -44,30 +44,18 @@ def set_config(cfg):
 
 def get_path_train(cfg, current_time):
     # data
-    if cfg.train.face_or_lip == "lip_st_03":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_st_03
-        val_data_root = cfg.train.lip_pre_loaded_path_val_st_03
-    elif cfg.train.face_or_lip == "lip_st_gray_03":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_st_gray_03
-        val_data_root = cfg.train.lip_pre_loaded_path_val_st_gray_03
-    elif cfg.train.face_or_lip == "lip_gray_08_25":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_25
-        val_data_root = cfg.train.lip_pre_loaded_path_val_gray_08_25
-    elif cfg.train.face_or_lip == "lip_gray_08_50":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_50
-        val_data_root = cfg.train.lip_pre_loaded_path_val_gray_08_50
-    elif cfg.train.face_or_lip == "lip_nn_gray_03_50":
-        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_03_50
-        val_data_root = cfg.train.lip_pre_loaded_path_nn_val_gray_03_50
-    elif cfg.train.face_or_lip == "lip_nn_gray_08_50":
-        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_08_50
-        val_data_root = cfg.train.lip_pre_loaded_path_nn_val_gray_08_50
-    elif cfg.train.face_or_lip == "face_nn_gray_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_nn_train_gray_0_50
-        val_data_root = cfg.train.face_pre_loaded_path_nn_val_gray_0_50
-    elif cfg.train.face_or_lip == "face_nn_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_nn_train_0_50
-        val_data_root = cfg.train.face_pre_loaded_path_nn_val_0_50
+    if cfg.train.face_or_lip == "lip_cropped_0.3_50_gray":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_03_50_gray
+        val_data_root = cfg.train.lip_pre_loaded_path_val_03_50_gray
+    elif cfg.train.face_or_lip == "lip_cropped_0.8_50_gray":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_08_50_gray
+        val_data_root = cfg.train.lip_pre_loaded_path_val_08_50_gray
+    elif cfg.train.face_or_lip == "face_aligned_0_50_gray":
+        train_data_root = cfg.train.face_pre_loaded_path_train_0_50_gray
+        val_data_root = cfg.train.face_pre_loaded_path_val_0_50_gray
+    elif cfg.train.face_or_lip == "face_aligned_0_50":
+        train_data_root = cfg.train.face_pre_loaded_path_train_0_50
+        val_data_root = cfg.train.face_pre_loaded_path_val_0_50
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -97,30 +85,18 @@ def get_path_train(cfg, current_time):
 
 
 def get_path_test(cfg, model_path):
-    if cfg.test.face_or_lip == "lip_st_03":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_st_03
-        test_data_root = cfg.test.lip_pre_loaded_path_st_03
-    elif cfg.test.face_or_lip == "lip_st_gray_03":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_st_gray_03
-        test_data_root = cfg.test.lip_pre_loaded_path_st_gray_03
-    elif cfg.test.face_or_lip == "lip_gray_08_25":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_25
-        test_data_root = cfg.test.lip_pre_loaded_path_gray_08_25
-    elif cfg.test.face_or_lip == "lip_gray_08_50":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_gray_08_50
-        test_data_root = cfg.test.lip_pre_loaded_path_gray_08_50
-    elif cfg.test.face_or_lip == "lip_nn_gray_03_50":
-        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_03_50
-        test_data_root = cfg.test.lip_pre_loaded_path_nn_gray_03_50
-    elif cfg.test.face_or_lip == "lip_nn_gray_08_50":
-        train_data_root = cfg.train.lip_pre_loaded_path_nn_train_gray_08_50
-        test_data_root = cfg.test.lip_pre_loaded_path_nn_gray_08_50
-    elif cfg.test.face_or_lip == "face_nn_gray_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_nn_train_gray_0_50
-        test_data_root = cfg.test.face_pre_loaded_path_nn_gray_0_50
-    elif cfg.test.face_or_lip == "face_nn_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_nn_train_0_50
-        test_data_root = cfg.test.face_pre_loaded_path_nn_0_50
+    if cfg.train.face_or_lip == "lip_cropped_0.3_50_gray":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_03_50_gray
+        test_data_root = cfg.test.lip_pre_loaded_path_03_50_gray
+    elif cfg.train.face_or_lip == "lip_cropped_0.8_50_gray":
+        train_data_root = cfg.train.lip_pre_loaded_path_train_08_50_gray
+        test_data_root = cfg.test.lip_pre_loaded_path_08_50_gray
+    elif cfg.train.face_or_lip == "face_aligned_0_50_gray":
+        train_data_root = cfg.train.face_pre_loaded_path_train_0_50_gray
+        test_data_root = cfg.test.face_pre_loaded_path_0_50_gray
+    elif cfg.train.face_or_lip == "face_aligned_0_50":
+        train_data_root = cfg.train.face_pre_loaded_path_train_0_50
+        test_data_root = cfg.test.face_pre_loaded_path_0_50
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
@@ -398,6 +374,55 @@ def count_params(module, attr):
         if p.requires_grad:
             params += p.numel()
     print(f"{attr}_parameter = {params}")
+
+
+def check_mel_ss(orig, mixed, cfg, filename, current_time, ckpt_time=None):
+    orig = orig.to("cpu").detach().numpy().copy()
+    mixed = mixed.to("cpu").detach().numpy().copy()
+
+    plt.figure(figsize=(7.5, 8))
+    plt.subplot(2, 1, 1)
+    specshow(
+        data=orig, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=cfg.model.sampling_rate, 
+        hop_length=cfg.model.hop_length,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+        cmap="viridis",
+    )
+    plt.colorbar(format="%+2.f dB")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Frequency[Hz]")
+    plt.title("original")
+
+    plt.subplot(2, 1, 2)
+    specshow(
+        data=mixed, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=cfg.model.sampling_rate, 
+        hop_length=cfg.model.hop_length,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+        cmap="viridis",
+    )
+    plt.colorbar(format="%+2.f dB")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Frequency[Hz]")
+    plt.title("mixed")
+
+    plt.tight_layout()
+
+    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
+    os.makedirs(save_path, exist_ok=True)
+    plt.savefig(str(save_path / f"{filename}.png"))
+    wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
 
 
 def check_mel_default(target, output, dec_output, cfg, filename, current_time, ckpt_time=None):

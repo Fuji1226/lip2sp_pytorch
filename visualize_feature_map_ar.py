@@ -11,9 +11,8 @@ from tqdm import tqdm
 
 import torch
 
-from data_check import save_data
+from data_check import visualize_feature_map_video, visualize_feature_map_image
 from train_default import make_model
-from calc_accuracy import calc_accuracy
 from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature
 
 # 現在時刻を取得
@@ -24,8 +23,11 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 random.seed(0)
 
+save_video = True
+save_image = True
 
-def generate(cfg, model, test_loader, dataset, device, save_path):
+
+def generate(cfg, model, test_loader, dataset, device, save_path, mean_or_max):
     model.eval()
 
     lip_mean = dataset.lip_mean.to(device)
@@ -62,26 +64,22 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         process_time = end_time - start_time
         process_times.append(process_time)
 
-        _save_path = save_path / label[0]
+        _save_path = save_path / label[0] / f"fmaps_{mean_or_max}"
         os.makedirs(_save_path, exist_ok=True)
         
-        save_data(
-            cfg=cfg,
-            save_path=_save_path,
-            wav=wav,
-            lip=lip,
-            feature=feature,
-            feat_add=feat_add,
-            output=output,
-            lip_mean=lip_mean,
-            lip_std=lip_std,
-            feat_mean=feat_mean,
-            feat_std=feat_std,
-        )
+        
+        for fmap in fmaps:
+            try:
+                if save_video:
+                    visualize_feature_map_video(fmap, _save_path, mean_or_max)
+                if save_image:
+                    visualize_feature_map_image(fmap, _save_path, mean_or_max)
+            except:
+                continue
 
-        # iter_cnt += 1
-        # if iter_cnt == 53:
-        #     break
+        iter_cnt += 1
+        if iter_cnt >= 5:
+            break
 
     return process_times
 
@@ -96,17 +94,18 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
+    mean_or_max = "mean"
+
     model = make_model(cfg, device)
 
-    start_epoch = 410
+    start_epoch = 360
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
     for num_gen_epoch in num_gen_epoch_list:
-
         # glu
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_13-54-16/mspec80_{num_gen_epoch}.ckpt").expanduser()     # tf
-        model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_14-11-36/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss
+        model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_13-54-16/mspec80_{num_gen_epoch}.ckpt").expanduser()     # tf
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_14-11-36/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss
         # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_18-27-48/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss + masking
 
         # glu no time masking
@@ -136,23 +135,21 @@ def main(cfg):
 
         data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
 
-        # for data_root, save_path in zip(data_root_list, save_path_list):
-        #     test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
-
-        #     process_times = None
-        #     print("--- generate ---")
-        #     process_times = generate(
-        #         cfg=cfg,
-        #         model=model,
-        #         test_loader=test_loader,
-        #         dataset=test_dataset,
-        #         device=device,
-        #         save_path=save_path,
-        #     )
-            
         for data_root, save_path in zip(data_root_list, save_path_list):
-            print("--- calc accuracy ---")
-            calc_accuracy(save_path, save_path.parents[0], cfg)
+            test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
+
+            process_times = None
+            print("--- generate ---")
+            process_times = generate(
+                cfg=cfg,
+                model=model,
+                test_loader=test_loader,
+                dataset=test_dataset,
+                device=device,
+                save_path=save_path,
+                mean_or_max=mean_or_max,
+            )
+            
 
 if __name__ == "__main__":
     main()

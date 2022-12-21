@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from model.transformer_remake import shift
 from model.pre_post import Prenet
 from wavenet.model.conv import CausalConv1d   
-    
+
 
 class GLUBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, dropput):

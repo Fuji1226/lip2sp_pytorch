@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class LandmarkConv(nn.Module):
@@ -41,31 +42,63 @@ class LandmarkConv(nn.Module):
         return x
 
 
+class Conv2DBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride):
+        super().__init__()
+        padding = (kernel_size - 1) // 2
+        self.layers = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=(1, kernel_size), stride=(1, stride), padding=(0, padding)),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride):
+        super().__init__()
+        padding = (kernel_size - 1) // 2
+        self.layers = nn.Sequential(
+            Conv2DBlock(in_channels, out_channels, kernel_size, stride),
+            Conv2DBlock(out_channels, out_channels, kernel_size, stride),
+        )
+
+        if stride > 1:
+            self.pool_layer = nn.MaxPool2d(kernel_size=(1, 3), stride=(1, stride), padding=(0, padding))
+
+        if in_channels != out_channels:
+            self.adjust_layer = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        output = self.layers(x)
+
+        if hasattr(self, "pool_layer"):
+            x = self.pool_layer(x)
+
+        if hasattr(self, "adjust_layer"):
+            x = self.adjust_layer(x)
+
+        return output + x
+
+
 class LMCoProcessingNet(nn.Module):
     def __init__(self, out_channels, kernel_size, n_layers, dropout, compress_time_axis):
         super().__init__()
-        layers = []
-        for i in range(n_layers):
-            if i == 0:
-                in_c = 2
-                if compress_time_axis:
-                    stride = 2
-                else:
-                    stride = 1
-            else:
-                in_c = out_channels
-                stride = 1
-            padding = (kernel_size - 1) // 2
+        if compress_time_axis:
+            self.first_conv = Conv2DBlock(2, out_channels, kernel_size, stride=2)
+        else:
+            self.first_conv = Conv2DBlock(2, out_channels, kernel_size, stride=1)
 
+        layers = []
+        for i in range(n_layers - 1):
             layers.append(
                 nn.Sequential(
-                    nn.Conv2d(in_c, out_channels, kernel_size=(1, kernel_size), stride=(1, stride), padding=(0, padding)),
-                    nn.BatchNorm2d(out_channels),
-                    nn.ReLU(),
+                    ResBlock(out_channels, out_channels, kernel_size, stride=1),
                     nn.Dropout(dropout),
                 )
             )
-
         self.layers = nn.ModuleList(layers)
 
     def forward(self, x):
@@ -73,6 +106,7 @@ class LMCoProcessingNet(nn.Module):
         x : (B, 2, K, T)
         output : (B, C, K, T)
         """
+        x = self.first_conv(x)
         for layer in self.layers:
             x = layer(x)
         return x
@@ -148,8 +182,14 @@ class ASTT_GCN(nn.Module):
 
 
 class LandmarkEncoder(nn.Module):
-    def __init__(self, inner_channels, lmco_kernel_size, lmco_n_layers, compress_time_axis, astt_gcn_n_layers, astt_gcn_n_head, n_nodes, dropout):
+    def __init__(
+        self, inner_channels, lmco_kernel_size, lmco_n_layers, compress_time_axis, 
+        astt_gcn_n_layers, astt_gcn_n_head, n_nodes, dropout):
         super().__init__()
+        self.n_nodes = n_nodes
+        self.landmark_index = torch.tensor([i for i in range(n_nodes)]).unsqueeze(0)    # (1, K)
+        self.compress_time_axis = compress_time_axis
+
         self.lmco = LMCoProcessingNet(
             out_channels=inner_channels,
             kernel_size=lmco_kernel_size,
@@ -173,12 +213,14 @@ class LandmarkEncoder(nn.Module):
 
         self.astt_gcns = nn.ModuleList(astt_gcns)
 
-    def forward(self, x, landmark_index):
+    def forward(self, x):
         """
-        x : (B, 2, K, T)
-        landmark_index : (B, K)
-        output : (B, T, C)
+        x : (B, T, 2, 68)
+        output : (B, C, T)
         """
+        x = x.permute(0, 2, 3, 1)[..., :self.n_nodes, :]   # (B, 2, K, T)
+        landmark_index = self.landmark_index.expand(x.shape[0], -1).to(device=x.device)     # (B, K)
+
         output = self.lmco(x)   # (B, C, K, T)
         se_emb = self.semantic_encoding(landmark_index).permute(0, 2, 1).unsqueeze(-1)     # (B, C, K, 1)
         output = output + se_emb
@@ -187,8 +229,10 @@ class LandmarkEncoder(nn.Module):
         for layer in self.astt_gcns:
             output = layer(output)
         
-        output = torch.mean(output, dim=2)  # (B, T, C)
-        return output   
+        output = torch.mean(output, dim=2).permute(0, 2, 1)  # (B, C, T)
+        if self.compress_time_axis:
+            output = F.interpolate(output, scale_factor=2, mode="nearest")
+        return output
 
 
 if __name__ == "__main__":

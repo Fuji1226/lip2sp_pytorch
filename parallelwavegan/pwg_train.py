@@ -97,20 +97,114 @@ def make_model(cfg, device):
     return gen.to(device), disc.to(device)
 
 
-def train_one_epoch(gen, disc, train_loader, optimizer_g, optimizer_d, loss_f, device, cfg, ckpt_time):
+def train_one_epoch(gen, train_loader, optimizer_g, loss_f, device, cfg, ckpt_time):
     epoch_loss_disc = 0
     epoch_loss_gen_stft = 0
     epoch_loss_gen_gan = 0
     epoch_loss_gen_all = 0
     iter_cnt = 0
     all_iter = len(train_loader)
+    print("training only generator")
+    print("iter start")
+    gen.train()
+
+    for batch in train_loader:
+        print(f'iter {iter_cnt}/{all_iter}')
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav = wav.to(device).unsqueeze(1)
+        feature = feature.to(device)
+        data_len = data_len.to(device)
+
+        noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+        wav_pred = gen(noise, feature)
+
+        loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
+
+        epoch_loss_gen_stft += loss_gen_stft.item()
+        wandb.log({"train_loss_gen_stft": loss_gen_stft})
+
+        loss_gen_stft.backward()
+        optimizer_g.step()
+        optimizer_g.zero_grad()
+
+        iter_cnt += 1
+        if cfg.train.debug:
+            if iter_cnt > cfg.train.debug_iter:
+                if cfg.model.name == "mspec80":
+                    check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+                break
+        
+        if iter_cnt % (all_iter - 1) == 0:
+            if cfg.model.name == "mspec80":
+                check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+
+    epoch_loss_disc /= iter_cnt
+    epoch_loss_gen_stft /= iter_cnt
+    epoch_loss_gen_gan /= iter_cnt
+    epoch_loss_gen_all /= iter_cnt
+    return epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all
+
+
+def val_one_epoch(gen, val_loader, loss_f, device, cfg, ckpt_time):
+    epoch_loss_disc = 0
+    epoch_loss_gen_stft = 0
+    epoch_loss_gen_gan = 0
+    epoch_loss_gen_all = 0
+    iter_cnt = 0
+    all_iter = len(val_loader)
+    print("validation only generator")
+    print("iter start")
+    gen.eval()
+
+    for batch in val_loader:
+        print(f'iter {iter_cnt}/{all_iter}')
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav = wav.to(device).unsqueeze(1)
+        feature = feature.to(device)
+        data_len = data_len.to(device)
+
+        noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+        with torch.no_grad():
+            wav_pred = gen(noise, feature)
+
+        loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
+
+        epoch_loss_gen_stft += loss_gen_stft.item()
+        wandb.log({"val_loss_gen_stft": loss_gen_stft})
+
+        iter_cnt += 1
+        if cfg.train.debug:
+            if iter_cnt > cfg.train.debug_iter:
+                if cfg.model.name == "mspec80":
+                    check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+                break
+        
+        if iter_cnt % (all_iter - 1) == 0:
+            if cfg.model.name == "mspec80":
+                check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+
+    epoch_loss_disc /= iter_cnt
+    epoch_loss_gen_stft /= iter_cnt
+    epoch_loss_gen_gan /= iter_cnt
+    epoch_loss_gen_all /= iter_cnt
+    return epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all
+
+
+def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_f, device, cfg, ckpt_time):
+    epoch_loss_disc = 0
+    epoch_loss_gen_stft = 0
+    epoch_loss_gen_gan = 0
+    epoch_loss_gen_all = 0
+    iter_cnt = 0
+    all_iter = len(train_loader)
+    print("training gan")
     print("iter start")
     gen.train()
     disc.train()
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
         data_len = data_len.to(device)
@@ -129,7 +223,8 @@ def train_one_epoch(gen, disc, train_loader, optimizer_g, optimizer_d, loss_f, d
         optimizer_d.step()
         optimizer_d.zero_grad()
 
-        out_pred = disc(wav_pred)
+        with torch.no_grad():
+            out_pred = disc(wav_pred)
         loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
         loss_gen_gan = torch.mean((out_pred - 1) ** 2)
         loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
@@ -163,20 +258,21 @@ def train_one_epoch(gen, disc, train_loader, optimizer_g, optimizer_d, loss_f, d
     return epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all
 
 
-def val_one_epoch(gen, disc, val_loader, loss_f, device, cfg, ckpt_time):
+def val_one_epoch_gan(gen, disc, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_loss_disc = 0
     epoch_loss_gen_stft = 0
     epoch_loss_gen_gan = 0
     epoch_loss_gen_all = 0
     iter_cnt = 0
     all_iter = len(val_loader)
+    print("validation gan")
     print("iter start")
     gen.eval()
     disc.eval()
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
         data_len = data_len.to(device)
@@ -328,38 +424,74 @@ def main(cfg):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
 
-            epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch(
-                gen=gen,
-                disc=disc,
-                train_loader=train_loader,
-                optimizer_g=optimizer_g,
-                optimizer_d=optimizer_d,
-                loss_f=loss_f,
-                device=device,
-                cfg=cfg,
-                ckpt_time=ckpt_time,
-            )
-            train_epoch_loss_disc_list.append(epoch_loss_disc)
-            train_epoch_loss_gen_stft_list.append(epoch_loss_gen_stft)
-            train_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
-            train_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
+            if cfg.train.use_disc:
+                print(f"learning_rate gen = {scheduler_g.get_last_lr()[0]}")
+                print(f"learning_rate disc = {scheduler_d.get_last_lr()[0]}")
 
-            epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = val_one_epoch(
-                gen=gen,
-                disc=disc,
-                val_loader=val_loader,
-                loss_f=loss_f,
-                device=device,
-                cfg=cfg,
-                ckpt_time=ckpt_time,
-            )
-            val_epoch_loss_disc_list.append(epoch_loss_disc)
-            val_epoch_loss_gen_stft_list.append(epoch_loss_gen_stft)
-            val_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
-            val_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
+                epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch_gan(
+                    gen=gen,
+                    disc=disc,
+                    train_loader=train_loader,
+                    optimizer_g=optimizer_g,
+                    optimizer_d=optimizer_d,
+                    loss_f=loss_f,
+                    device=device,
+                    cfg=cfg,
+                    ckpt_time=ckpt_time,
+                )
+                train_epoch_loss_disc_list.append(epoch_loss_disc)
+                train_epoch_loss_gen_stft_list.append(epoch_loss_gen_stft)
+                train_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
+                train_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
 
-            scheduler_d.step()
-            scheduler_g.step()
+                epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = val_one_epoch_gan(
+                    gen=gen,
+                    disc=disc,
+                    val_loader=val_loader,
+                    loss_f=loss_f,
+                    device=device,
+                    cfg=cfg,
+                    ckpt_time=ckpt_time,
+                )
+                val_epoch_loss_disc_list.append(epoch_loss_disc)
+                val_epoch_loss_gen_stft_list.append(epoch_loss_gen_stft)
+                val_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
+                val_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
+
+                scheduler_d.step()
+                scheduler_g.step()
+
+            else:
+                print(f"learning_rate gen = {scheduler_g.get_last_lr()[0]}")
+                
+                epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch(
+                    gen=gen,
+                    train_loader=train_loader,
+                    optimizer_g=optimizer_g,
+                    loss_f=loss_f,
+                    device=device,
+                    cfg=cfg,
+                    ckpt_time=ckpt_time,
+                )
+                train_epoch_loss_disc_list.append(epoch_loss_disc)
+                train_epoch_loss_gen_stft_list.append(epoch_loss_gen_stft)
+                train_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
+                train_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
+
+                epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = val_one_epoch(
+                    gen=gen,
+                    val_loader=val_loader,
+                    loss_f=loss_f,
+                    device=device,
+                    cfg=cfg,
+                    ckpt_time=ckpt_time,
+                )
+                val_epoch_loss_disc_list.append(epoch_loss_disc)
+                val_epoch_loss_gen_stft_list.append(epoch_loss_gen_stft)
+                val_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
+                val_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
+
+                scheduler_g.step()
 
             if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(

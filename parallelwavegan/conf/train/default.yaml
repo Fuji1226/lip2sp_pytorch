@@ -10,10 +10,11 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : True
-start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/lip_nn_gray_08_50/2022:11:29_21-57-23/mspec80_40.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:17_23-20-15/mspec80_300.ckpt"
+use_disc : True
 
 # face or lip
-face_or_lip : "lip_nn_gray_08_50"
+face_or_lip : "face_aligned_0_50_gray"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/parallelwavegan/result/default/train"
@@ -25,6 +26,9 @@ ckpt_step : 10
 # data path
 lip_pre_loaded_path_nn_train_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/train"
 lip_pre_loaded_path_nn_val_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/val"
+
+face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
+face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
@@ -41,36 +45,40 @@ max_epoch : 600
 # 見た目変換系
 use_color_jitter : False
 use_blur : False
-use_horizontal_flip : False
 use_pad : False
 use_rotation : False
+use_horizontal_flip : False
 use_random_crop : False
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
+which_spatial_mask : "has"
 spatial_divide_factor : 4
-n_spatial_mask : 4
+n_spatial_mask : 8
+mask_length : 24
 
 # 再生速度変換
 use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
-# 動画のフレームをランダムマスキング
-use_frame_masking : False
-frame_masking_rate : 40
-
 # 動画の連続したフレームをある程度まとめてマスキング
 use_segment_masking : False
 which_seg_mask : "seg_mean"
-segment_masking_length : 20
+min_segment_masking_length : 0
+max_segment_masking_length : 25
+
+# 音響特徴量に対してのマスキング
+use_time_frequency_masking : False
+feature_time_masking_length : 50
+feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 4
-num_workers : 4
+batch_size : 8
+num_workers : 8
 
 # optimizer
 lr_gen : 0.0001
-lr_disc : 0.00005
+lr_disc : 0.00004
 beta_1 : 0.9
 beta_2 : 0.999
 eps : 1.0e-6
@@ -78,7 +86,7 @@ weight_decay : 1.0e-6
 
 # scheduler
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay : 0.999
+lr_decay : 0.997
 
 # gradient clipping
 max_norm : 3.0

@@ -9,37 +9,43 @@ import av
 from tqdm import tqdm
 
 
+data_dir = Path("~/lrs2").expanduser()
 debug = False
-debug_iter = 5
-num_start = 0
-num_end = 4000
+debug_iter = 0
 
-speaker = "F01_kablab"
-data_root = Path(f"~/dataset/lip/face_aligned_for_visualize/{speaker}").expanduser()
-
-dir_name_landmark = "landmark_aligned_for_visualize"
-dir_name_bbox = "bbox_aligned_for_visualize"
 if debug:
-    save_dir_landmark = Path(f"~/dataset/lip/{dir_name_landmark}_debug/{speaker}").expanduser()
-    save_dir_bbox = Path(f"~/dataset/lip/{dir_name_bbox}_debug/{speaker}").expanduser()
+    save_dir_landmark = data_dir / "landmark_debug"
+    save_dir_bbox = data_dir / "bbox_debug"
 else:
-    save_dir_landmark = Path(f"~/dataset/lip/{dir_name_landmark}/{speaker}").expanduser()
-    save_dir_bbox = Path(f"~/dataset/lip/{dir_name_bbox}/{speaker}").expanduser()
-
-os.makedirs(save_dir_landmark, exist_ok=True)
-os.makedirs(save_dir_bbox, exist_ok=True)
+    save_dir_landmark = data_dir / "landmark"
+    save_dir_bbox = data_dir / "bbox"
 
 
 def main():
-    print(f"speaker = {speaker}, num_start = {num_start}, num_end = {num_end}")
-    data_path = sorted(list(data_root.glob("*.mp4")))[num_start:num_end]
+    file_list = []
+    for curdir, dirs, files in os.walk(data_dir):
+        for file in files:
+            if file.endswith(".mp4"):
+                file_list.append(os.path.join(curdir, file))
+            
+            # if debug:
+            #     if len(file_list) > 10:
+            #         break
+
+    file_list = sorted(list(file_list))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
 
     iter_cnt = 0
-    for path in tqdm(data_path):
-        if Path(str(f"{save_dir_landmark}/{path.stem}.csv")).exists() and Path(str(f"{save_dir_bbox}/{path.stem}.csv")).exists():
+    for path in tqdm(file_list):
+        path = Path(path)
+        save_path_landmark = save_dir_landmark / path.parents[1].name / path.parents[0].name
+        save_path_bbox = save_dir_bbox / path.parents[1].name / path.parents[0].name
+        os.makedirs(save_path_landmark, exist_ok=True)
+        os.makedirs(save_path_bbox, exist_ok=True)
+
+        if Path(str(f"{save_path_landmark}/{path.stem}.csv")).exists() and Path(str(f"{save_path_bbox}/{path.stem}.csv")).exists():
             continue
 
         landmark_list = []
@@ -70,21 +76,20 @@ def main():
 
                 landmark_list.append(coords_list)
                 bbox_list.append(bbox)
-
+            
             total_frames = container.streams.video[0].frames
             assert total_frames == len(landmark_list) 
             assert total_frames == len(bbox_list)
 
-            with open(str(f"{save_dir_landmark}/{path.stem}.csv"), "w") as f:
+            with open(str(f"{save_path_landmark / path.stem}.csv"), "w") as f:
                 writer = csv.writer(f)
                 for landmark in landmark_list:
                     writer.writerow(landmark)
 
-            with open(str(f"{save_dir_bbox}/{path.stem}.csv"), "w") as f:
+            with open(str(f"{save_path_bbox / path.stem}.csv"), "w") as f:
                 writer = csv.writer(f)
                 for bbox in bbox_list:
                     writer.writerow(bbox)
-
         except:
             continue
 
@@ -94,5 +99,20 @@ def main():
                 break
 
 
+def count_files():
+    print("count files")
+    landmark_dir = data_dir / "landmark"
+
+    file_list = []
+    for curdir, dirs, files in os.walk(landmark_dir):
+        for file in files:
+            file = Path(file)
+            file_list.append(file)
+
+    print(len(file_list))
+    breakpoint()
+
+
 if __name__ == "__main__":
     main()
+    # count_files()

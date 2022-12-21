@@ -12,11 +12,48 @@ from data_process.transform import fill_nan
 from nnmnkwii.metrics import melcd
 import pyworld
 import pysptk
+import speech_recognition as sr
+from subprocess import run
+from jiwer import wer, cer
+import MeCab
+import pyopenjtalk
+import pandas as pd
+
+
+debug = False
+
+
+def wav2flac(data_dir):
+    for curdir, dirs, files in os.walk(data_dir):
+        for file in files:
+            if file.endswith(".wav") and "generate" in Path(file).stem:
+
+                file_gen = Path(curdir, file)
+                file_in = Path(curdir, "input.wav")
+                file_gen_flac = Path(curdir, "generate.flac")
+                file_in_flac = Path(curdir, "input.flac")
+
+                cmd_gen = ["ffmpeg", "-y", "-i", f"{str(file_gen)}", "-vn", "-ar", "16000", "-ac", "1", "-acodec", "flac", "-f", "flac", f"{str(file_gen_flac)}"]
+                cmd_in = ["ffmpeg", "-y", "-i", f"{str(file_in)}", "-vn", "-ar", "16000", "-ac", "1", "-acodec", "flac", "-f", "flac", f"{str(file_in_flac)}"]
+                run(cmd_gen)
+                run(cmd_in)
+
+
+def load_utt():
+    csv_path = Path("~/lip2sp_pytorch/csv/ATR503.csv").expanduser()
+    df = pd.read_csv(str(csv_path))
+    df = df.values[-53:]
+    return df
 
 
 def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
+    # wav2flac(data_dir)
+    df = load_utt()
+
     wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
     stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, False)
+    r = sr.Recognizer()
+    mecab = MeCab.Tagger('-Owakati')
 
     pesq_list = []
     stoi_list = []
@@ -27,6 +64,10 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
     rmse_f0_list_world = []
     vuv_acc_list_world = []
     mcd_list = []
+    wer_target_list = []
+    wer_gen_list = []
+    per_target_list = []
+    per_gen_list = []
     iter_cnt = 0
 
     for curdir, dirs, files in os.walk(data_dir):
@@ -34,7 +75,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
             if file.endswith(".wav"):
                 if "generate" in Path(file).stem:
                     iter_cnt += 1
-                    print(f"iter_cnt : {iter_cnt}")
+                    print(f"\niter_cnt : {iter_cnt}")
                     wav_gen, fs = torchaudio.load(os.path.join(curdir, file))
                     wav_in, fs = torchaudio.load(os.path.join(curdir, "input.wav"))
 
@@ -109,11 +150,19 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     f0_in, timeaxis_in = pyworld.harvest(wav_in, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)
                     sp_in = pyworld.cheaptrick(wav_in, f0_in, timeaxis_in, fs)
                     alpha = pysptk.util.mcepalpha(fs)
-                    mcep_gen = pysptk.mcep(sp_gen, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)[:, 1:]
-                    mcep_in = pysptk.mcep(sp_in, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)[:, 1:]
-                    mcd = melcd(mcep_gen, mcep_in, lengths=None)
+                    mcep_gen = pysptk.mcep(sp_gen, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)    # cfg.model.mcep_order次元になる
+                    mcep_in = pysptk.mcep(sp_in, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)
+                    mcd = melcd(mcep_gen, mcep_in)
                     mcd_list.append(mcd)
                     print(f"mcd = {mcd}")
+
+                    # mfcc_gen = pyworld.code_spectral_envelope(sp_gen, fs, cfg.model.mcep_order)
+                    # mfcc_in = pyworld.code_spectral_envelope(sp_in, fs, cfg.model.mcep_order)
+                    # mcd = melcd(mfcc_gen, mfcc_in)
+                    # print(f"mcd = {mcd}")
+
+                    # mcd = melcd(mfcc_gen[:, :13], mfcc_in[:, :13])
+                    # print(f"mcd = {mcd}")
 
                     # rmse f0 & vuv accuracy by world
                     ap_gen = pyworld.d4c(wav_gen, f0_gen, timeaxis_gen, fs, threshold=0.85)
@@ -134,51 +183,118 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     print(f"rmse_f0_world = {rmse_f0}, vuv_accuracy_world = {vuv_acc}")
                     print("")
 
-    plt.figure()
-    ax = plt.subplot(2, 1, 1)
-    ax.scatter(duration, pesq_list)
-    plt.xlabel("duration[s]")
-    plt.ylabel("PESQ")
-    plt.title("relationships between duration and PESQ")
-    plt.grid()
+                    # wer and per
+                    for i in range(53):
+                        utt_num = df[i][2]
+                        if utt_num in Path(curdir).name:
+                            utt = df[i][3]
+                            utt = utt.replace("。", "").replace("、", "")
 
-    ax = plt.subplot(2, 1, 2)
-    ax.scatter(duration, stoi_list)
-    plt.xlabel("duration[s]")
-    plt.ylabel("STOI")
-    plt.title("relationships between duration and STOI")
-    plt.grid()
+                    file_gen = Path(curdir, "generate.flac")
+                    file_in = Path(curdir, "input.flac")
 
-    img_save_path = save_path / "check_PESQ_STOI.png"
-    plt.tight_layout()
-    plt.savefig(img_save_path)
+                    with sr.AudioFile(str(file_gen)) as source:
+                        audio_gen = r.record(source)
 
-    pesq = sum(pesq_list) / len(pesq_list)
-    stoi = sum(stoi_list) / len(stoi_list)
-    rmse_power = sum(rmse_power_list) / len(rmse_power_list)
-    rmse_f0_librosa = sum(rmse_f0_list_librosa) / len(rmse_f0_list_librosa)
-    vuv_acc_librosa = sum(vuv_acc_list_librosa) / len(vuv_acc_list_librosa)
-    rmse_f0_world = sum(rmse_f0_list_world) / len(rmse_f0_list_world)
-    vuv_acc_world = sum(vuv_acc_list_world) / len(vuv_acc_list_world)
-    mcd = sum(mcd_list) / len(mcd_list)
+                    with sr.AudioFile(str(file_in)) as source:
+                        audio_in = r.record(source)
 
-    file_name = save_path / f"accuracy.txt"
-    with open(str(file_name), "a") as f:
-        f.write("--- Objective Evaluation Metrics ---\n")
-        f.write(f"PESQ = {pesq:f}\n")
-        f.write(f"STOI = {stoi:f}\n")
-        f.write(f"rmse power = {rmse_power:f}dB\n")
-        f.write(f"rmsef0 librosa = {rmse_f0_librosa:f}\n")
-        f.write(f"vuv accuracy librosa = {vuv_acc_librosa:f}%\n")
-        f.write(f"rmse f0 world = {rmse_f0_world:f}\n")
-        f.write(f"vuv accuracy world = {vuv_acc_world:f}%\n")
-        f.write(f"mel cepstral distortion = {mcd:f}dB\n")
+                    result_in = None
+                    try:
+                        result_in = r.recognize_google(audio_in, language="ja-JP")
+                    except:
+                        print("Recognizer can't understand what he or she is saying.")
 
-        if process_times is not None:
-            f.write("\n--- Duration and Process Time ---\n")
-            f.write(f"duration_mean = {sum(duration) / len(duration):f}, process_time_mean = {sum(process_times) / len(process_times):f}\n")
-            for dur, time in zip(duration, process_times):
-                f.write(f"duration = {dur:f}, process_time = {time:f}\n")
+                    result_gen = None
+                    try:
+                        result_gen = r.recognize_google(audio_gen, language="ja-JP")
+                    except:
+                        print("Recognizer can't understand what he or she is saying.")
+
+                    if result_gen is not None and result_in is not None:
+                        result_gen_w = mecab.parse(result_gen)
+                        result_in_w = mecab.parse(result_in)
+                        utt_w = mecab.parse(utt)
+                        error_in = wer(utt_w, result_in_w)
+                        error_gen = wer(utt_w, result_gen_w)
+                        print(f"target : {utt_w}")
+                        print(f"gen : {result_gen_w}")
+                        print(f"ref : {result_in_w}")
+                        print(f"wer_ref = {error_in:f}, wer_gen = {error_gen:f}")
+                        wer_target_list.append(error_in)
+                        wer_gen_list.append(error_gen)
+
+                        result_gen_p = pyopenjtalk.g2p(result_gen)
+                        result_in_p = pyopenjtalk.g2p(result_in)
+                        utt_p = pyopenjtalk.g2p(utt)
+                        error_in = wer(utt_p, result_in_p)
+                        error_gen = wer(utt_p, result_gen_p)
+                        print(f"target : {utt_p}")
+                        print(f"gen : {result_gen_p}")
+                        print(f"ref : {result_in_p}")
+                        print(f"per_ref = {error_in:f}, per_gen = {error_gen:f}")
+                        per_target_list.append(error_in)
+                        per_gen_list.append(error_gen)
+
+        if debug:
+            if iter_cnt > 0:
+                break
+
+    if debug == False:
+        plt.figure()
+        ax = plt.subplot(2, 1, 1)
+        ax.scatter(duration, pesq_list)
+        plt.xlabel("duration[s]")
+        plt.ylabel("PESQ")
+        plt.title("relationships between duration and PESQ")
+        plt.grid()
+
+        ax = plt.subplot(2, 1, 2)
+        ax.scatter(duration, stoi_list)
+        plt.xlabel("duration[s]")
+        plt.ylabel("STOI")
+        plt.title("relationships between duration and STOI")
+        plt.grid()
+
+        img_save_path = save_path / "check_PESQ_STOI.png"
+        plt.tight_layout()
+        plt.savefig(img_save_path)
+
+        pesq = sum(pesq_list) / len(pesq_list)
+        stoi = sum(stoi_list) / len(stoi_list)
+        rmse_power = sum(rmse_power_list) / len(rmse_power_list)
+        rmse_f0_librosa = sum(rmse_f0_list_librosa) / len(rmse_f0_list_librosa)
+        vuv_acc_librosa = sum(vuv_acc_list_librosa) / len(vuv_acc_list_librosa)
+        rmse_f0_world = sum(rmse_f0_list_world) / len(rmse_f0_list_world)
+        vuv_acc_world = sum(vuv_acc_list_world) / len(vuv_acc_list_world)
+        mcd = sum(mcd_list) / len(mcd_list)
+        wer_target = sum(wer_target_list) / len(wer_target_list)
+        wer_gen = sum(wer_gen_list) / len(wer_gen_list)
+        per_target = sum(per_target_list) / len(per_target_list)
+        per_gen = sum(per_gen_list) / len(per_gen_list)
+
+        file_name = save_path / f"accuracy.txt"
+        with open(str(file_name), "a") as f:
+            f.write("--- Objective Evaluation Metrics ---\n")
+            f.write(f"PESQ = {pesq:f}\n")
+            f.write(f"STOI = {stoi:f}\n")
+            f.write(f"rmse power = {rmse_power:f}dB\n")
+            f.write(f"rmsef0 librosa = {rmse_f0_librosa:f}\n")
+            f.write(f"vuv accuracy librosa = {vuv_acc_librosa:f}%\n")
+            f.write(f"rmse f0 world = {rmse_f0_world:f}\n")
+            f.write(f"vuv accuracy world = {vuv_acc_world:f}%\n")
+            f.write(f"mel cepstral distortion = {mcd:f}dB\n")
+            f.write(f"word error rate target = {wer_target * 100:f}%\n")
+            f.write(f"word error rate gen = {wer_gen * 100:f}%\n")
+            f.write(f"phoneme error rate target = {per_target * 100:f}%\n")
+            f.write(f"phoneme error rate gen = {per_gen * 100:f}%\n")
+
+
+            if process_times is not None:
+                f.write("\n--- Duration and Process Time ---\n")
+                f.write(f"duration_mean = {sum(duration) / len(duration):f}, process_time_mean = {sum(process_times) / len(process_times):f}\n")
+                for dur, time in zip(duration, process_times):
+                    f.write(f"duration = {dur:f}, process_time = {time:f}\n")
 
 
 def calc_accuracy_vc(cfg, data_root_same, data_root_mix):

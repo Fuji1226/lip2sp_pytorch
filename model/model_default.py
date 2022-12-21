@@ -8,117 +8,88 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from model.net import ResNet3D
-from model.transformer_remake import Encoder, Decoder, OfficialEncoder
+from model.transformer_remake import Encoder, Decoder
 from model.pre_post import Postnet
-from model.conformer.encoder import ConformerEncoder
 from model.glu_remake import GLU
 from model.rnn import LSTMEncoder, GRUEncoder
 
 
 class Lip2SP(nn.Module):
     def __init__(
-        self, in_channels, out_channels, res_layers, res_inner_channels, norm_type,
-        separate_frontend, which_res,
-        d_model, n_layers, n_head, dec_n_layers, dec_d_model, conformer_conv_kernel_size,
-        rnn_hidden_channels, rnn_n_layers,
+        self, in_channels, out_channels, res_inner_channels, which_res,
+        trans_enc_n_layers, trans_enc_n_head, 
+        rnn_n_layers, rnn_which_norm,
         glu_inner_channels, glu_layers, glu_kernel_size,
+        trans_dec_n_layers, trans_dec_n_head,
         n_speaker, spk_emb_dim,
         pre_inner_channels, post_inner_channels, post_n_layers, post_kernel_size,
-        n_position, which_encoder, which_decoder, apply_first_bn, multi_task, add_feat_add,
-        dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
+        n_position, which_encoder, which_decoder,
+        dec_dropout, res_dropout, rnn_dropout, reduction_factor=2):
         super().__init__()
 
-        assert d_model % n_head == 0
         self.which_encoder = which_encoder
         self.which_decoder = which_decoder
-        self.apply_first_bn = apply_first_bn
         self.reduction_factor = reduction_factor
-        self.out_channels = out_channels
-        self.multi_task = multi_task
-        self.add_feat_add = add_feat_add
-        self.separate_frontend = separate_frontend
 
         self.ResNet_GAP = ResNet3D(
             in_channels=in_channels, 
-            out_channels=rnn_hidden_channels, 
+            out_channels=int(res_inner_channels * 8), 
             inner_channels=res_inner_channels,
-            layers=res_layers, 
             dropout=res_dropout,
-            norm_type=norm_type,
         )
+        inner_channels = int(res_inner_channels * 8)
         
         # encoder
         if which_encoder == "transformer":
             self.encoder = Encoder(
-                n_layers=n_layers, 
-                n_head=n_head, 
-                d_model=d_model, 
+                n_layers=trans_enc_n_layers, 
+                n_head=trans_enc_n_head, 
+                d_model=inner_channels, 
                 reduction_factor=reduction_factor,  
-            )
-        elif which_encoder == "conformer":
-            self.encoder = ConformerEncoder(
-                encoder_dim=d_model, 
-                num_layers=n_layers, 
-                num_attention_heads=n_head, 
-                conv_kernel_size=conformer_conv_kernel_size,
-                reduction_factor=reduction_factor,
-            )
-        elif which_encoder == "official":
-            self.encoder = OfficialEncoder(
-                d_model=d_model,
-                nhead=n_head,
-                num_layers=n_layers,
-            )
-        elif which_encoder == "lstm":
-            self.encoder = LSTMEncoder(
-                hidden_channels=rnn_hidden_channels,
-                n_layers=rnn_n_layers,
-                bidirectional=True,
-                dropout=res_dropout,
-                reduction_factor=reduction_factor,
             )
         elif which_encoder == "gru":
             self.encoder = GRUEncoder(
-                hidden_channels=rnn_hidden_channels,
+                hidden_channels=inner_channels,
                 n_layers=rnn_n_layers,
                 bidirectional=True,
-                dropout=res_dropout,
+                dropout=rnn_dropout,
                 reduction_factor=reduction_factor,
+                which_norm=rnn_which_norm,
             )
 
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
-        self.spk_emb_layer = nn.Linear(rnn_hidden_channels + spk_emb_dim, rnn_hidden_channels)
+        self.spk_emb_layer = nn.Linear(inner_channels + spk_emb_dim, inner_channels)
 
         # decoder
-        if self.which_decoder == "transformer":
-            self.decoder = Decoder(
-                dec_n_layers=dec_n_layers, 
-                n_head=n_head, 
-                dec_d_model=dec_d_model, 
-                pre_in_channels=out_channels * reduction_factor, 
-                pre_inner_channels=pre_inner_channels, 
-                out_channels=out_channels, 
-                n_position=n_position, 
-                reduction_factor=reduction_factor, 
-                use_gc=use_gc,
-            )
-        elif self.which_decoder == "glu":
+        if self.which_decoder == "glu":
             self.decoder = GLU(
-                inner_channels=glu_inner_channels, 
+                inner_channels=inner_channels, 
                 out_channels=out_channels,
-                pre_in_channels=out_channels * reduction_factor, 
+                pre_in_channels=int(out_channels * reduction_factor), 
                 pre_inner_channels=pre_inner_channels,
-                cond_channels=rnn_hidden_channels,
+                cond_channels=inner_channels,
                 reduction_factor=reduction_factor, 
                 n_layers=glu_layers,
                 kernel_size=glu_kernel_size,
+                dropout=dec_dropout,
+            )
+        elif self.which_decoder == "transformer":
+            self.decoder = Decoder(
+                dec_n_layers=trans_dec_n_layers,
+                n_head=trans_dec_n_head,
+                dec_d_model=inner_channels,
+                pre_in_channels=int(out_channels * reduction_factor),
+                pre_inner_channels=pre_inner_channels,
+                out_channels=out_channels,
+                n_position=n_position,
+                reduction_factor=reduction_factor,
                 dropout=dec_dropout,
             )
 
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
-    def forward(self, lip, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
+    def forward(self, lip, prev=None, data_len=None, gc=None, mixing_prob=None):
         """
         lip : (B, C, H, W, T)
         prev, out, dec_output : (B, C, T)
@@ -127,10 +98,10 @@ class Lip2SP(nn.Module):
         self.reset_state()
 
         # resnet
-        lip_feature = self.ResNet_GAP(lip)
+        enc_output, fmaps = self.ResNet_GAP(lip)
         
         # encoder
-        enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
+        enc_output = self.encoder(enc_output, data_len)    # (B, T, C) 
 
         # speaker embedding
         if gc is not None:
@@ -157,10 +128,11 @@ class Lip2SP(nn.Module):
         # 推論時
         else:
             dec_output = self.decoder_inference(enc_output)
+            mixed_prev = None
 
         # postnet
         out = self.postnet(dec_output) 
-        return out, dec_output
+        return out, dec_output, mixed_prev, fmaps
 
     def decoder_forward(self, enc_output, prev=None, data_len=None, mode="training"):
         """

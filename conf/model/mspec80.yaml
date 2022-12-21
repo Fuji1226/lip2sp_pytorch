@@ -27,9 +27,6 @@ delta : False
 # frame period
 frame_period : 10
 
-# acoutic feature frames in training
-length : 300    
-
 # phoneme length
 phoneme_length : 30
 
@@ -43,8 +40,7 @@ feature_type : "mspec"
 comp_mode : 'default'
 
 # 学習に使用する口唇動画のフレーム数
-lip_min_frame : 150
-lip_max_frame : 151
+n_lip_frames : 150
 
 # griffin-limで合成するときに人為的に補正
 sharp : False
@@ -62,35 +58,34 @@ in_channels : 1
 res_inner_channels : 32
 which_res : "default"
 
+# landmark encoder
+use_landmark : False
+lm_enc_inner_channels : 128
+lmco_kernel_size : 3
+lmco_n_layers : 3
+lm_enc_compress_time_axis : False
+astt_gcn_n_layers : 2
+astt_gcn_n_head : 2
+lm_enc_n_nodes : 68
+
 # glu parameter
 glu_layers : 4    # 4 or 6
 glu_kernel_size : 5   # 5 or 9
 glu_inner_channels : 256
 
-# encoder
-enc_channels : 256
-
 # transformer parameter
-trans_enc_n_layers : 2    # 1, 2 or 4
+trans_enc_n_layers : 4    # 1, 2 or 4
 trans_enc_n_head : 4    # 2 or 4
+trans_dec_n_layers : 4
+trans_dec_n_head : 4
 
 # rnn parameter
 rnn_n_layers : 2
-
-# dilated conv paramater
-dconv_inner_channels : 256
-dconv_kernel_size : 3
-dconv_n_layers : 2
+rnn_which_norm : "ln"
 
 # transposed convolution parameter
-tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
-tc_inner_channels : 256
+tc_n_layers : 3
 tc_kernel_size : 5
-tc_feat_add_channels : 1
-tc_feat_add_layers : 2
-tc_d_model : 128
-tc_n_attn_layer : 1
-tc_n_head : 2
 
 # tacotron based decoder
 taco_dec_n_layers : 2
@@ -106,8 +101,6 @@ conformer_conv_kernel_size : 31   # 7, 15 or 31
 which_encoder : "gru"
 
 # 使用するdecoder
-# 自己回帰 : "transformer" or "glu"
-# 非自己回帰 : "res_tc"
 which_decoder : "glu"
 
 # audio encoder

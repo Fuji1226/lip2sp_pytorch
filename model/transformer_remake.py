@@ -1,7 +1,3 @@
-"""
-transformerの完成版です
-"""
-
 import math
 import torch
 import torch.nn as nn
@@ -16,14 +12,13 @@ except:
 def get_subsequent_mask(x, diag_mask=False):
     """
     decoderのself attentionを因果的にするためのマスク
+    diag_mask = Trueの時,対角成分もTrueになる
     """
     len_x = x.shape[-1]
     if diag_mask:
-        subsequent_mask = (0 - torch.triu(
-            torch.ones((1, len_x, len_x), device=x.device), diagonal=0)).bool()
+        subsequent_mask = torch.triu(torch.ones((1, len_x, len_x), device=x.device), diagonal=0).bool()
     else:
-        subsequent_mask = (0 - torch.triu(
-            torch.ones((1, len_x, len_x), device=x.device), diagonal=1)).bool()
+        subsequent_mask = torch.triu(torch.ones((1, len_x, len_x), device=x.device), diagonal=1).bool()
     return subsequent_mask.to(device=x.device)
 
 
@@ -119,10 +114,16 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, q, k, v, mask=None):
         attention = torch.matmul(q / self.temperature, k.transpose(2, 3))
+
         if mask is not None:
             attention = attention.masked_fill(mask, torch.tensor(float('-inf')))    # maskがTrueを-inf
 
-        attention = self.dropout(F.softmax(attention, dim=-1))
+        attention = F.softmax(attention, dim=-1)
+
+        # if mask is not None:
+        #     attention = attention.masked_fill(mask, torch.tensor(0))    # maskがTrueを0(一応)
+
+        attention = self.dropout(attention)
         output = torch.matmul(attention, v)
         return output
 
@@ -200,9 +201,8 @@ class EncoderLayer(nn.Module):
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, diag_mask=False):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1):
         super().__init__()
-        self.diag_mask = diag_mask
         self.dec_self_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
         self.dec_enc_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
@@ -220,7 +220,7 @@ class DecoderLayer(nn.Module):
                 self.prev = torch.cat([self.prev, dec_input], dim=1)
 
             # maskはその都度作成する必要があります(self.prevのデータ形状を一度変換しなければいけないことに注意)
-            self_attention_mask = get_subsequent_mask(self.prev.permute(0, -1, -2), self.diag_mask)
+            self_attention_mask = get_subsequent_mask(self.prev.permute(0, -1, -2))
             dec_output = self.dec_self_attention(self.prev, self.prev, self.prev, mask=self_attention_mask)
             dec_output = self.dec_enc_attention(dec_output, enc_output, enc_output, mask=dec_enc_attention_mask)
             dec_output = self.fc(dec_output[:, -1:, :])     
@@ -271,19 +271,18 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(
         self, dec_n_layers, n_head, dec_d_model, pre_in_channels, pre_inner_channels, out_channels,
-        n_position, reduction_factor, dropout=0.1, use_gc=False, diag_mask=False):
+        n_position, reduction_factor, dropout=0.1):
         super().__init__()
         self.d_k = dec_d_model // n_head
         self.d_v = dec_d_model // n_head
         self.reduction_factor = reduction_factor
         self.out_channels = out_channels
         self.d_inner = dec_d_model * 4
-        self.diag_mask = diag_mask
 
         self.prenet = Prenet(pre_in_channels, dec_d_model, pre_inner_channels)
         self.dropout = nn.Dropout(dropout)
         self.dec_layers = nn.ModuleList([
-            DecoderLayer(dec_d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout, diag_mask=self.diag_mask)
+            DecoderLayer(dec_d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
             for _ in range(dec_n_layers)
         ])
         self.conv_o = nn.Conv1d(dec_d_model, self.out_channels * self.reduction_factor, kernel_size=1)
@@ -310,8 +309,8 @@ class Decoder(nn.Module):
         if mode == "training":
             data_len = torch.div(data_len, self.reduction_factor)
             max_len = T
-            dec_enc_attention_mask = make_pad_mask(data_len, max_len)
-            self_attention_mask = make_pad_mask(data_len, max_len) & get_subsequent_mask(target, self.diag_mask) # (B, T, T)
+            dec_enc_attention_mask = make_pad_mask(data_len, max_len).repeat(1, max_len, 1)
+            self_attention_mask = make_pad_mask(data_len, max_len).repeat(1, max_len, 1) | get_subsequent_mask(target).repeat(B, 1, 1) # (B, T, T)
 
         elif mode == "inference":
             dec_enc_attention_mask = None
@@ -389,7 +388,7 @@ class PhonemeDecoder(nn.Module):
             dec_enc_attention_mask = make_pad_mask(data_len, max_len).to(device=enc_output.device)    # (B, 1, len_enc)
 
             # self attentionを因果的にするため + パディングした部分に対してのマスク
-            self_attention_mask = token_mask(prev).unsqueeze(1) | get_subsequent_mask(prev)  # (B, len_prev, len_prev)
+            self_attention_mask = token_mask(prev).unsqueeze(1) & get_subsequent_mask(prev)  # (B, len_prev, len_prev)
             
         elif mode == "inference":
             dec_enc_attention_mask = None
@@ -457,16 +456,13 @@ class OfficialEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    lengths = torch.tensor([10, 20, 30])
-    mask = make_pad_mask(lengths, max_len=30)
-    print(mask)
+    feature = torch.rand(3, 256, 150)
+    sub_mask = get_subsequent_mask(feature).repeat(feature.shape[0], 1, 1)
 
-    net = OfficialEncoder(128, 2, 2)
-    x = torch.rand(3, 128, 150)
-    lengths = torch.tensor([100, 200, 300])
-    out = net(x, lengths)
-    params = 0
-    for p in net.parameters():
-        if p.requires_grad:
-            params += p.numel()
-    print(f"out = {out.shape}, params = {params}")
+    data_len = torch.tensor([100, 150, 200])
+    pad_mask = make_pad_mask(data_len, max_len=150).repeat(1, 150, 1)
+
+    mask_merge = sub_mask | pad_mask
+
+    breakpoint()
+    

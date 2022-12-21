@@ -35,7 +35,7 @@ class MaskedLoss:
         #     weight = weight.unsqueeze(-1).unsqueeze(-1)     # (B, 1, 1)
         #     loss *= weight
 
-        # maskがFalseのところは0にして平均を取る
+        # maskがTrueのところは0にして平均を取る
         loss = torch.where(mask == 0, loss, torch.zeros_like(loss))
         loss = torch.mean(loss, dim=1)  # (B, T)
 

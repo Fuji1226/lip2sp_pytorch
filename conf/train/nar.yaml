@@ -10,14 +10,10 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/lip_st_gray_03/2022:11:13_12-37-46/mspec80_10.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
 
 # face or lip
-face_or_lip : "face_nn_gray_0_50"
-
-# データを置いているディレクトリまでのパス
-lip_path : "~/dataset/lip/lip_cropped"
-face_path : "~/dataset/lip/cropped"
+face_or_lip : "face_aligned_0_50_gray"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/train"
@@ -27,29 +23,17 @@ ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 10
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path_train_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/train"
-lip_pre_loaded_path_val_st_03 : "~/dataset/lip/np_files/lip_cropped_st_0.3/val"
+lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
+lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
 
-lip_pre_loaded_path_train_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/train"
-lip_pre_loaded_path_val_st_gray_03 : "~/dataset/lip/np_files/lip_cropped_st_gray_0.3/val"
+lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
+lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
 
-lip_pre_loaded_path_train_gray_08_25 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_25/train"
-lip_pre_loaded_path_val_gray_08_25 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_25/val"
+face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
+face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 
-lip_pre_loaded_path_train_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_50/train"
-lip_pre_loaded_path_val_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_gray_0.8_50/val"
-
-lip_pre_loaded_path_nn_train_gray_03_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.3_50/train"
-lip_pre_loaded_path_nn_val_gray_03_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.3_50/val"
-
-lip_pre_loaded_path_nn_train_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/train"
-lip_pre_loaded_path_nn_val_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/val"
-
-face_pre_loaded_path_nn_train_gray_0_50 : "~/dataset/lip/np_files/face_cropped_nn_gray_0_50/train"
-face_pre_loaded_path_nn_val_gray_0_50 : "~/dataset/lip/np_files/face_cropped_nn_gray_0_50/val"
-
-face_pre_loaded_path_nn_train_0_50 : "~/dataset/lip/np_files/face_cropped_nn_0_50/train"
-face_pre_loaded_path_nn_val_0_50 : "~/dataset/lip/np_files/face_cropped_nn_0_50/val"
+face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
+face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
@@ -60,7 +44,7 @@ speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_gc : False
 finetuning : False
-where_spk_emb : "after_enc"
+where_spk_emb : "after_res"
 
 # max_epoch
 max_epoch : 600
@@ -69,29 +53,32 @@ max_epoch : 600
 # 見た目変換系
 use_color_jitter : False
 use_blur : False
-use_horizontal_flip : False
 use_pad : False
 use_rotation : False
+use_horizontal_flip : False
 use_random_crop : False
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
-spatial_divide_factor : 4
-n_spatial_mask : 4
+which_spatial_mask : "has"
+spatial_divide_factor : 8
+n_spatial_mask : 24
+mask_length : 24
 
 # 再生速度変換
 use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
-
-# 動画のフレームをランダムマスキング
-use_frame_masking : False
-frame_masking_rate : 40
 
 # 動画の連続したフレームをある程度まとめてマスキング
 use_segment_masking : True
 which_seg_mask : "seg_mean"
 min_segment_masking_length : 0
 max_segment_masking_length : 25
+
+# 音響特徴量に対してのマスキング
+use_time_frequency_masking : False
+feature_time_masking_length : 50
+feature_freq_masking_band : 40
 
 # dataloader
 batch_size : 16
@@ -101,6 +88,7 @@ num_workers : 16
 dec_dropout : 0.1
 res_dropout : 0.1
 rnn_dropout : 0.1
+lm_enc_dropout : 0.1
 
 # optimizer
 lr : 0.001
@@ -111,10 +99,8 @@ weight_decay : 1.0e-6
 
 # scheduler
 lr_decay_rate : 0.5
-lr_decay_step : 4   # max_epoch // lr_decay_stepでlr_decay_rate倍に学習率を変更
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-warmup_t : 20
-warmup_lr_init : 1.0e-5
+lr_decay_exp : 0.995
 
 # gradient clipping
 max_norm : 3.0

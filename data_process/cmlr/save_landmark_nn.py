@@ -12,7 +12,6 @@ from tqdm import tqdm
 data_dir = Path("~/cmlr").expanduser()
 debug = False
 debug_iter = 0
-
 if debug:
     save_dir_landmark = data_dir / "landmark_debug"
     save_dir_bbox = data_dir / "bbox_debug"
@@ -28,9 +27,11 @@ def main():
             if file.endswith(".mp4"):
                 file_list.append(os.path.join(curdir, file))
             
-            if debug:
-                if len(file_list) > 10:
-                    break
+            # if debug:
+            #     if len(file_list) > 10:
+            #         break
+    
+    file_list = sorted(list(file_list))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
@@ -43,7 +44,7 @@ def main():
         os.makedirs(save_path_landmark, exist_ok=True)
         os.makedirs(save_path_bbox, exist_ok=True)
 
-        if Path(str(f"{save_dir_landmark}/{path.stem}.csv")).exists() and Path(str(f"{save_dir_bbox}/{path.stem}.csv")).exists():
+        if Path(str(f"{save_path_landmark}/{path.stem}.csv")).exists() and Path(str(f"{save_path_bbox}/{path.stem}.csv")).exists():
             continue
 
         landmark_list = []
@@ -97,5 +98,21 @@ def main():
                 break
 
 
+def count_files():
+    print("count files")
+    landmark_dir = data_dir / "landmark"
+
+    file_list = []
+    for curdir, dirs, files in os.walk(landmark_dir):
+        for file in files:
+            file = Path(file)
+            file_list.append(file)
+
+    print(len(file_list))
+    breakpoint()
+
+
+
 if __name__ == "__main__":
     main()
+    # count_files()

@@ -4,6 +4,7 @@
 """
 import sys
 from pathlib import Path
+import os
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import torch
@@ -11,10 +12,13 @@ import torchvision
 from data_process.feature import mel2wav, world2wav, wav2mel, wav2world, wav2spec
 from scipy.io.wavfile import write
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import librosa
 from librosa.display import specshow
 import numpy as np
+import seaborn as sns
 import pyworld
+import cv2
 
 from data_process.phoneme_encode import get_keys_from_value
 
@@ -30,22 +34,21 @@ def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
         # gray scale
         if lip.shape[0] == 3:
             lip_orig = lip[:1, ...]    
+            lip_delta = lip[-2, ...].unsqueeze(0)
+            lip_deltadelta = lip[-1, ...].unsqueeze(0)
         # rgb
-        elif lip.shape[0] == 5:
+        elif lip.shape[0] == 9:
             lip_orig = lip[:3, ...]
-        lip_delta = lip[-2, ...].unsqueeze(0)
-        lip_deltadelta = lip[-1, ...].unsqueeze(0)
+            lip_delta = lip[3:6, ...]
+            lip_deltadelta = lip[6:, ...]
     
         # 標準化したので元のスケールに直す
         if lip_std.dim() == 1:
             lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
             lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
-            lip_orig = torch.mul(lip_orig, lip_std)
-            lip_orig = torch.add(lip_orig, lip_mean)
-            lip_delta = torch.mul(lip_delta, lip_std)
-            lip_delta = torch.add(lip_delta, lip_mean)
-            lip_deltadelta = torch.mul(lip_deltadelta, lip_std)
-            lip_deltadelta = torch.add(lip_deltadelta, lip_mean)
+            lip_orig = (lip_orig * lip_std) + lip_mean
+            lip_delta = (lip_delta * lip_std) + lip_mean
+            lip_deltadelta = (lip_deltadelta * lip_std) + lip_mean
         elif lip_std.dim() == 3:
             lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
             lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
@@ -111,6 +114,29 @@ def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
         )
 
 
+def save_landmark_video(landmark, save_dir):
+    landmark = landmark.to('cpu').numpy()
+    fig_norm = plt.figure()
+    image_norm_list = []
+    for i in range(landmark.shape[0]):
+        coords_x = landmark[i, 0, :]
+        coords_y = landmark[i, 1, :]
+
+        image_norm = plt.plot(coords_x, coords_y, linestyle="None", marker="o", color="c")
+        plt.axis([
+            np.min(coords_x) + (np.min(coords_x) / 5), 
+            np.max(coords_x) + (np.max(coords_x) / 5), 
+            np.max(coords_y) + (np.max(coords_y) / 5), 
+            np.min(coords_y) + (np.min(coords_y) / 5),
+        ])
+        image_norm_list.append(image_norm)
+
+    anime = animation.ArtistAnimation(fig_norm, image_norm_list, interval=20)
+    os.makedirs(save_dir, exist_ok=True)
+    anime.save(f"{str(save_dir)}/landmark.mp4")
+    plt.close()
+
+
 def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
     """
     音響特徴量から音声波形を生成し、wavファイルを保存
@@ -147,7 +173,6 @@ def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
         )
         # 正規化
         wav /= np.max(np.abs(wav))
-        # write(str(save_path / f"world_{file_name}.wav"), rate=cfg.model.sampling_rate, data=wav)
 
     # メルスペクトログラム
     if cfg.model.feature_type == "mspec":
@@ -163,7 +188,6 @@ def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
 
         # 正規化
         wav /= np.max(np.abs(wav))
-        # write(str(save_path / f"mspec_{file_name}.wav"), rate=cfg.model.sampling_rate, data=wav)
 
     return wav
 
@@ -703,3 +727,142 @@ def save_data_lipreading(cfg, save_path, wav, lip, lip_mean, lip_std, phoneme_in
         f.write(f"{phoneme_answer}\n")
         f.write("\npredict\n")
         f.write(f"{phoneme_predict}\n")
+
+
+def save_data_pwg(cfg, save_path, target, output):
+    target = target.squeeze(0)
+    output = output.squeeze(0).squeeze(0)
+    target = target.to('cpu').detach().numpy()
+    output = output.to('cpu').detach().numpy()
+    target /= np.max(np.abs(target))
+    output /= np.max(np.abs(output))
+    target = target.astype(np.float32)
+    output = output.astype(np.float32)
+
+    write(str(save_path / "target.wav"), rate=cfg.model.sampling_rate, data=target)
+    write(str(save_path / "output.wav"), rate=cfg.model.sampling_rate, data=output)
+
+    target = wav2mel(target, cfg, ref_max=True)
+    output = wav2mel(output, cfg, ref_max=True)
+    
+    plt.close("all")
+    plt.figure()
+    ax = plt.subplot(2, 1, 1)
+    specshow(
+        data=target, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=cfg.model.sampling_rate, 
+        hop_length=cfg.model.hop_length,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+        cmap="viridis",
+    )
+    plt.colorbar(format="%+2.f dB")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Frequency[Hz]")
+    plt.title("target")
+    
+    ax = plt.subplot(2, 1, 2, sharex=ax, sharey=ax)
+    specshow(
+        data=output, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=cfg.model.sampling_rate, 
+        hop_length=cfg.model.hop_length, 
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+        cmap="viridis",
+    )
+    plt.colorbar(format="%+2.f dB")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Frequency[Hz]")
+    plt.title("output")
+
+    plt.tight_layout()
+    plt.savefig(str(save_path / "mel.png"))
+
+
+def visualize_feature_map_video(feature_map, save_dir, mean_or_max):
+    """
+    3次元畳み込みから得られる特徴マップの可視化
+    feature_map : (B, C, T, H, W)
+    """
+    print("visualize video")
+    feature_map = feature_map[0, ...]
+    if mean_or_max == "max":
+        feature_map, _ = torch.max(feature_map, dim=0, keepdim=False)    # (T, H, W)
+    elif mean_or_max == "mean":
+        feature_map = torch.mean(feature_map, dim=0, keepdim=False)    # (T, H, W)
+
+    feature_map = feature_map.to("cpu").detach().numpy()
+
+    # 最初と最後のフレームはなんか変なので省略
+    # 畳み込みの時に0パディングしているので、その影響でちょっと変なのかも
+    feature_map = feature_map[1:-1, ...]
+
+    fig, ax = plt.subplots()
+
+    def init():
+        sns.heatmap(
+            np.zeros_like(feature_map[0, ...]), 
+            cbar=True, 
+            vmin=np.min(feature_map), 
+            vmax=np.max(feature_map), 
+            cmap="viridis",
+            xticklabels=False,
+            yticklabels=False,
+        )
+
+    def update(frame):
+        sns.heatmap(
+            feature_map[frame, ...], 
+            cbar=False, 
+            vmin=np.min(feature_map), 
+            vmax=np.max(feature_map), 
+            cmap="viridis",
+            xticklabels=False,
+            yticklabels=False,
+        )
+
+    anime = animation.FuncAnimation(
+        fig=fig,
+        func=update,
+        frames=range(feature_map.shape[0]),
+        init_func=init,
+        interval=20,
+        repeat=False,
+    )
+    anime.save(str(save_dir / f"size_{feature_map.shape[1]}.mp4"))
+    plt.close()
+
+
+def visualize_feature_map_image(feature_map, save_dir, mean_or_max):
+    print("visualize image")
+    feature_map = feature_map[0, ...]
+    if mean_or_max == "max":
+        feature_map, _ = torch.max(feature_map, dim=0, keepdim=False)    # (T, H, W)
+    elif mean_or_max == "mean":
+        feature_map = torch.mean(feature_map, dim=0, keepdim=False)    # (T, H, W)
+
+    feature_map = feature_map.to("cpu").detach().numpy()
+
+    # 最初と最後のフレームはなんか変なので省略
+    # 畳み込みの時に0パディングしているので、その影響でちょっと変なのかも
+    feature_map = feature_map[1:-1, ...]
+
+    img_save_dir = save_dir / f"size_{feature_map.shape[1]}"
+    img_save_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(feature_map.shape[0]):
+        plt.figure()
+        sns.heatmap(
+            feature_map[i, ...], 
+            cbar=True, 
+            vmin=np.min(feature_map), 
+            vmax=np.max(feature_map), 
+            cmap="viridis",
+            xticklabels=False,
+            yticklabels=False,
+        )
+        plt.savefig(str(img_save_dir / f"{i}.png"))
+        plt.close()

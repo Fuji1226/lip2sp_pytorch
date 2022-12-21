@@ -32,7 +32,7 @@ def main():
             #     if len(file_list) > 10:
             #         break
 
-    file_list = sorted(file_list)
+    file_list = sorted(list(file_list))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
@@ -45,7 +45,7 @@ def main():
         os.makedirs(save_path_landmark, exist_ok=True)
         os.makedirs(save_path_bbox, exist_ok=True)
 
-        if Path(str(f"{save_dir_landmark}/{path.stem}.csv")).exists() and Path(str(f"{save_dir_bbox}/{path.stem}.csv")).exists():
+        if Path(str(f"{save_path_landmark}/{path.stem}.csv")).exists() and Path(str(f"{save_path_bbox}/{path.stem}.csv")).exists():
             continue
 
         landmark_list = []
@@ -100,6 +100,7 @@ def main():
 
 
 def count_files():
+    print("count files")
     landmark_dir = data_dir / "landmark"
 
     file_list = []

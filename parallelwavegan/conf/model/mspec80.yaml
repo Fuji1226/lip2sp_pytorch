@@ -43,8 +43,7 @@ feature_type : "mspec"
 comp_mode : 'default'
 
 # 学習に使用する口唇動画のフレーム数
-lip_min_frame : 50
-lip_max_frame : 51
+n_lip_frames : 25
 
 # griffin-limで合成するときに人為的に補正
 sharp : False
@@ -62,8 +61,8 @@ cond_channels : 80
 upsample_scales : [10, 4, 2, 2]
 gen_n_layers : 30
 gen_n_stacks : 3
-disc_inner_channels : 64
-disc_n_layers : 10
+disc_inner_channels : 96
+disc_n_layers : 5
 kernel_size : 3
 dropout : 0.1
-use_weight_norm : True
+use_weight_norm : False

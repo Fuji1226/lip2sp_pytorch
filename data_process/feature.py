@@ -163,6 +163,20 @@ def mel2wav(mel, cfg):
     return wav
 
 
+def spec2wav(spec, cfg):
+    spec = 10 ** spec
+    spec = np.where(spec > EPS, spec, 0)
+    wav = librosa.griffinlim(
+        S=spec,
+        n_iter=100,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
+        n_fft=cfg.model.n_fft,
+        window="hann",
+    )
+    return wav
+
+
 def modspec_smoothing(array, fs, cut_off=30, axis=0, fbin=11):
     if cut_off >= fs / 2:
         return array

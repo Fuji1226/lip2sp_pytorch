@@ -64,12 +64,19 @@ def make_model(cfg, device):
         out_channels=cfg.model.out_channels,
         res_inner_channels=cfg.model.res_inner_channels,
         which_res=cfg.model.which_res,
-        enc_channels=cfg.model.enc_channels,
         rnn_n_layers=cfg.model.rnn_n_layers,
+        rnn_which_norm=cfg.model.rnn_which_norm,
         trans_n_layers=cfg.model.trans_enc_n_layers,
         trans_n_head=cfg.model.trans_enc_n_head,
+        use_landmark=cfg.model.use_landmark,
+        lm_enc_inner_channels=cfg.model.lm_enc_inner_channels,
+        lmco_kernel_size=cfg.model.lmco_kernel_size,
+        lmco_n_layers=cfg.model.lmco_n_layers,
+        lm_enc_compress_time_axis=cfg.model.lm_enc_compress_time_axis,
+        astt_gcn_n_layers=cfg.model.astt_gcn_n_layers,
+        astt_gcn_n_head=cfg.model.astt_gcn_n_head,
+        lm_enc_n_nodes=cfg.model.lm_enc_n_nodes,
         dec_n_layers=cfg.model.tc_n_layers,
-        dec_inner_channels=cfg.model.tc_inner_channels,
         dec_kernel_size=cfg.model.tc_kernel_size,
         n_speaker=len(cfg.train.speaker),
         spk_emb_dim=cfg.model.spk_emb_dim,
@@ -78,12 +85,15 @@ def make_model(cfg, device):
         where_spk_emb=cfg.train.where_spk_emb,
         dec_dropout=cfg.train.dec_dropout,
         res_dropout=cfg.train.res_dropout,
+        lm_enc_dropout=cfg.train.lm_enc_dropout,
         rnn_dropout=cfg.train.rnn_dropout,
         reduction_factor=cfg.model.reduction_factor,
     )
 
     count_params(model, "model")
     count_params(model.ResNet_GAP, "ResNet")
+    if hasattr(model, "landmark_encoder"):
+        count_params(model.landmark_encoder, "landmark_encoder")
     count_params(model.encoder, "encoder")
     count_params(model.decoder, "decoder")
     
@@ -105,17 +115,17 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        wav_q = wav_q.to(device)
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
         lip = lip.to(device)
+        landmark = landmark.to(device)
         feature = feature.to(device)
         data_len = data_len.to(device)
         speaker = speaker.to(device)
 
         if cfg.train.use_gc:
-            output, classifier_out = model(lip=lip, data_len=data_len, gc=speaker)
+            output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len, gc=speaker)
         else:
-            output, classifier_out = model(lip=lip, data_len=data_len)
+            output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len)
         B, C, T = output.shape
 
         mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
@@ -166,18 +176,18 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        wav_q = wav_q.to(device)
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
         lip = lip.to(device)
+        landmark = landmark.to(device)
         feature = feature.to(device)
         data_len = data_len.to(device)
         speaker = speaker.to(device)
         
         with torch.no_grad():
             if cfg.train.use_gc:
-                output, classifier_out = model(lip=lip, data_len=data_len, gc=speaker)
+                output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len, gc=speaker)
             else:
-                output, classifier_out = model(lip=lip, data_len=data_len)
+                output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len)
 
         B, C, T = output.shape
 
@@ -279,10 +289,13 @@ def main(cfg):
         )
 
         # scheduler
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer=optimizer,
-            milestones=cfg.train.multi_lr_decay_step,
-            gamma=cfg.train.lr_decay_rate,
+        # scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        #     optimizer=optimizer,
+        #     milestones=cfg.train.multi_lr_decay_step,
+        #     gamma=cfg.train.lr_decay_rate,
+        # )
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(
+            optimizer, gamma=cfg.train.lr_decay_exp
         )
 
         last_epoch = 0
