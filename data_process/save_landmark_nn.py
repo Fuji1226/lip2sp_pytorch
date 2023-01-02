@@ -14,11 +14,11 @@ debug_iter = 5
 num_start = 0
 num_end = 4000
 
-speaker = "F01_kablab"
-data_root = Path(f"~/dataset/lip/face_aligned_for_visualize/{speaker}").expanduser()
+speaker = "F02_kablab"
+data_root = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()
 
-dir_name_landmark = "landmark_aligned_for_visualize"
-dir_name_bbox = "bbox_aligned_for_visualize"
+dir_name_landmark = "landmark_aligned"
+dir_name_bbox = "bbox_aligned"
 if debug:
     save_dir_landmark = Path(f"~/dataset/lip/{dir_name_landmark}_debug/{speaker}").expanduser()
     save_dir_bbox = Path(f"~/dataset/lip/{dir_name_bbox}_debug/{speaker}").expanduser()

@@ -68,6 +68,11 @@ astt_gcn_n_layers : 2
 astt_gcn_n_head : 2
 lm_enc_n_nodes : 68
 
+# f0
+use_f0_predicter : True
+f0_predicter_inner_channels : 8
+f0_predicter_rnn_n_layers : 1
+
 # glu parameter
 glu_layers : 4    # 4 or 6
 glu_kernel_size : 5   # 5 or 9
@@ -138,3 +143,17 @@ post_kernel_size : 5  # 5
 which_enhancer : "2D"   # 2D or 1D
 lstm_layers : 1
 bidirectional : True
+
+# parallel wave gan
+pwg_in_channels : 1
+pwg_out_channels : 1
+pwg_gen_inner_channels : 64
+pwg_cond_channels : 80
+pwg_upsample_scales : [10, 4, 2, 2]
+pwg_gen_n_layers : 30
+pwg_gen_n_stacks : 3
+pwg_disc_inner_channels : 96
+pwg_disc_n_layers : 5
+pwg_kernel_size : 3
+pwg_dropout : 0.1
+pwg_use_weight_norm : False

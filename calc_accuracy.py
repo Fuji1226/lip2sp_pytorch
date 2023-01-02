@@ -30,13 +30,17 @@ def wav2flac(data_dir):
 
                 file_gen = Path(curdir, file)
                 file_in = Path(curdir, "input.wav")
+                file_abs = Path(curdir, "abs.wav")
                 file_gen_flac = Path(curdir, "generate.flac")
                 file_in_flac = Path(curdir, "input.flac")
+                file_abs_flac = Path(curdir, "abs.flac")
 
                 cmd_gen = ["ffmpeg", "-y", "-i", f"{str(file_gen)}", "-vn", "-ar", "16000", "-ac", "1", "-acodec", "flac", "-f", "flac", f"{str(file_gen_flac)}"]
                 cmd_in = ["ffmpeg", "-y", "-i", f"{str(file_in)}", "-vn", "-ar", "16000", "-ac", "1", "-acodec", "flac", "-f", "flac", f"{str(file_in_flac)}"]
+                cmd_abs = ["ffmpeg", "-y", "-i", f"{str(file_abs)}", "-vn", "-ar", "16000", "-ac", "1", "-acodec", "flac", "-f", "flac", f"{str(file_abs_flac)}"]
                 run(cmd_gen)
                 run(cmd_in)
+                run(cmd_abs)
 
 
 def load_utt():
@@ -47,7 +51,7 @@ def load_utt():
 
 
 def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
-    # wav2flac(data_dir)
+    wav2flac(data_dir)
     df = load_utt()
 
     wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
@@ -142,32 +146,15 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     vuv_acc_list_librosa.append(vuv_acc)
                     print(f"rmse_f0_librosa = {rmse_f0}, vuv_accuracy_librosa = {vuv_acc}")
 
-                    # mel cepstral distortion
                     wav_gen = wav_gen.astype(np.float64)
-                    f0_gen, timeaxis_gen = pyworld.harvest(wav_gen, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)
-                    sp_gen = pyworld.cheaptrick(wav_gen, f0_gen, timeaxis_gen, fs)    
                     wav_in = wav_in.astype(np.float64)
-                    f0_in, timeaxis_in = pyworld.harvest(wav_in, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)
-                    sp_in = pyworld.cheaptrick(wav_in, f0_in, timeaxis_in, fs)
-                    alpha = pysptk.util.mcepalpha(fs)
-                    mcep_gen = pysptk.mcep(sp_gen, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)    # cfg.model.mcep_order次元になる
-                    mcep_in = pysptk.mcep(sp_in, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)
-                    mcd = melcd(mcep_gen, mcep_in)
-                    mcd_list.append(mcd)
-                    print(f"mcd = {mcd}")
-
-                    # mfcc_gen = pyworld.code_spectral_envelope(sp_gen, fs, cfg.model.mcep_order)
-                    # mfcc_in = pyworld.code_spectral_envelope(sp_in, fs, cfg.model.mcep_order)
-                    # mcd = melcd(mfcc_gen, mfcc_in)
-                    # print(f"mcd = {mcd}")
-
-                    # mcd = melcd(mfcc_gen[:, :13], mfcc_in[:, :13])
-                    # print(f"mcd = {mcd}")
 
                     # rmse f0 & vuv accuracy by world
+                    f0_gen, timeaxis_gen = pyworld.harvest(wav_gen, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)
                     ap_gen = pyworld.d4c(wav_gen, f0_gen, timeaxis_gen, fs, threshold=0.85)
                     vuv_flag_gen = (ap_gen[:, 0] < 0.5) * (f0_gen > 1.0)
                     vuv_gen = vuv_flag_gen.astype('int')
+                    f0_in, timeaxis_in = pyworld.harvest(wav_in, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)
                     ap_in = pyworld.d4c(wav_in, f0_in, timeaxis_in, fs, threshold=0.85)
                     vuv_flag_in = (ap_in[:, 0] < 0.5) * (f0_gen > 1.0)
                     vuv_in = vuv_flag_in.astype('int')
@@ -182,6 +169,27 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                     vuv_acc_list_world.append(vuv_acc)
                     print(f"rmse_f0_world = {rmse_f0}, vuv_accuracy_world = {vuv_acc}")
                     print("")
+
+                    sp_gen = pyworld.cheaptrick(wav_gen, f0_gen, timeaxis_gen, fs)    
+                    sp_in = pyworld.cheaptrick(wav_in, f0_in, timeaxis_in, fs)
+                    alpha = pysptk.util.mcepalpha(fs)
+                    mcep_gen = pysptk.mcep(sp_gen, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)    # cfg.model.mcep_order次元になる
+                    mcep_in = pysptk.mcep(sp_in, order=cfg.model.mcep_order - 1, alpha=alpha, itype=4)
+                    vuv_in = vuv_in[:, None]    # (T, 1)
+                    vuv_in = np.repeat(vuv_in, mcep_gen.shape[1], axis=1)
+                    mcep_gen = np.where(vuv_in == 1, mcep_gen, 0)   # 有声区間のみ
+                    mcep_in = np.where(vuv_in == 1, mcep_in, 0)
+                    mcd = melcd(mcep_gen, mcep_in)
+                    mcd_list.append(mcd)
+                    print(f"mcd = {mcd}")
+
+                    # mfcc_gen = pyworld.code_spectral_envelope(sp_gen, fs, cfg.model.mcep_order)
+                    # mfcc_in = pyworld.code_spectral_envelope(sp_in, fs, cfg.model.mcep_order)
+                    # mcd = melcd(mfcc_gen, mfcc_in)
+                    # print(f"mcd = {mcd}")
+
+                    # mcd = melcd(mfcc_gen[:, :13], mfcc_in[:, :13])
+                    # print(f"mcd = {mcd}")
 
                     # wer and per
                     for i in range(53):
@@ -295,7 +303,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                 f.write(f"duration_mean = {sum(duration) / len(duration):f}, process_time_mean = {sum(process_times) / len(process_times):f}\n")
                 for dur, time in zip(duration, process_times):
                     f.write(f"duration = {dur:f}, process_time = {time:f}\n")
-
+                    
 
 def calc_accuracy_vc(cfg, data_root_same, data_root_mix):
     data_path_same = list(sorted(data_root_same.glob("*/*generate.wav")))

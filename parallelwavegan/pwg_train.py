@@ -73,24 +73,24 @@ def save_checkpoint(
 
 def make_model(cfg, device):
     gen = Generator(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        inner_channels=cfg.model.gen_inner_channels,
-        cond_channels=cfg.model.cond_channels,
-        upsample_scales=cfg.model.upsample_scales,
-        n_layers=cfg.model.gen_n_layers,
-        n_stacks=cfg.model.gen_n_stacks,
-        dropout=cfg.model.dropout,
-        kernel_size=cfg.model.kernel_size,
-        use_weight_norm=cfg.model.use_weight_norm,
+        in_channels=cfg.model.pwg_in_channels,
+        out_channels=cfg.model.pwg_out_channels,
+        inner_channels=cfg.model.pwg_gen_inner_channels,
+        cond_channels=cfg.model.pwg_cond_channels,
+        upsample_scales=cfg.model.pwg_upsample_scales,
+        n_layers=cfg.model.pwg_gen_n_layers,
+        n_stacks=cfg.model.pwg_gen_n_stacks,
+        dropout=cfg.model.pwg_dropout,
+        kernel_size=cfg.model.pwg_kernel_size,
+        use_weight_norm=cfg.model.pwg_use_weight_norm,
     )
     disc = Discriminator(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        inner_channels=cfg.model.disc_inner_channels,
-        n_layers=cfg.model.disc_n_layers,
-        kernel_size=cfg.model.kernel_size,
-        use_weight_norm=cfg.model.use_weight_norm,
+        in_channels=cfg.model.pwg_in_channels,
+        out_channels=cfg.model.pwg_out_channels,
+        inner_channels=cfg.model.pwg_disc_inner_channels,
+        n_layers=cfg.model.pwg_disc_n_layers,
+        kernel_size=cfg.model.pwg_kernel_size,
+        use_weight_norm=cfg.model.pwg_use_weight_norm,
     )
     count_params(gen, "generator")
     count_params(disc, "discriminator")
@@ -416,6 +416,15 @@ def main(cfg):
             val_epoch_loss_gen_stft_list = checkpoint["val_epoch_loss_gen_stft_list"]
             val_epoch_loss_gen_gan_list = checkpoint["val_epoch_loss_gen_gan_list"]
             val_epoch_loss_gen_all_list = checkpoint["val_epoch_loss_gen_all_list"]
+            
+        elif cfg.train.use_disc:
+            print("load gen parameter")
+            checkpoint_path = Path(cfg.train.gen_path).expanduser()
+            if torch.cuda.is_available():
+                checkpoint = torch.load(checkpoint_path)
+            else:
+                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+            gen.load_state_dict(checkpoint["gen"])
 
         wandb.watch(gen, **cfg.wandb_conf.watch)
         wandb.watch(disc, **cfg.wandb_conf.watch)

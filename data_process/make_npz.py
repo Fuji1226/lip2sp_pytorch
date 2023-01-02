@@ -16,10 +16,10 @@ import pickle
 from transform import load_data_for_npz
 
 debug = False
-speaker = "F01_kablab"
+speaker = "M01_kablab"
 margin = 0
 fps = 50
-gray = False
+gray = True
 
 csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
 data_dir = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()

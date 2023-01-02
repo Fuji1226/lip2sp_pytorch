@@ -10,11 +10,13 @@ from librosa.display import specshow
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from jiwer import wer
 
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 from dataset.dataset_npz_ssl import KablabDatasetSSL, KablabTransformSSL, collate_time_adjust_ssl
+from dataset.dataset_lipreading import LipReadingDataset, LipReadingTransform, collate_time_adjust_lipreading
 from data_process.feature import wav2mel
-from data_process.mulaw import mulaw_quantize, inv_mulaw_quantize
+from data_process.phoneme_encode import get_classes, get_classes_ctc, get_keys_from_value
 
 
 def get_upsample(fps, fs, frame_period):
@@ -32,14 +34,8 @@ def get_padding(kernel_size, dilation=1):
 
 def set_config(cfg):
     if cfg.train.debug:
-        cfg.train.batch_size = 1
+        cfg.train.batch_size = 4
         cfg.train.num_workers = 1
-
-    if cfg.train.face_or_lip == "lip_gray_08_25":
-        cfg.model.fps = 25
-        cfg.model.reduction_factor = 4
-        cfg.model.lip_min_frame = 75
-        cfg.model.lip_max_frame = 76
 
 
 def get_path_train(cfg, current_time):
@@ -182,6 +178,31 @@ def get_datasets(data_root, cfg):
     return items
 
 
+def get_datasets_with_lab(data_root, cfg):
+    print("\n--- get datasets with lab ---")
+    items = []
+    for speaker in cfg.train.speaker:
+        print(f"{speaker}")
+        spk_path_list = []
+        spk_path = data_root / speaker
+
+        for corpus in cfg.train.corpus:
+            spk_path_co = []
+            for curdir, dirs, files in os.walk(spk_path):
+                for file in files:
+                    file_lab = Path(curdir, file)
+                    if file_lab.suffix == ".lab" and str(corpus) in file_lab.stem:
+                        file_npz = Path(curdir, f"{file_lab.stem}_{cfg.model.name}.npz")
+
+                        if file_lab.exists() and file_npz.exists():
+                            spk_path_co.append([file_npz, file_lab])
+            if len(spk_path_co) > 1:
+                print(f"load {corpus}")
+            spk_path_list += spk_path_co
+        items += random.sample(spk_path_list, len(spk_path_list))
+    return items
+
+
 def get_datasets_test(data_root, cfg):
     print("\n--- get datasets ---")
     items = []
@@ -191,6 +212,22 @@ def get_datasets_test(data_root, cfg):
         spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
         items += spk_path
     return items
+
+
+def get_datasets_test_with_lab(data_root, cfg):
+    print("\n--- get datasets with lab ---")
+    items = []
+    for speaker in cfg.test.speaker:
+        print(f"load {speaker}")
+        spk_path = data_root / speaker
+        for curdir, dirs, files in os.walk(spk_path):
+            for file in files:
+                file_lab = Path(curdir, file)
+                if file_lab.suffix == ".lab":
+                    file_npz = Path(curdir, f"{file_lab.stem}_{cfg.model.name}.npz")
+                    if file_lab.exists() and file_npz.exists():
+                        items.append([file_npz, file_lab])
+    return items    
 
 
 def make_train_val_loader(cfg, train_data_root, val_data_root):
@@ -236,6 +273,51 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_lipreading(cfg, train_data_root, val_data_root):
+    train_data_path = get_datasets_with_lab(train_data_root, cfg)
+    val_data_path = get_datasets_with_lab(val_data_root, cfg)
+    classes = get_classes(train_data_path)
+
+    train_trans = LipReadingTransform(cfg, "train")
+    val_trans = LipReadingTransform(cfg, "val")
+
+    print("\n--- make train dataset ---")
+    train_dataset = LipReadingDataset(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+        classes=classes,
+    )
+    val_dataset = LipReadingDataset(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+        classes=classes,
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lipreading, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lipreading, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
@@ -298,6 +380,32 @@ def make_test_loader(cfg, data_root, train_data_root):
         train_data_path=train_data_path,
         transform=test_trans,
         cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return test_loader, test_dataset
+
+
+def make_test_loader_lipreading(cfg, data_root, train_data_root):
+    train_data_path = get_datasets_with_lab(train_data_root, cfg)
+    test_data_path = get_datasets_test_with_lab(data_root, cfg)
+    test_data_path = sorted(test_data_path)
+    classes = get_classes(train_data_path)
+
+    test_trans = LipReadingTransform(cfg, "test")
+    test_dataset = LipReadingDataset(
+        data_path=test_data_path,
+        train_data_path=train_data_path,
+        transform=test_trans,
+        cfg=cfg,
+        classes=classes,
     )
     test_loader = DataLoader(
         dataset=test_dataset,
@@ -539,33 +647,20 @@ def check_mel_nar(target, output, cfg, filename, current_time, ckpt_time=None):
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
     
 
-def check_feat_add(target, output, cfg, filename, current_time, ckpt_time=None):
+def check_f0(target, output, cfg, filename, current_time, ckpt_time=None):
     target = target.to('cpu').detach().numpy().copy()
     output = output.to('cpu').detach().numpy().copy()
-    f0_target = target[0]
-    f0_output = output[0]
-    # power_target = target[1]
-    # power_output = output[1]
     time = np.arange(target.shape[-1]) / 100
 
     plt.close("all")
     plt.figure()
-    plt.plot(time, f0_target, label="target")
-    plt.plot(time, f0_output, label="output")
+    plt.plot(time, target, label="target")
+    plt.plot(time, output, label="output")
     plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
     plt.xlabel("Time[s]")
     plt.title("f0")
     plt.grid()
 
-    # ax = plt.subplot(2, 1, 2)
-    # ax.plot(time, power_target, label="target")
-    # ax.plot(time, power_output, label="output")
-    # plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
-    # plt.xlabel("Time[s]")
-    # plt.title("power")
-    # plt.grid()
-
-    # plt.tight_layout()
     save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
     if ckpt_time is not None:
         save_path = save_path / cfg.train.name / ckpt_time
@@ -657,6 +752,38 @@ def check_movie(target, output, lip_mean, lip_std, cfg, filename, current_time, 
     wandb.log({f"{filename}_output": wandb.Video(output.numpy(), fps=cfg.model.fps, format="mp4")})
 
 
+def check_text(target, output, epoch, cfg, classes_index, filename, current_time, ckpt_time=None):
+    """
+    target : (T,)
+    output : (C, T)
+    """
+    target = target.to("cpu").detach().numpy()
+    output = output.max(dim=0)[1]   # (T,)
+    output = output.to("cpu").detach().numpy()
+
+    phoneme_answer = [get_keys_from_value(classes_index, i) for i in target]
+    phoneme_answer = " ".join(phoneme_answer)
+    phoneme_predict = [get_keys_from_value(classes_index, i) for i in output]
+    phoneme_predict = " ".join(phoneme_predict)
+
+    phoneme_error_rate = wer(phoneme_answer, phoneme_predict)
+
+    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
+    os.makedirs(save_path, exist_ok=True)
+    
+    with open(str(save_path / f"{filename}.txt"), "a") as f:
+        f.write(f"\n--- epoch {epoch} ---\n")
+        f.write("answer\n")
+        f.write(f"{phoneme_answer}\n")
+        f.write("\npredict\n")
+        f.write(f"{phoneme_predict}\n")
+        f.write(f"\nphoneme error rate = {phoneme_error_rate}\n")
+
+
 def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
     att_w = att_w.to('cpu').detach().numpy().copy()
     plt.close()
@@ -686,28 +813,38 @@ def mixing_prob_controller(cfg):
     return prob_list
 
 
-def gen_separate(lip, input_length, shift_frame):
+def gen_separate(lip, input_length, shift_frame, f0_target, reduction_factor, landmark):
     """
     合成時に系列長を学習時と揃えるための処理
     lip : (B, C, H, W, T)
+    landmark : (B, T, 2, 68)
+    f0_target : (B, 1, T)
     input_length : モデル学習時の系列長
     shift_frame : シフト幅
     """
     _, C, H, W, _ = lip.shape
     start_frame = 0
     lip_list = []
+    landmark_list = []
+    f0_list = []
 
     while True:
         if lip.shape[-1] <= start_frame + input_length:
             lip_list.append(lip[..., -input_length:])
+            landmark_list.append(landmark[:, -input_length:, ...])
+            f0_list.append(f0_target[..., -int(input_length * reduction_factor):])
             break
         else:
             lip_list.append(lip[..., start_frame:start_frame + input_length])
+            landmark_list.append(landmark[:, start_frame:start_frame + input_length, ...])
+            f0_list.append(f0_target[..., int(start_frame * reduction_factor):int((start_frame + input_length) * reduction_factor)])
         
         start_frame += shift_frame
 
     lip = torch.cat(lip_list, dim=0)    # (B, C, H, W, T)
-    return lip
+    landmark = torch.cat(landmark_list, dim=0)
+    f0_target = torch.cat(f0_list, dim=0)
+    return lip, landmark, f0_target
 
 
 def gen_cat_feature(feature, shift_frame, n_last_frame, upsample):

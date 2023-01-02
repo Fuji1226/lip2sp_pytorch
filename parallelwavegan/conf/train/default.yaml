@@ -9,9 +9,10 @@ debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : True
+check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:17_23-20-15/mspec80_300.ckpt"
-use_disc : True
+use_disc : False
+gen_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:17_23-20-15/mspec80_500.ckpt"
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
@@ -77,8 +78,8 @@ batch_size : 8
 num_workers : 8
 
 # optimizer
-lr_gen : 0.0001
-lr_disc : 0.00004
+lr_gen : 0.001
+lr_disc : 0.00002
 beta_1 : 0.9
 beta_2 : 0.999
 eps : 1.0e-6
@@ -86,7 +87,7 @@ weight_decay : 1.0e-6
 
 # scheduler
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay : 0.997
+lr_decay : 0.99
 
 # gradient clipping
 max_norm : 3.0

@@ -6,63 +6,38 @@ import os
 from pathlib import Path
 import shutil
 from tqdm import tqdm
+import numpy as np
+import pandas as pd
+import csv
 
 
-def get_alignment(data_root):
-    """
-    音素アラインメントを行った.labファイルまでのパスを取得
-    """
-    data_path = list(data_root.glob("*.lab"))
-    assert data_path is not None
-    return data_path
-
-
-def check_alignment(data_path):
-    """
-    アラインメントをミスしている時があるので,そのパスを取り除く
-    """
-    exist_data_path_train = []
-    exist_data_path_test = []
-
-
-    for p in tqdm(data_path, total=len(data_path)):
-        with open(p, "r") as f:
-            data = f.read()
-
-        data = data.replace("\n", " ")
-        data = data.split(" ")
-
-        data = data[2::3]
-        
-        if data != []:
-            if "_j" in Path(p).stem:
-                exist_data_path_test.append(p)
-            else:
-                exist_data_path_train.append(p)
-        else:
-            print(p)
-
-    return exist_data_path_train, exist_data_path_test
+def read_csv(csv_path, speaker, which_data, lab_dir):
+    with open(str(csv_path / speaker / f"{which_data}.csv"), "r") as f:
+        reader = csv.reader(f)
+        data_list = [lab_dir / f"{row[0]}.lab" for row in reader]
+    return data_list
 
 
 def main():
-    data_root = Path("~/dataset/segmentation-kit/wav").expanduser()
-    data_path = get_alignment(data_root)
+    speaker = "F01_kablab"
+    lab_dir = Path("~/dataset/segmentation-kit/wav").expanduser()
 
-    # たまにミスしているデータがあるので，それを除く
-    exist_data_path_train, exist_data_path_test = check_alignment(data_path)
+    csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
+    save_dir = Path("~/dataset/lip/np_files/face_aligned_0_50_gray").expanduser()
+    data_seg_list = ["train", "val", "test"]
 
-    save_dir = Path("~/dataset/lip/np_files/lip_cropped_9696_time_only").expanduser()
-    save_dir_train = save_dir / "train" / "F01_kablab"
-    save_dir_test = save_dir / "test" / "F01_kablab"
-    os.makedirs(save_dir_train, exist_ok=True)
-    os.makedirs(save_dir_test, exist_ok=True)
+    for data_seg in data_seg_list:
+        save_dir_seg = save_dir / data_seg / speaker
+        save_dir_seg.mkdir(parents=True, exist_ok=True)
+        data_list = read_csv(csv_path, speaker, data_seg, lab_dir)
+        for data in data_list:
+            with open(str(data), "r") as f:
+                da = f.read()
 
-    for p in tqdm(exist_data_path_train, total=len(exist_data_path_train)):
-        shutil.copy(str(p), save_dir_train)
-
-    for p in tqdm(exist_data_path_test, total=len(exist_data_path_test)):
-        shutil.copy(str(p), save_dir_test)
+            da = da.replace("\n", " ").split(" ")
+            da = da[2::3]
+            if da != []:
+                shutil.copy(str(data), save_dir_seg)
 
     
 if __name__ == "__main__":

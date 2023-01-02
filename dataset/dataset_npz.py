@@ -23,8 +23,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms as T
 from torch.utils.data import Dataset
-import copy
-import torchvision
 
 from data_check import save_lip_video, save_landmark_video
 from data_process.mulaw import mulaw_quantize, inv_mulaw_quantize
@@ -197,7 +195,7 @@ class KablabDataset(Dataset):
 
 
 class KablabTransform:
-    def __init__(self, cfg, train_val_test=None):
+    def __init__(self, cfg, train_val_test):
         self.color_jitter = T.ColorJitter(brightness=[0.5, 1.5], contrast=0, saturation=1, hue=0.2)
         self.blur = T.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 5)) 
         self.horizontal_flip = T.RandomHorizontalFlip(p=0.5)

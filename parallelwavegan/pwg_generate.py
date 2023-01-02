@@ -35,7 +35,7 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
 
     iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, wav_q, lip, feature, feat_add, landmark, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
         wav_q = wav_q.to(device)
         lip = lip.to(device)
         feature = feature.to(device)
@@ -66,9 +66,16 @@ def main(cfg):
 
     gen, disc = make_model(cfg, device)
 
-    model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/lip_nn_gray_08_50/2022:11:29_21-57-23/mspec80_120.ckpt").expanduser()
-    # cfg.train.face_or_lip = model_path.parents[1].name
-    # cfg.test.face_or_lip = model_path.parents[1].name
+    # gen 64
+    # model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:17_23-20-15/mspec80_500.ckpt").expanduser()
+    # model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:25_13-47-38/mspec80_60.ckpt").expanduser()
+    model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:30_21-57-55/mspec80_40.ckpt").expanduser()
+
+    # gen 96
+    # model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:26_07-53-08/mspec80_500.ckpt").expanduser()
+    
+    cfg.train.face_or_lip = model_path.parents[1].name
+    cfg.test.face_or_lip = model_path.parents[1].name
 
     if model_path.suffix == ".ckpt":
         try:

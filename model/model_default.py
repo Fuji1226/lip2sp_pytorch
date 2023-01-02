@@ -7,11 +7,84 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.net import ResNet3D
+from model.net import ResNet3D, NormalConv
 from model.transformer_remake import Encoder, Decoder
 from model.pre_post import Postnet
 from model.glu_remake import GLU
 from model.rnn import LSTMEncoder, GRUEncoder
+
+
+class F0Predicter(nn.Module):
+    def __init__(self, in_channels, kernel_size, n_layers, reduction_factor, dropout):
+        super().__init__()
+        self.reduction_factor = reduction_factor
+        padding = (kernel_size - 1) // 2
+        self.dropout = nn.Dropout(dropout)
+        self.out_layer = nn.Conv1d(in_channels, 1, kernel_size=kernel_size, padding=padding)
+        self.f0_convert_layer = nn.Sequential(
+            nn.Conv1d(1, in_channels, kernel_size=kernel_size, stride=reduction_factor, padding=padding),
+            nn.BatchNorm1d(in_channels),
+            nn.ReLU(),
+        )
+
+    def forward(self, enc_output, f0_target=None):
+        """
+        enc_output : (B, T, C)
+        f0, f0_target : (B, 1, T)
+        """
+        enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
+
+        f0 = enc_output.clone()
+        f0 = F.interpolate(f0, scale_factor=self.reduction_factor, mode="nearest")
+        f0 = self.dropout(f0)
+        f0 = self.out_layer(f0)
+
+        if f0_target is None:
+            f0_feature = self.f0_convert_layer(f0)
+        else:
+            f0_feature = self.f0_convert_layer(f0_target)
+
+        enc_output = enc_output + f0_feature
+        enc_output = enc_output.permute(0, 2, 1)    # (B, T, C)
+        return enc_output, f0
+
+
+class F0Predicter2(nn.Module):
+    def __init__(self, in_channels, inner_channels, rnn_n_layers, reduction_factor, dropout, rnn_which_norm):
+        super().__init__()
+        self.reduction_factor = reduction_factor
+        self.conv3d = nn.ModuleList([
+            NormalConv(in_channels, inner_channels, stride=2),
+            NormalConv(inner_channels, inner_channels * 2, stride=2),
+            NormalConv(inner_channels * 2, inner_channels * 4, stride=2),
+            NormalConv(inner_channels * 4, inner_channels * 8, stride=2),
+        ])
+        self.encoder = GRUEncoder(
+            hidden_channels=inner_channels * 8,
+            n_layers=rnn_n_layers,
+            bidirectional=True,
+            dropout=dropout,
+            reduction_factor=reduction_factor,
+            which_norm=rnn_which_norm,
+        )
+        self.dropout = nn.Dropout(dropout)
+        self.out_layer = nn.Conv1d(inner_channels * 8, 1, kernel_size=3, padding=1)
+
+    def forward(self, lip, data_len=None):
+        """
+        lip : (B, C, H, W, T)
+        """
+        lip = lip.permute(0, 1, 4, 2, 3)
+        f0 = lip
+        for layer in self.conv3d:
+            f0 = layer(f0)
+        f0 = torch.mean(f0, dim=(3, 4))
+        f0 = self.encoder(f0, data_len)    # (B, T, C) 
+        f0 = f0.permute(0, 2, 1)    # (B, C, T)
+        f0 = F.interpolate(f0, scale_factor=self.reduction_factor, mode="nearest")
+        f0 = self.dropout(f0)
+        f0 = self.out_layer(f0)
+        return f0
 
 
 class Lip2SP(nn.Module):
@@ -19,12 +92,13 @@ class Lip2SP(nn.Module):
         self, in_channels, out_channels, res_inner_channels, which_res,
         trans_enc_n_layers, trans_enc_n_head, 
         rnn_n_layers, rnn_which_norm,
-        glu_inner_channels, glu_layers, glu_kernel_size,
+        glu_layers, glu_kernel_size,
         trans_dec_n_layers, trans_dec_n_head,
+        use_f0_predicter, f0_predicter_inner_channels, f0_predicter_rnn_n_layers,
         n_speaker, spk_emb_dim,
         pre_inner_channels, post_inner_channels, post_n_layers, post_kernel_size,
         n_position, which_encoder, which_decoder,
-        dec_dropout, res_dropout, rnn_dropout, reduction_factor=2):
+        dec_dropout, res_dropout, rnn_dropout, f0_predicter_dropout, reduction_factor=2):
         super().__init__()
 
         self.which_encoder = which_encoder
@@ -60,6 +134,21 @@ class Lip2SP(nn.Module):
         self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
         self.spk_emb_layer = nn.Linear(inner_channels + spk_emb_dim, inner_channels)
 
+        if use_f0_predicter:
+            self.f0_predicter = F0Predicter2(
+                in_channels=in_channels,
+                inner_channels=f0_predicter_inner_channels,
+                rnn_n_layers=f0_predicter_rnn_n_layers,
+                reduction_factor=reduction_factor,
+                dropout=f0_predicter_dropout,
+                rnn_which_norm=rnn_which_norm,
+            )
+            self.f0_convert_layer = nn.Sequential(
+                nn.Conv1d(1, inner_channels, kernel_size=3, padding=1, stride=reduction_factor),
+                nn.BatchNorm1d(inner_channels),
+                nn.ReLU(),
+            )
+
         # decoder
         if self.which_decoder == "glu":
             self.decoder = GLU(
@@ -89,10 +178,11 @@ class Lip2SP(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
-    def forward(self, lip, prev=None, data_len=None, gc=None, mixing_prob=None):
+    def forward(self, lip, prev=None, data_len=None, gc=None, mixing_prob=None, f0_target=None):
         """
         lip : (B, C, H, W, T)
         prev, out, dec_output : (B, C, T)
+        f0_target : (B, 1, T)
         """
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化
         self.reset_state()
@@ -111,6 +201,18 @@ class Lip2SP(nn.Module):
             enc_output = self.spk_emb_layer(enc_output)
         else:
             spk_emb = None
+
+        if hasattr(self, "f0_predicter"):
+            f0 = self.f0_predicter(lip, data_len)
+
+            enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
+            if f0_target is None:
+                enc_output = enc_output + self.f0_convert_layer(f0)
+            else:
+                enc_output = enc_output + self.f0_convert_layer(f0_target)
+            enc_output = enc_output.permute(0, 2, 1)    # (B, T, C)
+        else:
+            f0 = None
 
         # decoder
         # 学習時
@@ -132,7 +234,7 @@ class Lip2SP(nn.Module):
 
         # postnet
         out = self.postnet(dec_output) 
-        return out, dec_output, mixed_prev, fmaps
+        return out, dec_output, mixed_prev, fmaps, f0
 
     def decoder_forward(self, enc_output, prev=None, data_len=None, mode="training"):
         """

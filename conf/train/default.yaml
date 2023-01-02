@@ -69,11 +69,11 @@ time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速�
 # 動画の連続したフレームをある程度まとめてマスキング
 use_segment_masking : True
 which_seg_mask : "seg_mean"
-min_segment_masking_length : 15
+min_segment_masking_length : 0
 max_segment_masking_length : 25
 
 # 音響特徴量に対してのマスキング
-use_time_frequency_masking : True
+use_time_frequency_masking : False
 feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
@@ -85,6 +85,7 @@ num_workers : 16
 dec_dropout : 0.5
 res_dropout : 0.1
 rnn_dropout : 0.1
+f0_predicter_dropout : 0.5
 
 # optimizer
 lr : 0.001
@@ -96,6 +97,7 @@ weight_decay : 1.0e-6
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
+lr_decay_exp : 0.997
 
 # gradient clipping
 max_norm : 3.0
@@ -110,4 +112,5 @@ min_mixing_prob : 0.0
 output_loss_weight : 1.0
 dec_output_loss_weight : 1.0
 delta_loss_w : 1.0
+f0_loss_weight : 1.0
 use_weighted_mean : False

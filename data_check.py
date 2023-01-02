@@ -19,6 +19,7 @@ import numpy as np
 import seaborn as sns
 import pyworld
 import cv2
+from jiwer import wer
 
 from data_process.phoneme_encode import get_keys_from_value
 
@@ -689,44 +690,29 @@ def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip
     plot_f0_from_wav(cfg, save_path, wav, wav_AbS, wav_gen)
 
     
-def save_data_lipreading(cfg, save_path, wav, lip, lip_mean, lip_std, phoneme_index_output, output, classes_index):
+def save_data_lipreading(cfg, save_path, target, output, classes_index):
     """
-    出力データの保存
-    lip reading用
+    target : (T,)
+    output : (C, T)
     """
-    # wav = wav.squeeze(0)
-    lip = lip.squeeze(0)
-    phoneme_index_output = phoneme_index_output.squeeze(0)
-    output = output.squeeze(0)
+    target = target.to("cpu").detach().numpy()
+    output = output.to("cpu").detach().numpy()
 
-    # 口唇動画の保存
-    save_lip_video(
-        cfg=cfg,
-        save_path=save_path,
-        lip=lip,
-        lip_mean=lip_mean,
-        lip_std=lip_std
-    )
-
-    # 原音声のwavファイルを保存
-    # write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)
-
-    # 音素を数値列から元の音素ラベルに戻す
-    phoneme_answer = []
-    for i in phoneme_index_output:
-        phoneme_answer.append(get_keys_from_value(classes_index, i))
+    phoneme_answer = [get_keys_from_value(classes_index, i) for i in target]
     phoneme_answer = " ".join(phoneme_answer)
-    
-    phoneme_predict = []
-    for i in output:
-        phoneme_predict.append(get_keys_from_value(classes_index, i))
+    phoneme_predict = [get_keys_from_value(classes_index, i) for i in output]
     phoneme_predict = " ".join(phoneme_predict)
-    
+
+    phoneme_error_rate = wer(phoneme_answer, phoneme_predict)
+
     with open(str(save_path / "phoneme.txt"), "a") as f:
         f.write("answer\n")
         f.write(f"{phoneme_answer}\n")
         f.write("\npredict\n")
         f.write(f"{phoneme_predict}\n")
+        f.write(f"\nphoneme error rate = {phoneme_error_rate}\n")
+
+    return phoneme_error_rate
 
 
 def save_data_pwg(cfg, save_path, target, output):

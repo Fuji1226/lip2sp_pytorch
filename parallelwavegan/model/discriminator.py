@@ -21,6 +21,7 @@ class Discriminator(nn.Module):
                 nn.Sequential(
                     nn.Conv1d(conv_in_channels, inner_channels, kernel_size=kernel_size, dilation=dilation, padding=padding),
                     nn.LeakyReLU(0.2),
+                    nn.Dropout(0.1),
                 )
             )
         convs.append(

@@ -10,7 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-speaker = "F02_kablab"
+speaker = "M04_kablab"
 margin = 0.8
 fps = 50
 audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()

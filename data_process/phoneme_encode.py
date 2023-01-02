@@ -30,7 +30,7 @@ def get_classes(data_path):
     phoneme = []
 
     for [_, alignment_path] in data_path:
-        with open(alignment_path, "r") as f:
+        with open(str(alignment_path), "r") as f:
             data = f.read()
 
             # 改行を空白に変換してから，空白で分割する
@@ -46,10 +46,12 @@ def get_classes(data_path):
     classes.append("mask")  # mask_id = 0
 
     # 開始を表す"sos"を追加
-    classes.append("sos")   # sos_id = 1
+    # classes.append("sos")   # sos_id = 1
+    classes.append("silB")   # sos_id = 1
 
     # 終了を表す"eos"を追加
-    classes.append("eos")   # eos_id = 2
+    # classes.append("eos")   # eos_id = 2
+    classes.append("silE")   # eos_id = 2
 
     # データに含まれる音素から，音素ラベル全種類を取得
     for each_p in phoneme:
@@ -113,6 +115,53 @@ def classes2index(classes):
     
     for i, c in enumerate(classes):
         classes_index[c] = i
+
+    classes_index = {
+        "mask" : 0,
+        "silB" : 1,
+        "silE" : 2,
+        "u" : 3,
+        "s" : 4,
+        "g" : 5,
+        "i" : 6,
+        "t" : 7,
+        "a" : 8,
+        "n" : 9,
+        "sp" : 10,
+        "m" : 11,
+        "r" : 12,
+        "e" : 13,
+        "k" : 14,
+        "o" : 15,
+        "ky" : 16,
+        "o:" : 17,
+        "ch" : 18,
+        "d" : 19,
+        "q" : 20,
+        "w" : 21,
+        "f" : 22,
+        "ts" : 23,
+        "p" : 24,
+        "N" : 25,
+        "sh" : 26,
+        "h" : 27,
+        "y" : 28,
+        "z" : 29,
+        "i:" : 30,
+        "b" : 31,
+        "u:" : 32,
+        "ny" : 33,
+        "e:" : 34,
+        "ry" : 35,
+        "a:" : 36,
+        "j" : 37,
+        "gy" : 38,
+        "by" : 39,
+        "hy" : 40,
+        "py" : 41,
+        "my" : 42,
+        "dy" : 43,
+    }
 
     return classes_index
 

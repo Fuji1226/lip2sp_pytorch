@@ -94,6 +94,8 @@ class Lip2SP_NAR(nn.Module):
         """
         enc_output, fmaps = self.ResNet_GAP(lip)  # (B, C, T)
 
+        print(lip.shape, landmark.shape)
+
         if hasattr(self, "landmark_encoder"):
             landmark_feature = self.landmark_encoder(landmark)  # (B, C, T)
             enc_output = self.landmark_aggregate_layer(torch.cat([enc_output, landmark_feature], dim=1))  # (B, C, T)
