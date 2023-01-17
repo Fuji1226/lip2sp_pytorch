@@ -68,8 +68,11 @@ astt_gcn_n_layers : 2
 astt_gcn_n_head : 2
 lm_enc_n_nodes : 68
 
+# speaker embedding
+spk_emb_dim : 256
+
 # f0
-use_f0_predicter : True
+use_f0_predicter : False
 f0_predicter_inner_channels : 8
 f0_predicter_rnn_n_layers : 1
 
@@ -113,7 +116,6 @@ ae_emb_dim : 4
 vae_emb_dim : 64
 vq_emb_dim : 256
 vq_num_emb : 64
-spk_emb_dim : 256
 norm_type_audio : "in"
 content_d_model : 256
 content_n_attn_layer : 1
@@ -127,10 +129,7 @@ mi_hidden_channels : 256
 which_d : "jcu"
 
 # out_channels
-out_channels : 80  # 音響特徴量から計算します
-
-# lipreading classes(43 + α)
-n_classes : 44
+out_channels : 80
 
 # Prenet & Postnet parameter
 pre_in_channels : 160  # 音響特徴量から計算します
@@ -157,3 +156,36 @@ pwg_disc_n_layers : 5
 pwg_kernel_size : 3
 pwg_dropout : 0.1
 pwg_use_weight_norm : False
+
+# tacotron2
+n_vocab : 47
+taco_enc_hidden_channels : 512
+taco_enc_conv_n_layers : 3
+taco_enc_conv_kernel_size : 5
+taco_enc_rnn_n_layers : 1
+taco_enc_dropout : 0.5
+taco_dec_channels : 1024
+taco_dec_atten_conv_channels : 32
+taco_dec_atten_conv_kernel_size : 31
+taco_dec_atten_hidden_channels : 128
+taco_dec_rnn_n_layers : 2
+taco_dec_prenet_hidden_channels : 256
+taco_dec_prenet_n_layers : 2
+taco_dec_dropout : 0.1
+taco_post_hidden_channels : 512
+taco_post_n_layers : 5
+taco_post_kernel_size : 5
+
+# language model
+lm_trans_d_model : 512
+lm_trans_n_head : 8
+lm_trans_n_layers : 6
+lm_rnn_hidden_channels : 1024
+lm_rnn_n_layers : 4
+lm_dropout : 0.5
+
+# face gen
+face_gen_img_cond_channels : 128
+face_gen_feat_cond_channels : 256
+face_gen_noise_channels : 10
+face_gen_tc_ksize : 4

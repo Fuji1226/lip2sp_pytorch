@@ -64,12 +64,16 @@ class GLUBlock(nn.Module):
 class GLU(nn.Module):
     def __init__(
         self, inner_channels, out_channels, pre_in_channels, pre_inner_channels, cond_channels,
-        reduction_factor, n_layers, kernel_size, dropout):
+        reduction_factor, n_layers, kernel_size, dropout, use_spk_emb, spk_emb_dim):
         super().__init__()
         self.reduction_factor = reduction_factor
         self.out_channels = out_channels
 
         self.prenet = Prenet(pre_in_channels, inner_channels, pre_inner_channels)
+
+        if use_spk_emb:
+            self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
+
         self.cond_layer = nn.Conv1d(cond_channels, inner_channels, kernel_size=1)
         self.dropout = nn.Dropout(dropout)
         self.glu_layers = nn.ModuleList([
@@ -77,10 +81,11 @@ class GLU(nn.Module):
         ])
         self.conv_o = nn.Conv1d(inner_channels, self.out_channels * self.reduction_factor, kernel_size=1)
 
-    def forward(self, enc_output, target=None, gc=None, mode=None):
+    def forward(self, enc_output, spk_emb, mode, prev=None):
         """
         enc_output : (B, T, C)
-        target : (B, C, T)
+        spk_emb : (B, C)
+        prev : (B, C, T)
         dec_output : (B, C, T)
         """
         assert mode == "training" or "inference"
@@ -90,21 +95,27 @@ class GLU(nn.Module):
         T = enc_output.shape[-1]
         D = self.out_channels
 
-        # target shift
+        # prev shift
         if mode == "training":
-            target = shift(target, self.reduction_factor)
+            prev = shift(prev, self.reduction_factor)
 
         # view for reduction factor
-        if target is not None:
-            target = target.permute(0, -1, -2)  # (B, T, C)
-            target = target.contiguous().view(B, -1, D * self.reduction_factor)
-            target = target.permute(0, -1, -2)  # (B, C, T)
+        if prev is not None:
+            prev = prev.permute(0, -1, -2)  # (B, T, C)
+            prev = prev.contiguous().view(B, -1, D * self.reduction_factor)
+            prev = prev.permute(0, -1, -2)  # (B, C, T)
         else:
-            target = torch.zeros(B, D * self.reduction_factor, 1).to(device=enc_output.device, dtype=enc_output.dtype) 
+            prev = torch.zeros(B, D * self.reduction_factor, 1).to(device=enc_output.device, dtype=enc_output.dtype) 
 
         # prenet
-        target = self.dropout(self.prenet(target))
-        dec_layer_out = target
+        prev = self.dropout(self.prenet(prev))      # (B, C, T)
+
+        if hasattr(self, "spk_emb_layer"):
+            spk_emb = spk_emb.unsqueeze(-1).expand(-1, -1, prev.shape[-1])  # (B, C, T)
+            prev = torch.cat([prev, spk_emb], dim=1)
+            prev = self.spk_emb_layer(prev)
+
+        dec_layer_out = prev
 
         # decoder layers
         if mode == "training":

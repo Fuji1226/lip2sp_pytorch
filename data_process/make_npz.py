@@ -16,15 +16,15 @@ import pickle
 from transform import load_data_for_npz
 
 debug = False
-speaker = "M01_kablab"
-margin = 0
+speaker = "F02_kablab"
+margin = 0.8
 fps = 50
 gray = True
 
 csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
-data_dir = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()
+data_dir = Path(f"~/dataset/lip/lip_cropped_0.8_50/{speaker}").expanduser()
 landmark_dir = Path(f"~/dataset/lip/landmark_aligned/{speaker}").expanduser()
-dir_name = f"face_aligned_{margin}_{fps}"
+dir_name = f"lip_cropped_{margin}_{fps}"
 
 if gray:
     dir_name = f"{dir_name}_gray"
@@ -70,9 +70,10 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
                 assert feature.shape[1] == 32
             
             # データの保存
-            os.makedirs(os.path.join(data_save_path, speaker), exist_ok=True)
+            _data_save_path = data_save_path / speaker / cfg.model.name
+            _data_save_path.mkdir(parents=True, exist_ok=True)
             np.savez(
-                f"{data_save_path}/{speaker}/{audio_path.stem}_{cfg.model.name}",
+                str(_data_save_path / audio_path.stem),
                 wav=wav,
                 lip=lip,
                 feature=feature,
@@ -108,7 +109,7 @@ def main(cfg):
         data_list=train_data_list,
         len=len(train_data_list),
         cfg=cfg,
-        data_save_path=str(lip_train_data_path),
+        data_save_path=lip_train_data_path,
         which_data="train",
     )
 
@@ -116,7 +117,7 @@ def main(cfg):
         data_list=val_data_list,
         len=len(val_data_list),
         cfg=cfg,
-        data_save_path=str(lip_val_data_path),
+        data_save_path=lip_val_data_path,
         which_data="val",
     )
 
@@ -124,7 +125,7 @@ def main(cfg):
         data_list=test_data_list,
         len=len(test_data_list),
         cfg=cfg,
-        data_save_path=str(lip_test_data_path),
+        data_save_path=lip_test_data_path,
         which_data="test",
     )
 

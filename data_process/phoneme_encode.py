@@ -2,9 +2,7 @@
 音素アラインメントからOneHot表現を取得
 この前にcopy_alignment.pyでアラインメントにミスしたデータを取り除いておく必要がある
 """
-import sklearn.preprocessing
 from pathlib import Path
-from tqdm import tqdm
 import numpy as np
 
 
@@ -163,6 +161,59 @@ def classes2index(classes):
         "dy" : 43,
     }
 
+    return classes_index
+
+
+def classes2index_tts():
+    classes_index = {
+        "mask" : IGNORE_INDEX,
+        "sos" : SOS_INDEX,
+        "eos" : EOS_INDEX,
+        "a" : 3,
+        "i" : 4,
+        "u" : 5,
+        "e" : 6,
+        "o" : 7,
+        "A" : 8,
+        "I" : 9,
+        "U" : 10,
+        "E" : 11,
+        "O" : 12,
+        "k" : 13,
+        "g" : 14,
+        "s" : 15,
+        "z" : 16,
+        "t" : 17,
+        "ts" : 18,
+        "d" : 19,
+        "n" : 20,
+        "h" : 21,
+        "f" : 22,
+        "b" : 23,
+        "p" : 24,
+        "m" : 25,
+        "y" : 26,
+        "r" : 27,
+        "w" : 28,
+        "v" : 29,
+        "ky" : 30,
+        "gy" : 31,
+        "sh" : 32,
+        "j" : 33,
+        "ch" : 34,
+        "ty" : 35,
+        "dy" : 36,
+        "ny" : 37,
+        "hy" : 38,
+        "by" : 39,
+        "py" : 40,
+        "my" : 41,
+        "ry" : 42,
+        "N" : 43,
+        "cl" : 44,
+        "pau" : 45,
+        "sil" : 46,
+    }
     return classes_index
 
 

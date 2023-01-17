@@ -10,7 +10,7 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/lipreading/lip_st_03/2022:11:05_00-14-21/mspec80_10.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/lipreading/face_aligned_0_50_gray/2023:01:05_16-11-35/mspec80_100.ckpt"
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
@@ -36,11 +36,12 @@ face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/trai
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 
 # 使用するコーパス
-# corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : ["ATR"]
+corpus : ["ATR", "BASIC5000", "balanced"]
+# corpus : ["ATR"]
 
 # 使用する話者
 speaker : ["F01_kablab"]
+# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_gc : False
 
 # max_epoch
@@ -106,12 +107,11 @@ max_norm : 3.0
 # parameter for scheduled sampling
 # min_mixing_prob = 1 : teacher forcing
 # min_mixing_probが小さくなるほどサンプルが劣化する(最小0)
+training_method : "ss"
 exp_factor : 0.98
-min_mixing_prob : 0.0
+min_mixing_prob : 0
 
 # lossの重みづけ
-output_loss_weight : 1.0
-dec_output_loss_weight : 1.0
-delta_loss_w : 1.0
-f0_loss_weight : 1.0
-use_weighted_mean : False
+use_ctc : False
+ce_weight : 1.0
+ctc_weight : 1.0

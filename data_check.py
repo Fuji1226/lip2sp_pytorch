@@ -700,7 +700,15 @@ def save_data_lipreading(cfg, save_path, target, output, classes_index):
 
     phoneme_answer = [get_keys_from_value(classes_index, i) for i in target]
     phoneme_answer = " ".join(phoneme_answer)
+
+    # 予測結果にはeosが連続する場合があるので、除去する
     phoneme_predict = [get_keys_from_value(classes_index, i) for i in output]
+    first_eos_index = 0
+    for i in range(len(phoneme_predict)):
+        if phoneme_predict[i] == "eos":
+            first_eos_index = i + 1
+            break
+    phoneme_predict = phoneme_predict[:first_eos_index]
     phoneme_predict = " ".join(phoneme_predict)
 
     phoneme_error_rate = wer(phoneme_answer, phoneme_predict)
@@ -715,7 +723,7 @@ def save_data_lipreading(cfg, save_path, target, output, classes_index):
     return phoneme_error_rate
 
 
-def save_data_pwg(cfg, save_path, target, output):
+def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
     target = target.squeeze(0)
     output = output.squeeze(0).squeeze(0)
     target = target.to('cpu').detach().numpy()
@@ -725,8 +733,15 @@ def save_data_pwg(cfg, save_path, target, output):
     target = target.astype(np.float32)
     output = output.astype(np.float32)
 
-    write(str(save_path / "target.wav"), rate=cfg.model.sampling_rate, data=target)
-    write(str(save_path / "output.wav"), rate=cfg.model.sampling_rate, data=output)
+    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=target)
+    write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=output)
+
+    if ana_syn is not None:
+        ana_syn = ana_syn.squeeze(0).squeeze(0)
+        ana_syn = ana_syn.to('cpu').detach().numpy()
+        ana_syn /= np.max(np.abs(ana_syn))
+        ana_syn = ana_syn.astype(np.float32)
+        write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=ana_syn)
 
     target = wav2mel(target, cfg, ref_max=True)
     output = wav2mel(output, cfg, ref_max=True)
@@ -767,6 +782,46 @@ def save_data_pwg(cfg, save_path, target, output):
 
     plt.tight_layout()
     plt.savefig(str(save_path / "mel.png"))
+
+
+def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std):
+    wav = wav.squeeze(0)
+    feature = feature.squeeze(0)
+    output = output.squeeze(0)
+
+    wav = wav.to('cpu').numpy()
+
+    wav_AbS = calc_wav(
+        cfg=cfg,
+        save_path=save_path,
+        file_name="AbS",
+        feature=feature,
+        feat_mean=feat_mean,
+        feat_std=feat_std,
+    )
+
+    wav_gen = calc_wav(
+        cfg=cfg,
+        save_path=save_path,
+        file_name="generate",
+        feature=output,
+        feat_mean=feat_mean,
+        feat_std=feat_std,
+    )
+
+    # サンプル数を合わせるための微調整
+    n_sample = min(wav.shape[0], wav_AbS.shape[0], wav_gen.shape[0])
+    wav = wav[:n_sample]
+    wav_AbS = wav_AbS[:n_sample]
+    wav_gen = wav_gen[:n_sample]
+
+    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)
+    write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=wav_AbS)
+    write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=wav_gen)
+
+    # プロット
+    plot_wav(cfg, save_path, wav, wav_AbS, wav_gen)
+    plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
 
 
 def visualize_feature_map_video(feature_map, save_dir, mean_or_max):

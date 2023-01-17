@@ -26,94 +26,7 @@ from torch.utils.data import Dataset
 
 from data_check import save_lip_video, save_landmark_video
 from data_process.mulaw import mulaw_quantize, inv_mulaw_quantize
-
-
-def get_speaker_idx(data_path):
-    """
-    話者名を数値に変換し,話者IDとする
-    複数話者音声合成で必要になります
-    """
-    print("\nget speaker idx")
-    speaker_idx = {}
-    idx_set = {
-        "F01_kablab" : 0,
-        "F02_kablab" : 1,
-        "M01_kablab" : 2,
-        "M04_kablab" : 3,
-        "F01_kablab_fulldata" : 100,
-    }
-    for path in sorted(data_path):
-        speaker = path.parents[0].name
-        if speaker in speaker_idx:
-            continue
-        else:
-            speaker_idx[speaker] = idx_set[speaker]
-    print(f"speaker_idx = {speaker_idx}")
-    return speaker_idx
-
-
-def get_stat_load_data(train_data_path):
-    print("\nget stat")
-    lip_mean_list = []
-    lip_var_list = []
-    lip_len_list = []
-    feat_mean_list = []
-    feat_var_list = []
-    feat_len_list = []
-    feat_add_mean_list = []
-    feat_add_var_list = []
-    feat_add_len_list = []
-    landmark_mean_list = []
-    landmark_var_list = []
-    landmark_len_list = []
-
-    for path in tqdm(train_data_path):
-        npz_key = np.load(str(path))
-
-        lip = npz_key['lip']
-        feature = npz_key['feature']
-        feat_add = npz_key['feat_add']
-        landmark = npz_key['landmark']
-
-        lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
-        lip_var_list.append(np.var(lip, axis=(1, 2, 3)))
-        lip_len_list.append(lip.shape[-1])
-
-        feat_mean_list.append(np.mean(feature, axis=0))
-        feat_var_list.append(np.var(feature, axis=0))
-        feat_len_list.append(feature.shape[0])
-
-        feat_add_mean_list.append(np.mean(feat_add, axis=0))
-        feat_add_var_list.append(np.var(feat_add, axis=0))
-        feat_add_len_list.append(feat_add.shape[0])
-
-        landmark_mean_list.append(np.mean(landmark, axis=(0, 2)))
-        landmark_var_list.append(np.var(landmark, axis=(0, 2)))
-        landmark_len_list.append(landmark.shape[0])
-        
-    return lip_mean_list, lip_var_list, lip_len_list, \
-        feat_mean_list, feat_var_list, feat_len_list, \
-            feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
-                landmark_mean_list, landmark_var_list, landmark_len_list
-
-
-def calc_mean_var_std(mean_list, var_list, len_list):
-    mean_square_list = list(np.square(mean_list))
-
-    square_mean_list = []
-    for var, mean_square in zip(var_list, mean_square_list):
-        square_mean_list.append(var + mean_square)
-
-    mean_len_list = []
-    square_mean_len_list = []
-    for mean, square_mean, len in zip(mean_list, square_mean_list, len_list):
-        mean_len_list.append(mean * len)
-        square_mean_len_list.append(square_mean * len)
-
-    mean = sum(mean_len_list) / sum(len_list)
-    var = sum(square_mean_len_list) / sum(len_list) - mean ** 2
-    std = np.sqrt(var)
-    return mean, var, std
+from dataset.utils import get_speaker_idx, get_stat_load_data, calc_mean_var_std, get_spk_emb
 
 
 class KablabDataset(Dataset):
@@ -125,6 +38,8 @@ class KablabDataset(Dataset):
 
         # 話者ID
         self.speaker_idx = get_speaker_idx(data_path)
+
+        self.embs = get_spk_emb(cfg)
 
         # 統計量から平均と標準偏差を求める
         lip_mean_list, lip_var_list, lip_len_list, \
@@ -153,7 +68,9 @@ class KablabDataset(Dataset):
 
     def __getitem__(self, index):
         data_path = self.data_path[index]
-        speaker = data_path.parents[0].name
+        speaker = data_path.parents[1].name
+
+        spk_emb = torch.from_numpy(self.embs[speaker])
 
         # 話者名を話者IDに変換
         speaker = torch.tensor(self.speaker_idx[speaker])
@@ -186,12 +103,12 @@ class KablabDataset(Dataset):
             landmark_std=self.landmark_std,
         )
         if self.cfg.train.debug:
-            save_path = Path("~/lip2sp_pytorch/check/lip_augment_now").expanduser()
+            save_path = Path("~/lip2sp_pytorch/check/lip_augment").expanduser()
             os.makedirs(save_path, exist_ok=True)
-            save_lip_video(self.cfg, save_path, lip, self.lip_mean, self.lip_std)
+            # save_lip_video(self.cfg, save_path, lip, self.lip_mean, self.lip_std)
             # save_landmark_video(landmark, save_dir=save_path)
-            print("save")
-        return wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label
+            # print("save")
+        return wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label
 
 
 class KablabTransform:
@@ -625,7 +542,7 @@ def collate_time_adjust(batch, cfg):
     feature, feat_add : (C, T)
     landmark : (T, 2, 68)
     """
-    wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = list(zip(*batch))
+    wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = list(zip(*batch))
 
     wav_adjusted = []
     wav_q_adjusted = []
@@ -713,6 +630,7 @@ def collate_time_adjust(batch, cfg):
     feature_masked = torch.stack(feature_masked_adjusted)
     data_len = torch.stack(data_len)
     speaker = torch.stack(speaker)
+    spk_emb = torch.stack(spk_emb)
 
-    return wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label
+    return wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label
 

@@ -14,9 +14,9 @@ import random
 debug = False
 debug_iter = 5
 
-margin = 0.3
+margin = 0.8
 fps = 50
-speaker = "F01_kablab"
+speaker = "F02_kablab"
 data_root = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()
 landmark_dir = Path(f"~/dataset/lip/landmark_aligned/{speaker}").expanduser()
 

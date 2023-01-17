@@ -5,12 +5,9 @@ from pathlib import Path
 import os
 from datetime import datetime
 import numpy as np
-import matplotlib.pyplot as plt
 import random
-from librosa.display import specshow
 
 import torch
-import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
@@ -83,6 +80,7 @@ def make_model(cfg, device):
         which_encoder=cfg.model.which_encoder,
         which_decoder=cfg.model.which_decoder,
         where_spk_emb=cfg.train.where_spk_emb,
+        use_spk_emb=cfg.train.use_spk_emb,
         dec_dropout=cfg.train.dec_dropout,
         res_dropout=cfg.train.res_dropout,
         lm_enc_dropout=cfg.train.lm_enc_dropout,
@@ -91,12 +89,6 @@ def make_model(cfg, device):
     )
 
     count_params(model, "model")
-    count_params(model.ResNet_GAP, "ResNet")
-    if hasattr(model, "landmark_encoder"):
-        count_params(model.landmark_encoder, "landmark_encoder")
-    count_params(model.encoder, "encoder")
-    count_params(model.decoder, "decoder")
-    
     # multi GPU
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
@@ -115,22 +107,22 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         lip = lip.to(device)
         landmark = landmark.to(device)
         feature = feature.to(device)
         data_len = data_len.to(device)
         speaker = speaker.to(device)
+        spk_emb = spk_emb.to(device)
 
-        if cfg.train.use_gc:
-            output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len, gc=speaker)
-        else:
-            output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len)
+        output, classifier_out, fmaps = model(lip, landmark, data_len, spk_emb)
+
         B, C, T = output.shape
 
-        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
-        if cfg.train.use_gc:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100, speaker=speaker)
+        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
+
+        if cfg.train.use_spk_emb:
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
         else:
             classifier_loss = torch.tensor(0)
 
@@ -176,24 +168,23 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         lip = lip.to(device)
         landmark = landmark.to(device)
         feature = feature.to(device)
         data_len = data_len.to(device)
         speaker = speaker.to(device)
+        spk_emb = spk_emb.to(device)
         
         with torch.no_grad():
-            if cfg.train.use_gc:
-                output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len, gc=speaker)
-            else:
-                output, classifier_out, fmaps = model(lip=lip, landmark=landmark, data_len=data_len)
+            output, classifier_out, fmaps = model(lip, landmark, data_len, spk_emb)
 
         B, C, T = output.shape
 
-        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker)
-        if cfg.train.use_gc:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100, speaker=speaker)
+        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
+
+        if cfg.train.use_spk_emb:
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
         else:
             classifier_loss = torch.tensor(0)
 
@@ -261,12 +252,7 @@ def main(cfg):
         print(f"finetuning {cfg.train.speaker}")
         cfg.train.speaker = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
-    # 損失関数
-    if len(cfg.train.speaker) > 1:
-        class_weight = calc_class_balance(cfg, train_data_root, device)
-    else:
-        class_weight = None
-    loss_f = MaskedLoss(weight=class_weight, use_weighted_mean=cfg.train.use_weighted_mean)
+    loss_f = MaskedLoss()
 
     train_loss_list = []
     train_mse_loss_list = []

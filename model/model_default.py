@@ -12,6 +12,8 @@ from model.transformer_remake import Encoder, Decoder
 from model.pre_post import Postnet
 from model.glu_remake import GLU
 from model.rnn import LSTMEncoder, GRUEncoder
+from model.grad_reversal import GradientReversal
+from model.classifier import SpeakerClassifier
 
 
 class F0Predicter(nn.Module):
@@ -62,7 +64,6 @@ class F0Predicter2(nn.Module):
         self.encoder = GRUEncoder(
             hidden_channels=inner_channels * 8,
             n_layers=rnn_n_layers,
-            bidirectional=True,
             dropout=dropout,
             reduction_factor=reduction_factor,
             which_norm=rnn_which_norm,
@@ -70,9 +71,10 @@ class F0Predicter2(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.out_layer = nn.Conv1d(inner_channels * 8, 1, kernel_size=3, padding=1)
 
-    def forward(self, lip, data_len=None):
+    def forward(self, lip, data_len):
         """
         lip : (B, C, H, W, T)
+        data_len : (B,)
         """
         lip = lip.permute(0, 1, 4, 2, 3)
         f0 = lip
@@ -95,7 +97,7 @@ class Lip2SP(nn.Module):
         glu_layers, glu_kernel_size,
         trans_dec_n_layers, trans_dec_n_head,
         use_f0_predicter, f0_predicter_inner_channels, f0_predicter_rnn_n_layers,
-        n_speaker, spk_emb_dim,
+        n_speaker, spk_emb_dim, use_spk_emb, where_spk_emb,
         pre_inner_channels, post_inner_channels, post_n_layers, post_kernel_size,
         n_position, which_encoder, which_decoder,
         dec_dropout, res_dropout, rnn_dropout, f0_predicter_dropout, reduction_factor=2):
@@ -104,6 +106,7 @@ class Lip2SP(nn.Module):
         self.which_encoder = which_encoder
         self.which_decoder = which_decoder
         self.reduction_factor = reduction_factor
+        self.where_spk_emb = where_spk_emb
 
         self.ResNet_GAP = ResNet3D(
             in_channels=in_channels, 
@@ -125,14 +128,19 @@ class Lip2SP(nn.Module):
             self.encoder = GRUEncoder(
                 hidden_channels=inner_channels,
                 n_layers=rnn_n_layers,
-                bidirectional=True,
                 dropout=rnn_dropout,
                 reduction_factor=reduction_factor,
                 which_norm=rnn_which_norm,
             )
 
-        self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
-        self.spk_emb_layer = nn.Linear(inner_channels + spk_emb_dim, inner_channels)
+        if use_spk_emb:
+            self.gr_layer = GradientReversal(1.0)
+            self.classfier = SpeakerClassifier(
+                in_channels=inner_channels,
+                hidden_channels=inner_channels,
+                n_speaker=n_speaker,
+            )
+            self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
 
         if use_f0_predicter:
             self.f0_predicter = F0Predicter2(
@@ -161,6 +169,8 @@ class Lip2SP(nn.Module):
                 n_layers=glu_layers,
                 kernel_size=glu_kernel_size,
                 dropout=dec_dropout,
+                use_spk_emb=use_spk_emb,
+                spk_emb_dim=spk_emb_dim,
             )
         elif self.which_decoder == "transformer":
             self.decoder = Decoder(
@@ -178,33 +188,42 @@ class Lip2SP(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
-    def forward(self, lip, prev=None, data_len=None, gc=None, mixing_prob=None, f0_target=None):
+    def forward(self, lip, data_len, spk_emb, prev=None, mixing_prob=None, f0_target=None):
         """
         lip : (B, C, H, W, T)
-        prev, out, dec_output : (B, C, T)
+        prev, output, dec_output : (B, C, T)
         f0_target : (B, 1, T)
+        spk_emb : (B, C)
         """
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化
         self.reset_state()
 
         # resnet
-        enc_output, fmaps = self.ResNet_GAP(lip)
+        enc_output, fmaps = self.ResNet_GAP(lip)    # (B, C, T)
+        if self.where_spk_emb == "after_res":
+            if hasattr(self, "spk_emb_layer"):
+                classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                spk_emb_enc = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])   # (B, C, T)
+                enc_output = torch.cat([enc_output, spk_emb_enc], dim=1)
+                enc_output = self.spk_emb_layer(enc_output)
+            else:
+                classifier_out = None
         
         # encoder
         enc_output = self.encoder(enc_output, data_len)    # (B, T, C) 
-
-        # speaker embedding
-        if gc is not None:
-            spk_emb = self.emb_layer(gc)    # (B, C)
-            spk_emb = spk_emb.unsqueeze(1).expand(-1, enc_output.shape[1], -1)
-            enc_output = torch.cat([enc_output, spk_emb], dim=-1)
-            enc_output = self.spk_emb_layer(enc_output)
-        else:
-            spk_emb = None
+        if self.where_spk_emb == "after_enc":
+            if hasattr(self, "spk_emb_layer"):
+                enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
+                classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                spk_emb_enc = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])
+                enc_output = torch.cat([enc_output, spk_emb_enc], dim=1)
+                enc_output = self.spk_emb_layer(enc_output)
+                enc_output = enc_output.permute(0, 2, 1)    # (B, T, C)
+            else:
+                classifier_out = None
 
         if hasattr(self, "f0_predicter"):
             f0 = self.f0_predicter(lip, data_len)
-
             enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
             if f0_target is None:
                 enc_output = enc_output + self.f0_convert_layer(f0)
@@ -218,7 +237,7 @@ class Lip2SP(nn.Module):
         # 学習時
         if prev is not None:
             with torch.no_grad():
-                dec_output = self.decoder_forward(enc_output, prev, data_len)
+                dec_output = self.decoder_forward(enc_output, data_len, spk_emb, prev)
 
                 # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
                 mixing_prob = torch.zeros_like(prev) + mixing_prob
@@ -226,17 +245,17 @@ class Lip2SP(nn.Module):
                 mixed_prev = torch.where(judge == 1, prev, dec_output)
 
             # 混ぜたやつでもう一回計算させる
-            dec_output = self.decoder_forward(enc_output, mixed_prev, data_len)
+            dec_output = self.decoder_forward(enc_output, data_len, spk_emb, mixed_prev)
         # 推論時
         else:
-            dec_output = self.decoder_inference(enc_output)
+            dec_output = self.decoder_inference(enc_output, spk_emb)
             mixed_prev = None
 
         # postnet
-        out = self.postnet(dec_output) 
-        return out, dec_output, mixed_prev, fmaps, f0
+        output = self.postnet(dec_output) 
+        return output, dec_output, mixed_prev, fmaps, f0, classifier_out
 
-    def decoder_forward(self, enc_output, prev=None, data_len=None, mode="training"):
+    def decoder_forward(self, enc_output, data_len, spk_emb, prev, mode="training"):
         """
         学習時の処理
         enc_output : (B, T, C)
@@ -246,11 +265,11 @@ class Lip2SP(nn.Module):
             dec_output = self.decoder(enc_output, prev, data_len, mode=mode)
 
         elif self.which_decoder == "glu":
-            dec_output = self.decoder(enc_output, prev, mode=mode)
+            dec_output = self.decoder(enc_output, spk_emb, mode, prev)
 
         return dec_output
 
-    def decoder_inference(self, enc_output, mode="inference"):
+    def decoder_inference(self, enc_output, spk_emb, mode="inference"):
         """
         推論時の処理
         enc_output : (B, T, C)
@@ -270,14 +289,14 @@ class Lip2SP(nn.Module):
         elif self.which_decoder == "glu":
             for t in range(max_decoder_time_steps):
                 if t == 0:
-                    dec_output = self.decoder(enc_output[:, t, :].unsqueeze(1), mode=mode)
+                    dec_output = self.decoder(enc_output[:, t, :].unsqueeze(1), spk_emb, mode)
                 else:
-                    dec_output = self.decoder(enc_output[:, t, :].unsqueeze(1), dec_outputs[-1], mode=mode)
+                    dec_output = self.decoder(enc_output[:, t, :].unsqueeze(1), spk_emb, mode, dec_outputs[-1])
                 dec_outputs.append(dec_output)
 
         # 溜め込んだ出力を時間方向に結合して最終出力にする
         dec_output = torch.cat(dec_outputs, dim=-1)
-        assert dec_output.shape[-1] == max_decoder_time_steps * self.reduction_factor
+        assert dec_output.shape[-1] == int(max_decoder_time_steps * self.reduction_factor)
         return dec_output
 
     def reset_state(self):

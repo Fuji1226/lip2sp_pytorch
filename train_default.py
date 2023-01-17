@@ -5,10 +5,7 @@ from pathlib import Path
 import os
 from datetime import datetime
 import numpy as np
-import matplotlib.pyplot as plt
 import random
-from functools import partial
-from librosa.display import specshow
 
 import torch
 from torch.nn.utils import clip_grad_norm_
@@ -36,9 +33,11 @@ def save_checkpoint(
     train_output_loss_list,
     train_dec_output_loss_list,
     train_f0_loss_list,
+    train_classifier_loss_list,
     val_output_loss_list,
     val_dec_output_loss_list,
     val_f0_loss_list,
+    val_classifier_loss_list,
     epoch, ckpt_path):
 	torch.save({
         'model': model.state_dict(),
@@ -52,9 +51,11 @@ def save_checkpoint(
         "train_output_loss_list" : train_output_loss_list,
         "train_dec_output_loss_list" : train_dec_output_loss_list,
         "train_f0_loss_list" : train_f0_loss_list,
+        "train_classifier_loss_list" : train_classifier_loss_list,
         "val_output_loss_list" : val_output_loss_list,
         "val_dec_output_loss_list" : val_dec_output_loss_list,
         "val_f0_loss_list" : val_f0_loss_list,
+        "val_classifier_loss_list" : val_classifier_loss_list,
         'epoch': epoch
     }, ckpt_path)
 
@@ -78,6 +79,8 @@ def make_model(cfg, device):
         f0_predicter_rnn_n_layers=cfg.model.f0_predicter_rnn_n_layers,
         n_speaker=len(cfg.train.speaker),
         spk_emb_dim=cfg.model.spk_emb_dim,
+        use_spk_emb=cfg.train.use_spk_emb,
+        where_spk_emb=cfg.train.where_spk_emb,
         pre_inner_channels=cfg.model.pre_inner_channels,
         post_inner_channels=cfg.model.post_inner_channels,
         post_n_layers=cfg.model.post_n_layers,
@@ -93,10 +96,6 @@ def make_model(cfg, device):
     )
 
     count_params(model, "model")
-    count_params(model.ResNet_GAP, "ResNet")
-    count_params(model.encoder, "encoder")
-    count_params(model.decoder, "decoder")
-    count_params(model.postnet, "postnet")
 
     # multi GPU
     if torch.cuda.device_count() > 1:
@@ -109,6 +108,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_f0_loss = 0
+    epoch_classifier_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start") 
@@ -116,51 +116,61 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         lip = lip.to(device)
         landmark = landmark.to(device)
         feature = feature.to(device)
         feat_add = feat_add.to(device)
         data_len = data_len.to(device)
         speaker = speaker.to(device)
+        spk_emb = spk_emb.to(device)
         feature_masked = feature_masked.to(device)
 
         f0_target = feat_add[:, 0, :].unsqueeze(1)  # (B, 1, T)
 
-        if cfg.train.use_gc:
+        use_f0_target = random.random()
+
+        if use_f0_target < mixing_prob:
             if cfg.train.use_time_frequency_masking:
-                output, dec_output, mixed_prev, fmaps, f0 = model(lip=lip, prev=feature_masked, data_len=data_len, mixing_prob=mixing_prob, gc=speaker, f0_target=f0_target)               
+                output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature_masked, mixing_prob, f0_target)
             else:
-                output, dec_output, mixed_prev, fmaps, f0 = model(lip=lip, prev=feature, data_len=data_len, mixing_prob=mixing_prob, gc=speaker, f0_target=f0_target)               
+                output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature, mixing_prob, f0_target)
         else:
             if cfg.train.use_time_frequency_masking:
-                output, dec_output, mixed_prev, fmaps, f0 = model(lip=lip, prev=feature_masked, data_len=data_len, mixing_prob=mixing_prob, f0_target=f0_target)               
+                output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature_masked, mixing_prob)
             else:
-                output, dec_output, mixed_prev, fmaps, f0 = model(lip=lip, prev=feature, data_len=data_len, mixing_prob=mixing_prob, f0_target=f0_target)               
+                output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature, mixing_prob)
 
         B, C, T = output.shape
 
-        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker) 
-        epoch_output_loss += output_loss.item()
-        wandb.log({"train_output_loss": output_loss})
-
-        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T, speaker=speaker) 
-        epoch_dec_output_loss += dec_output_loss.item()
-        wandb.log({"train_dec_output_loss": dec_output_loss})
+        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
+        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
 
         if cfg.model.use_f0_predicter:
-            f0_loss = loss_f.mse_loss(f0, f0_target, data_len, max_len=T, speaker=speaker)
-            epoch_f0_loss += f0_loss.item()
-            wandb.log({"train_f0_loss": f0_loss})
+            f0_loss = loss_f.mse_loss(f0, f0_target, data_len, max_len=T)
         else:
-            f0_loss = 0
+            f0_loss = torch.tensor(0)
 
-        loss = output_loss * cfg.train.output_loss_weight + dec_output_loss * cfg.train.dec_output_loss_weight + f0_loss * cfg.train.f0_loss_weight
+        if cfg.train.use_spk_emb:
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
+        else:
+            classifier_loss = torch.tensor(0)
+
+        loss = output_loss * cfg.train.output_loss_weight + dec_output_loss * cfg.train.dec_output_loss_weight \
+            + f0_loss * cfg.train.f0_loss_weight + classifier_loss * cfg.train.classifier_weight
         loss.backward()
-        
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
         optimizer.zero_grad()
+
+        epoch_output_loss += output_loss.item()
+        epoch_dec_output_loss += dec_output_loss.item()
+        epoch_f0_loss += f0_loss.item()
+        epoch_classifier_loss += classifier_loss.item()
+        wandb.log({"train_output_loss": output_loss})
+        wandb.log({"train_dec_output_loss": dec_output_loss})
+        wandb.log({"train_f0_loss": f0_loss})
+        wandb.log({"train_classifier_loss": classifier_loss})
 
         iter_cnt += 1
 
@@ -189,13 +199,15 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
     epoch_f0_loss /= iter_cnt
-    return epoch_output_loss, epoch_dec_output_loss, epoch_f0_loss
+    epoch_classifier_loss /= iter_cnt
+    return epoch_output_loss, epoch_dec_output_loss, epoch_f0_loss, epoch_classifier_loss
 
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_f0_loss = 0
+    epoch_classifier_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("calc val loss")
@@ -204,7 +216,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
 
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         lip = lip.to(device)
         landmark = landmark.to(device)
         feature = feature.to(device)
@@ -214,29 +226,44 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time
         feature_masked = feature_masked.to(device)
 
         f0_target = feat_add[:, 0, :].unsqueeze(1)
+
+        use_f0_target = random.random()
         
         with torch.no_grad():
-            if cfg.train.use_gc:
-                output, dec_output, mixed_prev, fmaps, f0 = model(lip=lip, prev=feature, data_len=data_len, mixing_prob=mixing_prob, gc=speaker, f0_target=f0_target)               
+            if use_f0_target < mixing_prob:
+                if cfg.train.use_time_frequency_masking:
+                    output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature_masked, mixing_prob, f0_target)
+                else:
+                    output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature, mixing_prob, f0_target)
             else:
-                output, dec_output, mixed_prev, fmaps, f0 = model(lip=lip, prev=feature, data_len=data_len, mixing_prob=mixing_prob, f0_target=f0_target)               
-
+                if cfg.train.use_time_frequency_masking:
+                    output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature_masked, mixing_prob)
+                else:
+                    output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature, mixing_prob)
+                
         B, C, T = output.shape
 
-        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T, speaker=speaker) 
-        epoch_output_loss += output_loss.item()
-        wandb.log({"val_output_loss": output_loss})
-
-        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T, speaker=speaker) 
-        epoch_dec_output_loss += dec_output_loss.item()
-        wandb.log({"val_dec_output_loss": dec_output_loss})
+        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
+        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
 
         if cfg.model.use_f0_predicter:
-            f0_loss = loss_f.mse_loss(f0, f0_target, data_len, max_len=T, speaker=speaker)
-            epoch_f0_loss += f0_loss.item()
-            wandb.log({"val_f0_loss": f0_loss})
+            f0_loss = loss_f.mse_loss(f0, f0_target, data_len, max_len=T)
         else:
-            f0_loss = 0
+            f0_loss = torch.tensor(0)
+        
+        if cfg.train.use_spk_emb:
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
+        else:
+            classifier_loss = torch.tensor(0)
+
+        epoch_output_loss += output_loss.item()
+        epoch_dec_output_loss += dec_output_loss.item()
+        epoch_f0_loss += f0_loss.item()
+        epoch_classifier_loss += classifier_loss.item()
+        wandb.log({"val_output_loss": output_loss})
+        wandb.log({"val_dec_output_loss": dec_output_loss})
+        wandb.log({"val_f0_loss": f0_loss})
+        wandb.log({"val_classifier_loss": classifier_loss})
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -264,7 +291,8 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
     epoch_f0_loss /= iter_cnt
-    return epoch_output_loss, epoch_dec_output_loss, epoch_f0_loss
+    epoch_classifier_loss /= iter_cnt
+    return epoch_output_loss, epoch_dec_output_loss, epoch_f0_loss, epoch_classifier_loss
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -304,9 +332,11 @@ def main(cfg):
     train_output_loss_list = []
     train_dec_output_loss_list = []
     train_f0_loss_list = []
+    train_classifier_loss_list = []
     val_output_loss_list = []
     val_dec_output_loss_list = []
     val_f0_loss_list = []
+    val_classifier_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
@@ -371,7 +401,7 @@ def main(cfg):
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
 
             # training
-            train_epoch_loss_output, train_epoch_loss_dec_output, train_epoch_f0_loss = train_one_epoch(
+            epoch_output_loss, epoch_dec_output_loss, epoch_f0_loss, epoch_classifier_loss = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
@@ -381,12 +411,13 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 ckpt_time=ckpt_time,
             )
-            train_output_loss_list.append(train_epoch_loss_output)
-            train_dec_output_loss_list.append(train_epoch_loss_dec_output)
-            train_f0_loss_list.append(train_epoch_f0_loss)
+            train_output_loss_list.append(epoch_output_loss)
+            train_dec_output_loss_list.append(epoch_dec_output_loss)
+            train_f0_loss_list.append(epoch_f0_loss)
+            train_classifier_loss_list.append(epoch_classifier_loss)
 
             # validation
-            val_epoch_loss_output, val_epoch_loss_dec_output, val_epoch_f0_loss = calc_val_loss(
+            epoch_output_loss, epoch_dec_output_loss, epoch_f0_loss, epoch_classifier_loss = calc_val_loss(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
@@ -395,9 +426,10 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 ckpt_time=ckpt_time,
             )
-            val_output_loss_list.append(val_epoch_loss_output)
-            val_dec_output_loss_list.append(val_epoch_loss_dec_output)
-            val_f0_loss_list.append(val_epoch_f0_loss)
+            val_output_loss_list.append(epoch_output_loss)
+            val_dec_output_loss_list.append(epoch_dec_output_loss)
+            val_f0_loss_list.append(epoch_f0_loss)
+            val_classifier_loss_list.append(epoch_classifier_loss)
         
             scheduler.step()
 
@@ -410,9 +442,11 @@ def main(cfg):
                     train_output_loss_list=train_output_loss_list,
                     train_dec_output_loss_list=train_dec_output_loss_list,
                     train_f0_loss_list=train_f0_loss_list,
+                    train_classifier_loss_list=train_classifier_loss_list,
                     val_output_loss_list=val_output_loss_list,
                     val_dec_output_loss_list=val_dec_output_loss_list,
                     val_f0_loss_list=val_f0_loss_list,
+                    val_classifier_loss_list=val_classifier_loss_list,
                     epoch=current_epoch,
                     ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
                 )
@@ -420,6 +454,7 @@ def main(cfg):
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_f0_loss_list, val_f0_loss_list, save_path, "f0_loss")
+            save_loss(train_classifier_loss_list, val_classifier_loss_list, save_path, "classifier_loss")
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

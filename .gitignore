@@ -9,5 +9,5 @@ outputs/
 result/
 shells/
 wandb/
-wavenet/
 lip_check/
+thesis_result/

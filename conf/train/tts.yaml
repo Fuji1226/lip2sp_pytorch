@@ -1,6 +1,6 @@
 ---
 
-name : "default"
+name : "tts"
 
 # デバッグ
 debug : True
@@ -10,16 +10,16 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:01:09_10-11-47/mspec80_120.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/default/train"
+save_path : "~/lip2sp_pytorch/result/tts/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/default"
+ckpt_path : "~/lip2sp_pytorch/check_point/tts"
 ckpt_step : 10
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -40,9 +40,9 @@ corpus : ["ATR", "BASIC5000", "balanced"]
 # corpus : ["ATR"]
 
 # 使用する話者
-speaker : ["F01_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-use_spk_emb : False
+# speaker : ["F01_kablab"]
+speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+use_gc : True
 finetuning : False
 where_spk_emb : "after_res"
 
@@ -61,8 +61,8 @@ use_random_crop : False
 # 空間領域にランダムマスキング
 use_spatial_masking : False
 which_spatial_mask : "has"
-spatial_divide_factor : 4
-n_spatial_mask : 8
+spatial_divide_factor : 8
+n_spatial_mask : 24
 mask_length : 24
 
 # 再生速度変換
@@ -85,10 +85,10 @@ batch_size : 16
 num_workers : 16
 
 # dropout
-dec_dropout : 0.5
+dec_dropout : 0.1
 res_dropout : 0.1
 rnn_dropout : 0.1
-f0_predicter_dropout : 0.5
+lm_enc_dropout : 0.1
 
 # optimizer
 lr : 0.001
@@ -100,20 +100,12 @@ weight_decay : 1.0e-6
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.998
+lr_decay_exp : 0.995
 
 # gradient clipping
 max_norm : 3.0
 
-# parameter for scheduled sampling
-# min_mixing_prob = 1 : teacher forcing
-# min_mixing_probが小さくなるほどサンプルが劣化する(最小0)
-exp_factor : 0.98
-min_mixing_prob : 0.0
-
 # lossの重みづけ
-output_loss_weight : 1.0
-dec_output_loss_weight : 1.0
-f0_loss_weight : 1.0
+mse_weight : 1.0
 classifier_weight : 0
 use_weighted_mean : False

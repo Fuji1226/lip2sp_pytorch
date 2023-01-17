@@ -1,6 +1,6 @@
 ---
 
-name : "default"
+name : "lm"
 
 # デバッグ
 debug : True
@@ -10,17 +10,20 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:01:09_10-11-47/mspec80_120.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/lm/face_aligned_0_50_gray/2023:01:01_10-31-32/mspec80_220.ckpt"
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/default/train"
+save_path : "~/lip2sp_pytorch/result/lm/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/default"
+ckpt_path : "~/lip2sp_pytorch/check_point/lm"
 ckpt_step : 10
+
+# wikipediaから収録したテキストデータまでのパス
+wiki_path : "~/dataset/wiki/datafiles/sentences/limit_130/text.csv"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
@@ -42,9 +45,7 @@ corpus : ["ATR", "BASIC5000", "balanced"]
 # 使用する話者
 speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-use_spk_emb : False
-finetuning : False
-where_spk_emb : "after_res"
+use_gc : False
 
 # max_epoch
 max_epoch : 600
@@ -70,7 +71,7 @@ use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : True
+use_segment_masking : False
 which_seg_mask : "seg_mean"
 min_segment_masking_length : 0
 max_segment_masking_length : 25
@@ -80,9 +81,11 @@ use_time_frequency_masking : False
 feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
+learning_seq_len : 1000
+
 # dataloader
-batch_size : 16
-num_workers : 16
+batch_size : 96
+num_workers : 32
 
 # dropout
 dec_dropout : 0.5
@@ -100,7 +103,8 @@ weight_decay : 1.0e-6
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.998
+lr_decay_exp : 0.997
+use_warmup_scheduler : True
 
 # gradient clipping
 max_norm : 3.0
@@ -114,6 +118,6 @@ min_mixing_prob : 0.0
 # lossの重みづけ
 output_loss_weight : 1.0
 dec_output_loss_weight : 1.0
+delta_loss_w : 1.0
 f0_loss_weight : 1.0
-classifier_weight : 0
 use_weighted_mean : False

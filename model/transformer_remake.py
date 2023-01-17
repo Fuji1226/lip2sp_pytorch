@@ -1,12 +1,15 @@
+from pathlib import Path
+import sys
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-try:
-    from .pre_post import Prenet
-except:
-    from pre_post import Prenet
+
+from model.pre_post import Prenet
+from data_process.phoneme_encode import IGNORE_INDEX
 
 
 def get_subsequent_mask(x, diag_mask=False):
@@ -51,10 +54,9 @@ def token_mask(x):
     x : (B, T)
     mask : (B, T)
     """
-    MASK_INDEX = 0
     zero_matrix = torch.zeros_like(x)
     one_matrix = torch.ones_like(x)
-    mask = torch.where(x == MASK_INDEX, one_matrix, zero_matrix).bool() 
+    mask = torch.where(x == IGNORE_INDEX, one_matrix, zero_matrix).bool() 
     return mask
 
 
@@ -67,7 +69,7 @@ def shift(x, n_shift):
 
 def posenc(x, device, start_index=0):
     """
-    positional encoding
+    x : (B, C, T)
     """
     _, C, T = x.shape
 
@@ -112,14 +114,10 @@ class ScaledDotProductAttention(nn.Module):
         self.temperature = temperature
         self.dropout = nn.Dropout(attn_dropout)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask):
         attention = torch.matmul(q / self.temperature, k.transpose(2, 3))
-
-        if mask is not None:
-            attention = attention.masked_fill(mask, torch.tensor(float('-inf')))    # maskがTrueを-inf
-
+        attention = attention.masked_fill(mask, torch.tensor(float('-inf')))    # maskがTrueを-inf
         attention = F.softmax(attention, dim=-1)
-
         attention = self.dropout(attention)
         output = torch.matmul(attention, v)
         return output
@@ -140,7 +138,7 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask):
         """
         q, k, v : (B, T, C)
         return : (B, T, C)
@@ -156,8 +154,7 @@ class MultiHeadAttention(nn.Module):
         # (B, T, n_head, C // n_head)
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
 
-        if mask is not None:
-            mask = mask.unsqueeze(1)   # 各headに対してブロードキャストするため
+        mask = mask.unsqueeze(1)   # 各headに対してブロードキャストするため
 
         q = self.attention(q, k, v, mask=mask)  # (B, n_head, len_q, d_v)
 
@@ -191,7 +188,7 @@ class EncoderLayer(nn.Module):
         self.attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
 
-    def forward(self, enc_input, mask=None):
+    def forward(self, enc_input, mask):
         enc_output = self.attention(enc_input, enc_input, enc_input, mask)
         enc_output = self.fc(enc_output)
         return enc_output
@@ -204,7 +201,7 @@ class DecoderLayer(nn.Module):
         self.dec_enc_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
         self.fc = PositionwiseFeedForward(d_model, d_inner, dropout)
 
-    def forward(self, dec_input, enc_output, self_attention_mask=None, dec_enc_attention_mask=None, mode=None):
+    def forward(self, dec_input, enc_output, self_attention_mask, dec_enc_attention_mask, mode):
         """
         dec_input : (B, T, C)
         enc_output : (B, T, C)
@@ -250,18 +247,15 @@ class Encoder(nn.Module):
         ])
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, x, data_len=None):
+    def forward(self, x, data_len):
         """
         x : (B, C, T)
         enc_output : (B, T, C)
         """
         B, C, T = x.shape
 
-        if data_len is not None:
-            data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
-            mask = make_pad_mask(data_len, T)
-        else:
-            mask = None
+        data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+        mask = make_pad_mask(data_len, T)
 
         x = self.dropout(x)
         x = x + posenc(x, device=x.device, start_index=0)
@@ -364,7 +358,7 @@ class PhonemeDecoder(nn.Module):
         self.d_inner = d_model * 4
 
         # token embedding
-        self.emb_layer = nn.Embedding(out_channels, d_model)
+        self.emb_layer = nn.Embedding(out_channels, d_model, padding_idx=IGNORE_INDEX)
 
         self.dropout = nn.Dropout(dropout)
         self.dec_layers = nn.ModuleList([
@@ -375,7 +369,7 @@ class PhonemeDecoder(nn.Module):
         self.out_fc = nn.Linear(d_model, out_channels)
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
-    def forward(self, enc_output, prev, data_len=None, mode=None):
+    def forward(self, enc_output, data_len, prev, mode):
         """
         enc_output : (B, T, C)
         prev(phoneme sequence) : (B, T)
@@ -383,47 +377,40 @@ class PhonemeDecoder(nn.Module):
         return
         output : (B, C, T)
         """
-        assert mode is not None
 
-        if mode == "training":
-            data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
-            max_len = enc_output.shape[1]
+        # if mode == "training":
+        #     data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+        #     max_len = enc_output.shape[1]
 
-            # 口唇動画のパディングした部分に対してのマスク
-            dec_enc_attention_mask = make_pad_mask(data_len, max_len).to(device=enc_output.device)    # (B, 1, len_enc)
+        #     # 口唇動画のパディングした部分に対してのマスク
+        #     dec_enc_attention_mask = make_pad_mask(data_len, max_len).to(device=enc_output.device)    # (B, 1, len_enc)
 
-            # self attentionを因果的にするため + パディングした部分に対してのマスク
-            self_attention_mask = token_mask(prev).unsqueeze(1) | get_subsequent_mask(prev)  # (B, len_prev, len_prev)
+        #     # self attentionを因果的にするため + パディングした部分に対してのマスク
+        #     self_attention_mask = token_mask(prev).unsqueeze(1) | get_subsequent_mask(prev)  # (B, len_prev, len_prev)
             
-        elif mode == "inference":
-            dec_enc_attention_mask = None
-            self_attention_mask = get_subsequent_mask(prev)
+        # elif mode == "inference":
+        #     dec_enc_attention_mask = None
+        #     self_attention_mask = get_subsequent_mask(prev)
 
-        # prev(B, T) -> prev_emb(B, T, C)
-        prev_emb = self.emb_layer(prev)
+        data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+        max_len = enc_output.shape[1]
+
+        # 口唇動画のパディングした部分に対してのマスク
+        dec_enc_attention_mask = make_pad_mask(data_len, max_len).to(device=enc_output.device)    # (B, 1, len_enc)
+
+        # self attentionを因果的にするため + パディングした部分に対してのマスク
+        self_attention_mask = token_mask(prev).unsqueeze(1) | get_subsequent_mask(prev)  # (B, len_prev, len_prev)
+
+        prev_emb = self.emb_layer(prev)     # (B, T, C)
 
         # positional encoding & decoder layer
-        if mode == "training":
-            prev_emb = prev_emb.permute(0, 2, 1)    # (B, C, T)
-            prev_emb = prev_emb + posenc(prev_emb, device=prev_emb.device, start_index=0)
-            prev_emb = self.layer_norm(prev_emb.permute(0, 2, 1))    # (B, T, C)
-            dec_layer_out = prev_emb
+        prev_emb = prev_emb.permute(0, 2, 1)    # (B, C, T)
+        prev_emb = prev_emb + posenc(prev_emb, device=prev_emb.device, start_index=0)
+        prev_emb = self.layer_norm(prev_emb.permute(0, 2, 1))    # (B, T, C)
+        dec_layer_out = prev_emb
 
-            for dec_layer in self.dec_layers:
-                dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask, dec_enc_attention_mask, mode)
-
-        elif mode == "inference":
-            # if self.start_idx is None:
-            #     self.start_idx = 0
-            prev_emb = prev_emb.permute(0, 2, 1)    # (B, C, T)
-            prev_emb = prev_emb + posenc(prev_emb, device=prev_emb.device, start_index=0)
-            # prev_emb = prev_emb + posenc(prev_emb, device=prev_emb.device, start_index=self.start_idx)
-            prev_emb = self.layer_norm(prev_emb.permute(0, 2, 1))    # (B, T, C)
-            # self.start_idx += 1
-            dec_layer_out = prev_emb
-            
-            for dec_layer in self.dec_layers:
-                dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask, dec_enc_attention_mask, mode)
+        for dec_layer in self.dec_layers:
+            dec_layer_out = dec_layer(dec_layer_out, enc_output, self_attention_mask, dec_enc_attention_mask, mode)
 
         output = self.out_fc(dec_layer_out)
         output = output.permute(0, 2, 1)    # (B, T, C)

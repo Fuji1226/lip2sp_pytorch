@@ -1,10 +1,10 @@
 ---
 
 setup:
-    project: lipreading
+    project: face_gen
     entity:
     mode: online
-    name : lipreading
+    name : face_gen
 watch:
     log: all
     log_freq: 100

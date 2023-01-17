@@ -1,92 +1,28 @@
-"""
-LipReading用のデータセット
-基本的には口唇音声変換で使っているものを継承し,音素ラベルのための処理を追加しています
-"""
 import os
 import sys
 from pathlib import Path
-sys.path.append(Path("~/lip2sp_pytorch/data_process").expanduser())
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import numpy as np
 from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset
-from .dataset_npz import KablabTransform, get_speaker_idx
-from data_process.phoneme_encode import classes2index ,get_phoneme_info
+import pyopenjtalk
+import pandas as pd
 
-
-def get_stat_load_data(train_data_path):
-    print("\nget stat")
-    lip_mean_list = []
-    lip_var_list = []
-    lip_len_list = []
-    feat_mean_list = []
-    feat_var_list = []
-    feat_len_list = []
-    feat_add_mean_list = []
-    feat_add_var_list = []
-    feat_add_len_list = []
-    landmark_mean_list = []
-    landmark_var_list = []
-    landmark_len_list = []
-
-    for path in tqdm(train_data_path):
-        npz_path, _ = path
-        npz_key = np.load(str(npz_path))
-
-        lip = npz_key['lip']
-        feature = npz_key['feature']
-        feat_add = npz_key['feat_add']
-        landmark = npz_key['landmark']
-
-        lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
-        lip_var_list.append(np.var(lip, axis=(1, 2, 3)))
-        lip_len_list.append(lip.shape[-1])
-
-        feat_mean_list.append(np.mean(feature, axis=0))
-        feat_var_list.append(np.var(feature, axis=0))
-        feat_len_list.append(feature.shape[0])
-
-        feat_add_mean_list.append(np.mean(feat_add, axis=0))
-        feat_add_var_list.append(np.var(feat_add, axis=0))
-        feat_add_len_list.append(feat_add.shape[0])
-
-        landmark_mean_list.append(np.mean(landmark, axis=(0, 2)))
-        landmark_var_list.append(np.var(landmark, axis=(0, 2)))
-        landmark_len_list.append(landmark.shape[0])
-        
-    return lip_mean_list, lip_var_list, lip_len_list, \
-        feat_mean_list, feat_var_list, feat_len_list, \
-            feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
-                landmark_mean_list, landmark_var_list, landmark_len_list
-
-
-def calc_mean_var_std(mean_list, var_list, len_list):
-    mean_square_list = list(np.square(mean_list))
-
-    square_mean_list = []
-    for var, mean_square in zip(var_list, mean_square_list):
-        square_mean_list.append(var + mean_square)
-
-    mean_len_list = []
-    square_mean_len_list = []
-    for mean, square_mean, len in zip(mean_list, square_mean_list, len_list):
-        mean_len_list.append(mean * len)
-        square_mean_len_list.append(square_mean * len)
-
-    mean = sum(mean_len_list) / sum(len_list)
-    var = sum(square_mean_len_list) / sum(len_list) - mean ** 2
-    std = np.sqrt(var)
-    return mean, var, std
+from dataset.dataset_npz import KablabTransform
+from dataset.utils import get_speaker_idx, get_stat_load_data, calc_mean_var_std, get_utt
+from data_process.phoneme_encode import classes2index_tts
 
 
 class LipReadingDataset(Dataset):
-    def __init__(self, data_path, train_data_path, transform, cfg, classes):
+    def __init__(self, data_path, train_data_path, transform, cfg):
         super().__init__()
         self.data_path = data_path
         self.transform = transform
-        self.classes = classes
-        self.classes_index = classes2index(self.classes)
+        self.classes_index = classes2index_tts()
+
+        self.speaker_idx = get_speaker_idx(data_path)
 
         lip_mean_list, lip_var_list, lip_len_list, \
             feat_mean_list, feat_var_list, feat_len_list, \
@@ -107,17 +43,19 @@ class LipReadingDataset(Dataset):
         self.landmark_mean = torch.from_numpy(landmark_mean)
         self.landmark_std = torch.from_numpy(landmark_std)
 
+        self.path_text_pair_list = get_utt(data_path)
+
         print(f"n = {self.__len__()}")
 
     def __len__(self):
         return len(self.data_path)
 
     def __getitem__(self, index):
-        npz_path, alignment_path = self.data_path[index]
-        speaker = npz_path.parents[0].name
-        label = npz_path.stem
+        data_path, text = self.path_text_pair_list[index]
+        speaker = data_path.parents[1].name
+        label = data_path.stem
 
-        npz_key = np.load(str(npz_path))
+        npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
         lip = torch.from_numpy(npz_key['lip'])
         feature = torch.from_numpy(npz_key['feature'])
@@ -126,10 +64,7 @@ class LipReadingDataset(Dataset):
         upsample = torch.from_numpy(npz_key['upsample'])
         data_len = torch.from_numpy(npz_key['data_len'])
 
-        # 音素ラベルとその継続時間を取得
-        phoneme, duration = get_phoneme_info(alignment_path)
-
-        lip, feature, feat_add, phoneme_index, data_len = self.transform(
+        lip, feature, feat_add, text, data_len = self.transform(
             lip=lip,
             feature=feature,
             feat_add=feat_add,
@@ -144,12 +79,13 @@ class LipReadingDataset(Dataset):
             feat_add_std=self.feat_add_std, 
             landmark_mean=self.landmark_mean,
             landmark_std=self.landmark_std,
-            phoneme=phoneme,
-            duration=duration,
+            text=text,
             classes_index=self.classes_index,
         )
+        lip_len = torch.tensor(lip.shape[-1])
+        text_len = torch.tensor(text.shape[0] - 1)
         
-        return wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label
+        return wav, lip, feature, feat_add, text, data_len, text_len, speaker, label
 
 
 class LipReadingTransform(KablabTransform):
@@ -187,18 +123,20 @@ class LipReadingTransform(KablabTransform):
 
         return lip, feature, feat_add, phoneme, data_len
 
-    def phoneme2index(self, phoneme, classes_index):
+    def text2index(self, text, classes_index):
         """
         音素ラベルを数値列に変換
         """
-        # 数値列に変換
-        phoneme_index = [classes_index[p] if p in classes_index.keys() else None for p in phoneme]
+        text = text.split(" ")
+        text.insert(0, "sos")
+        text.append("eos")
+        phoneme_index = [classes_index[p] if p in classes_index.keys() else None for p in text]
         assert (None in phoneme_index) is False
         return torch.tensor(phoneme_index)
 
     def __call__(
         self, lip, feature, feat_add, landmark, upsample, data_len, lip_mean, lip_std, feat_mean, feat_std,
-        feat_add_mean, feat_add_std, landmark_mean, landmark_std, phoneme, duration, classes_index):
+        feat_add_mean, feat_add_std, landmark_mean, landmark_std, text, classes_index):
         """
         lip : (C, H, W, T)
         feature, feat_add : (T, C)
@@ -245,13 +183,13 @@ class LipReadingTransform(KablabTransform):
         # if self.train_val_test == "train" or self.train_val_test == "val":
         #     lip, feature, feat_add, phoneme, data_len = self.adjust_phoneme_length(lip, feature, feat_add, data_len, upsample, phoneme, duration)
 
-        # 音素ラベルをOnehot表現に変換
-        phoneme_index = self.phoneme2index(phoneme, classes_index)
+        text = pyopenjtalk.g2p(text)
+        text = self.text2index(text, classes_index)
 
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
         feat_add = feat_add.to(torch.float32)
-        return lip, feature, feat_add, phoneme_index, data_len
+        return lip, feature, feat_add, text, data_len
 
 
 def adjust_max_data_len(data):
@@ -282,22 +220,23 @@ def adjust_max_data_len(data):
 
 
 def collate_time_adjust_lipreading(batch, cfg):
-    wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label = list(zip(*batch))
+    wav, lip, feature, feat_add, text, data_len, text_len, speaker, label = list(zip(*batch))
 
     wav = adjust_max_data_len(wav)
     lip = adjust_max_data_len(lip)
     feature = adjust_max_data_len(feature)
     feat_add = adjust_max_data_len(feat_add)
-    phoneme_index = adjust_max_data_len(phoneme_index)
+    text = adjust_max_data_len(text)
     
     wav = torch.stack(wav)
     lip = torch.stack(lip)
     feature = torch.stack(feature)
     feat_add = torch.stack(feat_add)
-    phoneme_index = torch.stack(phoneme_index)
+    text = torch.stack(text)
     data_len = torch.stack(data_len)
+    text_len = torch.stack(text_len)
 
-    return wav, lip, feature, feat_add, phoneme_index, data_len, speaker, label
+    return wav, lip, feature, feat_add, text, data_len, text_len, speaker, label
 
 
 def collate_time_adjust_ctc(batch):

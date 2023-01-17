@@ -14,7 +14,7 @@ import torch
 
 from parallelwavegan.pwg_train import make_model
 from data_check import save_data_pwg
-from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature, gen_cat_wav, set_config
+from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature, gen_cat_wav, set_config, load_pretrained_model
 from data_process.phoneme_encode import get_keys_from_value
 
 # 現在時刻を取得
@@ -35,7 +35,7 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
 
     iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         wav_q = wav_q.to(device)
         lip = lip.to(device)
         feature = feature.to(device)
@@ -66,40 +66,33 @@ def main(cfg):
 
     gen, disc = make_model(cfg, device)
 
-    # gen 64
-    # model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:17_23-20-15/mspec80_500.ckpt").expanduser()
-    # model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:25_13-47-38/mspec80_60.ckpt").expanduser()
-    model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:30_21-57-55/mspec80_40.ckpt").expanduser()
+    start_epoch = 200
+    num_gen = 1
+    num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
-    # gen 96
-    # model_path = Path("~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:26_07-53-08/mspec80_500.ckpt").expanduser()
-    
-    cfg.train.face_or_lip = model_path.parents[1].name
-    cfg.test.face_or_lip = model_path.parents[1].name
+    for num_gen_epoch in num_gen_epoch_list:
+        # single speaker
+        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:06_08-35-21/mspec80_{num_gen_epoch}.ckpt").expanduser()
 
-    if model_path.suffix == ".ckpt":
-        try:
-            gen.load_state_dict(torch.load(str(model_path))['gen'])
-        except:
-            gen.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['gen'])
-    elif model_path.suffix == ".pth":
-        try:
-            gen.load_state_dict(torch.load(str(model_path)))
-        except:
-            gen.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+        # multi speaker
+        model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_{num_gen_epoch}.ckpt").expanduser()
+        
+        gen = load_pretrained_model(model_path, gen, "gen")
+        cfg.train.face_or_lip = model_path.parents[1].name
+        cfg.test.face_or_lip = model_path.parents[1].name
 
-    data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
-    
-    for data_root, save_path in zip(data_root_list, save_path_list):
-        test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
-        generate(
-            cfg=cfg,
-            gen=gen,
-            test_loader=test_loader,
-            dataset=test_dataset,
-            device=device,
-            save_path=save_path,
-        )
+        data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
+        
+        for data_root, save_path in zip(data_root_list, save_path_list):
+            test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
+            generate(
+                cfg=cfg,
+                gen=gen,
+                test_loader=test_loader,
+                dataset=test_dataset,
+                device=device,
+                save_path=save_path,
+            )
 
 
 if __name__ == "__main__":

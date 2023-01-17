@@ -110,7 +110,7 @@ def train_one_epoch(gen, train_loader, optimizer_g, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
         data_len = data_len.to(device)
@@ -158,7 +158,7 @@ def val_one_epoch(gen, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
         data_len = data_len.to(device)
@@ -204,7 +204,7 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
         data_len = data_len.to(device)
@@ -214,8 +214,8 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
 
         out_real = disc(wav)
         out_pred = disc(wav_pred.detach())
-        loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
 
+        loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
         epoch_loss_disc += loss_disc.item()
         wandb.log({"train_loss_disc": loss_disc})
 
@@ -225,6 +225,7 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
 
         with torch.no_grad():
             out_pred = disc(wav_pred)
+
         loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
         loss_gen_gan = torch.mean((out_pred - 1) ** 2)
         loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
@@ -272,7 +273,7 @@ def val_one_epoch_gan(gen, disc, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, speaker, label = batch
+        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
         data_len = data_len.to(device)
@@ -281,15 +282,11 @@ def val_one_epoch_gan(gen, disc, val_loader, loss_f, device, cfg, ckpt_time):
         with torch.no_grad():
             wav_pred = gen(noise, feature)
             out_real = disc(wav)
-            out_pred = disc(wav_pred.detach())
+            out_pred = disc(wav_pred)
 
         loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
-
         epoch_loss_disc += loss_disc.item()
         wandb.log({"val_loss_disc": loss_disc})
-
-        with torch.no_grad():
-            out_pred = disc(wav_pred)
 
         loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
         loss_gen_gan = torch.mean((out_pred - 1) ** 2)
@@ -418,13 +415,14 @@ def main(cfg):
             val_epoch_loss_gen_all_list = checkpoint["val_epoch_loss_gen_all_list"]
             
         elif cfg.train.use_disc:
-            print("load gen parameter")
-            checkpoint_path = Path(cfg.train.gen_path).expanduser()
-            if torch.cuda.is_available():
-                checkpoint = torch.load(checkpoint_path)
-            else:
-                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
-            gen.load_state_dict(checkpoint["gen"])
+            if cfg.train.start_gan_training_pretrained_gen:
+                print("load gen parameter")
+                checkpoint_path = Path(cfg.train.gen_path).expanduser()
+                if torch.cuda.is_available():
+                    checkpoint = torch.load(checkpoint_path)
+                else:
+                    checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+                gen.load_state_dict(checkpoint["gen"])
 
         wandb.watch(gen, **cfg.wandb_conf.watch)
         wandb.watch(disc, **cfg.wandb_conf.watch)

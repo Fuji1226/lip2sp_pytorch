@@ -61,8 +61,8 @@ pwg_cond_channels : 80
 pwg_upsample_scales : [10, 4, 2, 2]
 pwg_gen_n_layers : 30
 pwg_gen_n_stacks : 3
-pwg_disc_inner_channels : 96
-pwg_disc_n_layers : 5
+pwg_disc_inner_channels : 64
+pwg_disc_n_layers : 10
 pwg_kernel_size : 3
 pwg_dropout : 0.1
 pwg_use_weight_norm : False

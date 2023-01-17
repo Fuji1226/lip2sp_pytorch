@@ -9,10 +9,11 @@ debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:17_23-20-15/mspec80_300.ckpt"
-use_disc : False
-gen_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:17_23-20-15/mspec80_500.ckpt"
+check_point_start : True
+start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_200.ckpt"
+use_disc : True
+start_gan_training_pretrained_gen : False
+gen_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2022:12:30_21-57-55/mspec80_360.ckpt"
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
@@ -36,8 +37,8 @@ corpus : ["ATR", "BASIC5000", "balanced"]
 # corpus : ["ATR"]
 
 # 使用する話者
-speaker : ["F01_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+# speaker : ["F01_kablab"]
+speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
 # max_epoch
 max_epoch : 600
@@ -79,7 +80,7 @@ num_workers : 8
 
 # optimizer
 lr_gen : 0.001
-lr_disc : 0.00002
+lr_disc : 0.0005
 beta_1 : 0.9
 beta_2 : 0.999
 eps : 1.0e-6

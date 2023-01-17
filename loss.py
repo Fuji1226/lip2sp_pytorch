@@ -26,15 +26,6 @@ class MaskedLoss:
         if loss.dim() == 5:
             loss = torch.mean(loss, dim=(2, 3))
 
-        # if self.use_weighted_mean:
-        #     weight_list = []
-        #     for spk in speaker:
-        #         weight_list.append(self.weight[spk])
-
-        #     weight = torch.tensor(weight_list).to(device=loss.device)
-        #     weight = weight.unsqueeze(-1).unsqueeze(-1)     # (B, 1, 1)
-        #     loss *= weight
-
         # maskがTrueのところは0にして平均を取る
         loss = torch.where(mask == 0, loss, torch.zeros_like(loss))
         loss = torch.mean(loss, dim=1)  # (B, T)
@@ -59,7 +50,7 @@ class MaskedLoss:
         loss = torch.sum(loss) / torch.sum(n_loss)
         return loss
 
-    def cross_entropy_loss(self, output, target, ignore_index, speaker):
+    def cross_entropy_loss(self, output, target, ignore_index, speaker=None):
         if self.use_weighted_mean:
             weight_list = []
             for spk in speaker:

@@ -11,10 +11,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from jiwer import wer
+import seaborn as sns
 
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 from dataset.dataset_npz_ssl import KablabDatasetSSL, KablabTransformSSL, collate_time_adjust_ssl
 from dataset.dataset_lipreading import LipReadingDataset, LipReadingTransform, collate_time_adjust_lipreading
+from dataset.dataset_tts import DatasetTTS, TransformTTS, collate_time_adjust_tts
+from dataset.dataset_lm import DatasetLM, TransformLM, collate_time_adjust_lm
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_classes, get_classes_ctc, get_keys_from_value
 
@@ -167,35 +170,10 @@ def get_datasets(data_root, cfg):
     for speaker in cfg.train.speaker:
         print(f"{speaker}")
         spk_path_list = []
-        spk_path = data_root / speaker
+        spk_path = data_root / speaker / cfg.model.name
 
         for corpus in cfg.train.corpus:
-            spk_path_co = [p for p in spk_path.glob(f"*{cfg.model.name}.npz") if re.search(f"{corpus}", str(p))]
-            if len(spk_path_co) > 1:
-                print(f"load {corpus}")
-            spk_path_list += spk_path_co
-        items += random.sample(spk_path_list, len(spk_path_list))
-    return items
-
-
-def get_datasets_with_lab(data_root, cfg):
-    print("\n--- get datasets with lab ---")
-    items = []
-    for speaker in cfg.train.speaker:
-        print(f"{speaker}")
-        spk_path_list = []
-        spk_path = data_root / speaker
-
-        for corpus in cfg.train.corpus:
-            spk_path_co = []
-            for curdir, dirs, files in os.walk(spk_path):
-                for file in files:
-                    file_lab = Path(curdir, file)
-                    if file_lab.suffix == ".lab" and str(corpus) in file_lab.stem:
-                        file_npz = Path(curdir, f"{file_lab.stem}_{cfg.model.name}.npz")
-
-                        if file_lab.exists() and file_npz.exists():
-                            spk_path_co.append([file_npz, file_lab])
+            spk_path_co = [p for p in spk_path.glob("*.npz") if re.search(f"{corpus}", str(p))]
             if len(spk_path_co) > 1:
                 print(f"load {corpus}")
             spk_path_list += spk_path_co
@@ -208,26 +186,10 @@ def get_datasets_test(data_root, cfg):
     items = []
     for speaker in cfg.test.speaker:
         print(f"load {speaker}")
-        spk_path = data_root / speaker
-        spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
+        spk_path = data_root / speaker / cfg.model.name
+        spk_path = list(spk_path.glob("*.npz"))
         items += spk_path
     return items
-
-
-def get_datasets_test_with_lab(data_root, cfg):
-    print("\n--- get datasets with lab ---")
-    items = []
-    for speaker in cfg.test.speaker:
-        print(f"load {speaker}")
-        spk_path = data_root / speaker
-        for curdir, dirs, files in os.walk(spk_path):
-            for file in files:
-                file_lab = Path(curdir, file)
-                if file_lab.suffix == ".lab":
-                    file_npz = Path(curdir, f"{file_lab.stem}_{cfg.model.name}.npz")
-                    if file_lab.exists() and file_npz.exists():
-                        items.append([file_npz, file_lab])
-    return items    
 
 
 def make_train_val_loader(cfg, train_data_root, val_data_root):
@@ -278,9 +240,8 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
 
 
 def make_train_val_loader_lipreading(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets_with_lab(train_data_root, cfg)
-    val_data_path = get_datasets_with_lab(val_data_root, cfg)
-    classes = get_classes(train_data_path)
+    train_data_path = get_datasets(train_data_root, cfg)
+    val_data_path = get_datasets(val_data_root, cfg)
 
     train_trans = LipReadingTransform(cfg, "train")
     val_trans = LipReadingTransform(cfg, "val")
@@ -291,14 +252,12 @@ def make_train_val_loader_lipreading(cfg, train_data_root, val_data_root):
         train_data_path=train_data_path,
         transform=train_trans,
         cfg=cfg,
-        classes=classes,
     )
     val_dataset = LipReadingDataset(
         data_path=val_data_path,
         train_data_path=train_data_path,
         transform=val_trans,
         cfg=cfg,
-        classes=classes,
     )
 
     train_loader = DataLoader(
@@ -318,6 +277,94 @@ def make_train_val_loader_lipreading(cfg, train_data_root, val_data_root):
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_lipreading, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_tts(cfg, train_data_root, val_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    val_data_path = get_datasets(val_data_root, cfg)
+
+    train_trans = TransformTTS(cfg, "train")
+    val_trans = TransformTTS(cfg, "val")
+
+    print("\n--- make train dataset ---")
+    train_dataset = DatasetTTS(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = DatasetTTS(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_lm(cfg, train_data_root, val_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    val_data_path = get_datasets(val_data_root, cfg)
+
+    train_trans = TransformLM(cfg, "train")
+    val_trans = TransformLM(cfg, "val")
+
+    print("\n--- make train dataset ---")
+    train_dataset = DatasetLM(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+        load_wiki=True
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = DatasetLM(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+        load_wiki=False
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lm, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lm, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
@@ -394,10 +441,9 @@ def make_test_loader(cfg, data_root, train_data_root):
 
 
 def make_test_loader_lipreading(cfg, data_root, train_data_root):
-    train_data_path = get_datasets_with_lab(train_data_root, cfg)
-    test_data_path = get_datasets_test_with_lab(data_root, cfg)
+    train_data_path = get_datasets(train_data_root, cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
-    classes = get_classes(train_data_path)
 
     test_trans = LipReadingTransform(cfg, "test")
     test_dataset = LipReadingDataset(
@@ -405,7 +451,55 @@ def make_test_loader_lipreading(cfg, data_root, train_data_root):
         train_data_path=train_data_path,
         transform=test_trans,
         cfg=cfg,
-        classes=classes,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return test_loader, test_dataset
+
+
+def make_test_loader_tts(cfg, data_root, train_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
+    test_data_path = sorted(test_data_path)
+
+    test_trans = TransformTTS(cfg, "test")
+    test_dataset = DatasetTTS(
+        data_path=test_data_path,
+        train_data_path=train_data_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return test_loader, test_dataset
+
+
+def make_test_loader_lm(cfg, data_root, train_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
+    test_data_path = sorted(test_data_path)
+
+    test_trans = TransformLM(cfg, "test")
+    test_dataset = DatasetLM(
+        data_path=test_data_path,
+        train_data_path=train_data_path,
+        transform=test_trans,
+        cfg=cfg,
+        load_wiki=False
     )
     test_loader = DataLoader(
         dataset=test_dataset,
@@ -452,10 +546,10 @@ def calc_class_balance(cfg, data_root, device):
     for speaker in cfg.train.speaker:
         print(f"{speaker}")
         spk_path_list = []
-        spk_path = data_root / speaker
+        spk_path = data_root / speaker / cfg.model.name
 
         for corpus in cfg.train.corpus:
-            spk_path_co = [p for p in spk_path.glob(f"*{cfg.model.name}.npz") if re.search(f"{corpus}", str(p))]
+            spk_path_co = [p for p in spk_path.glob("*.npz") if re.search(f"{corpus}", str(p))]
             if len(spk_path_co) > 1:
                 print(f"load {corpus}")
             spk_path_list += spk_path_co
@@ -786,10 +880,12 @@ def check_text(target, output, epoch, cfg, classes_index, filename, current_time
 
 def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
     att_w = att_w.to('cpu').detach().numpy().copy()
-    plt.close()
-    plt.matshow(att_w, cmap="viridis")
-    plt.colorbar()
+
+    plt.figure()
+    sns.heatmap(att_w, cmap="viridis", cbar=True)
     plt.title("attention weight")
+    plt.xlabel("text")
+    plt.ylabel("feature")
 
     save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
     if ckpt_time is not None:
@@ -799,6 +895,8 @@ def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
+
+    plt.close()
 
 
 def mixing_prob_controller(cfg):
@@ -811,6 +909,48 @@ def mixing_prob_controller(cfg):
         else:
             prob_list.append(cfg.train.min_mixing_prob)
     return prob_list
+
+
+def load_pretrained_model_simple(model_path, model, model_name):
+    """
+    学習したモデルの読み込み
+    モデルが変わると使えない
+    """
+    if model_path.suffix == ".ckpt":
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(str(model_path))[str(model_name)])
+        else:
+            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))[str(model_name)])
+    elif model_path.suffix == ".pth":
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(str(model_path)))
+        else:
+            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+    return model
+
+
+def load_pretrained_model(model_path, model, model_name):
+    """
+    学習したモデルの読み込み
+    現在のモデルと事前学習済みのモデルで一致した部分だけを読み込むので,モデルが変わっていても以前のパラメータを読み込むことが可能
+    """
+    model_dict = model.state_dict()
+
+    if model_path.suffix == ".ckpt":
+        if torch.cuda.is_available():
+            pretrained_dict = torch.load(str(model_path))[str(model_name)]
+        else:
+            pretrained_dict = torch.load(str(model_path), map_location=torch.device('cpu'))[str(model_name)]
+    elif model_path.suffix == ".pth":
+        if torch.cuda.is_available():
+            pretrained_dict = torch.load(str(model_path))
+        else:
+            pretrained_dict = torch.load(str(model_path), map_location=torch.device('cpu'))
+
+    match_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+    model_dict.update(match_dict)
+    model.load_state_dict(model_dict)
+    return model
 
 
 def gen_separate(lip, input_length, shift_frame, f0_target, reduction_factor, landmark):

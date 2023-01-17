@@ -9,7 +9,7 @@ from librosa.display import specshow
 import hydra
 import pyworld
 
-from data_process.feature import wav2mel
+from data_process.feature import wav2mel, wav2world
 
 
 lip03_path = Path("~/lip2sp_pytorch/result/nar/generate/lip_cropped_0.3_50_gray/2022:12:09_13-29-45/mspec80_300/test_data/audio/F01_kablab").expanduser()
@@ -21,16 +21,18 @@ ar_tf_path = Path("~/lip2sp_pytorch/result/default/generate/face_aligned_0_50_gr
 ar_tf_no_mask_path = Path("~/lip2sp_pytorch/result/default/generate/face_aligned_0_50_gray/2022:12:17_16-36-04/mspec80_360/test_data/audio").expanduser()
 ar_ss_path = Path("~/lip2sp_pytorch/result/default/generate/face_aligned_0_50_gray/2022:12:15_14-11-36/mspec80_410/test_data/audio").expanduser()
 
-data_name = "ATR503_j01_0_mspec80"
+data_name = "ATR503_j05_0_mspec80"
 lip03_path = lip03_path / data_name
 lip08_path = lip08_path / data_name
 face_path = face_path / data_name
 face_delta_path = face_delta_path / data_name
 face_time_masking_path = face_time_masking_path / data_name
 ar_tf_path = ar_tf_path / data_name
+ar_tf_no_mask_path = ar_tf_no_mask_path / data_name
 ar_ss_path = ar_ss_path / data_name
 
 save_dir = Path("~/lip2sp_pytorch/thesis_result").expanduser()
+save_dir = save_dir / data_name
 save_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -43,7 +45,7 @@ def plot_spec(data, cfg, title):
         hop_length=cfg.model.hop_length,
         fmin=cfg.model.f_min,
         fmax=cfg.model.f_max,
-        cmap="gray",
+        cmap="viridis",
     )
     plt.colorbar(format="%+2.f dB")
     plt.xlabel("Time[s]")
@@ -60,6 +62,32 @@ def wav2f0(wav, cfg, f0_floor, f0_ceil):
         frame_period=cfg.model.frame_period,
     )
     return f0
+
+
+def plot_f0(f0_orig, f0_gen, cfg, title, y_lim_upper):
+    time = np.arange(0, f0_orig.shape[0]) / 100
+    plt.plot(time, f0_orig, label="Ground Truth")
+    plt.plot(time, f0_gen, label="Synthesis")
+    plt.xlabel("Time[s]")
+    plt.ylabel("f0[Hz]")
+    plt.xlim(0, time[-1])
+    plt.ylim(0, y_lim_upper)
+    plt.title(title)
+    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
+    plt.grid()
+
+
+def plot_clf0(f0_orig, f0_gen, cfg, title, y_lim_upper):
+    time = np.arange(0, f0_orig.shape[0]) / 100
+    plt.plot(time, f0_orig, label="Ground Truth")
+    plt.plot(time, f0_gen, label="Synthesis")
+    plt.xlabel("Time[s]")
+    plt.ylabel("f0[Hz]")
+    plt.xlim(0, time[-1])
+    # plt.ylim(0, y_lim_upper)
+    plt.title(title)
+    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
+    plt.grid()
 
 
 def input_comparison(cfg):
@@ -104,43 +132,41 @@ def input_comparison(cfg):
     f0_lip08 = wav2f0(wav_lip08, cfg, f0_floor, f0_ceil)
     f0_face = wav2f0(wav_face, cfg, f0_floor, f0_ceil)
 
-    time = np.arange(0, f0_orig.shape[0]) / 100
     plt.figure(figsize=(8, 9))
+    ylim_upper = 700
+
     plt.subplot(3, 1, 1)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_lip03, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.xlim(0, time[-1])
-    plt.ylim(0, 500)
-    plt.title("Lip Only")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_lip03, cfg, "Lip Only", ylim_upper)
 
     plt.subplot(3, 1, 2)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_lip08, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.xlim(0, time[-1])
-    plt.ylim(0, 500)
-    plt.title("Lip Wide")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_lip08, cfg, "Lip Wide", ylim_upper)
 
     plt.subplot(3, 1, 3)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_face, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.xlim(0, time[-1])
-    plt.ylim(0, 500)
-    plt.title("Face")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_face, cfg, "Face", ylim_upper)
 
     plt.tight_layout()
     plt.savefig(str(save_dir / "f0_input_comparison.png"))
+    plt.close()
+
+
+    _, clf0_orig, _, _, _, _ = wav2world(wav_orig, cfg.model.sampling_rate, cfg)
+    _, clf0_lip03, _, _, _, _ = wav2world(wav_lip03, cfg.model.sampling_rate, cfg)
+    _, clf0_lip08, _, _, _, _ = wav2world(wav_lip08, cfg.model.sampling_rate, cfg)
+    _, clf0_face, _, _, _, _ = wav2world(wav_face, cfg.model.sampling_rate, cfg)
+
+    plt.figure(figsize=(8, 9))
+
+    plt.subplot(3, 1, 1)
+    plot_clf0(clf0_orig, clf0_lip03, cfg, "Lip Only", ylim_upper)
+
+    plt.subplot(3, 1, 2)
+    plot_clf0(clf0_orig, clf0_lip08, cfg, "Lip Wide", ylim_upper)
+
+    plt.subplot(3, 1, 3)
+    plot_clf0(clf0_orig, clf0_face, cfg, "Face", ylim_upper)
+
+    plt.tight_layout()
+    plt.savefig(str(save_dir / "clf0_input_comparison.png"))
     plt.close()
 
 
@@ -204,25 +230,14 @@ def time_masking_comparison(cfg):
     f0_face = wav2f0(wav_face, cfg, f0_floor, f0_ceil)
     f0_face_mask = wav2f0(wav_face_mask, cfg, f0_floor, f0_ceil)
 
-    time = np.arange(0, f0_orig.shape[0]) / 100
     plt.figure(figsize=(8, 6))
+    ylim_upper = 600
+
     plt.subplot(2, 1, 1)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_face, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.title("Face")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_face, cfg, "Face", ylim_upper)
 
     plt.subplot(2, 1, 2)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_face_mask, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.title("Face Time Masking")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_face_mask, cfg, "Face Time Masking", ylim_upper)
 
     plt.tight_layout()
     plt.savefig(str(save_dir / "f0_time_masking_comparison.png"))
@@ -272,45 +287,41 @@ def ar_nar_comparison(cfg):
     f0_ar_tf = wav2f0(wav_ar_tf, cfg, f0_floor, f0_ceil)
     f0_ar_ss = wav2f0(wav_ar_ss, cfg, f0_floor, f0_ceil)
 
-    time = np.arange(0, f0_orig.shape[0]) / 100
     plt.figure(figsize=(8, 9))
+    ylim_upper = 450
+
     plt.subplot(3, 1, 1)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_face_mask, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.xlim(0, time[-1])
-    plt.ylim(0, 520)
-    plt.title("Non-autoregressive Model")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_face_mask, cfg, "Non-autoregressice Model", ylim_upper)
 
     plt.subplot(3, 1, 2)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_ar_tf, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.xlim(0, time[-1])
-    plt.ylim(0, 520)
-    plt.title("Autoregressive Model : Teacher Forcing")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_ar_tf, cfg, "Autoregressive Model : Teacher Forcing", ylim_upper)
 
     plt.subplot(3, 1, 3)
-    plt.plot(time, f0_orig, label="Ground Truth")
-    plt.plot(time, f0_ar_ss, label="Synthesis")
-    plt.xlabel("Time[s]")
-    plt.ylabel("f0[Hz]")
-    plt.xlim(0, time[-1])
-    plt.ylim(0, 520)
-    plt.title("Autoregressive Model : Scheduled Sampling")
-    plt.legend(bbox_to_anchor=(1, 1), loc='upper right', borderaxespad=0.2)
-    plt.grid()
+    plot_f0(f0_orig, f0_ar_ss, cfg, "Autoregressive Model : Scheduled Sampling", ylim_upper)
 
     plt.tight_layout()
     plt.savefig(str(save_dir / "f0_ar_nar_comparison.png"))
     plt.close()
 
+
+def tf_time_masking_comparison(cfg):
+    wav_ar_tf, _ = librosa.load(str(ar_tf_path / "generate.wav"), sr=cfg.model.sampling_rate)
+    wav_ar_tf_no_mask, _ = librosa.load(str(ar_tf_no_mask_path / "generate.wav"), sr=cfg.model.sampling_rate)
+
+    mel_ar_tf = wav2mel(wav_ar_tf, cfg, ref_max=True)
+    mel_ar_tf_no_mask = wav2mel(wav_ar_tf_no_mask, cfg, ref_max=True)
+
+    plt.figure(figsize=(8, 6))
+
+    plt.subplot(2, 1, 1)
+    plot_spec(mel_ar_tf, cfg, "When Time Masking is Used")
+
+    plt.subplot(2, 1, 2)
+    plot_spec(mel_ar_tf_no_mask, cfg, "When Time Masking is Not Used")
+
+    plt.tight_layout()
+    plt.savefig(str(save_dir / "mel_tf_time_masking_comparison.png"))
+    plt.close()
 
 
 @hydra.main(config_name="config", config_path="../conf")
@@ -319,6 +330,7 @@ def main(cfg):
     delta_comparison(cfg)
     time_masking_comparison(cfg)
     ar_nar_comparison(cfg)
+    tf_time_masking_comparison(cfg)
 
 
 if __name__ == "__main__":

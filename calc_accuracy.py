@@ -17,17 +17,18 @@ from subprocess import run
 from jiwer import wer, cer
 import MeCab
 import pyopenjtalk
+import pykakasi
 import pandas as pd
 
 
 debug = False
+abs_or_gen = "generate"
 
 
 def wav2flac(data_dir):
     for curdir, dirs, files in os.walk(data_dir):
         for file in files:
             if file.endswith(".wav") and "generate" in Path(file).stem:
-
                 file_gen = Path(curdir, file)
                 file_in = Path(curdir, "input.wav")
                 file_abs = Path(curdir, "abs.wav")
@@ -50,7 +51,7 @@ def load_utt():
     return df
 
 
-def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
+def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
     wav2flac(data_dir)
     df = load_utt()
 
@@ -58,6 +59,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
     stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, False)
     r = sr.Recognizer()
     mecab = MeCab.Tagger('-Owakati')
+    kakasi = pykakasi.kakasi()
 
     pesq_list = []
     stoi_list = []
@@ -77,7 +79,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
     for curdir, dirs, files in os.walk(data_dir):
         for file in files:
             if file.endswith(".wav"):
-                if "generate" in Path(file).stem:
+                if abs_or_gen in Path(file).stem:
                     iter_cnt += 1
                     print(f"\niter_cnt : {iter_cnt}")
                     wav_gen, fs = torchaudio.load(os.path.join(curdir, file))
@@ -198,7 +200,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
                             utt = df[i][3]
                             utt = utt.replace("。", "").replace("、", "")
 
-                    file_gen = Path(curdir, "generate.flac")
+                    file_gen = Path(curdir, f"{abs_or_gen}.flac")
                     file_in = Path(curdir, "input.flac")
 
                     with sr.AudioFile(str(file_gen)) as source:
@@ -281,7 +283,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename=None, process_times=None):
         per_target = sum(per_target_list) / len(per_target_list)
         per_gen = sum(per_gen_list) / len(per_gen_list)
 
-        file_name = save_path / f"accuracy.txt"
+        file_name = save_path / f"{filename}.txt"
         with open(str(file_name), "a") as f:
             f.write("--- Objective Evaluation Metrics ---\n")
             f.write(f"PESQ = {pesq:f}\n")

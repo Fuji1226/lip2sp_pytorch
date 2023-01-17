@@ -17,9 +17,7 @@ class Prenet(nn.Module):
 
     def forward(self, x):
         """
-        音響特徴量をtransformer内の次元に調整する役割
-        x : (B, C=feature channels, T)
-        y : (B, C=d_model, T)
+        x : (B, C, T)
         """
         return self.fc(x)
 
