@@ -102,8 +102,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         """
-        Args:
-            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        x : (T, B, C)
         """
         x = x + self.pe[:x.size(0)]
         return self.dropout(x)
@@ -152,8 +151,8 @@ class MultiHeadAttention(nn.Module):
         """
         d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
         sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
-
         residual = q
+
         # (B, T, n_head, C // n_head)
         q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
         k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
@@ -241,13 +240,14 @@ class DecoderLayer(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, n_layers, n_head, d_model, reduction_factor, dropout=0.1):
+    def __init__(self, n_layers, n_head, d_model, reduction_factor, pos_max_len, dropout=0.1):
         super().__init__()
         self.d_k = d_model // n_head
         self.d_v = d_model // n_head
         self.d_inner = d_model * 4
         self.reduction_factor = reduction_factor
 
+        self.pos_encoder = PositionalEncoding(d_model, max_len=pos_max_len)
         self.dropout = nn.Dropout(dropout)
         self.enc_layers = nn.ModuleList([
             EncoderLayer(d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
@@ -261,18 +261,9 @@ class Encoder(nn.Module):
         """
         mask = make_pad_mask(data_len, x.shape[-1])
 
-        # orig
-        # x = self.dropout(x)
-        # x = x + posenc(x, device=x.device, start_index=0)
-        # x = x.permute(0, -1, -2)  # (B, T, C)
-        # x = self.layer_norm(x)
-
-        # layernorm -> posenc
-        x = x.permute(0, -1, -2)  # (B, T, C)
-        x = self.layer_norm(x).permute(0, 2, 1)     # (B, C, T)
-        x = self.dropout(x)
-        x = x + posenc(x, device=x.device, start_index=0)
         x = x.permute(0, 2, 1)  # (B, T, C)
+        x = self.layer_norm(x).permute(1, 0, 2)     # (T, B, C)
+        x = self.pos_encoder(x).permute(1, 0, 2)    # (B, T, C)
 
         for enc_layer in self.enc_layers:
             x = enc_layer(x, mask)

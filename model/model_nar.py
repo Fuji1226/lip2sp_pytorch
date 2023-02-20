@@ -19,7 +19,7 @@ from conformer.encoder import ConformerEncoder
 class Lip2SP_NAR(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_inner_channels, which_res,
-        rnn_n_layers, rnn_which_norm, trans_n_layers, trans_n_head,
+        rnn_n_layers, rnn_which_norm, trans_n_layers, trans_n_head, trans_pos_max_len,
         conf_n_layers, conf_n_head, conf_feedforward_expansion_factor,
         dec_n_layers, dec_kernel_size,
         n_speaker, spk_emb_dim,
@@ -28,17 +28,22 @@ class Lip2SP_NAR(nn.Module):
         super().__init__()
         self.where_spk_emb = where_spk_emb
 
+        if is_large:
+            inner_channels = int(res_inner_channels * 16)
+        else:
+            inner_channels = int(res_inner_channels * 8)
+
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
                 in_channels=in_channels, 
-                out_channels=int(res_inner_channels * 8), 
+                out_channels=inner_channels, 
                 inner_channels=res_inner_channels,
                 dropout=res_dropout,
             )
         elif which_res == "default_remake":
             self.ResNet_GAP = ResNet3DRemake(
                 in_channels=in_channels, 
-                out_channels=int(res_inner_channels * 8), 
+                out_channels=inner_channels, 
                 inner_channels=res_inner_channels,
                 dropout=res_dropout,
                 is_large=is_large,
@@ -46,7 +51,7 @@ class Lip2SP_NAR(nn.Module):
         elif which_res == "vtp":
             self.ResNet_GAP = ResNet3DVTP(
                 in_channels=in_channels, 
-                out_channels=int(res_inner_channels * 8), 
+                out_channels=inner_channels, 
                 inner_channels=res_inner_channels,
                 dropout=res_dropout,
             )
@@ -56,7 +61,6 @@ class Lip2SP_NAR(nn.Module):
                 hidden_channels=res_inner_channels,
                 dropout=res_dropout,
             )
-        inner_channels = int(res_inner_channels * 8)
 
         if which_encoder == "transformer":
             self.encoder = Encoder(
@@ -64,6 +68,7 @@ class Lip2SP_NAR(nn.Module):
                 n_head=trans_n_head, 
                 d_model=inner_channels, 
                 reduction_factor=reduction_factor,  
+                pos_max_len=trans_pos_max_len,
             )
         elif which_encoder == "gru":
             self.encoder = GRUEncoder(

@@ -94,8 +94,8 @@ glu_kernel_size : 5   # 5 or 9
 glu_inner_channels : 256
 
 # transformer parameter
-trans_enc_n_layers : 4    # 1, 2 or 4
-trans_enc_n_head : 4    # 2 or 4
+trans_enc_n_layers : 6    # 1, 2 or 4
+trans_enc_n_head : 6    # 2 or 4
 trans_dec_n_layers : 4
 trans_dec_n_head : 4
 

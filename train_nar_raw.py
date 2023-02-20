@@ -65,6 +65,7 @@ def make_model(cfg, device):
         rnn_which_norm=cfg.model.rnn_which_norm,
         trans_n_layers=cfg.model.trans_enc_n_layers,
         trans_n_head=cfg.model.trans_enc_n_head,
+        trans_pos_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
         conf_n_layers=cfg.model.conf_n_layers,
         conf_n_head=cfg.model.conf_n_head,
         conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,

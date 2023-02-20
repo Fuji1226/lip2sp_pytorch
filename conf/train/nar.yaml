@@ -11,8 +11,7 @@ debug_iter : 0
 # checkpointから再開する場合
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_16-51-15/mspec80_90.ckpt"   # gru
-# start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_17-32-32/mspec80_90.ckpt"   # trans orig
-# start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_23-33-19/mspec80_90.ckpt"   # trans layernorm -> posenc
+# start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_23-33-19/mspec80_90.ckpt"   # trans
 
 # face or lip
 face_or_lip : "face"

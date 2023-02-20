@@ -92,8 +92,6 @@ class ResNet3DRemake(nn.Module):
             NormalConv(in_channels, inner_channels, 2),
             nn.Dropout(dropout),
         )
-        if is_large:
-            self.pool = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         self.convs = nn.ModuleList([
             ResBlock(inner_channels, inner_channels * 2, 2),            
             nn.Dropout(dropout),
@@ -104,7 +102,14 @@ class ResNet3DRemake(nn.Module):
             ResBlock(inner_channels * 4, inner_channels * 8, 2),
             nn.Dropout(dropout),
         ])
-        self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
+        if is_large:
+            self.final_conv = nn.Sequential(
+                ResBlock(inner_channels * 8, inner_channels * 16, 2),
+                nn.Dropout(dropout),
+            )
+            self.out_layer = nn.Conv1d(inner_channels * 16, out_channels, kernel_size=1)
+        else:
+            self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
     
     def forward(self, x):
         """
@@ -114,13 +119,18 @@ class ResNet3DRemake(nn.Module):
         fmaps = []
         x = self.first_conv(x)
         fmaps.append(x)
-
-        if hasattr(self, "pool"):
-            x = self.pool(x)
-            fmaps.append(x)
+        
+        print(x.shape)
 
         for layer in self.convs:
             x = layer(x)
+
+        print(x.shape)
+
+        if hasattr(self, "final_conv"):
+            x = self.final_conv(x)
+
+        print(x.shape)
 
         x = torch.mean(x, dim=(3, 4))
         x = self.out_layer(x)
