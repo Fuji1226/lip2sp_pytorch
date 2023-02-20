@@ -13,7 +13,7 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
 
 # face or lip
-face_or_lip : "face_aligned_0_50_gray"
+face_or_lip : "face"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/tts/train"
@@ -25,24 +25,30 @@ ckpt_step : 10
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
 lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
-
 lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
 lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
-
 face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
-
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
+
+# 元データ
+data_dir : "~/dataset/lip/cropped_fps25"
+bbox_dir : "~/dataset/lip/bbox_fps25"
+landmark_dir : "~/dataset/lip/landmark_fps25"
+train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
+val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
 # corpus : ["ATR"]
 
 # 使用する話者
-# speaker : ["F01_kablab"]
-speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-use_gc : True
+speaker : ["F01_kablab"]
+# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+# speaker : ["F01_kablab", "F02_kablab"]
+# speaker : ["M01_kablab", "M04_kablab"]
+use_gc : False
 finetuning : False
 where_spk_emb : "after_res"
 
@@ -70,7 +76,7 @@ use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : True
+use_segment_masking : False
 which_seg_mask : "seg_mean"
 min_segment_masking_length : 0
 max_segment_masking_length : 25
@@ -109,3 +115,5 @@ max_norm : 3.0
 mse_weight : 1.0
 classifier_weight : 0
 use_weighted_mean : False
+
+n_stop_token_frame : 2

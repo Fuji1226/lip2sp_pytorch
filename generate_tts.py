@@ -13,8 +13,8 @@ import torch.nn as nn
 import seaborn as sns
 
 from parallelwavegan.pwg_train import make_model as make_pwg
-from train_tts import make_model
-from utils import get_path_test, make_test_loader_tts
+from train_tts_raw import make_model
+from utils import get_path_test, make_test_loader_tts, load_pretrained_model
 from data_process.phoneme_encode import get_keys_from_value
 from data_check import save_data_tts, save_data_pwg
 
@@ -109,43 +109,29 @@ def main(cfg):
 
     gen, disc = make_pwg(cfg, device)
     model_path_pwg = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:06_08-35-21/mspec80_220.ckpt").expanduser()
-    if model_path_pwg.suffix == ".ckpt":
-        try:
-            gen.load_state_dict(torch.load(str(model_path_pwg))['gen'])
-        except:
-            gen.load_state_dict(torch.load(str(model_path_pwg), map_location=torch.device('cpu'))['gen'])
-    elif model_path_pwg.suffix == ".pth":
-        try:
-            gen.load_state_dict(torch.load(str(model_path_pwg)))
-        except:
-            gen.load_state_dict(torch.load(str(model_path_pwg), map_location=torch.device('cpu')))
+    gen = load_pretrained_model(model_path_pwg, gen, "gen")
 
-    model = make_model(cfg, device)
-
-    start_epoch = 350
+    start_epoch = 100
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
+    model = make_model(cfg, device)
     for num_gen_epoch in num_gen_epoch_list:
         # single speaker
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2023:01:08_10-33-05/mspec80_{num_gen_epoch}.ckpt").expanduser()     # F01
+        model_path = Path(f"~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2023:01:08_10-33-05/mspec80_{num_gen_epoch}.ckpt").expanduser()     # F01
 
         # multi speaker
-        model_path = Path(f"~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2023:01:09_16-25-15/mspec80_{num_gen_epoch}.ckpt").expanduser()
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2023:01:09_16-25-15/mspec80_{num_gen_epoch}.ckpt").expanduser()
 
+        # women
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2023:01:20_15-21-38/mspec80_{num_gen_epoch}.ckpt").expanduser()
+
+        # men
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2023:01:20_13-30-40/mspec80_{num_gen_epoch}.ckpt").expanduser()
+
+        model = load_pretrained_model(model_path, model, "model")
         cfg.train.face_or_lip = model_path.parents[1].name
         cfg.test.face_or_lip = model_path.parents[1].name
-
-        if model_path.suffix == ".ckpt":
-            try:
-                model.load_state_dict(torch.load(str(model_path))['model'])
-            except:
-                model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
-        elif model_path.suffix == ".pth":
-            try:
-                model.load_state_dict(torch.load(str(model_path)))
-            except:
-                model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
         data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
 

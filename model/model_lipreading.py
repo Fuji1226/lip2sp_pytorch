@@ -65,11 +65,11 @@ class Lip2Text(nn.Module):
         # train
         if prev is not None:
             if training_method == "tf":
-                output = self.decoder_forward(enc_output, prev, data_len)
+                output = self.decoder_forward(enc_output, data_len, prev)
 
             elif training_method == "ss":
                 with torch.no_grad():
-                    output = self.decoder_forward(enc_output, prev, data_len)
+                    output = self.decoder_forward(enc_output, data_len, prev)
 
                     # 最大値(Onehotの1のところ)のインデックスを取得
                     output = output.max(dim=1)[1]   # (B, T)

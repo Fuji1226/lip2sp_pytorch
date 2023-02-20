@@ -11,41 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '.'))
+from pathlib import Path
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import torch
 import torch.nn as nn
 from torch import Tensor
-from typing import Tuple
 
-try:
-    from .feed_forward import FeedForwardModule
-    from .attention import MultiHeadedSelfAttentionModule
-    from .convolution import (
-        ConformerConvModule,
-        Conv2dSubampling,
-    )
-    from .modules import (
-        ResidualConnectionModule,
-        Linear,
-    )
-    from ..transformer_remake import make_pad_mask
-except:
-    from feed_forward import FeedForwardModule
-    from attention import MultiHeadedSelfAttentionModule
-    from convolution import (
-        ConformerConvModule,
-        Conv2dSubampling,
-    )
-    from modules import (
-        ResidualConnectionModule,
-        Linear,
-    )
-    from transformer_remake import make_pad_mask
-
-from hparams import create_hparams
+from model.conformer.feed_forward import FeedForwardModule
+from model.conformer.attention import MultiHeadedSelfAttentionModule
+from model.conformer.convolution import ConformerConvModule
+from model.conformer.modules import ResidualConnectionModule
+from model.transformer_remake import make_pad_mask
 
 
 class ConformerBlock(nn.Module):
@@ -169,52 +147,16 @@ class ConformerEncoder(nn.Module):
             conv_kernel_size=conv_kernel_size,
             half_step_residual=half_step_residual,
         ) for _ in range(num_layers)])
-
-        self.reduction_factor = reduction_factor
     
-    def forward(self, lip_feature, data_len=None):
+    def forward(self, x, data_len=None):
         """
-        lip_feature : (B, C, T)
+        x : (B, C, T)
         output : (B, T, C)
         """
-        B, C, T = lip_feature.shape
+        mask = make_pad_mask(data_len, x.shape[-1])
+        output = x.permute(0, -1, -2)  # (B, T, C)
 
-        # get mask（学習時のみ、0パディングされた部分を隠すためのマスクを作成）
-        if data_len is not None:
-            data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
-            max_len = T
-            mask = make_pad_mask(data_len, max_len)
-        else:
-            # 推論時はマスクなし
-            mask = None
-        
-        output = lip_feature.permute(0, -1, -2)  # (B, T, C)
-
-        # encoder layers
         for layer in self.layers:
             output = layer(output, mask)
+
         return output
-
-
-
-def main():
-     # parameter
-    hparams = create_hparams()
-
-    # data_len
-    data_len = [300, 300, 200, 100]
-    data_len = torch.tensor(data_len)
-    max_len = hparams.length // 2
-
-    batch = 4
-    frames = 150
-    lip_feature = torch.rand(batch, hparams.d_model, frames)
-    con_enc = ConformerEncoder(encoder_dim=hparams.d_model, num_layers=hparams.n_layers, num_attention_heads=hparams.n_head)
-    out = con_enc(lip_feature, data_len, max_len)
-    # out = con_enc(lip_feature)
-    print(out.shape)
-    return
-
-
-if __name__ == "__main__":
-    main()

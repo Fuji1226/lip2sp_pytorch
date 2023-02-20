@@ -99,20 +99,5 @@ def main():
                 break
 
 
-def count_files():
-    print("count files")
-    landmark_dir = data_dir / "landmark"
-
-    file_list = []
-    for curdir, dirs, files in os.walk(landmark_dir):
-        for file in files:
-            file = Path(file)
-            file_list.append(file)
-
-    print(len(file_list))
-    breakpoint()
-
-
 if __name__ == "__main__":
     main()
-    # count_files()

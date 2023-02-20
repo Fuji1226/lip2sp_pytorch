@@ -1,3 +1,7 @@
+"""
+F01のpwgはこれでいい
+Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt").expanduser()
+"""
 import hydra
 
 from pathlib import Path
@@ -14,7 +18,7 @@ import torch
 
 from parallelwavegan.pwg_train import make_model
 from data_check import save_data_pwg
-from utils import make_test_loader, get_path_test, gen_separate, gen_cat_feature, gen_cat_wav, set_config, load_pretrained_model
+from utils import make_test_loader, get_path_test, load_pretrained_model
 from data_process.phoneme_encode import get_keys_from_value
 
 # 現在時刻を取得
@@ -59,23 +63,30 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    set_config(cfg)
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     gen, disc = make_model(cfg, device)
 
-    start_epoch = 200
+    start_epoch = 68
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
     for num_gen_epoch in num_gen_epoch_list:
         # single speaker
         # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:06_08-35-21/mspec80_{num_gen_epoch}.ckpt").expanduser()
+        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:26_13-18-16/mspec80_{num_gen_epoch}.ckpt").expanduser()
+        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_{num_gen_epoch}.ckpt").expanduser()     # training 1 sec
+        model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:02:02_16-06-28/mspec80_{num_gen_epoch}.ckpt").expanduser()     # training 1 sec 
 
         # multi speaker
-        model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_{num_gen_epoch}.ckpt").expanduser()
+        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_{num_gen_epoch}.ckpt").expanduser()
+
+        # women
+        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:20_14-52-31/mspec80_{num_gen_epoch}.ckpt").expanduser()
+
+        # men
+        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:20_13-30-39/mspec80_{num_gen_epoch}.ckpt").expanduser()
         
         gen = load_pretrained_model(model_path, gen, "gen")
         cfg.train.face_or_lip = model_path.parents[1].name

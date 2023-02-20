@@ -10,6 +10,7 @@ import numpy as np
 
 from model.pre_post import Prenet
 from data_process.phoneme_encode import IGNORE_INDEX
+from utils import check_attention_weight
 
 
 def get_subsequent_mask(x, diag_mask=False):
@@ -108,15 +109,21 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
+def plot_trans_att_w(att_w, filename, cfg, current_time, ckpt_time):
+    for i in range(att_w.shape[0]):
+        check_attention_weight(att_w[i], cfg, f"{filename}_head{i}", current_time, ckpt_time)
+
+
 class ScaledDotProductAttention(nn.Module):
     def __init__(self, temperature, attn_dropout=0.1):
         super().__init__()
         self.temperature = temperature
         self.dropout = nn.Dropout(attn_dropout)
 
-    def forward(self, q, k, v, mask):
+    def forward(self, q, k, v, mask=None):
         attention = torch.matmul(q / self.temperature, k.transpose(2, 3))
-        attention = attention.masked_fill(mask, torch.tensor(float('-inf')))    # maskがTrueを-inf
+        if mask is not None:
+            attention = attention.masked_fill(mask, torch.tensor(float('-inf')))    # maskがTrueを-inf
         attention = F.softmax(attention, dim=-1)
         attention = self.dropout(attention)
         output = torch.matmul(attention, v)
@@ -147,11 +154,12 @@ class MultiHeadAttention(nn.Module):
         sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
 
         residual = q
+        # (B, T, n_head, C // n_head)
         q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
         k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
         v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
 
-        # (B, T, n_head, C // n_head)
+        # (B, n_head, T, C // n_head)
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
 
         mask = mask.unsqueeze(1)   # 各headに対してブロードキャストするため
@@ -250,21 +258,25 @@ class Encoder(nn.Module):
     def forward(self, x, data_len):
         """
         x : (B, C, T)
-        enc_output : (B, T, C)
         """
-        B, C, T = x.shape
+        mask = make_pad_mask(data_len, x.shape[-1])
 
-        data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
-        mask = make_pad_mask(data_len, T)
+        # orig
+        # x = self.dropout(x)
+        # x = x + posenc(x, device=x.device, start_index=0)
+        # x = x.permute(0, -1, -2)  # (B, T, C)
+        # x = self.layer_norm(x)
 
+        # layernorm -> posenc
+        x = x.permute(0, -1, -2)  # (B, T, C)
+        x = self.layer_norm(x).permute(0, 2, 1)     # (B, C, T)
         x = self.dropout(x)
         x = x + posenc(x, device=x.device, start_index=0)
-        x = x.permute(0, -1, -2)  # (B, T, C)
-        enc_output = self.layer_norm(x)
+        x = x.permute(0, 2, 1)  # (B, T, C)
 
         for enc_layer in self.enc_layers:
-            enc_output = enc_layer(enc_output, mask)
-        return enc_output
+            x = enc_layer(x, mask)
+        return x
 
 
 class Decoder(nn.Module):

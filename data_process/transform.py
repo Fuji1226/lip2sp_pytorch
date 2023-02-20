@@ -14,12 +14,21 @@ from scipy.interpolate import interp1d
 from pysptk import swipe
 import torchvision
 import pandas as pd
+import pydub
+import torch
 
-from utils import get_upsample
 from data_process.feature import wav2mel, wav2world
+from data_process.face_crop import get_crop_info
+from data_process.face_crop_align import FaceAligner, get_landmark
 
 
-imsize = 56
+def get_upsample(cfg):
+    """
+    動画のfpsと音響特徴量のフレームあたりの秒数から対応関係を求める
+    """
+    n_frames = 1000 // cfg.model.frame_period
+    upsample = n_frames // cfg.model.fps
+    return int(upsample)
 
 
 def calc_sp(wav, cfg):
@@ -75,8 +84,9 @@ def load_mp4(path, cfg):
     movie.release()
 
     lip, _, _ = torchvision.io.read_video(str(path), pts_unit="sec")    # lip : (T, W, H, C)
-    resizer = torchvision.transforms.Resize((imsize, imsize))
-    lip_resize = resizer(lip.permute(0, -1, 1, 2))  # (T, C, W, H)
+    lip_resize = torchvision.transforms.functional.resize(lip.permute(0, -1, 1, 2), [cfg.model.imsize, cfg.model.imsize])   # (T, C, W, H)
+    # resizer = torchvision.transforms.Resize((imsize, imsize))
+    # lip_resize = resizer(lip.permute(0, -1, 1, 2))  # (T, C, W, H)
 
     if cfg.model.gray:
         rgb2gray = torchvision.transforms.Grayscale()
@@ -160,7 +170,7 @@ def load_data_for_npz(video_path, audio_path, landmark_path, cfg):
     lip, fps = load_mp4(str(video_path), cfg)   # lipはtensor
     wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
     wav = wav / np.max(np.abs(wav), axis=0)
-    upsample = get_upsample(fps, fs, cfg.model.frame_period)
+    upsample = get_upsample(cfg)
     landmark = load_landmark(landmark_path)     # (T, 2, 68)
     
     # 音響特徴量への変換
@@ -174,6 +184,119 @@ def load_data_for_npz(video_path, audio_path, landmark_path, cfg):
     lip = lip[..., :data_len // upsample]
     landmark = landmark[:data_len // upsample, ...]
 
-    lip = lip.to('cpu').numpy()
-
+    lip = lip.numpy()
     return wav, lip, feature, feat_add, upsample, data_len, landmark
+
+
+def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
+    lip, _, _ = torchvision.io.read_video(str(video_path), pts_unit="sec")    # (T, W, H, C)
+
+    if cfg.model.mov_preprocess_method == "align":
+        lip = lip.permute(0, 2, 3, 1).numpy()   # (T, H, W, C)
+        coords_list = get_landmark(landmark_path)
+
+        lip_processed_list = []
+        for i in range(lip.shape[0]):
+            lip_processed = aligner.align(lip[i], coords_list[i])
+            lip_processed_list.append(lip_processed)
+        lip_processed = np.stack(lip_processed_list, axis=0)
+        lip_processed = torch.from_numpy(lip_processed)     # (T, H, W, C)
+        lip_processed = lip_processed.permute(0, 3, 1, 2)   # (T, C, H, W)
+
+    elif cfg.model.mov_preprocess_method == "bbox_crop":
+        lip = lip.permute(0, -1, 1, 2)  # (T, C, H, W)
+        coords_mean, crop_size = get_crop_info(bbox_path, cfg.model.margin)
+        if crop_size > lip.shape[-1]:
+            crop_size = lip.shape[-1]
+            crop_size = crop_size // 2 * 2
+
+        lip_processed_list = []
+        for i in range(lip.shape[0]):
+            top = np.clip(coords_mean[i][1] - crop_size // 2, a_min=0, a_max=lip.shape[-1] - crop_size)
+            left = np.clip(coords_mean[i][0] - crop_size // 2, a_min=0, a_max=lip.shape[-1] - crop_size)
+            lip_processed = torchvision.transforms.functional.crop(
+                lip[i, ...],
+                top=top,
+                left=left,
+                height=crop_size,
+                width=crop_size,
+            )
+            lip_processed_list.append(lip_processed)
+        lip_processed = torch.stack(lip_processed_list, dim=0)      # (T, C, H, W)
+        
+    return lip_processed
+
+
+def load_data(video_path, audio_path, bbox_path, landmark_path, text_path, cfg, aligner):
+    # 動画から検出済みのbouding boxを利用して顔領域を切り取り
+    lip = preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner)
+
+    # グレースケール化 & リサイズ
+    if cfg.model.gray:
+        lip = torchvision.transforms.functional.rgb_to_grayscale(lip)   # (T, C, H, W)
+    lip = torchvision.transforms.functional.resize(lip, [cfg.model.imsize, cfg.model.imsize])   # (T, C, W, H)
+
+    wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
+    wav = wav / np.max(np.abs(wav), axis=0)
+    feature = wav2mel(wav, cfg, ref_max=False)  # (C, T)
+
+    # 系列長の調整
+    upsample = get_upsample(cfg)
+    data_len = min(int(feature.shape[1] // upsample * upsample), int(lip.shape[0] * upsample))
+    lip = lip[:data_len // upsample,  ...]
+    feature = feature[:, :data_len]
+    n_wav_sample_per_frame = cfg.model.sampling_rate * cfg.model.frame_period // 1000
+    wav = wav[:int(n_wav_sample_per_frame * data_len)]
+    wav_padded = np.zeros(int(n_wav_sample_per_frame * data_len))
+    wav_padded[:wav.shape[0]] = wav
+    wav = wav_padded
+
+    df = pd.read_csv(str(text_path))
+    text = df.pronounce.values[0]
+
+    assert feature.shape[1] == int(lip.shape[0] * upsample)
+    lip = lip.permute(1, 2, 3, 0).numpy()   # (C, H, W, T)
+    feature = feature.T     # (T, C)
+    return wav, lip, feature, data_len, text
+
+
+def load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
+    """
+    wav : (T,)
+    lip : (C, H, W, T)
+    feature : (T, C)
+    """
+    # 動画から検出済みのbouding boxを利用して顔領域を切り取り
+    lip = preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner)
+
+    # グレースケール化 & リサイズ
+    if cfg.model.gray:
+        lip = torchvision.transforms.functional.rgb_to_grayscale(lip)   # (T, C, H, W)
+    lip = torchvision.transforms.functional.resize(lip, [cfg.model.imsize, cfg.model.imsize])   # (T, C, W, H)
+
+    # mp4から音声を読み込み
+    # sound = pydub.AudioSegment.from_file(str(video_path), frame_rate=cfg.model.sampling_rate, channels=1)
+    # sound = sound.get_array_of_samples()
+    # wav = np.array(sound).astype(np.float32)
+    # wav /= np.iinfo(sound.typecode).max
+    wav, fs = librosa.load(str(video_path), sr=cfg.model.sampling_rate, mono=None)
+    wav = wav / np.max(np.abs(wav), axis=0)
+    feature = wav2mel(wav, cfg, ref_max=False)  # (C, T)
+
+    # 系列長の調整
+    upsample = get_upsample(cfg)
+    data_len = min(feature.shape[1], int(lip.shape[0] * upsample))
+    lip = lip[:data_len // upsample,  ...]
+    feature = feature[:, :data_len]
+    n_wav_sample_per_frame = cfg.model.sampling_rate * cfg.model.frame_period // 1000
+    wav = wav[:int(n_wav_sample_per_frame * data_len)]
+    wav_padded = np.zeros(int(n_wav_sample_per_frame * data_len))
+    wav_padded[:wav.shape[0]] = wav
+    wav = wav_padded
+
+    assert feature.shape[1] == int(lip.shape[0] * upsample)
+    lip = lip.permute(1, 2, 3, 0).numpy()   # (C, H, W, T)
+    feature = feature.T     # (T, C)
+    return wav, lip, feature, data_len
+
+

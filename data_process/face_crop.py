@@ -41,8 +41,8 @@ def mooving_average(coords_mean):
     return mov_avg_list
 
 
-def get_crop_info(det_path):
-    df = pd.read_csv(str(det_path), header=None)
+def get_crop_info(bbox_path, margin):
+    df = pd.read_csv(str(bbox_path), header=None)
 
     coords_list = []
     for i in range(len(df)):
@@ -63,13 +63,15 @@ def get_crop_info(det_path):
         if each_crop_size > crop_size:
             crop_size = each_crop_size
 
-    crop_size += int(crop_size * margin)
+    crop_size += crop_size * margin
+    crop_size = int(crop_size)
+    crop_size = crop_size // 2 * 2
     coords_mean = mooving_average(coords_mean)
 
     return coords_mean, crop_size
 
 def face_crop(data_path, det_path, save_dir):
-    coords_mean, crop_size = get_crop_info(det_path)
+    coords_mean, crop_size = get_crop_info(det_path, margin)
     movie = cv2.VideoCapture(str(data_path))
     fps = movie.get(cv2.CAP_PROP_FPS)
     n_frame = movie.get(cv2.CAP_PROP_FRAME_COUNT)

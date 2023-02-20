@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 import pandas as pd
 
-speaker = "F02_kablab"
+speaker = "F01_kablab_all"
 landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
 data_dir = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
 desired_left_eye = (0.35, 0.35)
@@ -28,6 +28,9 @@ class FaceAligner:
         self.desired_face_height = desired_face_height
 
     def align(self, frame, landmark):
+        """
+        frame : (H, W, C)
+        """
         left_eye_coords = landmark[int(36 * 2) : int(42 * 2)]
         right_eye_coords = landmark[int(42 * 2) : int(48 * 2)]
         left_eye_center = [np.mean(left_eye_coords[0::2]).astype("int"), np.mean(left_eye_coords[1::2]).astype("int")]

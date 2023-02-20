@@ -5,11 +5,12 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 class MelEncoder(nn.Module):
-    def __init__(self, in_channels, out_channels, dropout):
+    def __init__(self, in_channels, out_channels, hidden_channels, dropout):
         super().__init__()
-        in_cs = [in_channels, 128, 128, 256, 256]
-        out_cs = [128, 128, 256, 256, out_channels]
-        stride = [1, 1, 2, 1, 1]
+        hc = hidden_channels
+        in_cs = [in_channels, hc, hc, int(hc * 2), int(hc * 2)]
+        out_cs = [hc, hc, int(hc * 2), int(hc * 2), out_channels]
+        stride = [2, 1, 2, 1, 1]
         self.layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_c, out_c, kernel_size=3, stride=s, padding=1),
@@ -40,19 +41,23 @@ class MelEncoder(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, in_channels, img_cond_channels, feat_channels, feat_cond_channels, noise_channels, tc_ksize, dropout):
+    def __init__(
+        self, in_channels, img_hidden_channels, img_cond_channels, 
+        feat_channels, feat_cond_channels, mel_enc_hidden_channels, 
+        noise_channels, tc_ksize, dropout, is_large):
         super().__init__()
         assert tc_ksize % 2 == 0
         self.noise_channels = noise_channels
-        in_cs = [in_channels, 32, 64, 128]
-        out_cs = [32, 64, 128, 256]
+        hc = img_hidden_channels
+        in_cs = [in_channels, hc, int(hc * 2), int(hc * 4)]
+        out_cs = [hc, int(hc * 2), int(hc * 4), int(hc * 8)]
 
         if tc_ksize == 2:
             padding = 0
         elif tc_ksize == 4:
             padding = 1
 
-        self.audio_enc = MelEncoder(in_channels=feat_channels, out_channels=feat_cond_channels, dropout=dropout)
+        self.audio_enc = MelEncoder(feat_channels, feat_cond_channels, mel_enc_hidden_channels, dropout)
         self.noise_rnn = nn.GRU(noise_channels, noise_channels, num_layers=1, batch_first=True, bidirectional=True)
         self.noise_fc = nn.Linear(noise_channels * 2, noise_channels)
 
@@ -70,11 +75,19 @@ class Generator(nn.Module):
         )
 
         self.dec_first_layer = nn.Sequential(
-            nn.ConvTranspose3d(img_cond_channels + feat_cond_channels + noise_channels, out_cs[-1], kernel_size=(3, 3, 1)),
+            nn.Conv3d(img_cond_channels + feat_cond_channels + noise_channels, out_cs[-1], kernel_size=3, padding=1),
             nn.BatchNorm3d(out_cs[-1]),
             nn.ReLU(),
             nn.Dropout(dropout),
         )
+        if is_large:
+            self.dec_expand_layer = nn.Sequential(
+                nn.ConvTranspose3d(out_cs[-1], out_cs[-1], kernel_size=(tc_ksize, tc_ksize, 1), stride=(2, 2, 1), padding=(padding, padding, 0)),
+                nn.BatchNorm3d(out_cs[-1]),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+            )
+
         self.dec_layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv3d(out_c * 2, out_c * 2, kernel_size=(3, 3, 3), padding=(1, 1, 1)),
@@ -87,8 +100,6 @@ class Generator(nn.Module):
         self.dec_last_layer = nn.Sequential(
             nn.Conv3d(out_cs[0] * 2, out_cs[0] * 2, kernel_size=(3, 3, 3), padding=(1, 1, 1)),
             nn.ConvTranspose3d(out_cs[0] * 2, in_cs[0], kernel_size=(tc_ksize, tc_ksize, 1), stride=(2, 2, 1), padding=(padding, padding, 0)),
-            # nn.BatchNorm3d(in_cs[0]),
-            # nn.Tanh(),  # 出力が[-1, 1]になるようにする(事前に画像を[-1, 1]にしておく)
         )
 
     def forward(self, lip, feature, data_len):
@@ -97,6 +108,7 @@ class Generator(nn.Module):
         feature : (B, C, T)
         out : (B, C, H, W, T)
         """
+        B, C, H, W = lip.shape
         enc_out = lip
         fmaps = []
         for layer in self.enc_layers:
@@ -126,10 +138,14 @@ class Generator(nn.Module):
         lip_rep = lip_rep.expand(-1, -1, -1, -1, feat_rep.shape[-1])  # (B, C, 1, 1, T)
         feat_rep = feat_rep.unsqueeze(2).unsqueeze(2)   # (B, C, 1, 1, T)
         noise_rep = noise_rep.unsqueeze(2).unsqueeze(2)   # (B, C, 1, 1, T)
-        rep = torch.cat([lip_rep, feat_rep, noise_rep], dim=1)
+        out = torch.cat([lip_rep, feat_rep, noise_rep], dim=1)
 
         # 音声と画像から発話内容に対応した動画を合成
-        out = self.dec_first_layer(rep)     # (B, C, 3, 3, T)
+        out = F.interpolate(out, size=(3, 3, 75))
+        out = self.dec_first_layer(out)     # (B, C, H, W, T)
+        if hasattr(self, "dec_expand_layer"):
+            out = self.dec_expand_layer(out)
+            
         for layer, fmap in zip(self.dec_layers, reversed(fmaps)):
             fmap = fmap.unsqueeze(-1).expand(-1, -1, -1, -1, out.shape[-1])
             out = torch.cat([out, fmap], dim=1)
@@ -172,6 +188,36 @@ class FrameDiscriminator(nn.Module):
         return out
 
 
+class MultipleFrameDiscriminator(nn.Module):
+    def __init__(self, in_channels, dropout, analysis_len):
+        super().__init__()
+        in_cs = [in_channels, 32, 64, 128]
+        out_cs = [32, 64, 128, 256]
+        self.layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv3d(in_c, out_c, kernel_size=3, stride=(2, 2, 1), padding=1),
+                nn.BatchNorm3d(out_c),
+                nn.LeakyReLU(0.2),
+                nn.Dropout(dropout),
+            ) for in_c, out_c in zip(in_cs, out_cs)
+        ])
+        self.last_layer = nn.Sequential(
+            nn.Flatten(), 
+            nn.Linear(out_cs[-1] * analysis_len, 1),
+        )
+
+    def forward(self, lip):
+        """
+        lip : (B, C, H, W, T)
+        """
+        out = lip
+        for layer in self.layers:
+            out = layer(out)
+        out = torch.mean(out, dim=(2, 3))   # (B, C, T)
+        out = self.last_layer(out)  # (B, 1)
+        return out
+
+
 class SequenceDiscriminator(nn.Module):
     def __init__(self, in_channels, feat_channels, dropout, analysis_len):
         super().__init__()
@@ -188,7 +234,7 @@ class SequenceDiscriminator(nn.Module):
 
         in_cs_feat = [feat_channels, 128, 128, 256, 256]
         out_cs_feat = [128, 128, 256, 256, out_cs_lip[-1]]
-        stride = [1, 1, 2, 1, 1]
+        stride = [2, 1, 2, 1, 1]
         self.feat_layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_c, out_c, kernel_size=5, stride=s, padding=2),
@@ -248,7 +294,7 @@ class SyncDiscriminator(nn.Module):
 
         in_cs_feat = [feat_channels, 128, 128, 256]
         out_cs_feat = [128, 128, 256, 256]
-        stride = [1, 1, 2, 1]
+        stride = [2, 1, 2, 1]
         self.feat_layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_c, out_c, kernel_size=5, stride=s, padding=2),

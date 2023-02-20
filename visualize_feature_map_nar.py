@@ -29,8 +29,8 @@ torch.cuda.manual_seed_all(0)
 random.seed(0)
 
 
-save_video = True
-save_image = False
+save_video = False
+save_image = True
 
 
 def generate(cfg, model, test_loader, dataset, device, save_path, mean_or_max):
@@ -71,7 +71,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path, mean_or_max):
                 visualize_feature_map_image(fmap, _save_path, mean_or_max)
 
         iter_cnt += 1
-        if iter_cnt >= 3:
+        if iter_cnt >= 1:
             break
 
 
@@ -86,7 +86,7 @@ def main(cfg):
 
     model = make_model(cfg, device)
 
-    start_epoch = 400
+    start_epoch = 300
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
@@ -94,7 +94,7 @@ def main(cfg):
         # single speaker
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.3_50_gray/2022:12:09_13-29-45/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 lip 03
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.8_50_gray/2022:12:09_13-46-31/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 lip 08
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:09_14-02-12/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:09_14-02-12/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:12_10-27-44/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face delta
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face time masking
         
@@ -105,7 +105,7 @@ def main(cfg):
 
         # multi speaker
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.8_50_gray/2023:01:08_17-56-25/mspec80_{num_gen_epoch}.ckpt").expanduser()   # no emb lip 08
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:01:08_12-38-22/mspec80_{num_gen_epoch}.ckpt").expanduser()   # no emb face
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:01:08_12-38-22/mspec80_{num_gen_epoch}.ckpt").expanduser()   # no emb face
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:27_01-08-42/mspec80_{num_gen_epoch}.ckpt").expanduser()   # no emb face time masking
 
         model = load_pretrained_model(model_path, model, "model")

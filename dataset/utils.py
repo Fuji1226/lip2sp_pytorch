@@ -1,14 +1,58 @@
 from pathlib import Path
+import sys
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import re
+import joblib
+from functools import partial
+
+from data_process.transform import load_data_lrs2, load_data
+
+text_dir = Path("~/dataset/lip/utt").expanduser()
+emb_dir = Path("~/dataset/lip/emb").expanduser()
+emb_lrs2_dir = Path("~/lrs2/emb/pretrain").expanduser()
+
+
+def select_data(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
+    print(f"\nselect existing data")
+    data_path_list = []
+    for speaker in cfg.train.speaker:
+        for i in tqdm(range(len(data_df))):
+            filename = data_df.iloc[i].values[0]
+            for corpus in cfg.train.corpus:
+                if re.search(corpus, str(filename)):
+                    video_path = data_root / speaker / f"{filename}.mp4"
+                    audio_path = data_root / speaker / f"{filename}.wav"
+                    bbox_path = data_bbox_root / speaker / f"{filename}.csv"
+                    landmark_path = data_landmark_root / speaker / f"{filename}.csv"
+                    text_path = text_dir / f"{filename}.csv"
+                    if video_path.exists() and audio_path.exists() and bbox_path.exists() and landmark_path.exists() and text_path.exists():
+                        data_path_list.append([video_path, audio_path, bbox_path, landmark_path, text_path])
+                        
+    return data_path_list
+
+
+def select_data_lrs2(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
+    print(f"\nselect existing data")
+    if cfg.train.debug:
+        data_df = data_df[:1000]
+    
+    data_path_list = []
+    for i in tqdm(range(len(data_df))):
+        filename = data_df.iloc[i].values[0]
+        video_path = data_root / f"{filename}.mp4"
+        bbox_path = data_bbox_root / f"{filename}.csv"
+        landmark_path = data_landmark_root / f"{filename}.csv"
+        if video_path.exists() and bbox_path.exists() and landmark_path.exists():
+            data_path_list.append([video_path, bbox_path, landmark_path])
+
+    return data_path_list
 
 
 def get_speaker_idx(data_path):
-    """
-    話者名を数値に変換し,話者IDとする
-    複数話者音声合成で必要になります
-    """
     print("\nget speaker idx")
     speaker_idx = {}
     idx_set = {
@@ -16,7 +60,7 @@ def get_speaker_idx(data_path):
         "F02_kablab" : 1,
         "M01_kablab" : 2,
         "M04_kablab" : 3,
-        "F01_kablab_fulldata" : 100,
+        "F01_kablab_all" : 100,
     }
     for path in sorted(data_path):
         speaker = path.parents[1].name
@@ -73,6 +117,80 @@ def get_stat_load_data(train_data_path):
                 landmark_mean_list, landmark_var_list, landmark_len_list
 
 
+def load_and_calc_mean_var(video_path, audio_path, bbox_path, landmark_path, text_path, cfg, aligner):
+    wav, lip, feature, data_len, text = load_data(video_path, audio_path, bbox_path, landmark_path, text_path, cfg, aligner)
+    lip_mean = np.mean(lip, axis=(1, 2, 3))
+    lip_var = np.var(lip, axis=(1, 2, 3))
+    feat_mean = np.mean(feature, axis=0)
+    feat_var = np.var(feature, axis=0)
+    lip_len = lip.shape[-1]
+    feat_len = feature.shape[0]
+    return lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len
+
+
+def get_stat_load_data_raw(data_path_list, cfg, aligner):
+    print(f"\nget stat")
+    lip_mean_list = []
+    lip_var_list = []
+    lip_len_list = []
+    feat_mean_list = []
+    feat_var_list = []
+    feat_len_list = []
+
+    print("multi processing")
+    res = joblib.Parallel(n_jobs=-1)(
+        joblib.delayed(partial(load_and_calc_mean_var, cfg=cfg, aligner=aligner))(
+            video_path, audio_path, bbox_path, landmark_path, text_path
+        ) for video_path, audio_path, bbox_path, landmark_path, text_path in tqdm(data_path_list)
+    )
+    for lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len in res:
+        lip_mean_list.append(lip_mean)
+        lip_var_list.append(lip_var)
+        lip_len_list.append(lip_len)
+        feat_mean_list.append(feat_mean)
+        feat_var_list.append(feat_var)
+        feat_len_list.append(feat_len)
+
+    return lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list
+
+
+def load_and_calc_mean_var_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
+    wav, lip, feature, data_len = load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner)
+    lip_mean = np.mean(lip, axis=(1, 2, 3))
+    lip_var = np.var(lip, axis=(1, 2, 3))
+    feat_mean = np.mean(feature, axis=0)
+    feat_var = np.var(feature, axis=0)
+    lip_len = lip.shape[-1]
+    feat_len = feature.shape[0]
+    return lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len
+
+
+def get_stat_load_data_lrs2(data_path_list, cfg, aligner):
+    print(f"\nget stat")
+    lip_mean_list = []
+    lip_var_list = []
+    lip_len_list = []
+    feat_mean_list = []
+    feat_var_list = []
+    feat_len_list = []
+
+    print("multi processing")
+    res = joblib.Parallel(n_jobs=-1)(
+        joblib.delayed(partial(load_and_calc_mean_var_lrs2, cfg=cfg, aligner=aligner))(
+            video_path, bbox_path, landmark_path
+        ) for video_path, bbox_path, landmark_path in tqdm(data_path_list)
+    )
+    for lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len in res:
+        lip_mean_list.append(lip_mean)
+        lip_var_list.append(lip_var)
+        lip_len_list.append(lip_len)
+        feat_mean_list.append(feat_mean)
+        feat_var_list.append(feat_var)
+        feat_len_list.append(feat_len)
+
+    return lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list
+
+
 def calc_mean_var_std(mean_list, var_list, len_list):
     mean_square_list = list(np.square(mean_list))
 
@@ -94,11 +212,9 @@ def calc_mean_var_std(mean_list, var_list, len_list):
 
 def get_utt(data_path):
     print("--- get utterance ---")
-    text_dir = Path("~/dataset/lip/utt").expanduser()
-
     path_text_pair_list = []
     for path in tqdm(data_path):
-        text_path = text_dir / path.parents[2].name / path.parents[1].name / f"{path.stem}.csv"
+        text_path = text_dir / path.parents[2].name / f"{path.stem}.csv"
         df = pd.read_csv(str(text_path))
         text = df.pronounce.values[0]
         path_text_pair_list.append([path, text])
@@ -108,12 +224,11 @@ def get_utt(data_path):
 
 def get_utt_wiki(data_path, cfg):
     print("--- get utterance with wikipedia ---")
-    text_dir = Path("~/dataset/lip/utt").expanduser()
 
     path_text_pair_list = []
     print("load atr, balanced, basic")
     for path in tqdm(data_path):
-        text_path = text_dir / path.parents[2].name / path.parents[1].name / f"{path.stem}.csv"
+        text_path = text_dir / path.parents[2].name / f"{path.stem}.csv"
         df = pd.read_csv(str(text_path))
         text = df.pronounce.values[0]
         path_text_pair_list.append([path, text])
@@ -132,13 +247,19 @@ def get_utt_wiki(data_path, cfg):
 
 
 def get_spk_emb(cfg):
-    data_dir = Path("~/dataset/lip/emb").expanduser()
     spk_emb_dict = {}
-
     for speaker in cfg.train.speaker:
-        data_path = data_dir / speaker / "emb.npy"
+        data_path = emb_dir / speaker / "emb.npy"
         emb = np.load(str(data_path))
-
         spk_emb_dict[speaker] = emb
+    return spk_emb_dict
 
+
+def get_spk_emb_lrs2():
+    spk_emb_dict = {}
+    speaker_list = list(emb_lrs2_dir.glob("*"))
+    for speaker in speaker_list:
+        data_path = emb_lrs2_dir / speaker / "emb.npy"
+        emb = np.load(str(data_path))
+        spk_emb_dict[speaker] = emb
     return spk_emb_dict

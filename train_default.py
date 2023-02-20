@@ -12,7 +12,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
 from utils import make_train_val_loader, get_path_train, save_loss, check_mel_ss, check_mel_default, count_params, \
-    set_config, calc_class_balance, mixing_prob_controller, check_f0
+    set_config, calc_class_balance, mixing_prob_controller, mixing_prob_controller_f0, check_f0
 from model.model_default import Lip2SP
 from loss import MaskedLoss
 
@@ -77,6 +77,9 @@ def make_model(cfg, device):
         use_f0_predicter=cfg.model.use_f0_predicter,
         f0_predicter_inner_channels=cfg.model.f0_predicter_inner_channels,
         f0_predicter_rnn_n_layers=cfg.model.f0_predicter_rnn_n_layers,
+        f0_predicter_trans_enc_n_layers=cfg.model.f0_predicter_trans_enc_n_layers,
+        f0_predicter_trans_enc_n_head=cfg.model.f0_predicter_trans_enc_n_head,
+        f0_predicter_which_encoder=cfg.model.f0_predicter_which_encoder,
         n_speaker=len(cfg.train.speaker),
         spk_emb_dim=cfg.model.spk_emb_dim,
         use_spk_emb=cfg.train.use_spk_emb,
@@ -96,7 +99,6 @@ def make_model(cfg, device):
     )
 
     count_params(model, "model")
-
     # multi GPU
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
@@ -104,7 +106,7 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_prob, ckpt_time):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_prob, mixing_prob_f0, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_f0_loss = 0
@@ -130,7 +132,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_
 
         use_f0_target = random.random()
 
-        if use_f0_target < mixing_prob:
+        if use_f0_target < mixing_prob_f0:
             if cfg.train.use_time_frequency_masking:
                 output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature_masked, mixing_prob, f0_target)
             else:
@@ -203,7 +205,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_
     return epoch_output_loss, epoch_dec_output_loss, epoch_f0_loss, epoch_classifier_loss
 
 
-def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time):
+def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, mixing_prob_f0, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_f0_loss = 0
@@ -230,7 +232,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time
         use_f0_target = random.random()
         
         with torch.no_grad():
-            if use_f0_target < mixing_prob:
+            if use_f0_target < mixing_prob_f0:
                 if cfg.train.use_time_frequency_masking:
                     output, dec_output, mixed_prev, fmaps, f0, classifier_out = model(lip, data_len, spk_emb, feature_masked, mixing_prob, f0_target)
                 else:
@@ -352,17 +354,11 @@ def main(cfg):
         )
 
         # scheduler
-        # scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        #     optimizer=optimizer,
-        #     milestones=cfg.train.multi_lr_decay_step,
-        #     gamma=cfg.train.lr_decay_rate,
-        # )
         scheduler = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer, gamma=cfg.train.lr_decay_exp
+            optimizer, gamma=cfg.train.lr_decay_exp, 
         )
 
         last_epoch = 0
-
         if cfg.train.check_point_start:
             print("load check point")
             checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
@@ -389,6 +385,7 @@ def main(cfg):
         wandb.watch(model, **cfg.wandb_conf.watch)
 
         prob_list = mixing_prob_controller(cfg)
+        prob_list_f0 = mixing_prob_controller_f0(cfg)
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
@@ -396,6 +393,9 @@ def main(cfg):
             
             mixing_prob = prob_list[current_epoch - 1]
             wandb.log({"mixing_prob": mixing_prob})
+
+            mixing_prob_f0 = prob_list_f0[current_epoch - 1]
+            wandb.log({"mixing_prob_f0": mixing_prob_f0})
 
             print(f"mixing_prob = {mixing_prob}")
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
@@ -409,6 +409,7 @@ def main(cfg):
                 device=device, 
                 cfg=cfg, 
                 mixing_prob=mixing_prob,
+                mixing_prob_f0=mixing_prob_f0,
                 ckpt_time=ckpt_time,
             )
             train_output_loss_list.append(epoch_output_loss)
@@ -424,6 +425,7 @@ def main(cfg):
                 device=device, 
                 cfg=cfg,
                 mixing_prob=mixing_prob,
+                mixing_prob_f0=mixing_prob_f0,
                 ckpt_time=ckpt_time,
             )
             val_output_loss_list.append(epoch_output_loss)

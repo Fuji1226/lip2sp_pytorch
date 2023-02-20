@@ -143,8 +143,8 @@ def main(cfg):
     for num_gen_epoch in num_gen_epoch_list:
         # single speaker
         # teacher forcingだけが一番良い
-        model_path = Path(f"~/lip2sp_pytorch/check_point/lipreading/face_aligned_0_50_gray/2023:01:05_16-11-35/mspec80_{num_gen_epoch}.ckpt").expanduser()  # F01
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/lipreading/face_aligned_0_50_gray/2023:01:09_00-30-21/mspec80_{num_gen_epoch}.ckpt").expanduser()  # F01 time masking
+        model_path = Path(f"~/lip2sp_pytorch/check_point/lipreading/face_aligned_0_50_gray/2023:01:05_16-11-35/mspec80_{num_gen_epoch}.ckpt").expanduser()  # F01 tf
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/lipreading/face_aligned_0_50_gray/2023:01:09_00-30-21/mspec80_{num_gen_epoch}.ckpt").expanduser()  # F01 tf time masking
         # model_path = Path(f"~/lip2sp_pytorch/check_point/lipreading/face_aligned_0_50_gray/2023:01:12_15-29-05/mspec80_{num_gen_epoch}.ckpt").expanduser()  # F01 ctc tf
         # model_path = Path(f"~/lip2sp_pytorch/check_point/lipreading/face_aligned_0_50_gray/2023:01:12_17-39-40/mspec80_{num_gen_epoch}.ckpt").expanduser()  # F01 ctc ss
 

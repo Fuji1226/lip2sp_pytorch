@@ -7,15 +7,14 @@ from tqdm import tqdm
 fps_list = [25,]
 debug = False
 
-dir_name = "face_cropped_nn"
-orig_margin = 0
-orig_fps = 50
+dir_name = "cropped"
 
 def main():
-    speaker_list = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+    speaker_list = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab", "F01_kablab_20220930", "F01_kablab_all"]
 
     for speaker in speaker_list:
-        data_dir = Path(f"~/dataset/lip/{dir_name}_{orig_margin}_{orig_fps}").expanduser()
+        print(f"speaker = {speaker}")
+        data_dir = Path(f"~/dataset/lip/{dir_name}").expanduser()
         data_dir = data_dir / speaker
 
         for fps in fps_list:
@@ -23,8 +22,8 @@ def main():
 
             print(f"fps = {fps}")
 
-            for path in tqdm(video_path):
-                save_dir = Path(f"~/dataset/lip/{dir_name}_{orig_margin}_{fps}").expanduser()
+            for path in video_path:
+                save_dir = Path(f"~/dataset/lip/{dir_name}_fps{fps}").expanduser()
                 save_dir = save_dir / speaker
                 os.makedirs(save_dir, exist_ok=True)
                 save_path = save_dir / f"{path.stem}.mp4"

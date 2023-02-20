@@ -266,7 +266,6 @@ def main(cfg):
         # model
         model = make_model(cfg, device)
         
-        # optimizer
         optimizer = torch.optim.Adam(
             params=model.parameters(),
             lr=cfg.train.lr, 
@@ -274,18 +273,11 @@ def main(cfg):
             weight_decay=cfg.train.weight_decay,    
         )
 
-        # scheduler
-        # scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        #     optimizer=optimizer,
-        #     milestones=cfg.train.multi_lr_decay_step,
-        #     gamma=cfg.train.lr_decay_rate,
-        # )
         scheduler = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer, gamma=cfg.train.lr_decay_exp
+            optimizer, gamma=cfg.train.lr_decay_exp,
         )
-
+        
         last_epoch = 0
-
         if cfg.train.check_point_start:
             print("load check point")
             checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
@@ -308,6 +300,7 @@ def main(cfg):
             val_loss_list = checkpoint["val_loss_list"]
             val_mse_loss_list = checkpoint["val_mse_loss_list"]
             val_classifier_loss_list = checkpoint["val_classifier_loss_list"]
+            last_epoch = checkpoint["epoch"]
 
         wandb.watch(model, **cfg.wandb_conf.watch)
     
@@ -342,8 +335,7 @@ def main(cfg):
             val_loss_list.append(epoch_loss)
             val_mse_loss_list.append(epoch_mse_loss)
             val_classifier_loss_list.append(epoch_classifier_loss)
-        
-            # 学習率の更新
+
             scheduler.step()
 
             # check point

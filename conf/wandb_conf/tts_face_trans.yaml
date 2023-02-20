@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: tts_face_trans
+    entity:
+    mode: online
+    name : tts_face_trans
+watch:
+    log: all
+    log_freq: 100

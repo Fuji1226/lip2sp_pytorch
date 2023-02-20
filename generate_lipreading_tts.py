@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 
 from train_lipreading import make_model as make_model_lipreading
-from train_tts import make_model as make_model_tts
+from train_tts_raw import make_model as make_model_tts
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import get_path_test, make_test_loader_lipreading
 from data_process.phoneme_encode import get_keys_from_value

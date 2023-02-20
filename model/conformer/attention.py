@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from pathlib import Path
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
 import math
 import torch
@@ -23,14 +23,9 @@ import torch.nn.functional as F
 from torch import Tensor
 from typing import Optional
 
-try:
-    from .embedding import PositionalEncoding
-    from .modules import Linear
-    from ..transformer import make_pad_mask
-except:
-    from embedding import PositionalEncoding
-    from modules import Linear
-    from transformer import make_pad_mask
+from model.conformer.embedding import PositionalEncoding
+from model.conformer.modules import Linear
+from model.transformer_remake import make_pad_mask
 
 
 class RelativeMultiHeadAttention(nn.Module):

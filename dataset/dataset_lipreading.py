@@ -195,6 +195,7 @@ class LipReadingTransform(KablabTransform):
 def adjust_max_data_len(data):
     """
     minibatchの中で最大のdata_lenに合わせて0パディングする
+    data : (..., T)
     """
     max_data_len = 0
     max_data_len_id = 0

@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+
 import torch
 import torch.nn as nn
 from torch import Tensor
 from typing import Tuple
 
-try:
-    from .activation import Swish, GLU
-    from .modules import Transpose
-except:
-    from activation import Swish, GLU
-    from modules import Transpose
+from model.conformer.activation import Swish, GLU
+from model.conformer.modules import Transpose
 
 
 class DepthwiseConv1d(nn.Module):

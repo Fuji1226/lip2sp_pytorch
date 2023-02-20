@@ -39,6 +39,25 @@ def save_utt(df_data, df_atr, df_basic, df_balanced, save_dir):
             continue
 
 
+def save_utt_raw(df, which_corpus, save_dir):
+    for i in tqdm(range(len(df))):
+        utt = df.iloc[i]
+        header = list(utt.index.values)
+        value = list(utt.values)
+
+        if which_corpus == "atr":
+            data_name = f"ATR503_{utt.utt_num}"
+        elif which_corpus == "balanced":
+            data_name = f"balanced_{utt.utt_num}"
+        elif which_corpus == "basic":
+            data_name = f"{utt.utt_num}"
+    
+        with open(str(save_dir / f"{data_name}.csv"), "a") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            writer.writerow(value)
+
+
 def main():
     csv_dir = Path("~/lip2sp_pytorch/csv").expanduser()
     atr = csv_dir / "ATR503.csv"
@@ -48,11 +67,8 @@ def main():
     df_basic = pd.read_csv(str(basic))
     df_balanced = pd.read_csv(str(balanced))
     
-    speaker = "F02_kablab"
-    print(f"speaker = {speaker}")
     data_split_csv_dir = Path("~/dataset/lip/data_split_csv").expanduser()
-    data_split_csv_dir = data_split_csv_dir / speaker
-    train = data_split_csv_dir / "train.csv"
+    train = data_split_csv_dir / "train_all.csv"
     val = data_split_csv_dir / "val.csv"
     test = data_split_csv_dir / "test.csv"
     df_train = pd.read_csv(str(train), header=None)
@@ -60,86 +76,30 @@ def main():
     df_test = pd.read_csv(str(test), header=None)
 
     utt_save_dir = Path("~/dataset/lip/utt").expanduser()
-    utt_save_dir_train = utt_save_dir / "train" / speaker
-    utt_save_dir_val = utt_save_dir / "val" / speaker
-    utt_save_dir_test = utt_save_dir / "test" / speaker
+    utt_save_dir_train = utt_save_dir / "train"
+    utt_save_dir_val = utt_save_dir / "val"
+    utt_save_dir_test = utt_save_dir / "test"
     utt_save_dir_train.mkdir(parents=True, exist_ok=True)
     utt_save_dir_val.mkdir(parents=True, exist_ok=True)
     utt_save_dir_test.mkdir(parents=True, exist_ok=True)
 
-    print("train")
-    save_utt(df_train, df_atr, df_basic, df_balanced, utt_save_dir_train)
+    # print("train")
+    # save_utt(df_train, df_atr, df_basic, df_balanced, utt_save_dir_train)
 
-    print("val")
-    save_utt(df_val, df_atr, df_basic, df_balanced, utt_save_dir_val)
+    # print("val")
+    # save_utt(df_val, df_atr, df_basic, df_balanced, utt_save_dir_val)
 
-    print("test")
-    save_utt(df_test, df_atr, df_basic, df_balanced, utt_save_dir_test)
+    # print("test")
+    # save_utt(df_test, df_atr, df_basic, df_balanced, utt_save_dir_test)
 
-
-def load_test():
-    speaker = "F01_kablab"
-    utt_save_dir = Path("~/dataset/lip/utt").expanduser()
-    utt_save_dir_train = utt_save_dir / "train" / speaker
-    utt_save_dir_val = utt_save_dir / "val" / speaker
-    utt_save_dir_test = utt_save_dir / "test" / speaker
-
-    data = sorted(list(utt_save_dir_train.glob("*.csv")))
-    for path in data:
-        df = pd.read_csv(str(path))
-        text = df.pronounce.values[0]
-        phoneme = pyopenjtalk.g2p(text)
-        print(text)
-        print(phoneme)
-        print("")
-
-
-def change_npz_name():
-    speaker_list = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-    dirname = "lip_cropped_0.8_50_gray"
-    for speaker in speaker_list:
-        print(f"speaker = {speaker}")
-        data_dir = Path(f"~/dataset/lip/np_files/{dirname}").expanduser()
-        save_dir = Path(f"~/dataset/lip/np_files/{dirname}/mspec80").expanduser()
-
-        data_seg_list = ["train", "val", "test"]
-        for data_seg in data_seg_list:
-            print(f"{data_seg}")
-            data_dir_seg = data_dir / data_seg / speaker
-            data_path_seg = sorted(list(data_dir_seg.glob("*.npz")))
-            
-            for path in data_path_seg:
-                filename = path.stem
-                filename = "_".join(filename.split("_")[:-1])
-
-                save_dir_seg = save_dir / data_seg / speaker
-                save_dir_seg.mkdir(parents=True, exist_ok=True)
-                new_path = save_dir_seg / f"{filename}.npz"
-                path.rename(str(new_path))
-
-
-def change_npz_dir():
-    speaker_list = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-    dirname = "face_aligned_0_50"
-    for speaker in speaker_list:
-        print(f"speaker = {speaker}")
-        data_dir = Path(f"~/dataset/lip/np_files/{dirname}/mspec80").expanduser()
-        save_dir = Path(f"~/dataset/lip/np_files/{dirname}").expanduser()
-
-        data_seg_list = ["train", "val", "test"]
-        for data_seg in data_seg_list:
-            print(data_seg)
-            data_dir_seg = data_dir / data_seg / speaker
-            data_path_seg = sorted(list(data_dir_seg.glob("*.npz")))
-
-            for path in tqdm(data_path_seg):
-                save_dir_seg = save_dir / data_seg / speaker / "mspec80"
-                save_dir_seg.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(path), str(save_dir_seg / f"{path.stem}.npz"))
+    print("raw")
+    utt_raw_save_dir = Path("~/dataset/lip/utt_raw").expanduser()
+    utt_raw_save_dir.mkdir(parents=True, exist_ok=True)
+    save_utt_raw(df_atr, "atr", utt_raw_save_dir)
+    save_utt_raw(df_balanced, "balanced", utt_raw_save_dir)
+    save_utt_raw(df_basic, "basic", utt_raw_save_dir)
+    
 
 
 if __name__ == "__main__":
     main()
-    # load_test()
-    # change_npz_name()
-    # change_npz_dir()

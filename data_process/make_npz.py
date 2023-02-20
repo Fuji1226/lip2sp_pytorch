@@ -16,15 +16,15 @@ import pickle
 from transform import load_data_for_npz
 
 debug = False
-speaker = "F02_kablab"
-margin = 0.8
+speaker = "F01_kablab_all"
+margin = 0
 fps = 50
 gray = True
 
 csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
-data_dir = Path(f"~/dataset/lip/lip_cropped_0.8_50/{speaker}").expanduser()
+data_dir = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()
 landmark_dir = Path(f"~/dataset/lip/landmark_aligned/{speaker}").expanduser()
-dir_name = f"lip_cropped_{margin}_{fps}"
+dir_name = f"face_aligned_{margin}_{fps}"
 
 if gray:
     dir_name = f"{dir_name}_gray"
@@ -38,7 +38,7 @@ lip_test_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/test").expanduser(
 
 
 def read_csv(csv_path, which_data):
-    with open(str(csv_path / speaker / f"{which_data}.csv"), "r") as f:
+    with open(str(csv_path / f"{which_data}.csv"), "r") as f:
         reader = csv.reader(f)
         data_list = [[data_dir / f"{row[0]}.mp4", data_dir / f"{row[0]}.wav", landmark_dir / f"{row[0]}.csv"] for row in reader]
     return data_list
@@ -98,7 +98,7 @@ def main(cfg):
     cfg.model.gray = gray
     print(f"speaker = {speaker}, mode = {cfg.model.name}, gray = {cfg.model.gray}")
 
-    train_data_list = read_csv(csv_path, "train")
+    train_data_list = read_csv(csv_path, "train_all")
     val_data_list = read_csv(csv_path, "val")
     test_data_list = read_csv(csv_path, "test")
     

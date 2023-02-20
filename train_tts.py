@@ -107,10 +107,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
 
-        if cfg.train.use_gc:
-            dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
-        else:
-            dec_output, output, logit, att_w = model(text, text_len, feature_target=feature)
+        dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, feature_len, feature.shape[-1])
         output_loss = loss_f.mse_loss(output, feature, feature_len, feature.shape[-1])
@@ -176,10 +173,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
         spk_emb = spk_emb.to(device)
 
         with torch.no_grad():
-            if cfg.train.use_gc:
-                dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
-            else:
-                dec_output, output, logit, att_w = model(text, text_len, feature_target=feature)
+            dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, feature_len, feature.shape[-1])
         output_loss = loss_f.mse_loss(output, feature, feature_len, feature.shape[-1])

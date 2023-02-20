@@ -17,12 +17,11 @@ from subprocess import run
 from jiwer import wer, cer
 import MeCab
 import pyopenjtalk
-import pykakasi
 import pandas as pd
 
 
 debug = False
-abs_or_gen = "generate"
+abs_or_gen = "abs"
 
 
 def wav2flac(data_dir):
@@ -59,7 +58,6 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
     stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, False)
     r = sr.Recognizer()
     mecab = MeCab.Tagger('-Owakati')
-    kakasi = pykakasi.kakasi()
 
     pesq_list = []
     stoi_list = []

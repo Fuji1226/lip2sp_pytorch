@@ -46,9 +46,15 @@ class Encoder(nn.Module):
             x = layer(x)
         x = x.permute(0, 2, 1)      # (B, T, C)
 
+        seq_len_orig = x.shape[1]
         x = pack_padded_sequence(x, text_len.cpu(), batch_first=True, enforce_sorted=False)
         x, _ = self.lstm(x)
         x = pad_packed_sequence(x, batch_first=True)[0]
+
+        # 複数GPUを使用して最大系列長のデータがバッチ内に含まれない場合などに,系列長が短くなってしまうので再度パディング
+        if x.shape[1] < seq_len_orig:
+            zero_pad = torch.zeros(x.shape[0], seq_len_orig - x.shape[1], x.shape[2]).to(device=x.device, dtype=x.dtype)
+            x = torch.cat([x, zero_pad], dim=1)
 
         if hasattr(self, "spk_emb_layer"):
             spk_emb = spk_emb.unsqueeze(1).expand(-1, x.shape[1], -1)   # (B, T, C)

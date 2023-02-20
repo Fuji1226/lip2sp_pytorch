@@ -10,11 +10,9 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-speaker = "M01_kablab"
-margin = 0.8
-fps = 50
+speaker = "M04_kablab"
 audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-save_path = Path(f"~/dataset/lip/lip_cropped_0.8_50/{speaker}").expanduser()
+save_path = Path(f"~/dataset/lip/cropped_fps25/{speaker}").expanduser()
 os.makedirs(save_path, exist_ok=True)
 
 

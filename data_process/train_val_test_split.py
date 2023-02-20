@@ -14,7 +14,7 @@ from tqdm import tqdm
 random.seed(777)
 
 # speakerのみ変更してください
-speaker = "F02_kablab"
+speaker = "F01_kablab"
 data_dir = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
 save_dir = Path(f"~/dataset/lip/data_split_csv").expanduser()
 corpus = ["ATR", "balanced", "BASIC5000"]

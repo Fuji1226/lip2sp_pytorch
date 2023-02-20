@@ -238,7 +238,7 @@ class KablabTransform:
         landmark_mean = landmark_mean.unsqueeze(0).unsqueeze(-1)    # (1, 2, 1)
         landmark_std = landmark_std.unsqueeze(0).unsqueeze(-1)    # (1, 2, 1)
 
-        lip = (lip -lip_mean) / lip_std        
+        lip = (lip - lip_mean) / lip_std        
         feature = (feature - feat_mean) / feat_std
         feat_add = (feat_add - feat_add_mean) / feat_add_std
         landmark = (landmark - landmark_mean) / landmark_std

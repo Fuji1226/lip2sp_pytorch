@@ -9,8 +9,8 @@ debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:01:09_10-11-47/mspec80_120.ckpt"
+check_point_start : True
+start_ckpt_path : "~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:02:01_23-53-31/mspec80_410.ckpt"
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
@@ -88,7 +88,7 @@ num_workers : 16
 dec_dropout : 0.5
 res_dropout : 0.1
 rnn_dropout : 0.1
-f0_predicter_dropout : 0.5
+f0_predicter_dropout : 0.1
 
 # optimizer
 lr : 0.001
@@ -108,8 +108,10 @@ max_norm : 3.0
 # parameter for scheduled sampling
 # min_mixing_prob = 1 : teacher forcing
 # min_mixing_probが小さくなるほどサンプルが劣化する(最小0)
-exp_factor : 0.98
-min_mixing_prob : 0.0
+exp_factor : 0.993
+exp_factor_f0 : 0.99
+min_mixing_prob : 0.25
+min_mixing_prob_f0 : 0
 
 # lossの重みづけ
 output_loss_weight : 1.0

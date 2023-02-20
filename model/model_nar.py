@@ -6,25 +6,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from net import ResNet3D
+from net import ResNet3D, ResNet3DVTP, ResNet3DRemake
 from nar_decoder import ResTCDecoder
 from rnn import GRUEncoder
 from transformer_remake import Encoder
 from grad_reversal import GradientReversal
 from classifier import SpeakerClassifier
-from landmark_net import LandmarkEncoder
+from resnet18 import ResNet18
+from conformer.encoder import ConformerEncoder
 
 
 class Lip2SP_NAR(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_inner_channels, which_res,
         rnn_n_layers, rnn_which_norm, trans_n_layers, trans_n_head,
-        use_landmark, lm_enc_inner_channels, lmco_kernel_size, lmco_n_layers, 
-        lm_enc_compress_time_axis, astt_gcn_n_layers, astt_gcn_n_head, lm_enc_n_nodes,
+        conf_n_layers, conf_n_head, conf_feedforward_expansion_factor,
         dec_n_layers, dec_kernel_size,
         n_speaker, spk_emb_dim,
         which_encoder, which_decoder, where_spk_emb, use_spk_emb,
-        dec_dropout, res_dropout, lm_enc_dropout, rnn_dropout, reduction_factor=2):
+        dec_dropout, res_dropout, rnn_dropout, is_large, reduction_factor=2):
         super().__init__()
         self.where_spk_emb = where_spk_emb
 
@@ -35,21 +35,29 @@ class Lip2SP_NAR(nn.Module):
                 inner_channels=res_inner_channels,
                 dropout=res_dropout,
             )
-            inner_channels = int(res_inner_channels * 8)
-
-        if use_landmark:
-            self.landmark_encoder = LandmarkEncoder(
-                inner_channels=lm_enc_inner_channels,
-                lmco_kernel_size=lmco_kernel_size,
-                lmco_n_layers=lmco_n_layers,
-                compress_time_axis=lm_enc_compress_time_axis,
-                astt_gcn_n_layers=astt_gcn_n_layers,
-                astt_gcn_n_head=astt_gcn_n_head,
-                n_nodes=lm_enc_n_nodes,
-                dropout=lm_enc_dropout,
+        elif which_res == "default_remake":
+            self.ResNet_GAP = ResNet3DRemake(
+                in_channels=in_channels, 
+                out_channels=int(res_inner_channels * 8), 
+                inner_channels=res_inner_channels,
+                dropout=res_dropout,
+                is_large=is_large,
             )
-            self.landmark_aggregate_layer = nn.Conv1d(lm_enc_inner_channels + inner_channels, inner_channels, kernel_size=1)
-        
+        elif which_res == "vtp":
+            self.ResNet_GAP = ResNet3DVTP(
+                in_channels=in_channels, 
+                out_channels=int(res_inner_channels * 8), 
+                inner_channels=res_inner_channels,
+                dropout=res_dropout,
+            )
+        elif which_res == "resnet18":
+            self.ResNet_GAP = ResNet18(
+                in_channels=in_channels,
+                hidden_channels=res_inner_channels,
+                dropout=res_dropout,
+            )
+        inner_channels = int(res_inner_channels * 8)
+
         if which_encoder == "transformer":
             self.encoder = Encoder(
                 n_layers=trans_n_layers, 
@@ -64,6 +72,13 @@ class Lip2SP_NAR(nn.Module):
                 dropout=rnn_dropout,
                 reduction_factor=reduction_factor,
                 which_norm=rnn_which_norm,
+            )
+        elif which_encoder == "conformer":
+            self.encoder = ConformerEncoder(
+                encoder_dim=inner_channels,
+                num_layers=conf_n_layers,
+                num_attention_heads=conf_n_head,
+                feed_forward_expansion_factor=conf_feedforward_expansion_factor,
             )
 
         if use_spk_emb:
@@ -85,17 +100,13 @@ class Lip2SP_NAR(nn.Module):
             reduction_factor=reduction_factor,
         )
 
-    def forward(self, lip, landmark, data_len, spk_emb):
+    def forward(self, lip, lip_len, spk_emb=None):
         """
         lip : (B, C, H, W, T)
         landmark : (B, T, 2, 68)
         spk_emb : (B, C)
         """
         enc_output, fmaps = self.ResNet_GAP(lip)  # (B, C, T)
-
-        if hasattr(self, "landmark_encoder"):
-            landmark_feature = self.landmark_encoder(landmark)  # (B, C, T)
-            enc_output = self.landmark_aggregate_layer(torch.cat([enc_output, landmark_feature], dim=1))  # (B, C, T)
 
         if self.where_spk_emb == "after_res":
             if hasattr(self, "spk_emb_layer"):
@@ -106,7 +117,7 @@ class Lip2SP_NAR(nn.Module):
             else:
                 classifier_out = None
 
-        enc_output = self.encoder(enc_output, data_len)    # (B, T, C)
+        enc_output = self.encoder(enc_output, lip_len)    # (B, T, C)
 
         if self.where_spk_emb == "after_enc":
             if hasattr(self, "spk_emb_layer"):

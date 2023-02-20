@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+
 import torch
 import torch.nn as nn
 from torch import Tensor
 
-try:
-    from .activation import Swish
-    from .modules import Linear
-except:
-    from activation import Swish
-    from modules import Linear
+from model.conformer.activation import Swish
+from model.conformer.modules import Linear
 
 
 class FeedForwardModule(nn.Module):

@@ -115,6 +115,22 @@ def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
         )
 
 
+def save_lip_video_face_gen(cfg, save_path, lip, lip_mean, lip_std, filename):
+    lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
+    lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
+    lip = torch.mul(lip, lip_std)
+    lip = torch.add(lip, lip_mean)
+    lip = lip.permute(-1, 1, 2, 0).to(torch.int8)
+    lip = lip.to("cpu")
+    lip = lip.expand(-1, -1, -1, 3)
+
+    torchvision.io.write_video(
+        filename=str(save_path / f"{filename}.mp4"),
+        video_array=lip,
+        fps=cfg.model.fps
+    )
+
+
 def save_landmark_video(landmark, save_dir):
     landmark = landmark.to('cpu').numpy()
     fig_norm = plt.figure()
@@ -635,14 +651,13 @@ def plot_world(cfg, save_path, wav_input, wav_AbS, wav_gen):
     plot_ap(cfg, save_path, ap_input.T, ap_AbS.T, ap_gen.T)
 
 
-def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip_std, feat_mean, feat_std):
+def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat_mean, feat_std):
     """
     出力データの保存
     """
     wav = wav.squeeze(0)
     lip = lip.squeeze(0)
     feature = feature.squeeze(0)
-    feat_add = feat_add.squeeze(0)
     output = output.squeeze(0)
 
     wav = wav.to('cpu').numpy()
@@ -824,6 +839,17 @@ def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std):
     plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
 
 
+def save_data_face_gen(cfg, save_path, wav, target, output, lip_mean, lip_std):
+    wav = wav.squeeze(0)
+    wav = wav.to('cpu').numpy()
+    target = target.squeeze(0)
+    output = output.squeeze(0)
+
+    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)    
+    save_lip_video_face_gen(cfg, save_path, target, lip_mean, lip_std, "target")
+    save_lip_video_face_gen(cfg, save_path, output, lip_mean, lip_std, "output")
+
+
 def visualize_feature_map_video(feature_map, save_dir, mean_or_max):
     """
     3次元畳み込みから得られる特徴マップの可視化
@@ -901,7 +927,7 @@ def visualize_feature_map_image(feature_map, save_dir, mean_or_max):
             cbar=True, 
             vmin=np.min(feature_map), 
             vmax=np.max(feature_map), 
-            cmap="viridis",
+            cmap="gray",
             xticklabels=False,
             yticklabels=False,
         )

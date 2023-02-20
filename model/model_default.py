@@ -52,22 +52,36 @@ class F0Predicter(nn.Module):
 
 
 class F0Predicter2(nn.Module):
-    def __init__(self, in_channels, inner_channels, rnn_n_layers, reduction_factor, dropout, rnn_which_norm):
+    def __init__(
+        self, in_channels, inner_channels, rnn_n_layers, reduction_factor, dropout, rnn_which_norm,
+        trans_enc_n_layers, trans_enc_n_head, which_encoder):
         super().__init__()
         self.reduction_factor = reduction_factor
         self.conv3d = nn.ModuleList([
             NormalConv(in_channels, inner_channels, stride=2),
+            nn.Dropout(dropout),
             NormalConv(inner_channels, inner_channels * 2, stride=2),
+            nn.Dropout(dropout),
             NormalConv(inner_channels * 2, inner_channels * 4, stride=2),
+            nn.Dropout(dropout),
             NormalConv(inner_channels * 4, inner_channels * 8, stride=2),
+            nn.Dropout(dropout),
         ])
-        self.encoder = GRUEncoder(
-            hidden_channels=inner_channels * 8,
-            n_layers=rnn_n_layers,
-            dropout=dropout,
-            reduction_factor=reduction_factor,
-            which_norm=rnn_which_norm,
-        )
+        if which_encoder == "gru":
+            self.encoder = GRUEncoder(
+                hidden_channels=inner_channels * 8,
+                n_layers=rnn_n_layers,
+                dropout=dropout,
+                reduction_factor=reduction_factor,
+                which_norm=rnn_which_norm,
+            )
+        elif which_encoder == "transformer":
+            self.encoder = Encoder(
+                n_layers=trans_enc_n_layers, 
+                n_head=trans_enc_n_head, 
+                d_model=inner_channels * 8, 
+                reduction_factor=reduction_factor,  
+            )
         self.dropout = nn.Dropout(dropout)
         self.out_layer = nn.Conv1d(inner_channels * 8, 1, kernel_size=3, padding=1)
 
@@ -80,8 +94,8 @@ class F0Predicter2(nn.Module):
         f0 = lip
         for layer in self.conv3d:
             f0 = layer(f0)
-        f0 = torch.mean(f0, dim=(3, 4))
-        f0 = self.encoder(f0, data_len)    # (B, T, C) 
+        f0 = torch.mean(f0, dim=(3, 4))     # (B, C, T)
+        f0 = self.encoder(f0, data_len)    # (B, T, C)
         f0 = f0.permute(0, 2, 1)    # (B, C, T)
         f0 = F.interpolate(f0, scale_factor=self.reduction_factor, mode="nearest")
         f0 = self.dropout(f0)
@@ -97,6 +111,7 @@ class Lip2SP(nn.Module):
         glu_layers, glu_kernel_size,
         trans_dec_n_layers, trans_dec_n_head,
         use_f0_predicter, f0_predicter_inner_channels, f0_predicter_rnn_n_layers,
+        f0_predicter_trans_enc_n_layers, f0_predicter_trans_enc_n_head, f0_predicter_which_encoder,
         n_speaker, spk_emb_dim, use_spk_emb, where_spk_emb,
         pre_inner_channels, post_inner_channels, post_n_layers, post_kernel_size,
         n_position, which_encoder, which_decoder,
@@ -150,6 +165,9 @@ class Lip2SP(nn.Module):
                 reduction_factor=reduction_factor,
                 dropout=f0_predicter_dropout,
                 rnn_which_norm=rnn_which_norm,
+                trans_enc_n_layers=f0_predicter_trans_enc_n_layers,
+                trans_enc_n_head=f0_predicter_trans_enc_n_head,
+                which_encoder=f0_predicter_which_encoder,
             )
             self.f0_convert_layer = nn.Sequential(
                 nn.Conv1d(1, inner_channels, kernel_size=3, padding=1, stride=reduction_factor),

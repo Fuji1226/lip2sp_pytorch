@@ -9,19 +9,15 @@ from pathlib import Path
 import os
 from datetime import datetime
 import numpy as np
-import matplotlib.pyplot as plt
 import random
-from librosa.display import specshow
-import itertools
 
 import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
-import torchaudio.transforms as AT
 
 from utils import count_params, get_path_train, save_loss, make_train_val_loader, set_config, check_wav
 from parallelwavegan.model.generator import Generator
-from parallelwavegan.model.discriminator import Discriminator
+from parallelwavegan.model.discriminator import Discriminator, WaveNetLikeDiscriminator
 from parallelwavegan.stft_loss import MultiResolutionSTFTLoss
 
 # wandbへのログイン
@@ -84,14 +80,25 @@ def make_model(cfg, device):
         kernel_size=cfg.model.pwg_kernel_size,
         use_weight_norm=cfg.model.pwg_use_weight_norm,
     )
-    disc = Discriminator(
-        in_channels=cfg.model.pwg_in_channels,
-        out_channels=cfg.model.pwg_out_channels,
-        inner_channels=cfg.model.pwg_disc_inner_channels,
-        n_layers=cfg.model.pwg_disc_n_layers,
-        kernel_size=cfg.model.pwg_kernel_size,
-        use_weight_norm=cfg.model.pwg_use_weight_norm,
-    )
+    if cfg.model.pwg_which_disc == "normal":
+        disc = Discriminator(
+            in_channels=cfg.model.pwg_in_channels,
+            out_channels=cfg.model.pwg_out_channels,
+            inner_channels=cfg.model.pwg_disc_inner_channels,
+            n_layers=cfg.model.pwg_disc_n_layers,
+            kernel_size=cfg.model.pwg_kernel_size,
+            use_weight_norm=cfg.model.pwg_use_weight_norm,
+        )
+    elif cfg.model.pwg_which_disc == "wavenet":
+        disc = WaveNetLikeDiscriminator(
+            n_layers=cfg.model.pwg_disc_n_layers,
+            n_stacks=cfg.model.pwg_disc_n_stacks,
+            in_channels=cfg.model.pwg_in_channels,
+            inner_channels=cfg.model.pwg_disc_inner_channels,
+            out_channels=cfg.model.pwg_out_channels,
+            kernel_size=cfg.model.pwg_kernel_size,
+            dropout=cfg.model.pwg_dropout,
+        )
     count_params(gen, "generator")
     count_params(disc, "discriminator")
     return gen.to(device), disc.to(device)
@@ -212,6 +219,7 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
         noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         wav_pred = gen(noise, feature)
 
+        ### discriminator ###
         out_real = disc(wav)
         out_pred = disc(wav_pred.detach())
 
@@ -222,9 +230,10 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
         loss_disc.backward()
         optimizer_d.step()
         optimizer_d.zero_grad()
+        optimizer_g.zero_grad()
 
-        with torch.no_grad():
-            out_pred = disc(wav_pred)
+        ### generator ###
+        out_pred = disc(wav_pred)
 
         loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
         loss_gen_gan = torch.mean((out_pred - 1) ** 2)
@@ -239,6 +248,7 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
 
         loss_gen_all.backward()
         optimizer_g.step()
+        optimizer_d.zero_grad()
         optimizer_g.zero_grad()
 
         iter_cnt += 1
@@ -385,7 +395,6 @@ def main(cfg):
         )
 
         last_epoch = 0
-
         if cfg.train.check_point_start:
             print("load check point")
             checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
@@ -404,7 +413,6 @@ def main(cfg):
             torch.set_rng_state(checkpoint["torch"])
             torch.random.set_rng_state(checkpoint["torch_random"])
             torch.cuda.set_rng_state(checkpoint["cuda_random"])
-            last_epoch = checkpoint["epoch"]
             train_epoch_loss_disc_list = checkpoint["train_epoch_loss_disc_list"]
             train_epoch_loss_gen_stft_list = checkpoint["train_epoch_loss_gen_stft_list"]
             train_epoch_loss_gen_gan_list = checkpoint["train_epoch_loss_gen_gan_list"]
@@ -413,7 +421,7 @@ def main(cfg):
             val_epoch_loss_gen_stft_list = checkpoint["val_epoch_loss_gen_stft_list"]
             val_epoch_loss_gen_gan_list = checkpoint["val_epoch_loss_gen_gan_list"]
             val_epoch_loss_gen_all_list = checkpoint["val_epoch_loss_gen_all_list"]
-            
+            last_epoch = checkpoint["epoch"]
         elif cfg.train.use_disc:
             if cfg.train.start_gan_training_pretrained_gen:
                 print("load gen parameter")

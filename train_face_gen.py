@@ -85,9 +85,11 @@ def save_checkpoint(
 def make_model(cfg, device):
     gen = Generator(
         in_channels=cfg.model.in_channels,
+        img_hidden_channels=cfg.model.face_gen_img_hidden_channels,
         img_cond_channels=cfg.model.face_gen_img_cond_channels,
         feat_channels=cfg.model.n_mel_channels,
         feat_cond_channels=cfg.model.face_gen_feat_cond_channels,
+        mel_enc_hidden_channels=cfg.model.face_gen_mel_enc_hidden_channels,
         noise_channels=cfg.model.face_gen_noise_channels,
         tc_ksize=cfg.model.face_gen_tc_ksize,
         dropout=cfg.train.gen_dropout,
@@ -152,7 +154,10 @@ def train_one_epoch(gen, frame_disc, seq_disc, sync_disc, train_loader, train_da
         frame_disc_loss = F.mse_loss(fake_frame, torch.zeros_like(fake_frame)) + F.mse_loss(real_frame, torch.ones_like(real_frame))
 
         # seq disc
-        seq_start_index = random.randint(0, torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len)
+        if torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len < 0:
+            seq_start_index = 0
+        else:
+            seq_start_index = random.randint(0, torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len)
         fake_seq = seq_disc(
             output.detach()[..., seq_start_index:seq_start_index + cfg.train.seq_disc_analysis_len], 
             feature[..., int(seq_start_index * r):int((seq_start_index + cfg.train.seq_disc_analysis_len) * r)]
@@ -184,6 +189,7 @@ def train_one_epoch(gen, frame_disc, seq_disc, sync_disc, train_loader, train_da
         disc_loss_all.backward()
         optimizer_disc.step()
         optimizer_disc.zero_grad()
+        optimizer_gen.zero_grad()
 
         epoch_frame_disc_loss += frame_disc_loss.item()
         epoch_seq_disc_loss += seq_disc_loss.item()
@@ -193,23 +199,25 @@ def train_one_epoch(gen, frame_disc, seq_disc, sync_disc, train_loader, train_da
         wandb.log({"train_sync_disc_loss": sync_disc_loss})
 
         ### optimize generator ###
-        with torch.no_grad():
-            # frame disc
-            frame_index = random.randint(0, torch.min(data_len).item() - 1)
-            fake_frame = frame_disc(output[..., frame_index].squeeze(-1), lip[..., 0])
+        # frame disc
+        frame_index = random.randint(0, torch.min(data_len).item() - 1)
+        fake_frame = frame_disc(output[..., frame_index].squeeze(-1), lip[..., 0])
 
-            # seq disc
+        # seq disc
+        if torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len < 0:
+            seq_start_index = 0
+        else:
             seq_start_index = random.randint(0, torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len)
-            fake_seq = seq_disc(
-                output[..., seq_start_index:seq_start_index + cfg.train.seq_disc_analysis_len], 
-                feature[..., int(seq_start_index * r):int((seq_start_index + cfg.train.seq_disc_analysis_len) * r)]
-            )
+        fake_seq = seq_disc(
+            output[..., seq_start_index:seq_start_index + cfg.train.seq_disc_analysis_len], 
+            feature[..., int(seq_start_index * r):int((seq_start_index + cfg.train.seq_disc_analysis_len) * r)]
+        )
 
-            # sync disc
-            sync_start_index = random.randint(0, torch.min(data_len).item() - 1 - cfg.train.sync_disc_analysis_len)
-            output_crop = output[..., sync_start_index:sync_start_index + cfg.train.sync_disc_analysis_len]
-            feature_crop_real = feature[..., int(sync_start_index * r):int((sync_start_index + cfg.train.sync_disc_analysis_len) * r)]
-            fake_sync = sync_disc(output_crop, feature_crop_real)
+        # sync disc
+        sync_start_index = random.randint(0, torch.min(data_len).item() - 1 - cfg.train.sync_disc_analysis_len)
+        output_crop = output[..., sync_start_index:sync_start_index + cfg.train.sync_disc_analysis_len]
+        feature_crop_real = feature[..., int(sync_start_index * r):int((sync_start_index + cfg.train.sync_disc_analysis_len) * r)]
+        fake_sync = sync_disc(output_crop, feature_crop_real)
 
         # masked selectする前に一旦可視化
         iter_cnt += 1
@@ -229,12 +237,13 @@ def train_one_epoch(gen, frame_disc, seq_disc, sync_disc, train_loader, train_da
         gen_frame_disc_loss = F.mse_loss(fake_frame, torch.ones_like(fake_frame))
         gen_seq_disc_loss = F.mse_loss(fake_seq, torch.ones_like(fake_seq))
         gen_sync_disc_loss = F.mse_loss(fake_sync, torch.ones_like(fake_sync))
-        gen_loss_all = gen_l1_loss + cfg.train.frame_disc_weight * gen_frame_disc_loss \
+        gen_loss_all = cfg.train.l1_weight * gen_l1_loss + cfg.train.frame_disc_weight * gen_frame_disc_loss \
             + cfg.train.seq_disc_weight * gen_seq_disc_loss + cfg.train.sync_disc_weight * gen_sync_disc_loss
 
         gen_loss_all.backward()
         optimizer_gen.step()
         optimizer_gen.zero_grad()
+        optimizer_disc.zero_grad()
 
         epoch_gen_l1_loss += gen_l1_loss.item()
         epoch_gen_frame_disc_loss += gen_frame_disc_loss.item()
@@ -296,7 +305,10 @@ def val_one_epoch(gen, frame_disc, seq_disc, sync_disc, val_loader, val_dataset,
             frame_disc_loss = F.mse_loss(fake_frame, torch.zeros_like(fake_frame)) + F.mse_loss(real_frame, torch.ones_like(real_frame))
 
             # seq disc
-            seq_start_index = random.randint(0, torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len)
+            if torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len < 0:
+                seq_start_index = 0
+            else:
+                seq_start_index = random.randint(0, torch.min(data_len).item() - 1 - cfg.train.seq_disc_analysis_len)
             fake_seq = seq_disc(
                 output[..., seq_start_index:seq_start_index + cfg.train.seq_disc_analysis_len], 
                 feature[..., int(seq_start_index * r):int((seq_start_index + cfg.train.seq_disc_analysis_len) * r)]
@@ -341,26 +353,26 @@ def val_one_epoch(gen, frame_disc, seq_disc, sync_disc, val_loader, val_dataset,
             gen_frame_disc_loss = F.mse_loss(fake_frame, torch.ones_like(fake_frame))
             gen_seq_disc_loss = F.mse_loss(fake_seq, torch.ones_like(fake_seq))
             gen_sync_disc_loss = F.mse_loss(fake_sync, torch.ones_like(fake_sync))
-            gen_loss_all = gen_l1_loss + cfg.train.frame_disc_weight * gen_frame_disc_loss \
+            gen_loss_all = cfg.train.l1_weight * gen_l1_loss + cfg.train.frame_disc_weight * gen_frame_disc_loss \
                 + cfg.train.seq_disc_weight * gen_seq_disc_loss + cfg.train.sync_disc_weight * gen_sync_disc_loss
 
         epoch_frame_disc_loss += frame_disc_loss.item()
         epoch_seq_disc_loss += seq_disc_loss.item()
         epoch_sync_disc_loss += sync_disc_loss.item()
-        wandb.log({"train_frame_disc_loss": frame_disc_loss})
-        wandb.log({"train_seq_disc_loss": seq_disc_loss})
-        wandb.log({"train_sync_disc_loss": sync_disc_loss})
+        wandb.log({"val_frame_disc_loss": frame_disc_loss})
+        wandb.log({"val_seq_disc_loss": seq_disc_loss})
+        wandb.log({"val_sync_disc_loss": sync_disc_loss})
 
         epoch_gen_l1_loss += gen_l1_loss.item()
         epoch_gen_frame_disc_loss += gen_frame_disc_loss.item()
         epoch_gen_seq_disc_loss += gen_seq_disc_loss.item()
         epoch_gen_sync_disc_loss += gen_sync_disc_loss.item()
         epoch_gen_loss_all += gen_loss_all.item()
-        wandb.log({"train_gen_l1_loss": gen_l1_loss})
-        wandb.log({"train_gen_frame_disc_loss": gen_frame_disc_loss})
-        wandb.log({"train_gen_seq_disc_loss": gen_seq_disc_loss})
-        wandb.log({"train_gen_sync_disc_loss": gen_sync_disc_loss})
-        wandb.log({"train_gen_loss_all": gen_loss_all})
+        wandb.log({"val_gen_l1_loss": gen_l1_loss})
+        wandb.log({"val_gen_frame_disc_loss": gen_frame_disc_loss})
+        wandb.log({"val_gen_seq_disc_loss": gen_seq_disc_loss})
+        wandb.log({"val_gen_sync_disc_loss": gen_sync_disc_loss})
+        wandb.log({"val_gen_loss_all": gen_loss_all})
     
     epoch_frame_disc_loss /= iter_cnt
     epoch_seq_disc_loss /= iter_cnt

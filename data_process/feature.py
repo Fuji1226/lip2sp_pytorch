@@ -20,6 +20,14 @@ OVERLAP = 4
 EPS = 1.0e-6
 
 
+def log10(x, eps=EPS):
+    """
+    常用対数をとる
+    epsでクリッピング
+    """
+    return np.log10(np.maximum(x, eps))
+
+
 def wav2mel(wav, cfg, ref_max=False):
     """
     音声波形をメルスペクトログラムに変換
@@ -123,14 +131,6 @@ def spec2mel(spec, cfg):
     )
     mel_spec = log10(mel_spec)
     return mel_spec
-
-
-def log10(x, eps=EPS):
-    """
-    常用対数をとる
-    epsでクリッピング
-    """
-    return np.log10(np.maximum(x, eps))
 
 
 def mel2wav(mel, cfg):

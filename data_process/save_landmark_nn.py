@@ -11,14 +11,20 @@ from tqdm import tqdm
 
 debug = False
 debug_iter = 5
-num_start = 0
-num_end = 4000
 
-speaker = "F02_kablab"
-data_root = Path(f"~/dataset/lip/face_aligned/{speaker}").expanduser()
+speaker = "M04_kablab"
+data_root = Path(f"~/dataset/lip/cropped_fps25/{speaker}").expanduser()
 
-dir_name_landmark = "landmark_aligned"
-dir_name_bbox = "bbox_aligned"
+if data_root.parents[0].name == "cropped":
+    dir_name_landmark = "landmark"
+    dir_name_bbox = "bbox"
+elif data_root.parents[0].name == "face_aligned":
+    dir_name_landmark = "landmark_aligned"
+    dir_name_bbox = "bbox_aligned"
+elif data_root.parents[0].name == "cropped_fps25":
+    dir_name_landmark = "landmark_fps25"
+    dir_name_bbox = "bbox_fps25"
+
 if debug:
     save_dir_landmark = Path(f"~/dataset/lip/{dir_name_landmark}_debug/{speaker}").expanduser()
     save_dir_bbox = Path(f"~/dataset/lip/{dir_name_bbox}_debug/{speaker}").expanduser()
@@ -31,8 +37,8 @@ os.makedirs(save_dir_bbox, exist_ok=True)
 
 
 def main():
-    print(f"speaker = {speaker}, num_start = {num_start}, num_end = {num_end}")
-    data_path = sorted(list(data_root.glob("*.mp4")))[num_start:num_end]
+    print(f"speaker = {speaker}")
+    data_path = sorted(list(data_root.glob("*.mp4")))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)

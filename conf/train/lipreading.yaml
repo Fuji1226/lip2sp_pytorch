@@ -40,8 +40,8 @@ corpus : ["ATR", "BASIC5000", "balanced"]
 # corpus : ["ATR"]
 
 # 使用する話者
-speaker : ["F01_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+# speaker : ["F01_kablab"]
+speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_gc : False
 
 # max_epoch
@@ -107,7 +107,7 @@ max_norm : 3.0
 # parameter for scheduled sampling
 # min_mixing_prob = 1 : teacher forcing
 # min_mixing_probが小さくなるほどサンプルが劣化する(最小0)
-training_method : "ss"
+training_method : "tf"
 exp_factor : 0.98
 min_mixing_prob : 0
 

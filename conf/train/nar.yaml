@@ -10,10 +10,12 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_16-51-15/mspec80_90.ckpt"   # gru
+# start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_17-32-32/mspec80_90.ckpt"   # trans orig
+# start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_23-33-19/mspec80_90.ckpt"   # trans layernorm -> posenc
 
 # face or lip
-face_or_lip : "face_aligned_0_50_gray"
+face_or_lip : "face"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/train"
@@ -25,26 +27,43 @@ ckpt_step : 10
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
 lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
-
 lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
 lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
-
 face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
-
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 
+# 元データ
+# data_dir : "~/dataset/lip/cropped"
+# bbox_dir : "~/dataset/lip/bbox"
+# landmark_dir : "~/dataset/lip/landmark"
+data_dir : "~/dataset/lip/cropped_fps25"
+bbox_dir : "~/dataset/lip/bbox_fps25"
+landmark_dir : "~/dataset/lip/landmark_fps25"
+train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
+val_df_path : "~/dataset/lip/data_split_csv/val.csv"
+
+# lrs2
+lrs2_train_data_root : "~/lrs2/mvlrs_v1/pretrain"
+lrs2_val_data_root : "~/lrs2/mvlrs_v1/main"
+lrs2_train_data_bbox_root : "~/lrs2/bbox/pretrain"
+lrs2_val_data_bbox_root : "~/lrs2/bbox/main"
+lrs2_train_data_landmark_root : "~/lrs2/landmark/pretrain"
+lrs2_val_data_landmark_root : "~/lrs2/landmark/main"
+lrs2_train_df_path : "~/lrs2/pretrain.txt"
+lrs2_val_df_path : "~/lrs2/val.txt"
+
 # 使用するコーパス
-# corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : ["ATR"]
+corpus : ["ATR", "BASIC5000", "balanced"]
+# corpus : ["ATR"]
 
 # 使用する話者
 speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_spk_emb : False
 finetuning : False
-where_spk_emb : "after_enc"
+where_spk_emb : "after_res"
 
 # max_epoch
 max_epoch : 600
@@ -72,8 +91,7 @@ time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速�
 # 動画の連続したフレームをある程度まとめてマスキング
 use_segment_masking : True
 which_seg_mask : "seg_mean"
-min_segment_masking_length : 0
-max_segment_masking_length : 25
+max_segment_masking_sec : 0.5
 
 # 音響特徴量に対してのマスキング
 use_time_frequency_masking : False
@@ -101,6 +119,10 @@ weight_decay : 1.0e-6
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
 lr_decay_exp : 0.995
+use_warmup_scheduler : False
+warmup_t : 30
+warmup_init : 1.0e-5
+warmup_min : 1.0e-6
 
 # gradient clipping
 max_norm : 3.0
