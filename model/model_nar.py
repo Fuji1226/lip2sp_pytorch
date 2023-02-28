@@ -24,14 +24,11 @@ class Lip2SP_NAR(nn.Module):
         dec_n_layers, dec_kernel_size,
         n_speaker, spk_emb_dim,
         which_encoder, which_decoder, where_spk_emb, use_spk_emb,
-        dec_dropout, res_dropout, rnn_dropout, is_large, reduction_factor=2):
+        dec_dropout, res_dropout, rnn_dropout, is_large, adversarial_learning, reduction_factor=2):
         super().__init__()
         self.where_spk_emb = where_spk_emb
-
-        if is_large:
-            inner_channels = int(res_inner_channels * 16)
-        else:
-            inner_channels = int(res_inner_channels * 8)
+        self.adversarial_learning = adversarial_learning
+        inner_channels = int(res_inner_channels * 8)
 
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
@@ -115,7 +112,10 @@ class Lip2SP_NAR(nn.Module):
 
         if self.where_spk_emb == "after_res":
             if hasattr(self, "spk_emb_layer"):
-                classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                if self.adversarial_learning:
+                    classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                else:
+                    classifier_out = None
                 spk_emb = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])   # (B, C, T)
                 enc_output = torch.cat([enc_output, spk_emb], dim=1)
                 enc_output = self.spk_emb_layer(enc_output)
@@ -127,7 +127,10 @@ class Lip2SP_NAR(nn.Module):
         if self.where_spk_emb == "after_enc":
             if hasattr(self, "spk_emb_layer"):
                 enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
-                classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                if self.adversarial_learning:
+                    classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                else:
+                    classifier_out = None
                 spk_emb = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])
                 enc_output = torch.cat([enc_output, spk_emb], dim=1)
                 enc_output = self.spk_emb_layer(enc_output)

@@ -21,7 +21,7 @@ import pandas as pd
 
 
 debug = False
-abs_or_gen = "abs"
+abs_or_gen = "generate"
 
 
 def wav2flac(data_dir):

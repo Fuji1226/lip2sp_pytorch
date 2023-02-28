@@ -31,6 +31,7 @@ class MelEncoder(nn.Module):
             x = layer(x)
         
         x = x.permute(0, 2, 1)  # (B, T, C)
+        data_len = torch.clamp(data_len, max=x.shape[1])
         x = pack_padded_sequence(x, data_len.cpu(), batch_first=True, enforce_sorted=False)
         x, _ = self.rnn(x)  
         x = pad_packed_sequence(x, batch_first=True)[0]
@@ -127,6 +128,7 @@ class Generator(nn.Module):
             mean=0, std=0.6, size=(feat_rep.shape[0], feat_rep.shape[-1], self.noise_channels)
         ).to(device=lip.device, dtype=lip.dtype)    # (B, T, C)
 
+        data_len = torch.clamp(data_len, max=noise.shape[1])
         noise = pack_padded_sequence(noise, data_len.cpu(), batch_first=True, enforce_sorted=False)
         noise_rep, _ = self.noise_rnn(noise)    
         noise_rep = pad_packed_sequence(noise_rep, batch_first=True)[0]

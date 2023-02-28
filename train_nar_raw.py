@@ -81,6 +81,7 @@ def make_model(cfg, device):
         res_dropout=cfg.train.res_dropout,
         rnn_dropout=cfg.train.rnn_dropout,
         is_large=cfg.model.is_large,
+        adversarial_learning=cfg.train.adversarial_learning,
         reduction_factor=cfg.model.reduction_factor,
     )
 

@@ -11,7 +11,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 
-from utils import set_config, get_path_train_raw, make_train_val_loader_raw, count_params, save_loss, check_movie
+from utils import set_config, get_path_train_raw, make_train_val_loader_raw, count_params, save_loss, check_movie, requires_grad_change
 from model.face_gen import Generator, FrameDiscriminator, MultipleFrameDiscriminator, SequenceDiscriminator, SyncDiscriminator
 from model.transformer_remake import make_pad_mask
 
@@ -172,6 +172,11 @@ def train_one_epoch(
         output = gen(lip[..., 0], feature, lip_len)
 
         ### optimize disc ###
+        frame_disc = requires_grad_change(frame_disc, True)
+        multiframe_disc = requires_grad_change(multiframe_disc, True)
+        seq_disc = requires_grad_change(seq_disc, True)
+        sync_disc = requires_grad_change(sync_disc, True)
+
         # frame disc
         frame_index = random.randint(0, torch.min(lip_len).item() - 1)
         fake_frame = frame_disc(output.detach()[..., frame_index].squeeze(-1), lip[..., 0])
@@ -240,6 +245,11 @@ def train_one_epoch(
         wandb.log({"train_sync_disc_loss": sync_disc_loss})
 
         ### optimize generator ###
+        frame_disc = requires_grad_change(frame_disc, False)
+        multiframe_disc = requires_grad_change(multiframe_disc, False)
+        seq_disc = requires_grad_change(seq_disc, False)
+        sync_disc = requires_grad_change(sync_disc, False)
+
         # frame disc
         frame_index = random.randint(0, torch.min(lip_len).item() - 1)
         fake_frame = frame_disc(output[..., frame_index].squeeze(-1), lip[..., 0])

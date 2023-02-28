@@ -12,8 +12,8 @@ from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
 from utils import make_train_val_loader_lrs2, save_loss, get_path_train_lrs2, check_mel_nar, count_params, set_config
-from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
+from train_nar_raw import make_model
 
 # wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -55,41 +55,6 @@ def save_checkpoint(
     }, ckpt_path)
 
 
-def make_model(cfg, device):
-    model = Lip2SP_NAR(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        res_inner_channels=cfg.model.res_inner_channels,
-        which_res=cfg.model.which_res,
-        rnn_n_layers=cfg.model.rnn_n_layers,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        trans_n_layers=cfg.model.trans_enc_n_layers,
-        trans_n_head=cfg.model.trans_enc_n_head,
-        conf_n_layers=cfg.model.conf_n_layers,
-        conf_n_head=cfg.model.conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
-        dec_n_layers=cfg.model.tc_n_layers,
-        dec_kernel_size=cfg.model.tc_kernel_size,
-        n_speaker=len(cfg.train.speaker),
-        spk_emb_dim=cfg.model.spk_emb_dim,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        where_spk_emb=cfg.train.where_spk_emb,
-        use_spk_emb=cfg.train.use_spk_emb,
-        dec_dropout=cfg.train.dec_dropout,
-        res_dropout=cfg.train.res_dropout,
-        rnn_dropout=cfg.train.rnn_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-    )
-
-    count_params(model, "model")
-    # multi GPU
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
-        print(f"\nusing {torch.cuda.device_count()} GPU")
-    return model.to(device)
-
-
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
     epoch_mse_loss = 0
@@ -112,10 +77,11 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
-        if cfg.train.use_spk_emb:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
-        else:
-            classifier_loss = torch.tensor(0)
+        # if cfg.train.use_spk_emb:
+        #     classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
+        # else:
+        #     classifier_loss = torch.tensor(0)
+        classifier_loss = torch.tensor(0)
 
         loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
 
@@ -171,10 +137,11 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
-        if cfg.train.use_spk_emb:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
-        else:
-            classifier_loss = torch.tensor(0)
+        # if cfg.train.use_spk_emb:
+        #     classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
+        # else:
+        #     classifier_loss = torch.tensor(0)
+        classifier_loss = torch.tensor(0)
 
         loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
 

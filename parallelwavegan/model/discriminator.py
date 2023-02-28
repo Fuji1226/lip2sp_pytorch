@@ -10,7 +10,7 @@ import math
 
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels, out_channels, inner_channels, n_layers, kernel_size, use_weight_norm):
+    def __init__(self, in_channels, out_channels, inner_channels, n_layers, kernel_size, use_weight_norm, dropout):
         super().__init__()
         convs = []
         for i in range(n_layers - 1):
@@ -26,7 +26,7 @@ class Discriminator(nn.Module):
                 nn.Sequential(
                     nn.Conv1d(conv_in_channels, inner_channels, kernel_size=kernel_size, dilation=dilation, padding=padding),
                     nn.LeakyReLU(0.2),
-                    nn.Dropout(0.1),
+                    nn.Dropout(dropout),
                 )
             )
         convs.append(

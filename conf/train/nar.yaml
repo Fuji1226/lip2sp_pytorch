@@ -63,6 +63,7 @@ speaker : ["F01_kablab"]
 use_spk_emb : False
 finetuning : False
 where_spk_emb : "after_res"
+adversarial_learning : False
 
 # max_epoch
 max_epoch : 600
@@ -118,8 +119,8 @@ weight_decay : 1.0e-6
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
 lr_decay_exp : 0.995
-use_warmup_scheduler : False
-warmup_t : 30
+use_warmup_scheduler : True
+warmup_t : 10
 warmup_init : 1.0e-5
 warmup_min : 1.0e-6
 

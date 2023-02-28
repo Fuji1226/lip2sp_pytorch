@@ -99,11 +99,6 @@ def generate(cfg, model, test_loader, dataset, device, save_path, gen):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    if len(cfg.train.speaker) > 1:
-        cfg.train.use_gc = True
-    else:
-        cfg.train.use_gc = False
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 

@@ -56,7 +56,7 @@ class LRS2Dataset(Dataset):
         speaker = video_path.parents[0].name
         label = video_path.stem
 
-        spk_emb = torch.from_numpy(self.embs[speaker])
+        spk_emb = torch.from_numpy(self.embs[str(speaker)])
 
         wav, lip, feature, data_len = load_data_lrs2(video_path, bbox_path, landmark_path, self.cfg, self.aligner)
         wav = torch.from_numpy(wav).to(torch.float32)

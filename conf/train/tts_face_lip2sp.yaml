@@ -1,6 +1,6 @@
 ---
 
-name : "tts"
+name : "tts_face_lip2sp"
 
 # デバッグ
 debug : True
@@ -10,16 +10,17 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/tts_face_lip2sp/face/2023:02:20_16-51-15/mspec80_90.ckpt"   # gru
+# start_ckpt_path : "~/lip2sp_pytorch/check_point/tts_face_lip2sp/face/2023:02:20_23-33-19/mspec80_90.ckpt"   # trans
 
 # face or lip
 face_or_lip : "face"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/tts/train"
+save_path : "~/lip2sp_pytorch/result/tts_face_lip2sp/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/tts"
+ckpt_path : "~/lip2sp_pytorch/check_point/tts_face_lip2sp"
 ckpt_step : 10
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -33,11 +34,24 @@ face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/trai
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 
 # 元データ
+# data_dir : "~/dataset/lip/cropped"
+# bbox_dir : "~/dataset/lip/bbox"
+# landmark_dir : "~/dataset/lip/landmark"
 data_dir : "~/dataset/lip/cropped_fps25"
 bbox_dir : "~/dataset/lip/bbox_fps25"
 landmark_dir : "~/dataset/lip/landmark_fps25"
 train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
+
+# lrs2
+lrs2_train_data_root : "~/lrs2/mvlrs_v1/pretrain"
+lrs2_val_data_root : "~/lrs2/mvlrs_v1/main"
+lrs2_train_data_bbox_root : "~/lrs2/bbox/pretrain"
+lrs2_val_data_bbox_root : "~/lrs2/bbox/main"
+lrs2_train_data_landmark_root : "~/lrs2/landmark/pretrain"
+lrs2_val_data_landmark_root : "~/lrs2/landmark/main"
+lrs2_train_df_path : "~/lrs2/pretrain.txt"
+lrs2_val_df_path : "~/lrs2/val.txt"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
@@ -46,11 +60,13 @@ corpus : ["ATR", "BASIC5000", "balanced"]
 # 使用する話者
 speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-# speaker : ["F01_kablab", "F02_kablab"]
-# speaker : ["M01_kablab", "M04_kablab"]
-use_gc : False
+use_spk_emb : False
 finetuning : False
 where_spk_emb : "after_res"
+adversarial_learning : False
+
+# max_epoch
+max_epoch : 600
 
 # data augmentationの有無
 # 見た目変換系
@@ -103,6 +119,10 @@ weight_decay : 1.0e-6
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
 lr_decay_exp : 0.995
+use_warmup_scheduler : True
+warmup_t : 10
+warmup_init : 1.0e-5
+warmup_min : 1.0e-6
 
 # gradient clipping
 max_norm : 3.0
@@ -112,4 +132,19 @@ mse_weight : 1.0
 classifier_weight : 0
 use_weighted_mean : False
 
+
+use_gc : False
 n_stop_token_frame : 2
+
+gen_dropout : 0.1
+disc_dropout : 0.1
+lr_gen : 0.0001
+lr_disc : 0.0001
+l1_weight : 600
+frame_disc_weight : 1.0
+multiframe_disc_weight : 1.0
+seq_disc_weight : 1.0
+sync_disc_weight : 0
+multiframe_disc_analysis_len : 15
+seq_disc_analysis_len : 75
+sync_disc_analysis_len : 5

@@ -120,7 +120,7 @@ taco_dec_conv_kernel_size : 31
 taco_use_attention : True
 
 # 使用するencoder
-which_encoder : "transformer"
+which_encoder : "gru"
 
 # 使用するdecoder
 which_decoder : "glu"
@@ -166,12 +166,14 @@ pwg_upsample_scales : [10, 4, 2, 2]
 pwg_gen_n_layers : 30
 pwg_gen_n_stacks : 3
 pwg_disc_inner_channels : 64
-pwg_disc_n_layers : 30
+pwg_disc_n_layers : 10
+pwg_disc_n_layers_wavenet : 30
 pwg_disc_n_stacks : 3
 pwg_kernel_size : 3
-pwg_dropout : 0.1
+pwg_gen_dropout : 0.1
+pwg_disc_dropout : 0
 pwg_use_weight_norm : False
-pwg_which_disc : "wavenet"
+pwg_which_disc : "normal"
 
 # tacotron2
 n_vocab : 47

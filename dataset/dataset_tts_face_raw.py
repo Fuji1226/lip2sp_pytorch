@@ -14,6 +14,7 @@ from data_process.transform import load_data
 from dataset.utils import select_data, get_stat_load_data_raw, calc_mean_var_std, get_spk_emb
 from data_process.phoneme_encode import classes2index_tts
 from dataset.dataset_lipreading import adjust_max_data_len
+from data_process.face_crop_align import FaceAligner
 
 
 class DatasetTTSFace(Dataset):
@@ -26,8 +27,12 @@ class DatasetTTSFace(Dataset):
         train_data_path_list = select_data(data_dir, bbox_dir, landmark_dir, train_df, cfg)
         self.data_path_list = data_path_list
 
+        desired_left_eye = (cfg.model.align_desired_left_eye, cfg.model.align_desired_left_eye)
+        desired_face_size = cfg.model.align_desired_face_size
+        self.aligner = FaceAligner(desired_left_eye, desired_face_size, desired_face_size)
+
         lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list = \
-            get_stat_load_data_raw(train_data_path_list, cfg)
+            get_stat_load_data_raw(train_data_path_list, cfg, self.aligner)
         lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
         self.lip_mean = torch.from_numpy(lip_mean)
@@ -49,7 +54,7 @@ class DatasetTTSFace(Dataset):
 
         spk_emb = torch.from_numpy(self.embs[speaker])
         
-        wav, lip, feature, data_len, text = load_data(video_path, audio_path, bbox_path, landmark_path, text_path, self.cfg)
+        wav, lip, feature, data_len, text = load_data(video_path, audio_path, bbox_path, landmark_path, text_path, self.cfg, self.aligner)
         wav = torch.from_numpy(wav)
         lip = torch.from_numpy(lip)
         feature = torch.from_numpy(feature)
@@ -68,7 +73,7 @@ class DatasetTTSFace(Dataset):
         text_len = torch.tensor(text.shape[0])
         feature_len = torch.tensor(feature.shape[1])
         lip_len = torch.tensor(lip.shape[-1])
-        if self.cfg.train.name == "tts":
+        if self.cfg.train.name == "tts" or self.cfg.train.name == "tts_face_lip2sp":
             stop_token = torch.zeros(feature_len)
         elif self.cfg.train.name == "face_gen_text":
             stop_token = torch.zeros(lip_len)

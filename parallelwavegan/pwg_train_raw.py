@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 
-from utils import count_params, get_path_train_raw, save_loss, make_train_val_loader_raw, set_config, check_wav
+from utils import count_params, get_path_train_raw, save_loss, make_train_val_loader_raw, set_config, check_wav, requires_grad_change
 from parallelwavegan.model.generator import Generator
 from parallelwavegan.model.discriminator import Discriminator, WaveNetLikeDiscriminator
 from parallelwavegan.stft_loss import MultiResolutionSTFTLoss
@@ -76,7 +76,7 @@ def make_model(cfg, device):
         upsample_scales=cfg.model.pwg_upsample_scales,
         n_layers=cfg.model.pwg_gen_n_layers,
         n_stacks=cfg.model.pwg_gen_n_stacks,
-        dropout=cfg.model.pwg_dropout,
+        dropout=cfg.model.pwg_gen_dropout,
         kernel_size=cfg.model.pwg_kernel_size,
         use_weight_norm=cfg.model.pwg_use_weight_norm,
     )
@@ -88,16 +88,17 @@ def make_model(cfg, device):
             n_layers=cfg.model.pwg_disc_n_layers,
             kernel_size=cfg.model.pwg_kernel_size,
             use_weight_norm=cfg.model.pwg_use_weight_norm,
+            dropout=cfg.model.pwg_disc_dropout,
         )
     elif cfg.model.pwg_which_disc == "wavenet":
         disc = WaveNetLikeDiscriminator(
-            n_layers=cfg.model.pwg_disc_n_layers,
+            n_layers=cfg.model.pwg_disc_n_layers_wavenet,
             n_stacks=cfg.model.pwg_disc_n_stacks,
             in_channels=cfg.model.pwg_in_channels,
             inner_channels=cfg.model.pwg_disc_inner_channels,
             out_channels=cfg.model.pwg_out_channels,
             kernel_size=cfg.model.pwg_kernel_size,
-            dropout=cfg.model.pwg_dropout,
+            dropout=cfg.model.pwg_disc_dropout,
         )
     count_params(gen, "generator")
     count_params(disc, "discriminator")
@@ -217,24 +218,35 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
         wav_pred = gen(noise, feature)
 
         ### discriminator ###
+        disc = requires_grad_change(disc, True)
+
         out_real = disc(wav)
         out_pred = disc(wav_pred.detach())
 
         loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
-        epoch_loss_disc += loss_disc.item()
-        wandb.log({"train_loss_disc": loss_disc})
-
+        
         loss_disc.backward()
         optimizer_d.step()
         optimizer_d.zero_grad()
         optimizer_g.zero_grad()
 
+        epoch_loss_disc += loss_disc.item()
+        wandb.log({"train_loss_disc": loss_disc})
+
+
         ### generator ###
+        disc = requires_grad_change(disc, False)
+
         out_pred = disc(wav_pred)
 
         loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
         loss_gen_gan = torch.mean((out_pred - 1) ** 2)
         loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
+
+        loss_gen_all.backward()
+        optimizer_g.step()
+        optimizer_d.zero_grad()
+        optimizer_g.zero_grad()
 
         epoch_loss_gen_stft += loss_gen_stft.item()
         epoch_loss_gen_gan += loss_gen_gan.item()
@@ -242,11 +254,6 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
         wandb.log({"train_loss_gen_stft": loss_gen_stft})
         wandb.log({"train_loss_gen_gan": loss_gen_gan})
         wandb.log({"train_loss_gen_all": loss_gen_all})
-
-        loss_gen_all.backward()
-        optimizer_g.step()
-        optimizer_d.zero_grad()
-        optimizer_g.zero_grad()
 
         iter_cnt += 1
         if cfg.train.debug:

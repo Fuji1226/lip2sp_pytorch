@@ -1013,6 +1013,12 @@ def count_params(module, attr):
     print(f"{attr}_parameter = {params}")
 
 
+def requires_grad_change(net, val):
+    for param in net.parameters():
+        param.requires_grad = val
+    return net
+
+
 def save_loss(train_loss_list, val_loss_list, save_path, filename):
     loss_save_path = save_path / f"{filename}.png"
     

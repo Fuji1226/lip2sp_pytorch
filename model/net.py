@@ -104,10 +104,10 @@ class ResNet3DRemake(nn.Module):
         ])
         if is_large:
             self.final_conv = nn.Sequential(
-                ResBlock(inner_channels * 8, inner_channels * 16, 2),
+                ResBlock(inner_channels * 8, inner_channels * 8, 2),
                 nn.Dropout(dropout),
             )
-            self.out_layer = nn.Conv1d(inner_channels * 16, out_channels, kernel_size=1)
+            self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
         else:
             self.out_layer = nn.Conv1d(inner_channels * 8, out_channels, kernel_size=1)
     
@@ -119,19 +119,11 @@ class ResNet3DRemake(nn.Module):
         fmaps = []
         x = self.first_conv(x)
         fmaps.append(x)
-        
-        print(x.shape)
 
         for layer in self.convs:
             x = layer(x)
 
-        print(x.shape)
-
-        if hasattr(self, "final_conv"):
-            x = self.final_conv(x)
-
-        print(x.shape)
-
+        x = self.final_conv(x)
         x = torch.mean(x, dim=(3, 4))
         x = self.out_layer(x)
         return x, fmaps

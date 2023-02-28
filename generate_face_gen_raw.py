@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import torch
 
-from train_face_gen import make_model
+from train_face_gen_raw import make_model
 from utils import make_test_loader_face_gen_raw, get_path_test_raw, load_pretrained_model, gen_data_separate, gen_data_concat
 from data_check import save_data_face_gen
 
@@ -29,30 +29,29 @@ def generate(cfg, gen, test_loader, dataset, train_loader,  device, save_path):
     lip_mean = dataset.lip_mean.to(device)
     lip_std = dataset.lip_std.to(device)
 
-    input_length = int(cfg.model.n_lip_frames)
-    shift_frame = input_length // 3
-
     for batch in tqdm(test_loader, total=len(test_loader)):
         batch_train = train_loader.next()
-        wav, lip, feature, spk_emb, data_len, speaker, label = batch_train
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, label = batch_train
         lip_first_frame = lip[..., 0]
         lip_first_frame = lip_first_frame.to(device)
 
-        wav, lip, feature, spk_emb, data_len, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, label = batch
         lip = lip.to(device)
         feature = feature.to(device)
 
-        n_last_frame = lip.shape[-1] % shift_frame
-        feature_sep = gen_data_separate(feature, input_length=300, shift_frame=100)
-        data_len = torch.tensor([feature_sep.shape[-1] // 2]).to(dtype=torch.int, device=device)
-        data_len = data_len.expand(feature_sep.shape[0])
+        feature_sep = gen_data_separate(
+            feature, 
+            int(cfg.model.input_lip_sec * cfg.model.fps * cfg.model.reduction_factor), 
+            int(cfg.model.fps * cfg.model.reduction_factor)
+        )
+
+        lip_len = lip_len.expand(feature_sep.shape[0])
         lip_first_frame = lip_first_frame.expand(feature_sep.shape[0], -1, -1, -1)
 
         with torch.no_grad():
-            output = gen(lip_first_frame, feature_sep, data_len)
+            output = gen(lip_first_frame, feature_sep, lip_len)
 
-        n_last_frame = (feature.shape[-1] % 100) // 2
-        output = gen_data_concat(output, shift_frame=cfg.model.fps, n_last_frame=n_last_frame)
+        output = gen_data_concat(output, cfg.model.fps, lip_len[0] % cfg.model.fps)
 
         _save_path = save_path / speaker[0] / label[0]
         _save_path.mkdir(parents=True, exist_ok=True)
@@ -73,13 +72,13 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    start_epoch = 60
+    start_epoch = 110
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
-    gen, _, _, _ = make_model(cfg, device)
+    gen, _, _, _, _ = make_model(cfg, device)
     for num_gen_epoch in num_gen_epoch_list:
-        model_path = Path(f"~/lip2sp_pytorch/check_point/face_gen/face_aligned_0_50_gray/2023:01:18_00-49-52/mspec80_{num_gen_epoch}.ckpt").expanduser()
+        model_path = Path(f"~/lip2sp_pytorch/check_point/face_gen/face/2023:02:24_16-27-37/mspec80_{num_gen_epoch}.ckpt").expanduser()
 
         gen = load_pretrained_model(model_path, gen, "gen")
         cfg.train.face_or_lip = model_path.parents[1].name

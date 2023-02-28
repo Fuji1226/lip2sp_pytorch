@@ -55,7 +55,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path, gen):
         spk_emb = spk_emb.to(device)
 
         with torch.no_grad():
-            dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
+            dec_output, output, logit, att_w = model(text, text_len, spk_emb=spk_emb)
 
             noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=output.dtype)
             wav_pred = gen(noise, output)
@@ -93,11 +93,6 @@ def generate(cfg, model, test_loader, dataset, device, save_path, gen):
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
-    if len(cfg.train.speaker) > 1:
-        cfg.train.use_gc = True
-    else:
-        cfg.train.use_gc = False
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 

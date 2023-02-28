@@ -12,7 +12,7 @@ debug_iter : 0
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_200.ckpt"
 use_disc : True
-start_gan_training_pretrained_gen : True
+start_gan_training_pretrained_gen : False
 gen_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt"
 
 # face or lip
@@ -91,8 +91,8 @@ batch_size : 8
 num_workers : 8
 
 # optimizer
-lr_gen : 0.0002
-lr_disc : 0.0002
+lr_gen : 0.001
+lr_disc : 0.001
 beta_1 : 0.9
 beta_2 : 0.999
 eps : 1.0e-6
@@ -100,7 +100,7 @@ weight_decay : 1.0e-6
 
 # scheduler
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay : 0.99
+lr_decay : 0.998
 
 # gradient clipping
 max_norm : 3.0
@@ -112,4 +112,4 @@ win_length_list : [320, 640, 1280]
 
 # lossの重みづけ
 stft_loss_weight : 1.0
-gan_loss_weight : 10.0
+gan_loss_weight : 4.0

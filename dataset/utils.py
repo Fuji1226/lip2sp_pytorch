@@ -13,7 +13,8 @@ from data_process.transform import load_data_lrs2, load_data
 
 text_dir = Path("~/dataset/lip/utt").expanduser()
 emb_dir = Path("~/dataset/lip/emb").expanduser()
-emb_lrs2_dir = Path("~/lrs2/emb/pretrain").expanduser()
+emb_lrs2_dir_pretrain = Path("~/lrs2/emb/pretrain").expanduser()
+emb_lrs2_dir_main = Path("~/lrs2/emb/main").expanduser()
 
 
 def select_data(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
@@ -251,15 +252,28 @@ def get_spk_emb(cfg):
     for speaker in cfg.train.speaker:
         data_path = emb_dir / speaker / "emb.npy"
         emb = np.load(str(data_path))
+        emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker] = emb
     return spk_emb_dict
 
 
 def get_spk_emb_lrs2():
     spk_emb_dict = {}
-    speaker_list = list(emb_lrs2_dir.glob("*"))
+    speaker_list = list(emb_lrs2_dir_pretrain.glob("*"))
     for speaker in speaker_list:
-        data_path = emb_lrs2_dir / speaker / "emb.npy"
+        data_path = emb_lrs2_dir_pretrain / speaker / "emb.npy"
         emb = np.load(str(data_path))
-        spk_emb_dict[speaker] = emb
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker.stem] = emb
+
+    # validationの話者はpretrainに含まれないので別で取得
+    speaker_list = list(emb_lrs2_dir_main.glob("*"))
+    for speaker in speaker_list:
+        if speaker in spk_emb_dict:
+            continue
+        data_path = emb_lrs2_dir_main / speaker / "emb.npy"
+        emb = np.load(str(data_path))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker.stem] = emb
+
     return spk_emb_dict

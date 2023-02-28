@@ -64,7 +64,7 @@ class GRUEncoder(nn.Module):
         x = self.dropout(x.permute(0, 2, 1))    # (B, T, C)
 
         # data_lenが全てTより大きい場合、pack_padded_sequenceでバグるのでclamp
-        data_len = torch.clamp(data_len, min=min(data_len), max=T)
+        data_len = torch.clamp(data_len,  max=T)
         x = pack_padded_sequence(x, data_len.cpu(), batch_first=True, enforce_sorted=False)
 
         out, hn = self.gru(x)
