@@ -293,12 +293,12 @@ class TransformerFaceGenerator(nn.Module):
         """
         enc_output = self.encoder(text, text_len)
         t = 0
-        prev = torch.zeros(enc_output.shape[0], self.lip_channels, 48, 48, 1).to(device=text.device, dtype=torch.float32)
+        prev = torch.zeros(enc_output.shape[0], self.lip_channels, 96, 96, 1).to(device=text.device, dtype=torch.float32)
         dec_output_list = []
         dec_output_list.append(prev)
 
         while True:
-            lip_len = torch.tensor(prev.shape[-1]).unsqueeze(0)     # (B,)
+            lip_len = torch.tensor(prev.shape[-1]).unsqueeze(0).to(device=text.device)     # (B,)
             dec_output, logit = self.decoder(enc_output, text_len, lip_len, prev)
             dec_output_list.append(dec_output[..., -1:])
             t += 1
@@ -307,6 +307,7 @@ class TransformerFaceGenerator(nn.Module):
             if t > n_max_loop:
                 break
             prev = torch.cat(dec_output_list, dim=-1)
+            print(t)
 
         dec_output = torch.cat(dec_output_list[1:], dim=-1)
         output = self.postnet(dec_output)

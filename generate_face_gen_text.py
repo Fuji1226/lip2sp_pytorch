@@ -3,7 +3,7 @@ import hydra
 from pathlib import Path
 from datetime import datetime
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pltß
 from scipy.io.wavfile import write
 import random
 from tqdm import tqdm
@@ -41,8 +41,8 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         spk_emb = spk_emb.to(device)
 
         with torch.no_grad():
-            # dec_output, output, logit = model(text, text_len, lip_len, lip)
-            dec_output, output, logit = model.inference(text, text_len)
+            dec_output, output, logit = model(text, text_len, lip_len, lip)
+            # dec_output, output, logit = model.inference(text, text_len)
 
         _save_path = save_path / speaker[0] / label[0]
         _save_path.mkdir(parents=True, exist_ok=True)
@@ -67,7 +67,7 @@ def main(cfg):
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
-    model = make_model(cfg, device)
+    model = make_model(cfg).to(device)
     for num_gen_epoch in num_gen_epoch_list:
         model_path = Path(f"~/lip2sp_pytorch/check_point/face_gen_text/face/2023:02:26_09-12-06/mspec80_{num_gen_epoch}.ckpt").expanduser()
 
@@ -88,3 +88,7 @@ def main(cfg):
                 device=device,
                 save_path=save_path,
             )
+
+
+if __name__ == "__main__":
+    main()
