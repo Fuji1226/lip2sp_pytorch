@@ -176,7 +176,7 @@ pwg_use_weight_norm : False
 pwg_which_disc : "normal"
 
 # tacotron2
-n_vocab : 47
+n_vocab : 52
 taco_enc_hidden_channels : 512
 taco_enc_conv_n_layers : 3
 taco_enc_conv_kernel_size : 5

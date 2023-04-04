@@ -146,7 +146,7 @@ class Generator(nn.Module):
         out = torch.cat([lip_rep, feat_rep, noise_rep], dim=1)
 
         # 音声と画像から発話内容に対応した動画を合成
-        out = F.interpolate(out, size=(3, 3, 75))
+        out = F.interpolate(out, size=(3, 3, out.shape[-1]))
         out = self.dec_first_layer(out)     # (B, C, H, W, T)
         if hasattr(self, "dec_expand_layer"):
             out = self.dec_expand_layer(out)

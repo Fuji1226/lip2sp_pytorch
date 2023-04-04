@@ -106,7 +106,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         text_len = text_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
-        print(text)
 
         dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
 
