@@ -99,13 +99,14 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, text, feature, stop_token, text_len, feature_len, spk_emb, speaker, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
         text = text.to(device)
         feature = feature.to(device)
         stop_token = stop_token.to(device)
         text_len = text_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
+        print(text)
 
         dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
 
@@ -164,7 +165,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
     model.eval()
 
     for batch in val_loader:
-        wav, text, feature, stop_token, text_len, feature_len, spk_emb, speaker, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
         text = text.to(device)
         feature = feature.to(device)
         stop_token = stop_token.to(device)

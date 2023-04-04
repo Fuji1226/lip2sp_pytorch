@@ -132,7 +132,6 @@ def calc_feat_add(wav, feature, cfg, use_spec=False):
     """
     音声のrms(root mean square)とclf0(continuous log f0)を計算
     multi task learningなどに使用できる
-
     use_specでrmsを音声波形から計算するかスペクトログラムから計算するかを選択
     一応librosaにはスペクトログラムから計算した方が精度がいいと書いていたけど,音声波形からでも十分そうだった
     """

@@ -5,12 +5,15 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 class MelEncoder(nn.Module):
-    def __init__(self, in_channels, out_channels, hidden_channels, dropout):
+    def __init__(self, in_channels, out_channels, hidden_channels, dropout, fps):
         super().__init__()
         hc = hidden_channels
         in_cs = [in_channels, hc, hc, int(hc * 2), int(hc * 2)]
         out_cs = [hc, hc, int(hc * 2), int(hc * 2), out_channels]
-        stride = [2, 1, 2, 1, 1]
+        if fps == 50:
+            stride = [2, 1, 1, 1, 1]
+        elif fps == 25:
+            stride = [2, 1, 2, 1, 1]
         self.layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_c, out_c, kernel_size=3, stride=s, padding=1),
@@ -45,7 +48,7 @@ class Generator(nn.Module):
     def __init__(
         self, in_channels, img_hidden_channels, img_cond_channels, 
         feat_channels, feat_cond_channels, mel_enc_hidden_channels, 
-        noise_channels, tc_ksize, dropout, is_large):
+        noise_channels, tc_ksize, dropout, is_large, fps):
         super().__init__()
         assert tc_ksize % 2 == 0
         self.noise_channels = noise_channels
@@ -58,7 +61,7 @@ class Generator(nn.Module):
         elif tc_ksize == 4:
             padding = 1
 
-        self.audio_enc = MelEncoder(feat_channels, feat_cond_channels, mel_enc_hidden_channels, dropout)
+        self.audio_enc = MelEncoder(feat_channels, feat_cond_channels, mel_enc_hidden_channels, dropout, fps)
         self.noise_rnn = nn.GRU(noise_channels, noise_channels, num_layers=1, batch_first=True, bidirectional=True)
         self.noise_fc = nn.Linear(noise_channels * 2, noise_channels)
 
@@ -221,7 +224,7 @@ class MultipleFrameDiscriminator(nn.Module):
 
 
 class SequenceDiscriminator(nn.Module):
-    def __init__(self, in_channels, feat_channels, dropout, analysis_len):
+    def __init__(self, in_channels, feat_channels, dropout, analysis_len, fps):
         super().__init__()
         in_cs_lip = [in_channels, 32, 64, 128]
         out_cs_lip = [32, 64, 128, 256]
@@ -236,7 +239,10 @@ class SequenceDiscriminator(nn.Module):
 
         in_cs_feat = [feat_channels, 128, 128, 256, 256]
         out_cs_feat = [128, 128, 256, 256, out_cs_lip[-1]]
-        stride = [2, 1, 2, 1, 1]
+        if fps == 50:
+            stride = [2, 1, 1, 1, 1]
+        elif fps == 25:
+            stride = [2, 1, 2, 1, 1]
         self.feat_layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_c, out_c, kernel_size=5, stride=s, padding=2),

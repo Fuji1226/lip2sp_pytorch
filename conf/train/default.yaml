@@ -9,7 +9,7 @@ debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : True
+check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:02:01_23-53-31/mspec80_410.ckpt"
 
 # face or lip
@@ -20,18 +20,15 @@ save_path : "~/lip2sp_pytorch/result/default/train"
 
 # check point path
 ckpt_path : "~/lip2sp_pytorch/check_point/default"
-ckpt_step : 10
+ckpt_step : 5
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
 lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
-
 lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
 lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
-
 face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
-
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 
@@ -45,6 +42,7 @@ speaker : ["F01_kablab"]
 use_spk_emb : False
 finetuning : False
 where_spk_emb : "after_res"
+adversarial_learning : False
 
 # max_epoch
 max_epoch : 600
@@ -72,8 +70,7 @@ time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速�
 # 動画の連続したフレームをある程度まとめてマスキング
 use_segment_masking : True
 which_seg_mask : "seg_mean"
-min_segment_masking_length : 0
-max_segment_masking_length : 25
+max_segment_masking_sec : 0.5
 
 # 音響特徴量に対してのマスキング
 use_time_frequency_masking : False

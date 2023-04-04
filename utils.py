@@ -16,10 +16,10 @@ from torch.utils.data.distributed import DistributedSampler
 from collections import OrderedDict
 import pandas as pd
 
-from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
+from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust, collate_time_adjust_tts
 from dataset.dataset_npz_ssl import KablabDatasetSSL, KablabTransformSSL, collate_time_adjust_ssl
 from dataset.dataset_lipreading import LipReadingDataset, LipReadingTransform, collate_time_adjust_lipreading
-from dataset.dataset_tts import DatasetTTS, TransformTTS, collate_time_adjust_tts
+from dataset.dataset_tts import DatasetTTS, TransformTTS
 # from dataset.dataset_tts_face import DatasetTTSFace, TransformTTSFace, collate_time_adjust_tts_face
 from dataset.dataset_lm import DatasetLM, TransformLM, collate_time_adjust_lm
 from dataset.dataset_lrs2 import LRS2Dataset, LRS2Transform, collate_time_adjust_lrs2
@@ -433,18 +433,18 @@ def make_train_val_loader_tts(cfg, train_data_root, val_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
 
-    train_trans = TransformTTS(cfg, "train")
-    val_trans = TransformTTS(cfg, "val")
+    train_trans = KablabTransform(cfg, "train")
+    val_trans = KablabTransform(cfg, "val")
 
     print("\n--- make train dataset ---")
-    train_dataset = DatasetTTS(
+    train_dataset = KablabDataset(
         data_path=train_data_path,
         train_data_path=train_data_path,
         transform=train_trans,
         cfg=cfg,
     )
     print("\n--- make validation dataset ---")
-    val_dataset = DatasetTTS(
+    val_dataset = KablabDataset(
         data_path=val_data_path,
         train_data_path=train_data_path,
         transform=val_trans,

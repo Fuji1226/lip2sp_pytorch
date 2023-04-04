@@ -11,9 +11,8 @@ from tqdm import tqdm
 import librosa
 
 from data_process.feature import wav2mel
-from dataset.utils import get_speaker_idx, get_stat_load_data, calc_mean_var_std, get_utt, get_spk_emb
+from dataset.utils import get_speaker_idx, get_stat_load_data, calc_mean_var_std, get_utt, get_spk_emb, adjust_max_data_len
 from data_process.phoneme_encode import classes2index_tts
-from dataset.dataset_lipreading import adjust_max_data_len
 
 
 class DatasetTTS(Dataset):
@@ -71,24 +70,6 @@ class DatasetTTS(Dataset):
         wav = torch.from_numpy(npz_key['wav'])
         feature = torch.from_numpy(npz_key['feature'])
         data_len = torch.from_numpy(npz_key['data_len'])
-
-        # # 無音区間を除去
-        # wav = npz_key["wav"]
-        # _, trim_index = librosa.effects.trim(
-        #     y=wav,
-        #     top_db=30,
-        #     frame_length=self.cfg.model.win_length,
-        #     hop_length=self.cfg.model.hop_length,
-        # )
-        # margin = self.cfg.model.sampling_rate // 100
-        # wav = wav[trim_index[0] - margin:trim_index[1] + margin]
-        # feature = wav2mel(wav, self.cfg, ref_max=False).T   # (T, C)
-
-        # wav = torch.from_numpy(wav)
-        # feature = torch.from_numpy(feature)
-
-        # if feature.shape[0] % self.cfg.model.reduction_factor != 0:
-        #     feature = feature[:-(feature.shape[0] % self.cfg.model.reduction_factor), :]
 
         text, feature = self.transform(
             text=text, 

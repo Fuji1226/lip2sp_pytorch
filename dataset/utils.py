@@ -8,6 +8,7 @@ from tqdm import tqdm
 import re
 import joblib
 from functools import partial
+import torch
 
 from data_process.transform import load_data_lrs2, load_data
 
@@ -215,9 +216,9 @@ def get_utt(data_path):
     print("--- get utterance ---")
     path_text_pair_list = []
     for path in tqdm(data_path):
-        text_path = text_dir / path.parents[2].name / f"{path.stem}.csv"
+        text_path = text_dir / f"{path.stem}.csv"
         df = pd.read_csv(str(text_path))
-        text = df.pronounce.values[0]
+        text = df.text.values[0]
         path_text_pair_list.append([path, text])
 
     return path_text_pair_list
@@ -277,3 +278,31 @@ def get_spk_emb_lrs2():
         spk_emb_dict[speaker.stem] = emb
 
     return spk_emb_dict
+
+
+def adjust_max_data_len(data):
+    """
+    minibatchの中で最大のdata_lenに合わせて0パディングする
+    data : (..., T)
+    """
+    max_data_len = 0
+    max_data_len_id = 0
+
+    # minibatchの中でのdata_lenの最大値と，そのデータのインデックスを取得
+    for idx, d in enumerate(data):
+        if max_data_len < d.shape[-1]:
+            max_data_len = d.shape[-1]
+            max_data_len_id = idx
+
+    new_data = []
+
+    # data_lenが最大のデータに合わせて0パディング
+    for d in data:
+        d_padded = torch.zeros_like(data[max_data_len_id])
+
+        for t in range(d.shape[-1]):
+            d_padded[..., t] = d[..., t]
+
+        new_data.append(d_padded)
+    
+    return new_data

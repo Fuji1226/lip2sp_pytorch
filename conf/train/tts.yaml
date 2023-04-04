@@ -13,14 +13,14 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
 
 # face or lip
-face_or_lip : "face"
+face_or_lip : "face_aligned_0_50_gray"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/tts/train"
 
 # check point path
 ckpt_path : "~/lip2sp_pytorch/check_point/tts"
-ckpt_step : 10
+ckpt_step : 5
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
@@ -51,6 +51,9 @@ speaker : ["F01_kablab"]
 use_gc : False
 finetuning : False
 where_spk_emb : "after_res"
+
+# max_epoch
+max_epoch : 600
 
 # data augmentationの有無
 # 見た目変換系

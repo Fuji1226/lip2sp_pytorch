@@ -10,18 +10,17 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_16-51-15/mspec80_90.ckpt"   # gru
-# start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_23-33-19/mspec80_90.ckpt"   # trans
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_16-51-15/mspec80_90.ckpt"
 
 # face or lip
-face_or_lip : "face"
+face_or_lip : "face_aligned_0_50_gray"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/train"
 
 # check point path
 ckpt_path : "~/lip2sp_pytorch/check_point/nar"
-ckpt_step : 10
+ckpt_step : 5
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
@@ -34,12 +33,12 @@ face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/trai
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 
 # 元データ
-# data_dir : "~/dataset/lip/cropped"
-# bbox_dir : "~/dataset/lip/bbox"
-# landmark_dir : "~/dataset/lip/landmark"
-data_dir : "~/dataset/lip/cropped_fps25"
-bbox_dir : "~/dataset/lip/bbox_fps25"
-landmark_dir : "~/dataset/lip/landmark_fps25"
+data_dir : "~/dataset/lip/cropped"
+bbox_dir : "~/dataset/lip/bbox"
+landmark_dir : "~/dataset/lip/landmark"
+# data_dir : "~/dataset/lip/cropped_fps25"
+# bbox_dir : "~/dataset/lip/bbox_fps25"
+# landmark_dir : "~/dataset/lip/landmark_fps25"
 train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 

@@ -11,7 +11,7 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from utils import make_train_val_loader, save_loss, get_path_train, check_mel_nar, check_wav, count_params, set_config, calc_class_balance
+from utils import make_train_val_loader, save_loss, get_path_train, check_mel_nar, count_params, set_config
 from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
 
@@ -65,14 +65,10 @@ def make_model(cfg, device):
         rnn_which_norm=cfg.model.rnn_which_norm,
         trans_n_layers=cfg.model.trans_enc_n_layers,
         trans_n_head=cfg.model.trans_enc_n_head,
-        use_landmark=cfg.model.use_landmark,
-        lm_enc_inner_channels=cfg.model.lm_enc_inner_channels,
-        lmco_kernel_size=cfg.model.lmco_kernel_size,
-        lmco_n_layers=cfg.model.lmco_n_layers,
-        lm_enc_compress_time_axis=cfg.model.lm_enc_compress_time_axis,
-        astt_gcn_n_layers=cfg.model.astt_gcn_n_layers,
-        astt_gcn_n_head=cfg.model.astt_gcn_n_head,
-        lm_enc_n_nodes=cfg.model.lm_enc_n_nodes,
+        trans_pos_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
+        conf_n_layers=cfg.model.conf_n_layers,
+        conf_n_head=cfg.model.conf_n_head,
+        conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
         dec_n_layers=cfg.model.tc_n_layers,
         dec_kernel_size=cfg.model.tc_kernel_size,
         n_speaker=len(cfg.train.speaker),
@@ -83,8 +79,9 @@ def make_model(cfg, device):
         use_spk_emb=cfg.train.use_spk_emb,
         dec_dropout=cfg.train.dec_dropout,
         res_dropout=cfg.train.res_dropout,
-        lm_enc_dropout=cfg.train.lm_enc_dropout,
         rnn_dropout=cfg.train.rnn_dropout,
+        is_large=cfg.model.is_large,
+        adversarial_learning=cfg.train.adversarial_learning,
         reduction_factor=cfg.model.reduction_factor,
     )
 
@@ -107,22 +104,20 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
         lip = lip.to(device)
-        landmark = landmark.to(device)
         feature = feature.to(device)
-        data_len = data_len.to(device)
-        speaker = speaker.to(device)
+        lip_len = lip_len.to(device)
+        feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
+        speaker_idx = speaker_idx.to(device)
 
-        output, classifier_out, fmaps = model(lip, landmark, data_len, spk_emb)
+        output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
 
-        B, C, T = output.shape
-
-        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
+        mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
         if cfg.train.use_spk_emb:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
         else:
             classifier_loss = torch.tensor(0)
 
@@ -168,23 +163,21 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
         lip = lip.to(device)
-        landmark = landmark.to(device)
         feature = feature.to(device)
-        data_len = data_len.to(device)
-        speaker = speaker.to(device)
+        lip_len = lip_len.to(device)
+        feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
+        speaker_idx = speaker_idx.to(device)
         
         with torch.no_grad():
-            output, classifier_out, fmaps = model(lip, landmark, data_len, spk_emb)
+            output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
 
-        B, C, T = output.shape
-
-        mse_loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
+        mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
         if cfg.train.use_spk_emb:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
         else:
             classifier_loss = torch.tensor(0)
 

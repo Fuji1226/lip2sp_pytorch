@@ -123,7 +123,9 @@ class ResNet3DRemake(nn.Module):
         for layer in self.convs:
             x = layer(x)
 
-        x = self.final_conv(x)
+        if hasattr(self, "final_conv"):
+            x = self.final_conv(x)
+            
         x = torch.mean(x, dim=(3, 4))
         x = self.out_layer(x)
         return x, fmaps

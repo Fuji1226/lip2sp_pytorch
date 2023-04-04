@@ -1,12 +1,3 @@
-"""
-事前に作っておいたnpzファイルを読み込んでデータセットを作るパターンです
-以前のdataset_no_chainerが色々混ざってごちゃごちゃしてきたので
-
-data_process/make_npz.pyで事前にnpzファイルを作成
-
-その後にデータセットを作成するという手順に分けました
-"""
-
 import os
 import sys
 import re
@@ -17,16 +8,15 @@ import pickle
 import random
 from tqdm import tqdm
 import numpy as np
-from scipy.ndimage import gaussian_filter
+import pyopenjtalk
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms as T
 from torch.utils.data import Dataset
 
-from data_check import save_lip_video, save_landmark_video
-from data_process.mulaw import mulaw_quantize, inv_mulaw_quantize
-from dataset.utils import get_speaker_idx, get_stat_load_data, calc_mean_var_std, get_spk_emb
+from dataset.utils import get_speaker_idx, get_stat_load_data, calc_mean_var_std, get_spk_emb, get_utt, adjust_max_data_len
+from data_process.phoneme_encode import classes2index_tts, pp_symbols
 
 
 class KablabDataset(Dataset):
@@ -35,10 +25,11 @@ class KablabDataset(Dataset):
         self.data_path = data_path
         self.transform = transform
         self.cfg = cfg
-
-        # 話者ID
+        self.class_to_id, self.id_to_class = classes2index_tts()
+        
         self.speaker_idx = get_speaker_idx(data_path)
 
+        # 話者embedding
         self.embs = get_spk_emb(cfg)
 
         # 統計量から平均と標準偏差を求める
@@ -49,17 +40,13 @@ class KablabDataset(Dataset):
 
         lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
-        feat_add_mean, _, feat_add_std = calc_mean_var_std(feat_add_mean_list, feat_add_var_list, feat_add_len_list)
-        landmark_mean, _, landmark_std = calc_mean_var_std(landmark_mean_list, landmark_var_list, landmark_len_list)
 
         self.lip_mean = torch.from_numpy(lip_mean)
         self.lip_std = torch.from_numpy(lip_std)
         self.feat_mean = torch.from_numpy(feat_mean)
         self.feat_std = torch.from_numpy(feat_std)
-        self.feat_add_mean = torch.from_numpy(feat_add_mean)
-        self.feat_add_std = torch.from_numpy(feat_add_std)
-        self.landmark_mean = torch.from_numpy(landmark_mean)
-        self.landmark_std = torch.from_numpy(landmark_std)
+        
+        self.path_text_pair_list = get_utt(data_path)
 
         print(f"n = {self.__len__()}")
     
@@ -67,48 +54,34 @@ class KablabDataset(Dataset):
         return len(self.data_path)
 
     def __getitem__(self, index):
-        data_path = self.data_path[index]
+        data_path, text = self.path_text_pair_list[index]
         speaker = data_path.parents[1].name
-
+        speaker_idx = torch.tensor(self.speaker_idx[speaker])
         spk_emb = torch.from_numpy(self.embs[speaker])
-
-        # 話者名を話者IDに変換
-        speaker = torch.tensor(self.speaker_idx[speaker])
         label = data_path.stem
 
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
         lip = torch.from_numpy(npz_key['lip'])
         feature = torch.from_numpy(npz_key['feature'])
-        feat_add = torch.from_numpy(npz_key['feat_add'])
-        landmark = torch.from_numpy(npz_key['landmark'])
-        upsample = torch.from_numpy(npz_key['upsample'])
-        data_len = torch.from_numpy(npz_key['data_len'])
 
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, data_len = self.transform(
-            wav=wav,
+        lip, feature, text = self.transform(
             lip=lip,
-            feature=feature,
-            feat_add=feat_add,
-            landmark=landmark,
-            upsample=upsample,
-            data_len=data_len, 
+            feature=feature, 
             lip_mean=self.lip_mean, 
             lip_std=self.lip_std, 
             feat_mean=self.feat_mean, 
             feat_std=self.feat_std, 
-            feat_add_mean=self.feat_add_mean, 
-            feat_add_std=self.feat_add_std, 
-            landmark_mean=self.landmark_mean,
-            landmark_std=self.landmark_std,
+            text=text,
+            class_to_id=self.class_to_id,
         )
-        if self.cfg.train.debug:
-            save_path = Path("~/lip2sp_pytorch/check/lip_augment").expanduser()
-            os.makedirs(save_path, exist_ok=True)
-            # save_lip_video(self.cfg, save_path, lip, self.lip_mean, self.lip_std)
-            # save_landmark_video(landmark, save_dir=save_path)
-            # print("save")
-        return wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label
+        
+        feature_len = torch.tensor(feature.shape[-1])
+        lip_len = torch.tensor(lip.shape[-1])
+        text_len = torch.tensor(text.shape[0])
+        stop_token = torch.zeros(feature_len)
+        stop_token[-2:] = 1.0
+        return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label
 
 
 class KablabTransform:
@@ -150,14 +123,12 @@ class KablabTransform:
         lip : (T, C, H, W)
         """
         _, _, H, W = lip.shape
-        assert H == 56 and W == 56
-
         if center:
-            top = left = 3
+            top = left = (self.cfg.model.imsize - self.cfg.model.imsize_cropped) // 2
         else:
-            top = torch.randint(0, 8, (1,))
-            left = torch.randint(0, 8, (1,))
-        height = width = 48
+            top = torch.randint(0, self.cfg.model.imsize - self.cfg.model.imsize_cropped, (1,))
+            left = torch.randint(0, self.cfg.model.imsize - self.cfg.model.imsize_cropped, (1,))
+        height = width = self.cfg.model.imsize_cropped
         lip = T.functional.crop(lip, top, left, height, width)
         return lip
 
@@ -185,7 +156,6 @@ class KablabTransform:
             mask_idx = mask_idx[:40] + [i for i in range(56, 64, 1)] + [40, 41, 46, 47] + [48, 49, 54, 55]      # all
             # mask_idx = [i for i in range(0, 8, 1)] + [8, 9, 14, 15] + [16, 23] + [24, 31]\
             #     + [32, 33, 38, 39] +[40, 41, 46, 47] + [48, 49, 54, 55] + [i for i in range(56, 64, 1)]   # outline
-            print(f"mask_index = {mask_idx}")
             
             for i in mask_idx:
                 lip_aug[..., i] = 0
@@ -196,8 +166,6 @@ class KablabTransform:
             do_or_through = random.randint(0, 1)
             if do_or_through == 1:
                 mask = torch.zeros(H, W)
-                # x_center = torch.randint(0, W, (1,))
-                # y_center = torch.randint(0, H, (1,))
                 x_center = torch.randint(self.cfg.train.mask_length // 2, W - self.cfg.train.mask_length // 2, (1,))
                 y_center = torch.randint(self.cfg.train.mask_length // 2, H - self.cfg.train.mask_length // 2, (1,))
                 x1 = torch.clamp(x_center - self.cfg.train.mask_length // 2, min=0, max=W)
@@ -213,8 +181,7 @@ class KablabTransform:
         return lip_aug
 
     def normalization(
-        self, lip, feature, feat_add, landmark,
-        lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, landmark_mean, landmark_std):
+        self, lip, feature, lip_mean, lip_std, feat_mean, feat_std):
         """
         標準化
         lip : (C, H, W, T)
@@ -225,24 +192,13 @@ class KablabTransform:
         feat_mean, feat_std, feat_add_mean, feat_add_std : (C,)
         landmark_mean, landmark_std : (2,)
         """
-        if lip_mean.dim() == 3:
-            lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
-            lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
-        elif lip_mean.dim() == 1:
-            lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
-            lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
+        lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
+        lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
         feat_mean = feat_mean.unsqueeze(-1)     # (C, 1)
         feat_std = feat_std.unsqueeze(-1)       # (C, 1)
-        feat_add_mean = feat_add_mean.unsqueeze(-1)     # (C, 1)
-        feat_add_std = feat_add_std.unsqueeze(-1)       # (C, 1)
-        landmark_mean = landmark_mean.unsqueeze(0).unsqueeze(-1)    # (1, 2, 1)
-        landmark_std = landmark_std.unsqueeze(0).unsqueeze(-1)    # (1, 2, 1)
-
         lip = (lip - lip_mean) / lip_std        
         feature = (feature - feat_mean) / feat_std
-        feat_add = (feat_add - feat_add_mean) / feat_add_std
-        landmark = (landmark - landmark_mean) / landmark_std
-        return lip, feature, feat_add, landmark
+        return lip, feature
 
     def calc_delta(self, lip):
         """
@@ -269,7 +225,7 @@ class KablabTransform:
         lip = torch.from_numpy(lip)
         return lip
 
-    def time_augment(self, lip, feature, feat_add, landmark, wav, upsample, data_len, interp_mode="nearest"):
+    def time_augment(self, lip, feature, interp_mode="nearest"):
         """
         再生速度を変更する
         lip : (C, H, W, T)
@@ -279,119 +235,48 @@ class KablabTransform:
         """
         # 変更する割合を決定
         rate = torch.randint(100 - self.cfg.train.time_augment_rate, 100 + self.cfg.train.time_augment_rate, (1,)) / 100
-        T = feature.shape[-1]
-        T_l = lip.shape[-1]
-
-        # 口唇動画から取得するフレームを決定
-        idx = torch.linspace(0, 1, int(T * rate) // upsample * upsample)
-        idx_l = (idx[::upsample] * (T_l-1)).to(torch.int)
         
-        # 重複したフレームを取得する、あるいはフレームを間引くことで再生速度を変更
-        new_lip = []
-        new_landmark = []
-        for i in idx_l:
-            new_lip.append(lip[..., i.item()])
-            new_landmark.append(landmark[i.item(), ...])
-        lip = torch.stack(new_lip, dim=-1)
-        landmark = torch.stack(new_landmark, dim=0)
-
-        # 音響特徴量を補完によって動画に合わせる
-        # 時間周波数領域でリサンプリングを行うことで、ピッチが変わらないようにしています
-        # また、事前にmake_npz.pyで計算した音響特徴量は対数スケールになっているので、線形補完ではなく最近傍補完を使用しています
+        lip = F.interpolate(
+            lip, size=(lip.shape[2], lip.shape[3] * rate), mode=interp_mode, recompute_scale_factor=False)
         feature = feature.unsqueeze(0)      # (1, C, T)
         feat_add = feat_add.unsqueeze(0)    # (1, C, T)
         feature = F.interpolate(feature, scale_factor=rate, mode=interp_mode, recompute_scale_factor=False).squeeze(0)    # (C, T)
         feat_add = F.interpolate(feat_add, scale_factor=rate, mode=interp_mode, recompute_scale_factor=False).squeeze(0)  # (C, T)
-
-        # 系列長を揃えるために音声波形にも適用しているが、音声波形はピッチが変化するので学習に使用するかどうか注意
-        # メルスペクトログラムを予測する際には無関係だが、ボコーダを学習する際には使わない方がいい
-        wav = wav.unsqueeze(0).unsqueeze(0)     # (1, 1, T)
-        wav = F.interpolate(wav, scale_factor=rate, mode=interp_mode, recompute_scale_factor=False).squeeze(0).squeeze(0)   # (T,)
         
-        # データの長さが変わったので、data_lenを更新して系列長を揃える
+        upsample = 1000 // self.cfg.model.frame_period // self.cfg.model.fps
         data_len = torch.tensor(min(int(lip.shape[-1] * upsample), feature.shape[-1])).to(torch.int)
         lip = lip[..., :data_len // upsample]
         feature = feature[..., :data_len]
-        feat_add = feat_add[..., :data_len]
-        landmark = landmark[:data_len // upsample, ...]
 
-        wav = wav[:int(data_len * self.cfg.model.hop_length)]
-        wav_padded = torch.zeros(int(data_len * self.cfg.model.hop_length))
-        wav_padded[:wav.shape[0]] = wav
-        wav = wav_padded
+        return lip, feature
 
-        assert lip.shape[-1] == feature.shape[-1] // upsample
-        assert lip.shape[-1] == landmark.shape[0]
-        assert wav.shape[0] == int(feature.shape[-1] * self.cfg.model.hop_length)
-
-        return lip, feature, feat_add, landmark, data_len, wav
-
-    def segment_masking(self, lip, lip_mean):
+    def segment_masking(self, lip):
         """
-        口唇動画の連続したフレームをある程度まとめてマスキング
         lip : (C, H, W, T)
         """
         C, H, W, T = lip.shape
 
-        # 最初の50フレーム(1秒分)から削除するセグメントの開始フレームを選択
-        mask_start_idx = torch.randint(0, 50, (1,))
+        # 最初の1秒から削除するセグメントの開始フレームを選択
+        mask_start_idx = torch.randint(0, self.cfg.model.fps, (1,))
         idx = [i for i in range(T)]
 
         # マスクする系列長を決定
-        mask_length = torch.randint(0, self.cfg.train.segment_masking_length, (1,))
+        mask_length = torch.randint(0, int(self.cfg.model.fps * self.cfg.train.max_segment_masking_sec), (1,))
 
-        # 1秒あたりdel_seg_length分だけまとめて削除するためのインデックスを選択
         while True:
             mask_seg_idx = idx[mask_start_idx:mask_start_idx + mask_length]
+            seg_mean_lip = torch.mean(lip[..., idx[mask_start_idx:mask_start_idx + mask_length]].to(torch.float), dim=-1).to(torch.uint8)
+            for i in mask_seg_idx:
+                lip[..., i] = seg_mean_lip
 
-            if lip_mean.dim() == 3:
-                for i in mask_seg_idx:
-                    lip[..., i] = lip_mean
-            elif lip_mean.dim() == 1:
-                for i in mask_seg_idx:
-                    lip[..., i] = lip_mean.unsqueeze(-1).unsqueeze(-1).expand(-1, H, W)
+            # 開始フレームを1秒先に更新
+            mask_start_idx += self.cfg.model.fps
 
-            # 次の開始フレームを50フレーム先にすることで1秒ごとになる
-            mask_start_idx += 50
-
-            # 次の削除範囲が動画自体の系列長を超えてしまうならループを抜ける
+            # 次の範囲が動画自体の系列長を超えてしまうならループを抜ける
             if mask_start_idx + mask_length - 1 > T:
                 break
         
         return lip
-
-    def segment_masking_segmean(self, lip, landmark):
-        """
-        segment maskingと同様だが,segment内の平均値で全て埋めるところが違い
-        一般的に使用されているのがこっちなのでこれが無難
-        lip : (C, H, W, T)
-        """
-        C, H, W, T = lip.shape
-
-        # 最初の50フレーム(1秒分)から削除するセグメントの開始フレームを選択
-        mask_start_idx = torch.randint(0, 50, (1,))
-        idx = [i for i in range(T)]
-
-        # マスクする系列長を決定
-        mask_length = torch.randint(self.cfg.train.min_segment_masking_length, self.cfg.train.max_segment_masking_length, (1,))
-
-        # 1秒あたりdel_seg_length分だけまとめて削除するためのインデックスを選択
-        while True:
-            mask_seg_idx = idx[mask_start_idx:mask_start_idx + mask_length]
-            seg_mean_lip = torch.mean(lip[..., idx[mask_start_idx:mask_start_idx + mask_length]].to(torch.float), dim=-1).to(torch.uint8)
-            seg_mean_landmark = torch.mean(landmark[idx[mask_start_idx:mask_start_idx + mask_length], ...].to(torch.float), dim=0).to(torch.uint8)
-            for i in mask_seg_idx:
-                lip[..., i] = seg_mean_lip
-                landmark[i, ...] = seg_mean_landmark
-
-            # 次の開始フレームを50フレーム先にすることで1秒ごとになる
-            mask_start_idx += 50
-
-            # 次の削除範囲が動画自体の系列長を超えてしまうならループを抜ける
-            if mask_start_idx + mask_length - 1 > T:
-                break
-        
-        return lip, landmark
 
     def time_frequency_masking(self, feature):
         """
@@ -419,26 +304,39 @@ class KablabTransform:
         feature_masked[freq_index:self.cfg.train.feature_freq_masking_band, :] = 0
 
         return feature_masked
+    
+    def text2index(self, text, class_to_id):
+        """
+        音素を数値に変換
+        """
+        text = pyopenjtalk.extract_fullcontext(text)
+        text = pp_symbols(text)
+        text = [class_to_id[t] for t in text]
+        
+        # text = pyopenjtalk.g2p(text)
+        # text = text.split(" ")
+        # text.insert(0, "sos")
+        # text.append("eos")
+        # text_index = [class_to_id[t] if t in class_to_id.keys() else None for t in text]
+        # assert (None in text_index) is False
+        return torch.tensor(text)
 
     def __call__(
-        self, wav, lip, feature, feat_add, landmark, upsample, data_len,
-        lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, landmark_mean, landmark_std):
+        self, lip, feature, lip_mean, lip_std, feat_mean, feat_std, text, class_to_id):
         """
         lip : (C, H, W, T)
         feature, feat_add : (T, C)
         landmark : (T, 2, 68)
         """
         feature = feature.permute(-1, 0)    # (C, T)
-        feat_add = feat_add.permute(-1, 0)  # (C, T)
-        feature_masked = torch.zeros_like(feature)  # 時間周波数マスク用の変数
+        lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
 
         # data augmentation
         if self.train_val_test == "train":
             # 見た目変換
-            lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
             lip = self.apply_lip_trans(lip)
 
-            if lip.shape[-1] == 56:
+            if lip.shape[-1] == self.cfg.model.imsize:
                 if self.cfg.train.use_random_crop:
                     lip = self.random_crop(lip, center=False)
                 else:
@@ -448,189 +346,114 @@ class KablabTransform:
 
             # 再生速度変更
             if self.cfg.train.use_time_augment:
-                lip, feature, feat_add, landmark, data_len, wav = self.time_augment(lip, feature, feat_add, landmark, wav, upsample, data_len)
+                lip, feature = self.time_augment(lip, feature)
 
-            # save_path = Path("~/lip2sp_pytorch/check/lip_time_masking").expanduser()
-            # os.makedirs(save_path, exist_ok=True)
-            # lip_orig = lip.clone()
-
-            # lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-            # lip_orig = lip_orig.to('cpu')
-            # print(lip_orig.shape)
-
-            # if self.cfg.model.gray:
-            #     lip_orig = lip_orig.expand(-1, -1, -1, 3)
-
-            # torchvision.io.write_video(
-            #     filename=str(save_path / "lip_orig.mp4"),
-            #     video_array=lip_orig,
-            #     fps=self.cfg.model.fps
-            # )
-
-            # 動画のマスキング
+            # time masking
             if self.cfg.train.use_segment_masking:
-                if self.cfg.train.which_seg_mask == "mean":
-                    lip = self.segment_masking(lip, lip_mean)
-                elif self.cfg.train.which_seg_mask == "seg_mean":
-                    lip, landmark = self.segment_masking_segmean(lip, landmark)
-
-            # lip_time_masking = lip.clone()
-
-            # lip_time_masking = lip_time_masking.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-            # lip_time_masking = lip_time_masking.to('cpu')
-            # print(lip_time_masking.shape)
-
-            # if self.cfg.model.gray:
-            #     lip_time_masking = lip_time_masking.expand(-1, -1, -1, 3)
-
-            # torchvision.io.write_video(
-            #     filename=str(save_path / "lip_time_masking.mp4"),
-            #     video_array=lip_time_masking,
-            #     fps=self.cfg.model.fps
-            # )
-            # print("time masking ok")
+                lip = self.segment_masking(lip)
             
         else:
-            if lip.shape[1] == 56:
-                lip = lip.permute(-1, 0, 1, 2)  # (T, C, H, W)
+            if lip.shape[-1] == self.cfg.model.imsize:
                 lip = self.random_crop(lip, center=True)
                 lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
         
         # 標準化
-        lip, feature, feat_add, landmark = self.normalization(
-            lip, feature, feat_add, landmark, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std, landmark_mean, landmark_std,
-        )
+        lip, feature = self.normalization(lip, feature, lip_mean, lip_std, feat_mean, feat_std)
 
         if self.train_val_test == "train":
             if self.cfg.train.use_spatial_masking:
-                lip = lip.permute(3, 0, 1, 2)
+                lip = lip.permute(3, 0, 1, 2)   # (T, C, H, W)
                 lip = self.spatial_masking(lip)
                 lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
-            
-            if self.cfg.train.use_time_frequency_masking:
-                feature_masked = self.time_frequency_masking(feature)
-
-        # 顔の一部隠す実験で使用
-        # lip = lip.permute(3, 0, 1, 2)
-        # lip = self.spatial_masking(lip)
-        # lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
-
-        # 口唇動画の動的特徴量の計算
-        if self.cfg.model.delta:
-            lip = self.calc_delta(lip)
-
-        # mulaw量子化
-        wav = wav.numpy()
-        wav_q = mulaw_quantize(wav)
-        wav_q = torch.from_numpy(wav_q)
-        wav = torch.from_numpy(wav)
 
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
-        feat_add = feat_add.to(torch.float32)
-        landmark = landmark.to(torch.float32)
-        feature_masked = feature_masked.to(torch.float32)
-    
-        return wav, wav_q, lip, feature, feat_add, landmark, feature_masked, data_len            
+        text = self.text2index(text, class_to_id)
+        return lip, feature, text
 
 
 def collate_time_adjust(batch, cfg):
-    """
-    フレーム数の調整を行う
-    wav, wav_q : (T,)
-    lip : (C, H, W, T)
-    feature, feat_add : (C, T)
-    landmark : (T, 2, 68)
-    """
-    wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = list(zip(*batch))
+    wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = list(zip(*batch))
 
     wav_adjusted = []
-    wav_q_adjusted = []
     lip_adjusted = []
     feature_adjusted = []
-    feat_add_adjusted = []
-    landmark_adjustd = []
-    feature_masked_adjusted = []
 
-    # configで指定した範囲でフレーム数を決定
-    lip_len = cfg.model.n_lip_frames
-    upsample_scale = upsample[0].item()
-    feature_len = int(lip_len * upsample_scale)
-    wav_len = int(feature_len * cfg.model.hop_length)
+    lip_input_len = cfg.model.input_lip_sec * cfg.model.fps
+    upsample_scale = 1000 // cfg.model.frame_period // cfg.model.fps
+    feat_input_len = int(lip_input_len * upsample_scale)
+    wav_input_len = int(feat_input_len * cfg.model.hop_length)
 
-    for w, w_q, l, f, f_add, lm, f_masked, d_len in zip(wav, wav_q, lip, feature, feat_add, landmark, feature_masked, data_len):
+    for w, l, f, f_len in zip(wav, lip, feature, feature_len):
         # 揃えるlenよりも短い時は足りない分をゼロパディング
-        if d_len <= feature_len:
-            w_padded = torch.zeros(wav_len)
-            w_q_padded = torch.zeros(wav_len) + cfg.model.mulaw_ignore_idx
-            w_q_padded = w_q_padded.to(torch.int64)
-            l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_len)
-            f_padded = torch.zeros(f.shape[0], feature_len)
-            f_add_padded = torch.zeros(f_add.shape[0], feature_len)
-            lm_padded = torch.zeros(lip_len, lm.shape[1], lm.shape[2])
-            f_masked_padded = torch.zeros_like(f_padded)
+        if f_len <= feat_input_len:
+            w_padded = torch.zeros(wav_input_len)
+            l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_input_len)
+            f_padded = torch.zeros(f.shape[0], feat_input_len)
 
             # 音響特徴量の系列長をベースに判定しているので、稀に波形のサンプル数が多い場合がある
             # その際に余ったサンプルを除外する（シフト幅的に余りが生じているのでそれを省いている）
-            w = w[:wav_len]     
-            w_q = w_q[:wav_len]
+            w = w[:wav_input_len]     
 
             w_padded[:w.shape[0]] = w
-            w_q_padded[:w.shape[0]] = w_q
             l_padded[..., :l.shape[-1]] = l
             f_padded[:, :f.shape[-1]] = f
-            f_add_padded[:, :f_add.shape[-1]] = f_add
-            lm_padded[:lm.shape[0], ...] = lm
-            f_masked_padded[:, :f_masked.shape[-1]] = f_masked
 
             w = w_padded
-            w_q = w_q_padded
             l = l_padded
             f = f_padded
-            f_add = f_add_padded
-            lm = lm_padded
-            f_masked = f_masked_padded
 
         # 揃えるlenよりも長い時はランダムに切り取り
         else:
-            lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()
+            lip_start_frame = torch.randint(0, l.shape[-1] - lip_input_len, (1,)).item()
             feature_start_frame = int(lip_start_frame * upsample_scale)
             wav_start_sample = int(feature_start_frame * cfg.model.hop_length)
 
-            w = w[wav_start_sample:wav_start_sample + wav_len]
-            w_q = w_q[wav_start_sample:wav_start_sample + wav_len]
-            l = l[..., lip_start_frame:lip_start_frame + lip_len]
-            f = f[:, feature_start_frame:feature_start_frame + feature_len]
-            f_add = f_add[:, feature_start_frame:feature_start_frame + feature_len]
-            lm = lm[lip_start_frame:lip_start_frame + lip_len, ...]
-            f_masked = f_masked[:, feature_start_frame:feature_start_frame + feature_len]
+            w = w[wav_start_sample:wav_start_sample + wav_input_len]
+            l = l[..., lip_start_frame:lip_start_frame + lip_input_len]
+            f = f[:, feature_start_frame:feature_start_frame + feat_input_len]
 
-        assert w.shape[0] == wav_len
-        assert w_q.shape[0] == wav_len
-        assert l.shape[-1] == lip_len
-        assert f.shape[-1] == feature_len
-        assert f_add.shape[-1] == feature_len
-        assert lm.shape[0] == lip_len
-        assert f_masked.shape[-1] == feature_len
+        assert w.shape[0] == wav_input_len
+        assert l.shape[-1] == lip_input_len
+        assert f.shape[-1] == feat_input_len
 
         wav_adjusted.append(w)
-        wav_q_adjusted.append(w_q)
         lip_adjusted.append(l)
         feature_adjusted.append(f)
-        feat_add_adjusted.append(f_add)
-        landmark_adjustd.append(lm)
-        feature_masked_adjusted.append(f_masked)
-
+        
+    text = adjust_max_data_len(text)
+    stop_token = adjust_max_data_len(stop_token)
+    
     wav = torch.stack(wav_adjusted)
-    wav_q = torch.stack(wav_q_adjusted)
     lip = torch.stack(lip_adjusted)
     feature = torch.stack(feature_adjusted)
-    feat_add = torch.stack(feat_add_adjusted)
-    landmark = torch.stack(landmark_adjustd)
-    feature_masked = torch.stack(feature_masked_adjusted)
-    data_len = torch.stack(data_len)
-    speaker = torch.stack(speaker)
+    text = torch.stack(text)
+    stop_token = torch.stack(stop_token)
     spk_emb = torch.stack(spk_emb)
+    feature_len = torch.stack(feature_len)
+    lip_len = torch.stack(lip_len)
+    text_len = torch.stack(text_len)
+    speaker_idx = torch.stack(speaker_idx)
+    return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label
 
-    return wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label
 
+def collate_time_adjust_tts(batch, cfg):
+    wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = list(zip(*batch))
+    
+    wav = adjust_max_data_len(wav)
+    lip = adjust_max_data_len(lip)
+    feature = adjust_max_data_len(feature)
+    text = adjust_max_data_len(text)
+    stop_token = adjust_max_data_len(stop_token)
+    
+    wav = torch.stack(wav)
+    lip = torch.stack(lip)
+    feature = torch.stack(feature)
+    text = torch.stack(text)
+    stop_token = torch.stack(stop_token)
+    spk_emb = torch.stack(spk_emb)
+    feature_len = torch.stack(feature_len)
+    lip_len = torch.stack(lip_len)
+    text_len = torch.stack(text_len)
+    speaker_idx = torch.stack(speaker_idx)
+    return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label

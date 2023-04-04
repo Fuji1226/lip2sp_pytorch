@@ -366,6 +366,7 @@ def val_one_epoch(
 
         with torch.no_grad():
             output = gen(lip[..., 0], feature, lip_len)
+            
             # frame disc
             frame_index = random.randint(0, torch.min(lip_len).item() - 1)
             fake_frame = frame_disc(output[..., frame_index].squeeze(-1), lip[..., 0])

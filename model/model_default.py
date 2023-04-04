@@ -122,6 +122,7 @@ class Lip2SP(nn.Module):
         self.which_decoder = which_decoder
         self.reduction_factor = reduction_factor
         self.where_spk_emb = where_spk_emb
+        inner_channels = int(res_inner_channels * 8)
 
         self.ResNet_GAP = ResNet3D(
             in_channels=in_channels, 
@@ -129,7 +130,6 @@ class Lip2SP(nn.Module):
             inner_channels=res_inner_channels,
             dropout=res_dropout,
         )
-        inner_channels = int(res_inner_channels * 8)
         
         # encoder
         if which_encoder == "transformer":
@@ -157,24 +157,6 @@ class Lip2SP(nn.Module):
             )
             self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
 
-        if use_f0_predicter:
-            self.f0_predicter = F0Predicter2(
-                in_channels=in_channels,
-                inner_channels=f0_predicter_inner_channels,
-                rnn_n_layers=f0_predicter_rnn_n_layers,
-                reduction_factor=reduction_factor,
-                dropout=f0_predicter_dropout,
-                rnn_which_norm=rnn_which_norm,
-                trans_enc_n_layers=f0_predicter_trans_enc_n_layers,
-                trans_enc_n_head=f0_predicter_trans_enc_n_head,
-                which_encoder=f0_predicter_which_encoder,
-            )
-            self.f0_convert_layer = nn.Sequential(
-                nn.Conv1d(1, inner_channels, kernel_size=3, padding=1, stride=reduction_factor),
-                nn.BatchNorm1d(inner_channels),
-                nn.ReLU(),
-            )
-
         # decoder
         if self.which_decoder == "glu":
             self.decoder = GLU(
@@ -190,23 +172,11 @@ class Lip2SP(nn.Module):
                 use_spk_emb=use_spk_emb,
                 spk_emb_dim=spk_emb_dim,
             )
-        elif self.which_decoder == "transformer":
-            self.decoder = Decoder(
-                dec_n_layers=trans_dec_n_layers,
-                n_head=trans_dec_n_head,
-                dec_d_model=inner_channels,
-                pre_in_channels=int(out_channels * reduction_factor),
-                pre_inner_channels=pre_inner_channels,
-                out_channels=out_channels,
-                n_position=n_position,
-                reduction_factor=reduction_factor,
-                dropout=dec_dropout,
-            )
-
+        
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
-    def forward(self, lip, data_len, spk_emb, prev=None, mixing_prob=None, f0_target=None):
+    def forward(self, lip, lip_len, spk_emb=None, prev=None, mixing_prob=None):
         """
         lip : (B, C, H, W, T)
         prev, output, dec_output : (B, C, T)
@@ -218,44 +188,39 @@ class Lip2SP(nn.Module):
 
         # resnet
         enc_output, fmaps = self.ResNet_GAP(lip)    # (B, C, T)
+        
         if self.where_spk_emb == "after_res":
             if hasattr(self, "spk_emb_layer"):
-                classifier_out = self.classfier(self.gr_layer(enc_output)) 
-                spk_emb_enc = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])   # (B, C, T)
-                enc_output = torch.cat([enc_output, spk_emb_enc], dim=1)
+                if self.adversarial_learning:
+                    classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                else:
+                    classifier_out = None
+                spk_emb = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])   # (B, C, T)
+                enc_output = torch.cat([enc_output, spk_emb], dim=1)
                 enc_output = self.spk_emb_layer(enc_output)
             else:
                 classifier_out = None
         
         # encoder
-        enc_output = self.encoder(enc_output, data_len)    # (B, T, C) 
+        enc_output = self.encoder(enc_output, lip_len)    # (B, T, C) 
         if self.where_spk_emb == "after_enc":
             if hasattr(self, "spk_emb_layer"):
                 enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
-                classifier_out = self.classfier(self.gr_layer(enc_output)) 
-                spk_emb_enc = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])
-                enc_output = torch.cat([enc_output, spk_emb_enc], dim=1)
+                if self.adversarial_learning:
+                    classifier_out = self.classfier(self.gr_layer(enc_output)) 
+                else:
+                    classifier_out = None
+                spk_emb = spk_emb.unsqueeze(-1).expand(enc_output.shape[0], -1, enc_output.shape[-1])
+                enc_output = torch.cat([enc_output, spk_emb], dim=1)
                 enc_output = self.spk_emb_layer(enc_output)
                 enc_output = enc_output.permute(0, 2, 1)    # (B, T, C)
             else:
                 classifier_out = None
 
-        if hasattr(self, "f0_predicter"):
-            f0 = self.f0_predicter(lip, data_len)
-            enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
-            if f0_target is None:
-                enc_output = enc_output + self.f0_convert_layer(f0)
-            else:
-                enc_output = enc_output + self.f0_convert_layer(f0_target)
-            enc_output = enc_output.permute(0, 2, 1)    # (B, T, C)
-        else:
-            f0 = None
-
         # decoder
-        # 学習時
         if prev is not None:
             with torch.no_grad():
-                dec_output = self.decoder_forward(enc_output, data_len, spk_emb, prev)
+                dec_output = self.decoder_forward(enc_output, spk_emb, prev)
 
                 # mixing_prob分だけtargetを選択し，それ以外をdec_outputに変更することで混ぜる
                 mixing_prob = torch.zeros_like(prev) + mixing_prob
@@ -263,26 +228,22 @@ class Lip2SP(nn.Module):
                 mixed_prev = torch.where(judge == 1, prev, dec_output)
 
             # 混ぜたやつでもう一回計算させる
-            dec_output = self.decoder_forward(enc_output, data_len, spk_emb, mixed_prev)
-        # 推論時
+            dec_output = self.decoder_forward(enc_output, spk_emb, mixed_prev)
         else:
             dec_output = self.decoder_inference(enc_output, spk_emb)
             mixed_prev = None
 
         # postnet
         output = self.postnet(dec_output) 
-        return output, dec_output, mixed_prev, fmaps, f0, classifier_out
+        return output, dec_output, mixed_prev, fmaps, classifier_out
 
-    def decoder_forward(self, enc_output, data_len, spk_emb, prev, mode="training"):
+    def decoder_forward(self, enc_output, spk_emb, prev, mode="training"):
         """
         学習時の処理
         enc_output : (B, T, C)
         dec_output : (B, C, T)
         """
-        if self.which_decoder == "transformer":
-            dec_output = self.decoder(enc_output, prev, data_len, mode=mode)
-
-        elif self.which_decoder == "glu":
+        if self.which_decoder == "glu":
             dec_output = self.decoder(enc_output, spk_emb, mode, prev)
 
         return dec_output

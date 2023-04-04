@@ -105,7 +105,7 @@ class Lip2SP_NAR(nn.Module):
     def forward(self, lip, lip_len, spk_emb=None):
         """
         lip : (B, C, H, W, T)
-        landmark : (B, T, 2, 68)
+        lip_len : (B,)
         spk_emb : (B, C)
         """
         enc_output, fmaps = self.ResNet_GAP(lip)  # (B, C, T)
