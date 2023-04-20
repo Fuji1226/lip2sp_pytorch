@@ -76,7 +76,7 @@ def make_model(cfg, device):
         upsample_scales=cfg.model.pwg_upsample_scales,
         n_layers=cfg.model.pwg_gen_n_layers,
         n_stacks=cfg.model.pwg_gen_n_stacks,
-        dropout=cfg.model.pwg_dropout,
+        dropout=cfg.model.pwg_gen_dropout,
         kernel_size=cfg.model.pwg_kernel_size,
         use_weight_norm=cfg.model.pwg_use_weight_norm,
     )
@@ -88,16 +88,17 @@ def make_model(cfg, device):
             n_layers=cfg.model.pwg_disc_n_layers,
             kernel_size=cfg.model.pwg_kernel_size,
             use_weight_norm=cfg.model.pwg_use_weight_norm,
+            dropout=cfg.model.pwg_disc_dropout,
         )
     elif cfg.model.pwg_which_disc == "wavenet":
         disc = WaveNetLikeDiscriminator(
-            n_layers=cfg.model.pwg_disc_n_layers,
+            n_layers=cfg.model.pwg_disc_n_layers_wavenet,
             n_stacks=cfg.model.pwg_disc_n_stacks,
             in_channels=cfg.model.pwg_in_channels,
             inner_channels=cfg.model.pwg_disc_inner_channels,
             out_channels=cfg.model.pwg_out_channels,
             kernel_size=cfg.model.pwg_kernel_size,
-            dropout=cfg.model.pwg_dropout,
+            dropout=cfg.model.pwg_disc_dropout,
         )
     count_params(gen, "generator")
     count_params(disc, "discriminator")

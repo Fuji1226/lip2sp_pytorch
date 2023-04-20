@@ -150,17 +150,3 @@ def get_keys_from_value(dict, val):
     for k, v in dict.items():
         if v == val:
             return k
-
-
-def main():
-    import pyopenjtalk
-    text = "あらゆる現実を、すべて自分のほうへねじ曲げたのだ。"
-    labels = pyopenjtalk.extract_fullcontext(text)
-    PP = pp_symbols(labels)
-    class_to_id, id_to_class = classes2index_tts()
-    PP = [class_to_id[x] for x in PP]
-    breakpoint()
-    
-    
-if __name__ == "__main__":
-    main()

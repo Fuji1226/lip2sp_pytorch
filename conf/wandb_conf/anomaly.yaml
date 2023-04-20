@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_anomaly
+    entity:
+    mode: online
+    name : anomaly
+watch:
+    log: all
+    log_freq: 100

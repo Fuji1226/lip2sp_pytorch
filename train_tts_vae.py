@@ -11,7 +11,7 @@ import torch
 import torch.nn.functional as F
 
 from utils import set_config, get_path_train, make_train_val_loader_tts, count_params, check_mel_default, save_loss, check_attention_weight
-from model.model_tts import Tacotron2
+from model.model_tts_vae import Tacotron2VAE
 from loss import MaskedLoss
 from model.transformer_remake import make_pad_mask
 
@@ -33,10 +33,12 @@ def save_checkpoint(
     train_output_loss_list,
     train_dec_output_loss_list,
     train_stop_token_loss_list,
+    train_kl_loss_list,
     val_loss_list,
     val_output_loss_list,
     val_dec_output_loss_list,
     val_stop_token_loss_list,
+    val_kl_loss_list,
     epoch, ckpt_path):
     torch.save({
         'model': model.state_dict(),
@@ -51,16 +53,18 @@ def save_checkpoint(
         "train_output_loss_list" : train_output_loss_list,
         "train_dec_output_loss_list" : train_dec_output_loss_list,
         "train_stop_token_loss_list" : train_stop_token_loss_list,
+        "train_kl_loss_list" : train_kl_loss_list,
         "val_loss_list" : val_loss_list,
         "val_output_loss_list" : val_output_loss_list,
         "val_dec_output_loss_list" : val_dec_output_loss_list,
         "val_stop_token_loss_list" : val_stop_token_loss_list,
+        "val_kl_loss_list" : val_kl_loss_list,
         'epoch': epoch
     }, ckpt_path)
 
 
 def make_model(cfg, device):
-    model = Tacotron2(
+    model = Tacotron2VAE(
         n_vocab=cfg.model.n_vocab,
         enc_hidden_channels=cfg.model.taco_enc_hidden_channels,
         enc_conv_n_layers=cfg.model.taco_enc_conv_n_layers,
@@ -82,6 +86,10 @@ def make_model(cfg, device):
         post_kernel_size=cfg.model.taco_post_kernel_size,
         use_gc=cfg.train.use_gc,
         spk_emb_dim=cfg.model.spk_emb_dim,
+        vae_hidden_channels=cfg.model.taco_vae_hidden_channels,
+        vae_n_conv_layers=cfg.model.taco_vae_n_conv_layers,
+        vae_n_rnn_layers=cfg.model.taco_vae_n_rnn_layers,
+        z_dim=cfg.model.taco_vae_z_dim,
     )
     count_params(model, "model")
     return model.to(device)
@@ -92,6 +100,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_stop_token_loss = 0
+    epoch_kl_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("start training")
@@ -107,7 +116,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
 
-        dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
+        dec_output, output, logit, att_w, mu, logvar = model(text, text_len, feature, feature_len, feature_target=feature, spk_emb=spk_emb)
 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, feature_len, feature.shape[-1])
         output_loss = loss_f.mse_loss(output, feature, feature_len, feature.shape[-1])
@@ -117,8 +126,10 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         logit = torch.masked_select(logit, logit_mask)
         stop_token = torch.masked_select(stop_token, logit_mask)
         stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
+        
+        kl_loss = - 0.5 * torch.sum(logvar - torch.exp(logvar) - (mu ** 2) + 1)
 
-        total_loss = dec_output_loss + output_loss + stop_token_loss
+        total_loss = dec_output_loss + output_loss + stop_token_loss + kl_loss
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -127,10 +138,12 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         epoch_output_loss += output_loss.item()
         epoch_dec_output_loss += dec_output_loss.item()
         epoch_stop_token_loss += stop_token_loss.item()
+        epoch_kl_loss += kl_loss.item()
         wandb.log({"train_total_loss": total_loss})
         wandb.log({"train_output_loss": output_loss})
         wandb.log({"train_dec_output_loss": dec_output_loss})
         wandb.log({"train_stop_token_loss": stop_token_loss})
+        wandb.log({"train_kl_loss": kl_loss})
 
         iter_cnt += 1
 
@@ -150,7 +163,8 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
     epoch_stop_token_loss /= iter_cnt
-    return epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss
+    epoch_kl_loss /= iter_cnt
+    return epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss, epoch_kl_loss
 
 
 def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
@@ -158,6 +172,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_stop_token_loss = 0
+    epoch_kl_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("start validation")
@@ -173,7 +188,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
         spk_emb = spk_emb.to(device)
 
         with torch.no_grad():
-            dec_output, output, logit, att_w = model(text, text_len, feature_target=feature, spk_emb=spk_emb)
+            dec_output, output, logit, att_w, mu, logvar = model(text, text_len, feature, feature_len, feature_target=feature, spk_emb=spk_emb)
 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, feature_len, feature.shape[-1])
         output_loss = loss_f.mse_loss(output, feature, feature_len, feature.shape[-1])
@@ -183,17 +198,21 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
         logit = torch.masked_select(logit, logit_mask)
         stop_token = torch.masked_select(stop_token, logit_mask)
         stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
+        
+        kl_loss = - 0.5 * torch.sum(logvar - torch.exp(logvar) - (mu ** 2) + 1)
 
-        total_loss = dec_output_loss + output_loss + stop_token_loss
+        total_loss = dec_output_loss + output_loss + stop_token_loss + kl_loss
 
         epoch_loss += total_loss.item()
         epoch_output_loss += output_loss.item()
         epoch_dec_output_loss += dec_output_loss.item()
         epoch_stop_token_loss += stop_token_loss.item()
+        epoch_kl_loss += kl_loss.item()
         wandb.log({"val_total_loss": total_loss})
         wandb.log({"val_output_loss": output_loss})
         wandb.log({"val_dec_output_loss": dec_output_loss})
         wandb.log({"val_stop_token_loss": stop_token_loss})
+        wandb.log({"val_kl_loss": kl_loss})
 
         iter_cnt += 1
 
@@ -213,7 +232,8 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
     epoch_stop_token_loss /= iter_cnt
-    return epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss
+    epoch_kl_loss /= iter_cnt
+    return epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss, epoch_kl_loss
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -245,15 +265,16 @@ def main(cfg):
     train_loader, val_loader, _, _ = make_train_val_loader_tts(cfg, train_data_root, val_data_root)
 
     loss_f = MaskedLoss()    
-
     train_loss_list = []
     train_output_loss_list = []
     train_dec_output_loss_list = []
     train_stop_token_loss_list = []
+    train_kl_loss_list = []
     val_loss_list = []
     val_output_loss_list = []
     val_dec_output_loss_list = []
     val_stop_token_loss_list = []
+    val_kl_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
@@ -293,11 +314,24 @@ def main(cfg):
             train_output_loss_list = checkpoint["train_output_loss_list"]
             train_dec_output_loss_list = checkpoint["train_dec_output_loss_list"]
             train_stop_token_loss_list = checkpoint["train_stop_token_loss_list"]
+            train_kl_loss_list = checkpoint["train_kl_loss_list"]
             val_loss_list = checkpoint["val_loss_list"]
             val_output_loss_list = checkpoint["val_output_loss_list"]
             val_dec_output_loss_list = checkpoint["val_dec_output_loss_list"]
             val_stop_token_loss_list = checkpoint["val_stop_token_loss_list"]
+            val_kl_loss_list = checkpoint["val_kl_loss_list"]
 
+        if cfg.train.vae_finetuning:
+            print("load pretrained model for vae finetuning")
+            checkpoint_path = Path(cfg.train.pretrained_path_for_vae_finetuning).expanduser()
+            if torch.cuda.is_available():
+                checkpoint = torch.load(checkpoint_path)
+            else:
+                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint["model"])
+            cfg.train.lr = 0.0001
+            assert cfg.train.face_or_lip == "recorded_and_synth"
+        
         wandb.watch(model, **cfg.wandb_conf.watch)
     
         for epoch in range(cfg.train.max_epoch - last_epoch):
@@ -305,7 +339,7 @@ def main(cfg):
             print(f"##### {current_epoch} #####")
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
 
-            epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss = train_one_epoch(
+            epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss, epoch_kl_loss = train_one_epoch(
                 model=model,
                 train_loader=train_loader,
                 optimizer=optimizer,
@@ -318,19 +352,21 @@ def main(cfg):
             train_output_loss_list.append(epoch_output_loss)
             train_dec_output_loss_list.append(epoch_dec_output_loss)
             train_stop_token_loss_list.append(epoch_stop_token_loss)
+            train_kl_loss_list.append(epoch_kl_loss)
 
-            epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss = val_one_epoch(
+            epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss, epoch_kl_loss = val_one_epoch(
                 model=model,
                 val_loader=val_loader,
                 loss_f=loss_f,
                 device=device,
                 cfg=cfg,
-                ckpt_time=ckpt_time
+                ckpt_time=ckpt_time,
             )
             val_loss_list.append(epoch_loss)
             val_output_loss_list.append(epoch_output_loss)
             val_dec_output_loss_list.append(epoch_dec_output_loss)
             val_stop_token_loss_list.append(epoch_stop_token_loss)
+            val_kl_loss_list.append(epoch_kl_loss)
 
             scheduler.step()
 
@@ -343,18 +379,21 @@ def main(cfg):
                     train_output_loss_list=train_output_loss_list,
                     train_dec_output_loss_list=train_dec_output_loss_list,
                     train_stop_token_loss_list=train_stop_token_loss_list,
+                    train_kl_loss_list=train_kl_loss_list,
                     val_loss_list=val_loss_list,
                     val_output_loss_list=val_output_loss_list,
                     val_dec_output_loss_list=val_dec_output_loss_list,
                     val_stop_token_loss_list=val_stop_token_loss_list,
+                    val_kl_loss_list=val_kl_loss_list,
                     epoch=current_epoch,
-                    ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
+                    ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt"),
                 )
-            
+
             save_loss(train_loss_list, val_loss_list, save_path, "total_loss")
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token_loss")
+            save_loss(train_kl_loss_list, val_kl_loss_list, save_path, "kl_loss")
 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

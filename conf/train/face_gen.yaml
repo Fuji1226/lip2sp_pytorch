@@ -10,10 +10,13 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/face_gen/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/face_gen/face_aligned_0_50_gray/2023:04:10_13-15-28/mspec80_100.ckpt"
+tts_vae_finetuning : True
+tts_vae_finetuning_pretrained_model_path : "~/lip2sp_pytorch/check_point/face_gen/face_aligned_0_50_gray/2023:04:10_13-15-28/mspec80_100.ckpt"
 
 # face or lip
-face_or_lip : "face_aligned_0_50_gray"
+# face_or_lip : "face_aligned_0_50_gray"
+face_or_lip : "tts_vae_tf_sample"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/face_gen/train"
@@ -31,6 +34,8 @@ face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
+tts_vae_tf_sample_path_train : "~/dataset/lip/np_files_tts_tf_sample/face_aligned_0_50_gray/train"
+tts_vae_tf_sample_path_val : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 
 # 元データ
 data_dir : "~/dataset/lip/cropped_fps25"
@@ -74,7 +79,7 @@ use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : True
+use_segment_masking : False
 which_seg_mask : "seg_mean"
 max_segment_masking_sec : 0.5
 
@@ -101,19 +106,19 @@ weight_decay : 1.0e-6
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.998
+lr_decay_exp : 0.98
 
 # gradient clipping
 max_norm : 3.0
 
 # lossの重みづけ
 l1_weight : 600
-frame_disc_weight : 1.0
-multiframe_disc_weight : 1.0
-seq_disc_weight : 1.0
+frame_disc_weight : 0
+multiframe_disc_weight : 0
+seq_disc_weight : 0
 sync_disc_weight : 0
 
 # discへの入力フレーム数
-multiframe_disc_analysis_len : 15
-seq_disc_analysis_len : 75
-sync_disc_analysis_len : 5
+multiframe_disc_input_sec : 0.6
+seq_disc_input_sec : 3
+sync_disc_input_sec : 0.5

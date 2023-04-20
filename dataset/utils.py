@@ -94,8 +94,8 @@ def get_stat_load_data(train_data_path):
 
         lip = npz_key['lip']
         feature = npz_key['feature']
-        feat_add = npz_key['feat_add']
-        landmark = npz_key['landmark']
+        # feat_add = npz_key['feat_add']
+        # landmark = npz_key['landmark']
 
         lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
         lip_var_list.append(np.var(lip, axis=(1, 2, 3)))
@@ -105,13 +105,13 @@ def get_stat_load_data(train_data_path):
         feat_var_list.append(np.var(feature, axis=0))
         feat_len_list.append(feature.shape[0])
 
-        feat_add_mean_list.append(np.mean(feat_add, axis=0))
-        feat_add_var_list.append(np.var(feat_add, axis=0))
-        feat_add_len_list.append(feat_add.shape[0])
+        # feat_add_mean_list.append(np.mean(feat_add, axis=0))
+        # feat_add_var_list.append(np.var(feat_add, axis=0))
+        # feat_add_len_list.append(feat_add.shape[0])
 
-        landmark_mean_list.append(np.mean(landmark, axis=(0, 2)))
-        landmark_var_list.append(np.var(landmark, axis=(0, 2)))
-        landmark_len_list.append(landmark.shape[0])
+        # landmark_mean_list.append(np.mean(landmark, axis=(0, 2)))
+        # landmark_var_list.append(np.var(landmark, axis=(0, 2)))
+        # landmark_len_list.append(landmark.shape[0])
         
     return lip_mean_list, lip_var_list, lip_len_list, \
         feat_mean_list, feat_var_list, feat_len_list, \
@@ -216,9 +216,9 @@ def get_utt(data_path):
     print("--- get utterance ---")
     path_text_pair_list = []
     for path in tqdm(data_path):
-        text_path = text_dir / f"{path.stem}.csv"
-        df = pd.read_csv(str(text_path))
-        text = df.text.values[0]
+        text_path = text_dir / f"{path.stem}.txt"
+        df = pd.read_csv(str(text_path), header=None)
+        text = df[0].values[0]
         path_text_pair_list.append([path, text])
 
     return path_text_pair_list

@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: tts_vae
+    entity:
+    mode: online
+    name : tts_vae
+watch:
+    log: all
+    log_freq: 100

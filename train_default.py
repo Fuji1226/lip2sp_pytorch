@@ -102,7 +102,7 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_prob, mixing_prob_f0, ckpt_time):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_classifier_loss = 0
@@ -169,7 +169,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_
     return epoch_output_loss, epoch_dec_output_loss, epoch_classifier_loss
 
 
-def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, mixing_prob_f0, ckpt_time):
+def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_classifier_loss = 0
@@ -303,16 +303,13 @@ def main(cfg):
             torch.cuda.set_rng_state(checkpoint["cuda_random"])
             train_output_loss_list = checkpoint["train_output_loss_list"]
             train_dec_output_loss_list = checkpoint["train_dec_output_loss_list"]
-            train_f0_loss_list = checkpoint["train_f0_loss_list"]
             val_output_loss_list = checkpoint["val_output_loss_list"]
             val_dec_output_loss_list = checkpoint["val_dec_output_loss_list"]
-            val_f0_loss_list = checkpoint["val_f0_loss_list"]
             last_epoch = checkpoint["epoch"]
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
         prob_list = mixing_prob_controller(cfg)
-        prob_list_f0 = mixing_prob_controller_f0(cfg)
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
@@ -320,9 +317,6 @@ def main(cfg):
             
             mixing_prob = prob_list[current_epoch - 1]
             wandb.log({"mixing_prob": mixing_prob})
-
-            mixing_prob_f0 = prob_list_f0[current_epoch - 1]
-            wandb.log({"mixing_prob_f0": mixing_prob_f0})
 
             print(f"mixing_prob = {mixing_prob}")
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
@@ -336,7 +330,6 @@ def main(cfg):
                 device=device, 
                 cfg=cfg, 
                 mixing_prob=mixing_prob,
-                mixing_prob_f0=mixing_prob_f0,
                 ckpt_time=ckpt_time,
             )
             train_output_loss_list.append(epoch_output_loss)
@@ -351,7 +344,6 @@ def main(cfg):
                 device=device, 
                 cfg=cfg,
                 mixing_prob=mixing_prob,
-                mixing_prob_f0=mixing_prob_f0,
                 ckpt_time=ckpt_time,
             )
             val_output_loss_list.append(epoch_output_loss)

@@ -201,6 +201,10 @@ taco_lip_post_hidden_channels : 64
 taco_lip_post_n_layers : 5
 taco_lip_post_kernel_size : 5
 lip_post_dropout : 0.5
+taco_vae_hidden_channels : 512
+taco_vae_n_conv_layers : 6
+taco_vae_n_rnn_layers : 2
+taco_vae_z_dim : 32
 
 # language model
 lm_trans_d_model : 512
@@ -261,3 +265,7 @@ tft_lip_post_n_layers : 5
 tft_lip_post_kernel_size : 5
 tft_lip_post_dropout : 0.5
 tft_which_norm : "bn"
+
+# ae detector
+ae_detector_hidden_channels_list : [64, 32]
+ae_detector_n_rnn_layers : 2

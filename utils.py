@@ -64,6 +64,12 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "face_aligned_0_50":
         train_data_root = cfg.train.face_pre_loaded_path_train_0_50
         val_data_root = cfg.train.face_pre_loaded_path_val_0_50
+    elif cfg.train.face_or_lip == "tts_vae_tf_sample":
+        train_data_root = cfg.train.tts_vae_tf_sample_path_train
+        val_data_root = cfg.train.tts_vae_tf_sample_path_val
+    elif cfg.train.face_or_lip == "recorded_and_synth":
+        train_data_root = cfg.train.recorded_and_synth_path_train
+        val_data_root = cfg.train.recorded_and_synth_path_val
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -1421,6 +1427,7 @@ def load_pretrained_model(model_path, model, model_name):
     match_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
     model_dict.update(match_dict)
     model.load_state_dict(match_dict)
+    # model.load_state_dict(pretrained_dict)
     return model
 
 

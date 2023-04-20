@@ -105,7 +105,6 @@ def main():
             continue
 
         kanji_yomi_list, kanji_yomi_list_no_limit = pronounce(selected_list)
-        # print(len(kanji_yomi_list), len(kanji_yomi_list_no_limit), len(kanji_yomi_list) / len(kanji_yomi_list_no_limit))
 
         with open(str(save_dir_limit / "text.csv"), "a") as f:
             writer = csv.writer(f)
@@ -140,14 +139,20 @@ def check_length():
                 print(max_seq_len, path, i, text)
 
     print(max_seq_len)
-
-
-def load_wiki():
+    
+    
+def set_filename():
     save_dir_limit = Path(f"~/dataset/wiki/datafiles/sentences/limit_{seq_len_limit_upper}/text.csv").expanduser()
     wiki_data = pd.read_csv(str(save_dir_limit))
-
+    print(wiki_data.shape)
+    wiki_data = wiki_data.reset_index()
+    wiki_data["filename"] = wiki_data["index"].apply(lambda x : "wiki_" + str(x))
+    wiki_data = wiki_data.drop(columns="index")
+    wiki_data.to_csv(str(save_dir_limit.parents[0] / "text_with_filename.csv"))
+    
 
 if __name__ == "__main__":
     # main()
     # check_length()
-    load_wiki()
+    # load_wiki()
+    set_filename()

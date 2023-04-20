@@ -112,7 +112,6 @@ class Generator(nn.Module):
         feature : (B, C, T)
         out : (B, C, H, W, T)
         """
-        B, C, H, W = lip.shape
         enc_out = lip
         fmaps = []
         for layer in self.enc_layers:
@@ -194,7 +193,7 @@ class FrameDiscriminator(nn.Module):
 
 
 class MultipleFrameDiscriminator(nn.Module):
-    def __init__(self, in_channels, dropout, analysis_len):
+    def __init__(self, in_channels, dropout):
         super().__init__()
         in_cs = [in_channels, 32, 64, 128]
         out_cs = [32, 64, 128, 256]
@@ -206,10 +205,7 @@ class MultipleFrameDiscriminator(nn.Module):
                 nn.Dropout(dropout),
             ) for in_c, out_c in zip(in_cs, out_cs)
         ])
-        self.last_layer = nn.Sequential(
-            nn.Flatten(), 
-            nn.Linear(out_cs[-1] * analysis_len, 1),
-        )
+        self.last_layer = nn.Linear(out_cs[-1], 1)
 
     def forward(self, lip):
         """
@@ -218,13 +214,13 @@ class MultipleFrameDiscriminator(nn.Module):
         out = lip
         for layer in self.layers:
             out = layer(out)
-        out = torch.mean(out, dim=(2, 3))   # (B, C, T)
+        out = torch.mean(out, dim=(2, 3, 4))   # (B, C)
         out = self.last_layer(out)  # (B, 1)
         return out
 
 
 class SequenceDiscriminator(nn.Module):
-    def __init__(self, in_channels, feat_channels, dropout, analysis_len, fps):
+    def __init__(self, in_channels, feat_channels, dropout, fps):
         super().__init__()
         in_cs_lip = [in_channels, 32, 64, 128]
         out_cs_lip = [32, 64, 128, 256]
@@ -253,10 +249,7 @@ class SequenceDiscriminator(nn.Module):
         ])
         self.lip_rnn = nn.GRU(out_cs_lip[-1], out_cs_lip[-1] // 2, num_layers=1, batch_first=True, bidirectional=True)
         self.feat_rnn = nn.GRU(out_cs_lip[-1], out_cs_lip[-1] // 2, num_layers=1, batch_first=True, bidirectional=True)
-        self.out_layers= nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(int(out_cs_lip[-1] * analysis_len), 1)
-        )
+        self.out_layer = nn.Linear(out_cs_lip[-1], 1)
     
     def forward(self, lip, feature):
         """
@@ -264,8 +257,6 @@ class SequenceDiscriminator(nn.Module):
         lip : (B, C, H, W, T)
         feature : (B, T, C)
         """
-        # print(f"seq_disc")
-        # print(f"lip = {lip.shape}, feature = {feature.shape}")
         lip_rep = lip
         for layer in self.lip_layers:
             lip_rep = layer(lip_rep)
@@ -281,13 +272,13 @@ class SequenceDiscriminator(nn.Module):
         # padding部分の考慮はせず、discriminatorにノイズを与える
         lip_rep, _ = self.lip_rnn(lip_rep)
         feat_rep, _ = self.feat_rnn(feat_rep)
-        out = lip_rep + feat_rep
-        out = self.out_layers(out)      # (B, 1)
+        out = torch.mean(lip_rep + feat_rep, dim=1)     # (B, C)
+        out = self.out_layer(out)      # (B, 1)
         return out
 
 
 class SyncDiscriminator(nn.Module):
-    def __init__(self, in_channels, feat_channels,  dropout):
+    def __init__(self, in_channels, feat_channels,  dropout, fps):
         super().__init__()
         in_cs_lip = [in_channels, 32, 64, 128]
         out_cs_lip = [32, 64, 128, 256]
@@ -302,7 +293,10 @@ class SyncDiscriminator(nn.Module):
 
         in_cs_feat = [feat_channels, 128, 128, 256]
         out_cs_feat = [128, 128, 256, 256]
-        stride = [2, 1, 2, 1]
+        if fps == 50:
+            stride = [2, 1, 1, 1]
+        elif fps == 25:
+            stride = [2, 1, 2, 1]
         self.feat_layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_c, out_c, kernel_size=5, stride=s, padding=2),
@@ -319,8 +313,6 @@ class SyncDiscriminator(nn.Module):
         lip : (B, C, H, W, T)
         feature : (B, C, T)
         """
-        # print(f"sync_disc")
-        # print(f"lip = {lip.shape}, feature = {feature.shape}")
         lip_rep = lip
         for layer in self.lip_layers:
             lip_rep = layer(lip_rep)

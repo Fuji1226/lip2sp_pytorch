@@ -600,18 +600,6 @@ def main(cfg):
             torch.random.set_rng_state(checkpoint["torch_random"])
             torch.cuda.set_rng_state(checkpoint["cuda_random"])
             last_epoch = checkpoint["epoch"]
-            
-        if cfg.train.tts_vae_finetuning:
-            print("load pretrained model for finetuning")
-            checkpoint_path = Path(cfg.train.tts_vae_finetuning_pretrained_model_path).expanduser()
-            if torch.cuda.is_available():
-                checkpoint = torch.load(checkpoint_path)
-            else:
-                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
-            gen.load_state_dict(checkpoint["gen"])
-            frame_disc.load_state_dict(checkpoint["frame_disc"])
-            seq_disc.load_state_dict(checkpoint["seq_disc"])
-            sync_disc.load_state_dict(checkpoint["sync_disc"])
 
         wandb.watch(gen, **cfg.wandb_conf.watch)
         wandb.watch(frame_disc, **cfg.wandb_conf.watch)

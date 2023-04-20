@@ -1,6 +1,6 @@
 ---
 
-name : "default"
+name : "tts_vae"
 
 # デバッグ
 debug : True
@@ -10,17 +10,19 @@ debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:02:01_23-53-31/mspec80_410.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/tts_vae/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
+vae_finetuning : True
+pretrained_path_for_vae_finetuning : "~/lip2sp_pytorch/check_point/tts_vae/face_aligned_0_50_gray/2023:04:09_11-09-23/mspec80_200.ckpt"
 
 # face or lip
-face_or_lip : "face_aligned_0_50_gray"
+face_or_lip : "recorded_and_synth"
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/default/train"
+save_path : "~/lip2sp_pytorch/result/tts_vae/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/default"
-ckpt_step : 5
+ckpt_path : "~/lip2sp_pytorch/check_point/tts_vae"
+ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
@@ -31,18 +33,31 @@ face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
+recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
+recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
+
+# 元データ
+data_dir : "~/dataset/lip/cropped_fps25"
+bbox_dir : "~/dataset/lip/bbox_fps25"
+landmark_dir : "~/dataset/lip/landmark_fps25"
+train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
+val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+# corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : [
+  "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
+  "UT-PARAPHRASE", "VOICEACTRESS100", "wiki",
+]
 
 # 使用する話者
-speaker : ["F01_kablab_all"]
+speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-use_spk_emb : False
+# speaker : ["F01_kablab", "F02_kablab"]
+# speaker : ["M01_kablab", "M04_kablab"]
+use_gc : False
 finetuning : False
 where_spk_emb : "after_res"
-adversarial_learning : False
 
 # max_epoch
 max_epoch : 600
@@ -59,8 +74,8 @@ use_random_crop : False
 # 空間領域にランダムマスキング
 use_spatial_masking : False
 which_spatial_mask : "has"
-spatial_divide_factor : 4
-n_spatial_mask : 8
+spatial_divide_factor : 8
+n_spatial_mask : 24
 mask_length : 24
 
 # 再生速度変換
@@ -68,7 +83,7 @@ use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : True
+use_segment_masking : False
 which_seg_mask : "seg_mean"
 max_segment_masking_sec : 0.5
 
@@ -82,10 +97,13 @@ batch_size : 16
 num_workers : 16
 
 # dropout
-dec_dropout : 0.5
+dec_dropout : 0.1
 res_dropout : 0.1
 rnn_dropout : 0.1
-f0_predicter_dropout : 0.1
+lm_enc_dropout : 0.1
+
+gen_dropout : 0.1
+disc_dropout : 0.1
 
 # optimizer
 lr : 0.001
@@ -97,18 +115,14 @@ weight_decay : 1.0e-6
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.995
+lr_decay_exp : 0.97
 
 # gradient clipping
 max_norm : 3.0
 
-# parameter for scheduled sampling
-# min_mixing_prob = 1 : teacher forcing
-# min_mixing_probが小さくなるほどサンプルが劣化する(最小0)
-exp_factor : 0.98
-min_mixing_prob : 1
-
 # lossの重みづけ
-output_loss_weight : 1.0
-dec_output_loss_weight : 1.0
+mse_weight : 1.0
 classifier_weight : 0
+use_weighted_mean : False
+
+n_stop_token_frame : 2

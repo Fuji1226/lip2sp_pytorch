@@ -122,7 +122,6 @@ class KablabTransform:
         ランダムクロップ
         lip : (T, C, H, W)
         """
-        _, _, H, W = lip.shape
         if center:
             top = left = (self.cfg.model.imsize - self.cfg.model.imsize_cropped) // 2
         else:

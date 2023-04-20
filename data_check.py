@@ -829,7 +829,7 @@ def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std):
     wav = wav[:n_sample]
     wav_AbS = wav_AbS[:n_sample]
     wav_gen = wav_gen[:n_sample]
-
+    
     write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)
     write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=wav_AbS)
     write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=wav_gen)

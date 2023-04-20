@@ -293,7 +293,6 @@ def main(cfg):
             val_loss_list = checkpoint["val_loss_list"]
             val_mse_loss_list = checkpoint["val_mse_loss_list"]
             val_classifier_loss_list = checkpoint["val_classifier_loss_list"]
-            last_epoch = checkpoint["epoch"]
 
         wandb.watch(model, **cfg.wandb_conf.watch)
     
