@@ -95,7 +95,7 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_time, kl_weight):
     epoch_loss = 0
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
@@ -108,7 +108,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
         text = text.to(device)
         feature = feature.to(device)
         stop_token = stop_token.to(device)
@@ -129,7 +129,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         
         kl_loss = - 0.5 * torch.sum(logvar - torch.exp(logvar) - (mu ** 2) + 1)
 
-        total_loss = dec_output_loss + output_loss + stop_token_loss + kl_loss
+        total_loss = dec_output_loss + output_loss + stop_token_loss + kl_weight * kl_loss
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -167,7 +167,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
     return epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss, epoch_kl_loss
 
 
-def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
+def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time, kl_weight):
     epoch_loss = 0
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
@@ -179,7 +179,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
     model.eval()
 
     for batch in val_loader:
-        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
         text = text.to(device)
         feature = feature.to(device)
         stop_token = stop_token.to(device)
@@ -201,7 +201,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
         
         kl_loss = - 0.5 * torch.sum(logvar - torch.exp(logvar) - (mu ** 2) + 1)
 
-        total_loss = dec_output_loss + output_loss + stop_token_loss + kl_loss
+        total_loss = dec_output_loss + output_loss + stop_token_loss + kl_weight * kl_loss
 
         epoch_loss += total_loss.item()
         epoch_output_loss += output_loss.item()
@@ -234,6 +234,10 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_stop_token_loss /= iter_cnt
     epoch_kl_loss /= iter_cnt
     return epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss, epoch_kl_loss
+
+
+def kl_anneal_function(epoch, cfg):
+    return float(cfg.train.anneal_upper / (cfg.train.anneal_upper + np.exp(-cfg.train.anneal_k * (epoch - cfg.train.anneal_x0))))
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -330,7 +334,6 @@ def main(cfg):
                 checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["model"])
             cfg.train.lr = 0.0001
-            assert cfg.train.face_or_lip == "recorded_and_synth"
         
         wandb.watch(model, **cfg.wandb_conf.watch)
     
@@ -338,6 +341,9 @@ def main(cfg):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
+            
+            kl_weight = kl_anneal_function(epoch, cfg)
+            wandb.log({"kl_weight": kl_weight})
 
             epoch_loss, epoch_output_loss, epoch_dec_output_loss, epoch_stop_token_loss, epoch_kl_loss = train_one_epoch(
                 model=model,
@@ -347,6 +353,7 @@ def main(cfg):
                 device=device,
                 cfg=cfg,
                 ckpt_time=ckpt_time,
+                kl_weight=kl_weight,
             )
             train_loss_list.append(epoch_loss)
             train_output_loss_list.append(epoch_output_loss)
@@ -361,6 +368,7 @@ def main(cfg):
                 device=device,
                 cfg=cfg,
                 ckpt_time=ckpt_time,
+                kl_weight=kl_weight,
             )
             val_loss_list.append(epoch_loss)
             val_output_loss_list.append(epoch_output_loss)

@@ -12,15 +12,21 @@ debug_iter : 0
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_16-51-15/mspec80_90.ckpt"
 
+# check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
+check_point_start_separate_save_dir : True
+start_ckpt_path_separate_save_dir : ~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_17-15-09/mspec80_400.ckpt
+
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
+use_synth_corpus : True
+n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/train"
 
 # check point path
 ckpt_path : "~/lip2sp_pytorch/check_point/nar"
-ckpt_step : 5
+ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
@@ -31,6 +37,9 @@ face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
+synth_path_train : "~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train"
+recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
+recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
 
 # 元データ
 data_dir : "~/dataset/lip/cropped"
@@ -54,10 +63,13 @@ lrs2_val_df_path : "~/lrs2/val.txt"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+corpus_synth : [
+  "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
+  "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
+]
 
 # 使用する話者
-speaker : ["F01_kablab_all"]
+speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_spk_emb : False
 finetuning : False
@@ -88,7 +100,7 @@ use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : False
+use_segment_masking : True
 which_seg_mask : "seg_mean"
 max_segment_masking_sec : 0.5
 

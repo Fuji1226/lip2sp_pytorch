@@ -99,13 +99,13 @@ class F0Predicter2(nn.Module):
         f0 = f0.permute(0, 2, 1)    # (B, C, T)
         f0 = F.interpolate(f0, scale_factor=self.reduction_factor, mode="nearest")
         f0 = self.dropout(f0)
-        f0 = self.out_layer(f0)
+        f0 = self.out_layer(f0)     # (B, 1, T)
         return f0
 
 
 class Lip2SP(nn.Module):
     def __init__(
-        self, in_channels, out_channels, res_inner_channels, which_res,
+        self, in_channels, out_channels, res_inner_channels, which_res, use_lip_and_face,
         trans_enc_n_layers, trans_enc_n_head, 
         rnn_n_layers, rnn_which_norm,
         glu_layers, glu_kernel_size,
@@ -130,6 +130,13 @@ class Lip2SP(nn.Module):
             inner_channels=res_inner_channels,
             dropout=res_dropout,
         )
+        if use_lip_and_face:
+            self.ResNet_GAP2 = ResNet3D(
+                in_channels=in_channels, 
+                out_channels=int(res_inner_channels * 8), 
+                inner_channels=res_inner_channels,
+                dropout=res_dropout,
+            )
         
         # encoder
         if which_encoder == "transformer":
@@ -146,6 +153,23 @@ class Lip2SP(nn.Module):
                 dropout=rnn_dropout,
                 reduction_factor=reduction_factor,
                 which_norm=rnn_which_norm,
+            )
+            
+        if use_f0_predicter:
+            self.f0_predicter = F0Predicter2(
+                in_channels=in_channels,
+                inner_channels=f0_predicter_inner_channels,
+                rnn_n_layers=f0_predicter_rnn_n_layers,
+                reduction_factor=reduction_factor,
+                dropout=f0_predicter_dropout,
+                rnn_which_norm=rnn_which_norm,
+                trans_enc_n_layers=f0_predicter_trans_enc_n_layers,
+                trans_enc_n_head=f0_predicter_trans_enc_n_head,
+                which_encoder=f0_predicter_which_encoder,
+            )
+            self.f0_concat_layer = nn.Conv1d(
+                1, inner_channels, kernel_size=(reduction_factor + 1), 
+                padding=(reduction_factor + 1) // 2, stride=reduction_factor
             )
 
         if use_spk_emb:
@@ -176,7 +200,7 @@ class Lip2SP(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_kernel_size, post_n_layers)
 
-    def forward(self, lip, lip_len, spk_emb=None, prev=None, mixing_prob=None):
+    def forward(self, lip, lip_len, spk_emb=None, prev=None, mixing_prob=None, f0_target=None, f0_concat_target_or_pred=None, face=None):
         """
         lip : (B, C, H, W, T)
         prev, output, dec_output : (B, C, T)
@@ -188,6 +212,9 @@ class Lip2SP(nn.Module):
 
         # resnet
         enc_output, fmaps = self.ResNet_GAP(lip)    # (B, C, T)
+        if hasattr(self, "ResNet_GAP2"):
+            enc_output2, fmaps2 = self.ResNet_GAP2(face)
+            enc_output = enc_output + enc_output2
         
         if self.where_spk_emb == "after_res":
             if hasattr(self, "spk_emb_layer"):
@@ -203,6 +230,7 @@ class Lip2SP(nn.Module):
         
         # encoder
         enc_output = self.encoder(enc_output, lip_len)    # (B, T, C) 
+        
         if self.where_spk_emb == "after_enc":
             if hasattr(self, "spk_emb_layer"):
                 enc_output = enc_output.permute(0, 2, 1)    # (B, C, T)
@@ -216,6 +244,18 @@ class Lip2SP(nn.Module):
                 enc_output = enc_output.permute(0, 2, 1)    # (B, T, C)
             else:
                 classifier_out = None
+                
+        # f0
+        if hasattr(self, "f0_predicter"):
+            f0_pred = self.f0_predicter(lip, lip_len)
+            if f0_concat_target_or_pred == "target":
+                f0_feature = self.f0_concat_layer(f0_target)
+            elif f0_concat_target_or_pred == "pred":
+                f0_feature = self.f0_concat_layer(f0_pred)
+            f0_feature = f0_feature.permute(0, 2, 1)    # (B, T, C)
+            enc_output = enc_output + f0_feature
+        else:
+            f0_pred = None
 
         # decoder
         if prev is not None:
@@ -235,7 +275,7 @@ class Lip2SP(nn.Module):
 
         # postnet
         output = self.postnet(dec_output) 
-        return output, dec_output, mixed_prev, fmaps, classifier_out
+        return output, dec_output, mixed_prev, fmaps, classifier_out, f0_pred
 
     def decoder_forward(self, enc_output, spk_emb, prev, mode="training"):
         """

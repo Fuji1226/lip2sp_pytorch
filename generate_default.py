@@ -107,28 +107,10 @@ def main(cfg):
     model = make_model(cfg, device)
     for num_gen_epoch in num_gen_epoch_list:
         # single speaker
-        # glu time masking
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_13-54-16/mspec80_{num_gen_epoch}.ckpt").expanduser()     # tf
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_14-11-36/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:15_18-27-48/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss + masking
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:02:01_23-53-31/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss pitch min 0.25 time masking
-        
-        # new
         # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:04:05_20-50-02/mspec80_{num_gen_epoch}.ckpt").expanduser()     # tf
         # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:04:04_20-21-47/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss
-        model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:04:04_20-48-44/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss all
-
-        # glu no time masking
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:17_16-36-04/mspec80_{num_gen_epoch}.ckpt").expanduser()     # tf
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:17_16-28-46/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2022:12:17_17-06-45/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss + masking
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:01:16_11-40-15/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss(scheduler変更後)
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:01:26_12-14-44/mspec80_{num_gen_epoch}.ckpt").expanduser()     # tf pitch 
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:02:01_23-35-54/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss pitch min 0.25
-
-        # multi speaker
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:01:20_11-36-09/mspec80_{num_gen_epoch}.ckpt").expanduser()     # tf no time masking
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:01:20_11-36-09/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss time masking
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:04:04_20-48-44/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss all
+        model_path = Path(f"~/lip2sp_pytorch/check_point/default/face_aligned_0_50_gray/2023:05:04_10-12-13/mspec80_{num_gen_epoch}.ckpt").expanduser()     # ss all exp_factor=0.99
 
         model = load_pretrained_model(model_path, model, "model")
         cfg.train.face_or_lip = model_path.parents[1].name

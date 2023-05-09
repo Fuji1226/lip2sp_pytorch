@@ -14,13 +14,15 @@ start_ckpt_path : "~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2022:
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
+use_synth_corpus : False
+n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/tts/train"
 
 # check point path
 ckpt_path : "~/lip2sp_pytorch/check_point/tts"
-ckpt_step : 5
+ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
@@ -41,13 +43,13 @@ val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+corpus_synth : [
+  "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
+  "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
+]
 
 # 使用する話者
 speaker : ["F01_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-# speaker : ["F01_kablab", "F02_kablab"]
-# speaker : ["M01_kablab", "M04_kablab"]
 use_gc : False
 finetuning : False
 where_spk_emb : "after_res"

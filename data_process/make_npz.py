@@ -16,7 +16,7 @@ import pickle
 from transform import load_data_for_npz
 
 debug = False
-speaker = "F01_kablab_all"
+speaker = "F01_kablab"
 margin = 0
 fps = 50
 gray = True

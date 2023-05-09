@@ -15,7 +15,9 @@ vae_finetuning : True
 pretrained_path_for_vae_finetuning : "~/lip2sp_pytorch/check_point/tts_vae/face_aligned_0_50_gray/2023:04:09_11-09-23/mspec80_200.ckpt"
 
 # face or lip
-face_or_lip : "recorded_and_synth"
+face_or_lip : "face_aligned_0_50_gray"
+use_synth_corpus : True
+n_data_used_recorded_and_synth : 10000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/tts_vae/train"
@@ -33,6 +35,7 @@ face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
+synth_path_train : "~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train"
 recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
 recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
 
@@ -44,10 +47,10 @@ train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 使用するコーパス
-# corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : [
+corpus : ["ATR", "BASIC5000", "balanced"]
+corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
-  "UT-PARAPHRASE", "VOICEACTRESS100", "wiki",
+  "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
 ]
 
 # 使用する話者
@@ -124,5 +127,8 @@ max_norm : 3.0
 mse_weight : 1.0
 classifier_weight : 0
 use_weighted_mean : False
+anneal_k : 0.1
+anneal_x0 : 50
+anneal_upper : 0.2
 
 n_stop_token_frame : 2

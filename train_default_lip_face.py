@@ -11,7 +11,7 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_mel_ss, check_mel_default, count_params, \
+from utils import make_train_val_loader_lip_face, get_path_train, save_loss, check_mel_ss, check_mel_default, count_params, \
     set_config, mixing_prob_controller, mixing_prob_controller_f0, check_f0
 from model.model_default import Lip2SP
 from loss import MaskedLoss
@@ -114,15 +114,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, mixing_
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
+        wav, lip, face, feature, feat_add, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
         lip = lip.to(device)
+        face = face.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
         
-        output, dec_output, mixed_prev, fmaps, classifier_out, f0_pred = model(lip, lip_len, spk_emb, feature, mixing_prob)
+        output, dec_output, mixed_prev, fmaps, classifier_out, f0_pred = model(lip, lip_len, spk_emb, feature, mixing_prob, face=face)
 
         output_loss = loss_f.mse_loss(output, feature, feature_len, max_len=feature.shape[-1]) 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, feature_len, max_len=feature.shape[-1]) 
@@ -182,8 +183,9 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
 
-        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
+        wav, lip, face, feature, feat_add, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
         lip = lip.to(device)
+        face = face.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
@@ -191,7 +193,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, mixing_prob, ckpt_time
         speaker_idx = speaker_idx.to(device)
         
         with torch.no_grad():
-            output, dec_output, mixed_prev, fmaps, classifier_out, f0_pred = model(lip, lip_len, spk_emb, feature, mixing_prob)
+            output, dec_output, mixed_prev, fmaps, classifier_out, f0_pred = model(lip, lip_len, spk_emb, feature, mixing_prob, face=face)
 
         output_loss = loss_f.mse_loss(output, feature, feature_len, max_len=feature.shape[-1]) 
         dec_output_loss = loss_f.mse_loss(dec_output, feature, feature_len, max_len=feature.shape[-1]) 
@@ -256,7 +258,7 @@ def main(cfg):
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, _, _ = make_train_val_loader(cfg, train_data_root, val_data_root)
+    train_loader, val_loader, _, _ = make_train_val_loader_lip_face(cfg, train_data_root, val_data_root)
 
     # 損失関数
     loss_f = MaskedLoss()

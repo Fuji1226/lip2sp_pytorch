@@ -1,16 +1,18 @@
 import hydra
 from pathlib import Path
-import numpy as np
-import torch
-import random
-import re
+import os
+from pathlib import Path
 from datetime import datetime
+import numpy as np
+import random
+import time
 from tqdm import tqdm
+import torch
+import re
 import matplotlib.pyplot as plt
 
-from train_tts_vae import make_model as make_tts
+from train_recorded_synth_classifier_speech import make_model
 from utils import load_pretrained_model, get_path_train, make_train_val_loader_tts
-from model.rank_svm import RankSVM
 
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
@@ -23,17 +25,20 @@ random.seed(0)
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"device = {device}")
+    
+    model = make_model(cfg, device)
+    model_path = Path(f"~/lip2sp_pytorch/check_point/classifier/face_aligned_0_50_gray/2023:05:03_17-07-11/mspec80_49.ckpt").expanduser()   # F01 recorded and synth
 
-    tts = make_tts(cfg, device)
-    # tts_path = Path(f"~/lip2sp_pytorch/check_point/tts_vae/face_aligned_0_50_gray/2023:04:09_11-09-23/mspec80_200.ckpt").expanduser()
-    tts_path = Path(f"~/lip2sp_pytorch/check_point/tts_vae/recorded_and_synth/2023:04:25_23-33-33/mspec80_15.ckpt").expanduser()   # after finetuning
-    tts = load_pretrained_model(tts_path, tts, "model")
-    
-    cfg.train.face_or_lip = "recorded_and_synth"
-    cfg.train.batch_size = 1
-    
+    model = load_pretrained_model(model_path, model, "model")
+    model.eval()
+    cfg.train.face_or_lip = model_path.parents[1].name
+    cfg.test.face_or_lip = model_path.parents[1].name
+
     recorded_path = Path(f"~/dataset/lip/np_files/face_aligned_0_50_gray/train").expanduser()
     synth_path = Path(f"~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train").expanduser()
+    save_path = Path("~/lip2sp_pytorch/result/classifier/classify").expanduser()
+    save_path = save_path / model_path.parents[1].name / model_path.parents[0].name / model_path.stem
     
     speaker_list = ["F01_kablab"]
     path_all_dict = {}
@@ -64,15 +69,15 @@ def main(cfg):
     feat_mean = feat_mean.unsqueeze(0)  # (1, C)
     feat_std = feat_std.unsqueeze(0)    # (1, C)
     
-    print("calc vae feature")
-    vae_feature_recorded_dict = {}
-    vae_feature_synth_dict = {}
+    print("classify")
+    output_recorded_dict = {}
+    output_synth_dict = {}
     for key, path_list in path_all_dict.items():
         print(key)
         speaker = "_".join(key.split("_")[:-1])
         condition = key.split("_")[-1]
         
-        vae_feature_list = []
+        output_list = []
         for path in tqdm(path_list):
             npz_key = np.load(str(path))
             feature = torch.from_numpy(npz_key['feature']).to(device)      # (T, C)
@@ -81,64 +86,29 @@ def main(cfg):
             feature = feature.to(torch.float32).permute(1, 0).unsqueeze(0)  # (1, C, T)
             
             with torch.no_grad():
-                mu, logvar, z, emb = tts.vae(feature, feature_len)
+                output = model(feature, feature_len)
+                output = torch.sigmoid(output).squeeze(1)   # (1,)
                 
-            std = torch.exp(0.5 * logvar)
-            vae_feature = torch.cat((mu, std), dim=-1)   # (1, C)
-            vae_feature_list.append(vae_feature)
-            
-        vae_feature = torch.cat(vae_feature_list, dim=0).cpu().numpy()    # (N, C)
+            output_list.append(output)
+        
+        output = torch.cat(output_list, dim=0).cpu().numpy()
         
         if condition == "recorded":
-            vae_feature_recorded_dict[speaker] = vae_feature
+            output_recorded_dict[speaker] = output
         elif condition == "synth":
-            vae_feature_synth_dict[speaker] = vae_feature
+            output_synth_dict[speaker] = output
             
-    print("ranksvm training")
-    ranksvm_dict = {}
     for speaker in speaker_list:
-        print(speaker)
-        ranksvm = RankSVM(n_iter=100000)
-        vae_feature_recorded = vae_feature_recorded_dict[speaker]
-        vae_feature_synth = vae_feature_synth_dict[speaker]
-        ranksvm.fit(vae_feature_recorded, vae_feature_synth)
-        ranksvm_dict[speaker] = ranksvm
-        
-    print("ranksvm prediction")
-    save_path = Path("~/lip2sp_pytorch/result/tts_vae/generate").expanduser()
-    save_path = save_path / tts_path.parents[1].name / tts_path.parents[0].name / tts_path.stem / "test_data" / "ranking_result"
-    
-    for speaker in speaker_list:
-        print(speaker)
-        ranksvm = ranksvm_dict[speaker]
-        vae_feature_recorded = vae_feature_recorded_dict[speaker]
-        vae_feature_synth = vae_feature_synth_dict[speaker]
-        
-        pred_recorded_list = []
-        pred_synth_list = []
-        for i in range(vae_feature_recorded.shape[0]):
-            pred = ranksvm.predict(vae_feature_recorded[i])
-            pred_recorded_list.append(pred)
-        for i in range(vae_feature_synth.shape[0]):
-            pred = ranksvm.predict(vae_feature_synth[i])
-            pred_synth_list.append(pred)
-            
-        pred_max = pred_recorded_list + pred_synth_list
-        pred_max = np.max(np.abs(pred_max))
-        pred_recorded_list = np.array(pred_recorded_list)
-        pred_synth_list = np.array(pred_synth_list)
-        pred_recorded_list /= pred_max
-        pred_synth_list /= pred_max
-        
+        output_recorded = output_recorded_dict[speaker]
+        output_synth = output_synth_dict[speaker]
         save_path_spk = save_path / speaker
         save_path_spk.mkdir(parents=True, exist_ok=True)
-        
         plt.figure()
-        plt.hist(pred_recorded_list, label="recorded", bins=40, color="c", alpha=0.5)
-        plt.hist(pred_synth_list, label="synthesized", bins=40, color="m", alpha=0.5)
+        plt.hist(output_recorded, label="recorded", bins=40, color="c", alpha=0.5)
+        plt.hist(output_synth, label="synthesized", bins=40, color="m", alpha=0.5)
         plt.legend()
         plt.grid()
-        plt.savefig(str(save_path_spk / "ranking_result.png"))
+        plt.savefig(str(save_path_spk / "output_histgram.png"))
         plt.close()
         
         

@@ -15,6 +15,7 @@ lip_pre_loaded_path_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray
 lip_pre_loaded_path_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/test"
 face_pre_loaded_path_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/test"
 face_pre_loaded_path_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/test"
+lip_face_path_test : "~/dataset/lip/np_files/lip_face_merge/test"
 
-speaker : ["F01_kablab_all"]
+speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]

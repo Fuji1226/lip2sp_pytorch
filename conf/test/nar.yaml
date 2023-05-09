@@ -18,5 +18,5 @@ face_pre_loaded_path_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/test"
 
 test_df_path : "~/dataset/lip/data_split_csv/test.csv"
 
-speaker : ["F01_kablab_all"]
+speaker : ["F01_kablab"]
 # speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]

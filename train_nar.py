@@ -104,7 +104,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
         lip = lip.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
@@ -163,7 +163,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, label = batch
+        wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = batch
         lip = lip.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
@@ -293,6 +293,16 @@ def main(cfg):
             val_loss_list = checkpoint["val_loss_list"]
             val_mse_loss_list = checkpoint["val_mse_loss_list"]
             val_classifier_loss_list = checkpoint["val_classifier_loss_list"]
+            
+        if cfg.train.check_point_start_separate_save_dir:
+            print("load check point (separate save dir)")
+            checkpoint_path = Path(cfg.train.start_ckpt_path_separate_save_dir).expanduser()
+            if torch.cuda.is_available():
+                checkpoint = torch.load(checkpoint_path)
+            else:
+                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint["model"])
+            cfg.train.lr = 0.0001
 
         wandb.watch(model, **cfg.wandb_conf.watch)
     

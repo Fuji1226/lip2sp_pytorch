@@ -8,7 +8,7 @@ debug_data_len : 1
 face_or_lip : "face"
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/classifier/generate"
+save_path : "~/lip2sp_pytorch/result/classifier_video/generate"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/test"

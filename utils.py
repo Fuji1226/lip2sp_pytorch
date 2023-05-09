@@ -17,14 +17,8 @@ from collections import OrderedDict
 import pandas as pd
 
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust, collate_time_adjust_tts
-from dataset.dataset_npz_ssl import KablabDatasetSSL, KablabTransformSSL, collate_time_adjust_ssl
-from dataset.dataset_lipreading import LipReadingDataset, LipReadingTransform, collate_time_adjust_lipreading
-from dataset.dataset_tts import DatasetTTS, TransformTTS
-# from dataset.dataset_tts_face import DatasetTTSFace, TransformTTSFace, collate_time_adjust_tts_face
-from dataset.dataset_lm import DatasetLM, TransformLM, collate_time_adjust_lm
-from dataset.dataset_lrs2 import LRS2Dataset, LRS2Transform, collate_time_adjust_lrs2
-from dataset.dataset import Lip2spDataset, Lip2spTransform, collate_time_adjust_lip2sp
-from dataset.dataset_tts_face_raw import DatasetTTSFace, TransformTTSFace, collate_time_adjust_tts_face
+from dataset.dataset_npz_f0 import KablabDatasetWithF0, KablabTransformWithF0, collate_time_adjust_withf0
+from dataset.dataset_npz_lip_face import KablabDatasetLipFaceF0, KablabTransformLipFaceF0, collate_time_adjust_lip_face_f0
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
 
@@ -67,9 +61,9 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "tts_vae_tf_sample":
         train_data_root = cfg.train.tts_vae_tf_sample_path_train
         val_data_root = cfg.train.tts_vae_tf_sample_path_val
-    elif cfg.train.face_or_lip == "recorded_and_synth":
-        train_data_root = cfg.train.recorded_and_synth_path_train
-        val_data_root = cfg.train.recorded_and_synth_path_val
+    elif cfg.train.face_or_lip == "lip_and_face":
+        train_data_root = cfg.train.lip_face_path_train
+        val_data_root = cfg.train.lip_face_path_val
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -176,6 +170,9 @@ def get_path_test(cfg, model_path):
     elif cfg.train.face_or_lip == "face_aligned_0_50":
         train_data_root = cfg.train.face_pre_loaded_path_train_0_50
         test_data_root = cfg.test.face_pre_loaded_path_0_50
+    elif cfg.train.face_or_lip == "lip_and_face":
+        train_data_root = cfg.train.lip_face_path_train
+        test_data_root = cfg.test.lip_face_path_test
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
@@ -235,6 +232,30 @@ def get_datasets(data_root, cfg):
     return items
 
 
+def get_datasets_synth(data_root, cfg):
+    print(f"\n--- get datasets synth ---")
+    items = []
+    for speaker in cfg.train.speaker:
+        print(f"{speaker}")
+        spk_path_list = []
+        spk_path = data_root / speaker / cfg.model.name
+
+        for corpus in cfg.train.corpus_synth:
+            spk_path_co = [p for p in spk_path.glob("*.npz") if re.search(f"{corpus}", str(p))]
+            if len(spk_path_co) > 1:
+                print(f"load {corpus}")
+            spk_path_list += spk_path_co
+        items += random.sample(spk_path_list, len(spk_path_list))
+        
+    if len(items) > cfg.train.n_data_used_recorded_and_synth:
+        print(f"downsampling data")
+        n_data_all = len(items)
+        items = random.sample(items, cfg.train.n_data_used_recorded_and_synth)
+        n_data_used = len(items)
+        print(f"n_data = {n_data_used} / {n_data_all}")
+    return items
+
+
 def get_datasets_test(data_root, cfg):
     print("\n--- get datasets ---")
     items = []
@@ -250,6 +271,10 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
     # パスを取得
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
+    
+    if cfg.train.use_synth_corpus:
+        synth_data_root = Path(cfg.train.synth_path_train).expanduser()
+        synth_data_path = get_datasets_synth(synth_data_root, cfg)
 
     # 学習用，検証用それぞれに対してtransformを作成
     train_trans = KablabTransform(cfg, "train")
@@ -257,12 +282,21 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
 
     # dataset作成
     print("\n--- make train dataset ---")
-    train_dataset = KablabDataset(
-        data_path=train_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
+    if cfg.train.use_synth_corpus:
+        train_data_path_synth = train_data_path + synth_data_path
+        train_dataset = KablabDataset(
+            data_path=train_data_path_synth,
+            train_data_path=train_data_path,
+            transform=train_trans,
+            cfg=cfg,
+        )
+    else:
+        train_dataset = KablabDataset(
+            data_path=train_data_path,
+            train_data_path=train_data_path,
+            transform=train_trans,
+            cfg=cfg,
+        )
     print("\n--- make validation dataset ---")
     val_dataset = KablabDataset(
         data_path=val_data_path,
@@ -289,148 +323,6 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_raw(data_dir, bbox_dir, landmark_dir, train_df, val_df, cfg):
-    train_trans = Lip2spTransform(cfg, "train")
-    val_trans = Lip2spTransform(cfg, "val")
-
-    print(f"\n--- make train dataset ---")
-    train_dataset = Lip2spDataset(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=train_df,
-        train_df=train_df,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    print(f"\n--- make val dataset ---")
-    val_dataset = Lip2spDataset(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=val_df,
-        train_df=train_df,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lip2sp, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lip2sp, cfg=cfg),
-    )    
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_lrs2(
-    cfg, train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, 
-    val_data_root, val_data_bbox_root, val_data_landmark_root, val_data_df):
-    train_trans = LRS2Transform(cfg, "train")
-    val_trans = LRS2Transform(cfg, "val")
-
-    print(f"\n--- make train dataset ---")
-    train_dataset = LRS2Dataset(
-        data_root=train_data_root,
-        data_bbox_root=train_data_bbox_root,
-        data_landmark_root=train_data_landmark_root,
-        data_df=train_data_df,
-        train_data_root=train_data_root,
-        train_data_bbox_root=train_data_bbox_root,
-        train_data_landmark_root=train_data_landmark_root,
-        train_data_df=train_data_df,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    print(f"\n--- make val dataset ---")
-    val_dataset = LRS2Dataset(
-        data_root=val_data_root,
-        data_bbox_root=val_data_bbox_root,
-        data_landmark_root=val_data_landmark_root,
-        data_df=val_data_df,
-        train_data_root=train_data_root,
-        train_data_bbox_root=train_data_bbox_root,
-        train_data_landmark_root=train_data_landmark_root,
-        train_data_df=train_data_df,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lrs2, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lrs2, cfg=cfg),
-    )    
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_lipreading(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-
-    train_trans = LipReadingTransform(cfg, "train")
-    val_trans = LipReadingTransform(cfg, "val")
-
-    print("\n--- make train dataset ---")
-    train_dataset = LipReadingDataset(
-        data_path=train_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    val_dataset = LipReadingDataset(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lipreading, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lipreading, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
@@ -438,17 +330,30 @@ def make_train_val_loader_lipreading(cfg, train_data_root, val_data_root):
 def make_train_val_loader_tts(cfg, train_data_root, val_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
+    
+    if cfg.train.use_synth_corpus:
+        synth_data_root = Path(cfg.train.synth_path_train).expanduser()
+        synth_data_path = get_datasets_synth(synth_data_root, cfg)    
 
     train_trans = KablabTransform(cfg, "train")
     val_trans = KablabTransform(cfg, "val")
 
     print("\n--- make train dataset ---")
-    train_dataset = KablabDataset(
-        data_path=train_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
+    if cfg.train.use_synth_corpus:
+        train_data_path_synth = train_data_path + synth_data_path
+        train_dataset = KablabDataset(
+            data_path=train_data_path_synth,
+            train_data_path=train_data_path,
+            transform=train_trans,
+            cfg=cfg,
+        )
+    else:
+        train_dataset = KablabDataset(
+            data_path=train_data_path,
+            train_data_path=train_data_path,
+            transform=train_trans,
+            cfg=cfg,
+        )
     print("\n--- make validation dataset ---")
     val_dataset = KablabDataset(
         data_path=val_data_path,
@@ -478,27 +383,24 @@ def make_train_val_loader_tts(cfg, train_data_root, val_data_root):
     return train_loader, val_loader, train_dataset, val_dataset
 
 
-def make_train_val_loader_tts_face_raw(data_dir, bbox_dir, landmark_dir, train_df, val_df, cfg):
-    train_trans = TransformTTSFace(cfg, "train")
-    val_trans = TransformTTSFace(cfg, "val")
+def make_train_val_loader_withf0(cfg, train_data_root, val_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    val_data_path = get_datasets(val_data_root, cfg)
+    
+    train_trans = KablabTransformWithF0(cfg, "train")
+    val_trans = KablabTransformWithF0(cfg, "val")
 
     print("\n--- make train dataset ---")
-    train_dataset = DatasetTTSFace(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=train_df,
-        train_df=train_df,
+    train_dataset = KablabDatasetWithF0(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
         transform=train_trans,
         cfg=cfg,
     )
     print("\n--- make validation dataset ---")
-    val_dataset = DatasetTTSFace(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=val_df,
-        train_df=train_df,
+    val_dataset = KablabDatasetWithF0(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
         transform=val_trans,
         cfg=cfg,
     )
@@ -510,7 +412,7 @@ def make_train_val_loader_tts_face_raw(data_dir, bbox_dir, landmark_dir, train_d
         num_workers=cfg.train.num_workers,      
         pin_memory=True,
         drop_last=True,
-        collate_fn=partial(collate_time_adjust_tts_face, cfg=cfg),
+        collate_fn=partial(collate_time_adjust_withf0, cfg=cfg),
     )
     val_loader = DataLoader(
         dataset=val_dataset,
@@ -519,154 +421,33 @@ def make_train_val_loader_tts_face_raw(data_dir, bbox_dir, landmark_dir, train_d
         num_workers=0,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
-        collate_fn=partial(collate_time_adjust_tts_face, cfg=cfg),
+        collate_fn=partial(collate_time_adjust_withf0, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
 
-def make_train_val_loader_tts_face_raw_ddp(data_dir, bbox_dir, landmark_dir, train_df, val_df, cfg, rank, n_gpu):
-    train_trans = TransformTTSFace(cfg, "train")
-    val_trans = TransformTTSFace(cfg, "val")
-
-    print("\n--- make train dataset ---")
-    train_dataset = DatasetTTSFace(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=train_df,
-        train_df=train_df,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    print("\n--- make validation dataset ---")
-    val_dataset = DatasetTTSFace(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=val_df,
-        train_df=train_df,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    train_sampler = DistributedSampler(
-        train_dataset, 
-        num_replicas=n_gpu, 
-        rank=rank, 
-        shuffle=True,
-        drop_last=True,
-    )
-    val_sampler = DistributedSampler(
-        val_dataset, 
-        num_replicas=n_gpu, 
-        rank=rank, 
-        shuffle=True,
-        drop_last=True,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size // n_gpu,   
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        collate_fn=partial(collate_time_adjust_tts_face, cfg=cfg),
-        sampler=train_sampler,
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size // n_gpu,   
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        collate_fn=partial(collate_time_adjust_tts_face, cfg=cfg),
-        sampler=val_sampler,
-    )
-    return train_loader, val_loader, train_dataset, val_dataset, train_sampler, val_sampler
-
-
-def make_train_val_loader_tts_face_ddp(rank, n_gpu, cfg, train_data_root, val_data_root):
+def make_train_val_loader_lip_face(cfg, train_data_root, val_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
-
-    train_trans = TransformTTSFace(cfg, "train")
-    val_trans = TransformTTSFace(cfg, "val")
+    
+    train_trans = KablabTransformLipFaceF0(cfg, "train")
+    val_trans = KablabTransformLipFaceF0(cfg, "val")
 
     print("\n--- make train dataset ---")
-    train_dataset = DatasetTTSFace(
+    train_dataset = KablabDatasetLipFaceF0(
         data_path=train_data_path,
         train_data_path=train_data_path,
         transform=train_trans,
         cfg=cfg,
     )
     print("\n--- make validation dataset ---")
-    val_dataset = DatasetTTSFace(
+    val_dataset = KablabDatasetLipFaceF0(
         data_path=val_data_path,
         train_data_path=train_data_path,
         transform=val_trans,
         cfg=cfg,
     )
 
-    train_sampler = DistributedSampler(
-        train_dataset, 
-        num_replicas=n_gpu, 
-        rank=rank, 
-        shuffle=True,
-        drop_last=True,
-    )
-    val_sampler = DistributedSampler(
-        val_dataset, 
-        num_replicas=n_gpu, 
-        rank=rank, 
-        shuffle=True,
-        drop_last=True,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size // n_gpu,   
-        # shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        # drop_last=True,
-        collate_fn=partial(collate_time_adjust_tts_face, cfg=cfg),
-        sampler=train_sampler,
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size // n_gpu,   
-        # shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        # drop_last=True,
-        collate_fn=partial(collate_time_adjust_tts_face, cfg=cfg),
-        sampler=val_sampler,
-    )
-    return train_loader, val_loader, train_dataset, val_dataset, train_sampler, val_sampler
-
-
-def make_train_val_loader_lm(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-
-    train_trans = TransformLM(cfg, "train")
-    val_trans = TransformLM(cfg, "val")
-
-    print("\n--- make train dataset ---")
-    train_dataset = DatasetLM(
-        data_path=train_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-        load_wiki=True
-    )
-    print("\n--- make validation dataset ---")
-    val_dataset = DatasetLM(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-        load_wiki=False
-    )
-
     train_loader = DataLoader(
         dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
@@ -674,7 +455,7 @@ def make_train_val_loader_lm(cfg, train_data_root, val_data_root):
         num_workers=cfg.train.num_workers,      
         pin_memory=True,
         drop_last=True,
-        collate_fn=partial(collate_time_adjust_lm, cfg=cfg),
+        collate_fn=partial(collate_time_adjust_lip_face_f0, cfg=cfg),
     )
     val_loader = DataLoader(
         dataset=val_dataset,
@@ -683,54 +464,7 @@ def make_train_val_loader_lm(cfg, train_data_root, val_data_root):
         num_workers=0,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
-        collate_fn=partial(collate_time_adjust_lm, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_ssl(cfg, train_data_root, val_data_root):
-    # パスを取得
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-
-    # 学習用，検証用それぞれに対してtransformを作成
-    train_trans = KablabTransformSSL(cfg, "train")
-    val_trans = KablabTransformSSL(cfg, "val")
-
-    # dataset作成
-    print("\n--- make train dataset ---")
-    train_dataset = KablabDatasetSSL(
-        data_path=train_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    print("\n--- make validation dataset ---")
-    val_dataset = KablabDatasetSSL(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    # それぞれのdata loaderを作成
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_ssl, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_ssl, cfg=cfg),
+        collate_fn=partial(collate_time_adjust_lip_face_f0, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
@@ -759,36 +493,13 @@ def make_test_loader(cfg, data_root, train_data_root):
     return test_loader, test_dataset
 
 
-def make_test_loader_raw(data_dir, bbox_dir, landmark_dir, train_df, test_df, cfg):
-    test_trans = Lip2spTransform(cfg, "test")
-    test_dataset = Lip2spDataset(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=test_df,
-        train_df=train_df,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_lipreading(cfg, data_root, train_data_root):
+def make_test_loader_withf0(cfg, data_root, train_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
 
-    test_trans = LipReadingTransform(cfg, "test")
-    test_dataset = LipReadingDataset(
+    test_trans = KablabTransformWithF0(cfg, "test")
+    test_dataset = KablabDatasetWithF0(
         data_path=test_data_path,
         train_data_path=train_data_path,
         transform=test_trans,
@@ -806,60 +517,13 @@ def make_test_loader_lipreading(cfg, data_root, train_data_root):
     return test_loader, test_dataset
 
 
-def make_test_loader_tts(cfg, data_root, train_data_root):
+def make_test_loader_lip_face(cfg, data_root, train_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
 
-    test_trans = TransformTTS(cfg, "test")
-    test_dataset = DatasetTTS(
-        data_path=test_data_path,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_tts_face_raw(data_dir, bbox_dir, landmark_dir, train_df, test_df, cfg):
-    test_trans = TransformTTSFace(cfg, "test")
-    test_dataset = DatasetTTSFace(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=test_df,
-        train_df=train_df,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_tts_face(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-
-    test_trans = TransformTTSFace(cfg, "test")
-    test_dataset = DatasetTTSFace(
+    test_trans = KablabTransformLipFaceF0(cfg, "test")
+    test_dataset = KablabDatasetLipFaceF0(
         data_path=test_data_path,
         train_data_path=train_data_path,
         transform=test_trans,
@@ -916,96 +580,6 @@ def make_test_loader_face_gen(cfg, data_root, train_data_root):
         collate_fn=None,
     )
     return test_loader, test_dataset, dataset_for_first_frame, loader_for_first_frame
-
-
-def make_test_loader_face_gen_raw(data_dir, bbox_dir, landmark_dir, train_df, test_df, cfg):
-    test_trans = Lip2spTransform(cfg, "test")
-    train_dataset = Lip2spDataset(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=train_df,
-        train_df=train_df,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_dataset = Lip2spDataset(
-        data_dir=data_dir,
-        bbox_dir=bbox_dir,
-        landmark_dir=landmark_dir,
-        df=test_df,
-        train_df=train_df,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=1,   
-        shuffle=True,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset, train_loader, train_dataset
-
-
-def make_test_loader_lm(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-
-    test_trans = TransformLM(cfg, "test")
-    test_dataset = DatasetLM(
-        data_path=test_data_path,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-        load_wiki=False
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_ssl(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-
-    test_trans = KablabTransformSSL(cfg, "test")
-    test_dataset = KablabDatasetSSL(
-        data_path=test_data_path,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
 
 
 def count_params(module, attr):

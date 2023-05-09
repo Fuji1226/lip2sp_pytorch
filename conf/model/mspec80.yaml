@@ -62,6 +62,7 @@ mulaw_ignore_idx : -1
 #################################
 # in_channels
 in_channels : 1
+use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
@@ -81,7 +82,7 @@ lm_enc_n_nodes : 68
 spk_emb_dim : 256
 
 # f0
-use_f0_predicter : False
+use_f0_predicter : True
 f0_predicter_inner_channels : 32
 f0_predicter_rnn_n_layers : 1
 f0_predicter_trans_enc_n_layers : 4
