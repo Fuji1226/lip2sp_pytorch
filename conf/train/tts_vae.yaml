@@ -11,12 +11,12 @@ debug_iter : 0
 # checkpointから再開する場合
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/tts_vae/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
-vae_finetuning : True
+vae_finetuning : False
 pretrained_path_for_vae_finetuning : "~/lip2sp_pytorch/check_point/tts_vae/face_aligned_0_50_gray/2023:04:09_11-09-23/mspec80_200.ckpt"
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
-use_synth_corpus : True
+use_synth_corpus : False
 n_data_used_recorded_and_synth : 10000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
