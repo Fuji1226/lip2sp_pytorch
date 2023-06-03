@@ -166,7 +166,8 @@ class MultiHeadAttention(nn.Module):
         q = self.attention(q, k, v, mask=mask)  # (B, n_head, len_q, d_v)
 
         q = q.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
-        q = self.dropout(self.fc(q))    # (b x lq x (n*dv)) -> (b, lq, d_model)
+        q = self.fc(q)    # (b x lq x (n*dv)) -> (b, lq, d_model)
+        q = self.dropout(q)
         q += residual
         q = self.layer_norm(q)
         return q

@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_real_time
+    entity:
+    mode: online
+    name : real_time
+watch:
+    log: all
+    log_freq: 100

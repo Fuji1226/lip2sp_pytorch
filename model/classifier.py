@@ -31,10 +31,10 @@ class SpeakerClassifier(nn.Module):
     def __init__(self, in_channels, hidden_channels, n_speaker):
         super().__init__()
         self.layer = nn.Sequential(
-            nn.Linear(in_channels, hidden_channels, bias=False),
+            nn.Conv1d(in_channels, hidden_channels, bias=False, kernel_size=1),
             nn.BatchNorm1d(hidden_channels),
             nn.ReLU(),
-            nn.Linear(hidden_channels, hidden_channels, bias=False),
+            nn.Conv1d(hidden_channels, hidden_channels, bias=False, kernel_size=1),
             nn.BatchNorm1d(hidden_channels),
             nn.ReLU(),
         )
@@ -44,10 +44,10 @@ class SpeakerClassifier(nn.Module):
         """
         x : (B, C, T)
         """
-        out = torch.mean(x, dim=-1)     # (B, C)
-        out = self.layer(out)
-        out = self.last_layer(out)
-        return out
+        x = self.layer(x)
+        x = torch.mean(x, dim=-1)     # (B, C)
+        x = self.last_layer(x)
+        return x
     
     
 class RecordedSynthClassifierSpeech(nn.Module):

@@ -1,6 +1,6 @@
 ---
 
-name : "nar"
+name : "real_time"
 
 # デバッグ
 debug : True
@@ -9,12 +9,12 @@ debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_16-51-15/mspec80_90.ckpt"
+check_point_start : True
+start_ckpt_path : "~/lip2sp_pytorch/check_point/real_time/face_aligned_0_50_gray/2023:05:11_22-27-43/mspec80_155.ckpt"
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : ~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_17-15-09/mspec80_400.ckpt
+start_ckpt_path_separate_save_dir : ~/lip2sp_pytorch/check_point/real_time/face_aligned_0_50_gray/2023:04:04_17-15-09/mspec80_400.ckpt
 
 # face or lip
 face_or_lip : "face_aligned_0_50_gray"
@@ -22,10 +22,10 @@ use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/nar/train"
+save_path : "~/lip2sp_pytorch/result/real_time/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/nar"
+ckpt_path : "~/lip2sp_pytorch/check_point/real_time"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -40,8 +40,6 @@ face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 synth_path_train : "~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train"
 recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
 recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
-face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/train"
-face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
 
 # 元データ
 data_dir : "~/dataset/lip/cropped"
@@ -65,7 +63,6 @@ lrs2_val_df_path : "~/lrs2/val.txt"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
@@ -89,7 +86,7 @@ use_blur : False
 use_pad : False
 use_rotation : False
 use_horizontal_flip : False
-use_random_crop : False
+use_random_crop : True
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
@@ -143,6 +140,5 @@ max_norm : 3.0
 
 # lossの重みづけ
 mse_weight : 1.0
-classifier_weight : 0.01
+classifier_weight : 0
 use_weighted_mean : False
-loss_disc_weight : 0.01

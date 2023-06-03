@@ -10,7 +10,7 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data, save_data_pwg
-from train_nar import make_model
+from train_real_time import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import make_test_loader, get_path_test, load_pretrained_model, gen_data_separate, gen_data_concat
 from calc_accuracy import calc_accuracy
@@ -41,19 +41,9 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
 
-        lip_sep = gen_data_separate(lip, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
-        lip_len = lip_len.expand(lip_sep.shape[0])
-        spk_emb = spk_emb.expand(lip_sep.shape[0], -1)
-
         with torch.no_grad():
-            output, classifier_out, fmaps = model(lip_sep, lip_len, spk_emb)
-
-        output = gen_data_concat(
-            output, 
-            int(cfg.model.fps * cfg.model.reduction_factor), 
-            int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
-        )
-
+            output = model(lip)
+            
         _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
 
@@ -77,7 +67,7 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
             wav_abs = pwg(noise, feature)
 
         _save_path = save_path / "pwg" / speaker[0] / filename[0]
-        os.makedirs(_save_path, exist_ok=True)
+        _save_path.mkdir(parents=True, exist_ok=True)
 
         save_data_pwg(
             cfg=cfg,
@@ -96,32 +86,14 @@ def main(cfg):
     pwg, disc = make_pwg(cfg, device)
     model_path_pwg = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt").expanduser()
     pwg = load_pretrained_model(model_path_pwg, pwg, "gen")
-
+    
     start_epoch = 400
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
     model = make_model(cfg, device)
     for num_gen_epoch in num_gen_epoch_list:
-        # single speaker
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lip_cropped_0.8_50_gray/2023:04:05_20-39-02/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 lip 08
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:05_20-50-45/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_17-15-09/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face time masking
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_20-48-17/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01_all face time masking
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:30_10-50-07/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 recorded and synth
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:30_10-50-07/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 gan 0.01
-        
-        # single speaker atr only
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:29_11-46-23/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 atr
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:29_12-05-50/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F02 atr
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:30_01-11-26/mspec80_{num_gen_epoch}.ckpt").expanduser()   # M01 atr
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:30_01-48-07/mspec80_{num_gen_epoch}.ckpt").expanduser()   # M04 atr
-        
-        # multi speaker
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_12-01-35/mspec80_{num_gen_epoch}.ckpt").expanduser()   # simple
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_12-46-05/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.01
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_20-47-43/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1
-        
+        model_path = Path(f"~/lip2sp_pytorch/check_point/real_time/face_aligned_0_50_gray/2023:05:11_22-27-43/mspec80_{num_gen_epoch}.ckpt").expanduser()
         
         model = load_pretrained_model(model_path, model, "model")
         cfg.train.face_or_lip = model_path.parents[1].name
@@ -131,7 +103,6 @@ def main(cfg):
         
         for data_root, save_path in zip(data_root_list, save_path_list):
             test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
-
             print("--- generate ---")
             generate(
                 cfg=cfg,

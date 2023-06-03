@@ -50,6 +50,9 @@ margin : 0.15
 imsize : 56
 imsize_cropped : 48
 is_large : False
+# imsize : 96
+# imsize_cropped : 96
+# is_large : True
 
 # griffin-limで合成するときに人為的に補正
 sharp : False
@@ -67,6 +70,7 @@ use_lip_and_face : False
 # ResNet3D parameter
 res_inner_channels : 32
 which_res : "default"
+# which_res : "default_remake"
 
 # landmark encoder
 use_landmark : False
@@ -95,8 +99,8 @@ glu_kernel_size : 5   # 5 or 9
 glu_inner_channels : 256
 
 # transformer parameter
-trans_enc_n_layers : 6    # 1, 2 or 4
-trans_enc_n_head : 6    # 2 or 4
+trans_enc_n_layers : 4    # 1, 2 or 4
+trans_enc_n_head : 4    # 2 or 4
 trans_dec_n_layers : 4
 trans_dec_n_head : 4
 
@@ -270,3 +274,7 @@ tft_which_norm : "bn"
 # ae detector
 ae_detector_hidden_channels_list : [64, 32]
 ae_detector_n_rnn_layers : 2
+
+# real time
+n_gru_layers : 2
+zoneout : 0.1

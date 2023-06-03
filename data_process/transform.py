@@ -85,8 +85,6 @@ def load_mp4(path, cfg):
 
     lip, _, _ = torchvision.io.read_video(str(path), pts_unit="sec")    # lip : (T, W, H, C)
     lip_resize = torchvision.transforms.functional.resize(lip.permute(0, -1, 1, 2), [cfg.model.imsize, cfg.model.imsize])   # (T, C, W, H)
-    # resizer = torchvision.transforms.Resize((imsize, imsize))
-    # lip_resize = resizer(lip.permute(0, -1, 1, 2))  # (T, C, W, H)
 
     if cfg.model.gray:
         rgb2gray = torchvision.transforms.Grayscale()

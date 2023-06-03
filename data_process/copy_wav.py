@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 speaker = "M04_kablab"
 audio_path = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-save_path = Path(f"~/dataset/lip/cropped_fps25/{speaker}").expanduser()
+save_path = Path(f"~/dataset/lip/cropped_max_size/{speaker}").expanduser()
 os.makedirs(save_path, exist_ok=True)
 
 

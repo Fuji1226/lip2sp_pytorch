@@ -64,6 +64,9 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "lip_and_face":
         train_data_root = cfg.train.lip_face_path_train
         val_data_root = cfg.train.lip_face_path_val
+    elif cfg.train.face_or_lip == "face_cropped_max_size":
+        train_data_root = cfg.train.face_cropped_max_size_train
+        val_data_root = cfg.train.face_cropped_max_size_val
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -173,6 +176,9 @@ def get_path_test(cfg, model_path):
     elif cfg.train.face_or_lip == "lip_and_face":
         train_data_root = cfg.train.lip_face_path_train
         test_data_root = cfg.test.lip_face_path_test
+    elif cfg.train.face_or_lip == "face_cropped_max_size":
+        train_data_root = cfg.train.face_cropped_max_size_train
+        test_data_root = cfg.test.face_cropped_max_size_test
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()

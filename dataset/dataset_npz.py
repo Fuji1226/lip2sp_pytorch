@@ -338,7 +338,7 @@ class KablabTransform:
             # 見た目変換
             lip = self.apply_lip_trans(lip)
 
-            if lip.shape[-1] == self.cfg.model.imsize:
+            if lip.shape[-1] != self.cfg.model.imsize_cropped:
                 if self.cfg.train.use_random_crop:
                     lip = self.random_crop(lip, center=False)
                 else:
@@ -355,9 +355,9 @@ class KablabTransform:
                 lip = self.segment_masking(lip)
             
         else:
-            if lip.shape[-1] == self.cfg.model.imsize:
+            if lip.shape[-1] != self.cfg.model.imsize_cropped:
                 lip = self.random_crop(lip, center=True)
-                lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
+            lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
         
         # 標準化
         lip, feature = self.normalization(lip, feature, lip_mean, lip_std, feat_mean, feat_std)

@@ -128,3 +128,60 @@ class CausalConv1d(nn.Module):
 
     def clear_buffer(self):
         self.conv.clear_buffer()
+        
+        
+class Conv3D(nn.Conv3d):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clear_buffer()
+    
+    def incremental_forward(self, input):
+        B, C, T, H, W = input.shape
+        
+        if self.kernel_size[0] > 1:
+            input = input.data
+            if self.input_buffer is None:
+                self.input_buffer = input.new(
+                    B, C, self.kernel_size[0] + (self.kernel_size[0] - 1) * (self.dilation[0] - 1), H, W
+                )
+                self.input_buffer.zero_()
+            else:
+                self.input_buffer[:, :, :-1, :, :] = self.input_buffer[:, :, 1:, :, :].clone()
+                
+            self.input_buffer[:, :, -1, :, :] = input[:, :, -1, :, :]
+            input = self.input_buffer
+            if self.dilation[0] > 1:
+                input = input[:, :, 0::self.dilation[0], :, :].contiguous()
+            
+        with torch.no_grad():
+            output = F.conv3d(input, self.weight, self.bias, padding=(0, 1, 1), stride=self.stride)
+        
+        return output
+    
+    def clear_buffer(self):
+        self.input_buffer = None
+        
+
+class CausalConv3D(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, dilation=1):
+        super().__init__()
+        self.padding = (kernel_size - 1) * dilation
+        self.conv = Conv3D(in_channels, out_channels, kernel_size, padding=(self.padding, 1, 1), dilation=dilation, stride=(1, stride, stride))
+        
+    def forward(self, x):
+        return self._forward(x, False)
+    
+    def incremental_forward(self, x):
+        return self._forward(x, True)
+    
+    def _forward(self, x, incremental):
+        """
+        x : (B, C, T, H, W)
+        """
+        if incremental:
+            x = self.conv.incremental_forward(x)
+        else:
+            x = self.conv(x)
+            if self.padding > 0:
+                x = x[:, :, :-self.padding, :, :]
+        return x
