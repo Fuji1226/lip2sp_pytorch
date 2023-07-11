@@ -9,15 +9,15 @@ debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face/2023:02:20_16-51-15/mspec80_90.ckpt"
+check_point_start : True
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_09-28-20/mspec80_57.ckpt"
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
 start_ckpt_path_separate_save_dir : ~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_17-15-09/mspec80_400.ckpt
 
 # face or lip
-face_or_lip : "face_aligned_0_50_gray"
+face_or_lip : "face_cropped_max_size_fps25"
 use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
@@ -42,6 +42,8 @@ recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_
 recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
 face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/train"
 face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
+face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
+face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
 
 # 元データ
 data_dir : "~/dataset/lip/cropped"
@@ -53,15 +55,24 @@ landmark_dir : "~/dataset/lip/landmark"
 train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
+# 外部データの指定
+which_external_data : "lrs2_pretrain"
+
 # lrs2
-lrs2_train_data_root : "~/lrs2/mvlrs_v1/pretrain"
+lrs2_train_data_root : "~/lrs2/mvlrs_v1/main"
 lrs2_val_data_root : "~/lrs2/mvlrs_v1/main"
-lrs2_train_data_bbox_root : "~/lrs2/bbox/pretrain"
+lrs2_train_data_bbox_root : "~/lrs2/bbox/main"
 lrs2_val_data_bbox_root : "~/lrs2/bbox/main"
-lrs2_train_data_landmark_root : "~/lrs2/landmark/pretrain"
+lrs2_train_data_landmark_root : "~/lrs2/landmark/main"
 lrs2_val_data_landmark_root : "~/lrs2/landmark/main"
-lrs2_train_df_path : "~/lrs2/pretrain.txt"
+lrs2_train_df_path : "~/lrs2/train.txt"
 lrs2_val_df_path : "~/lrs2/val.txt"
+lrs2_n_train_speaker_used : 200
+lrs2_main_npz_path : "~/dataset/lip/np_files/lrs2_main/train"
+lrs2_pretrain_npz_path : "~/dataset/lip/np_files/lrs2_pretrain/train"
+
+# lip2wav
+lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
@@ -72,9 +83,9 @@ corpus_synth : [
 ]
 
 # 使用する話者
-speaker : ["F01_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-use_spk_emb : False
+# speaker : ["M04_kablab"]
+speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False
@@ -133,7 +144,7 @@ weight_decay : 1.0e-6
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
 lr_decay_exp : 0.995
-use_warmup_scheduler : True
+use_warmup_scheduler : False
 warmup_t : 10
 warmup_init : 1.0e-5
 warmup_min : 1.0e-6
@@ -143,6 +154,6 @@ max_norm : 3.0
 
 # lossの重みづけ
 mse_weight : 1.0
-classifier_weight : 0.01
+classifier_weight : 0.05
 use_weighted_mean : False
 loss_disc_weight : 0.01

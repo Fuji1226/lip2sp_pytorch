@@ -1,67 +1,71 @@
-import os
 import sys
-import re
 from pathlib import Path
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
-import pickle
 import random
-from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms as T
 from torch.utils.data import Dataset
+from torchvision import transforms as T
 
-from data_process.transform import load_data_lrs2
-from dataset.utils import get_stat_load_data_lrs2, calc_mean_var_std, select_data_lrs2, get_spk_emb_lrs2
-from data_process.face_crop_align import FaceAligner
+from dataset.utils import get_spk_emb, get_spk_emb_lrs2, get_spk_emb_lip2wav, get_stat_load_data, calc_mean_var_std, \
+    get_speaker_idx, get_speaker_idx_lrs2, get_speaker_idx_lip2wav
 
 
-class LRS2Dataset(Dataset):
-    def __init__(
-        self, data_root, data_bbox_root, data_landmark_root, data_df, 
-        train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, transform, cfg, which_data):
+class DatasetWithExternalData(Dataset):
+    def __init__(self, data_path, train_data_path, transform, cfg):
         super().__init__()
+        # ここに入ってきた時点で、lrs2あるいはlip2wavはすでに統合されているイメージ
+        self.data_path = data_path
         self.transform = transform
         self.cfg = cfg
-        data_path_list = select_data_lrs2(data_root, data_bbox_root, data_landmark_root, data_df, cfg, which_data)
-        train_data_path_list = select_data_lrs2(train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, cfg, "train")
-        self.data_path_list = data_path_list
+        
+        speaker_idx_kablab = get_speaker_idx(data_path)
+        embs_kablab = get_spk_emb(cfg)
+        if cfg.train.which_external_data == "lrs2_main" or cfg.train.which_external_data == "lrs2_pretrain":
+            speaker_idx_ex = get_speaker_idx_lrs2(data_path, cfg)
+            embs_ex = get_spk_emb_lrs2()
+        elif cfg.train.which_external_data == "lip2wav":
+            speaker_idx_ex = get_speaker_idx_lip2wav(data_path)
+            embs_ex = get_spk_emb_lip2wav()
+        self.speaker_idx = dict(**speaker_idx_kablab, **speaker_idx_ex)
+        self.embs = dict(**embs_kablab, **embs_ex)
+        
+        lip_mean_list, lip_var_list, lip_len_list, \
+            feat_mean_list, feat_var_list, feat_len_list, \
+                feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
+                    landmark_mean_list, landmark_var_list, landmark_len_list = get_stat_load_data(train_data_path)
 
-        desired_left_eye = (cfg.model.align_desired_left_eye, cfg.model.align_desired_left_eye)
-        desired_face_size = cfg.model.align_desired_face_size
-        self.aligner = FaceAligner(desired_left_eye, desired_face_size, desired_face_size)
-
-        lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list = \
-            get_stat_load_data_lrs2(train_data_path_list, cfg, self.aligner)
         lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
+
         self.lip_mean = torch.from_numpy(lip_mean)
         self.lip_std = torch.from_numpy(lip_std)
         self.feat_mean = torch.from_numpy(feat_mean)
         self.feat_std = torch.from_numpy(feat_std)
-
-        self.embs = get_spk_emb_lrs2()
-
+        
         print(f"n = {self.__len__()}")
-
+        
     def __len__(self):
-        return len(self.data_path_list)
-
+        return len(self.data_path)
+    
     def __getitem__(self, index):
-        video_path, bbox_path, landmark_path = self.data_path_list[index]
-        speaker = video_path.parents[0].name
-        label = video_path.stem
-
-        spk_emb = torch.from_numpy(self.embs[str(speaker)])
-
-        wav, lip, feature, data_len = load_data_lrs2(video_path, bbox_path, landmark_path, self.cfg, self.aligner)
-        wav = torch.from_numpy(wav).to(torch.float32)
-        lip = torch.from_numpy(lip)
-        feature = torch.from_numpy(feature)
-
+        data_path = self.data_path[index]
+        speaker = data_path.parents[1].name
+        speaker_idx = torch.tensor(self.speaker_idx[speaker])
+        spk_emb = torch.from_numpy(self.embs[speaker])
+        filename = data_path.stem
+        
+        npz_key = np.load(str(data_path))
+        wav = torch.from_numpy(npz_key['wav'])
+        # 保存時のミスに対応 (1, T) -> (T,)
+        if wav.dim() == 2:
+            wav = wav.squeeze(0)
+        lip = torch.from_numpy(npz_key['lip'])
+        feature = torch.from_numpy(npz_key['feature'])
+        
         lip, feature = self.transform(
             lip=lip, 
             feature=feature, 
@@ -72,14 +76,14 @@ class LRS2Dataset(Dataset):
         )
         feature_len = torch.tensor(feature.shape[-1])
         lip_len = torch.tensor(lip.shape[-1])
-        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, label
-
-
-class LRS2Transform:
+        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename
+    
+    
+class TransformWithExternalData:
     def __init__(self, cfg, train_val_test):
         self.cfg = cfg
         self.train_val_test = train_val_test
-
+    
     def random_crop(self, lip, center):
         """
         ランダムクロップ
@@ -168,11 +172,11 @@ class LRS2Transform:
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
         return lip, feature
-
-
-def collate_time_adjust_lrs2(batch, cfg):
-    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, label = list(zip(*batch))
-
+    
+    
+def collate_time_adjust_with_external_data(batch, cfg):
+    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = list(zip(*batch))
+    
     wav_adjusted = []
     lip_adjusted = []
     feature_adjusted = []
@@ -225,4 +229,5 @@ def collate_time_adjust_lrs2(batch, cfg):
     spk_emb = torch.stack(spk_emb)
     feature_len = torch.stack(feature_len)
     lip_len = torch.stack(lip_len)
-    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, label
+    speaker_idx = torch.stack(speaker_idx)
+    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename

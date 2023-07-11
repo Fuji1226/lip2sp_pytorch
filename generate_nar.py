@@ -1,5 +1,4 @@
 import hydra
-from pathlib import Path
 import os
 from pathlib import Path
 from datetime import datetime
@@ -109,19 +108,42 @@ def main(cfg):
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_17-15-09/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 face time masking
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_20-48-17/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01_all face time masking
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:30_10-50-07/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 recorded and synth
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:30_10-50-07/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 gan 0.01
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:06:04_01-13-00/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 gan 0.01
         
         # single speaker atr only
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:29_11-46-23/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 atr
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:29_12-05-50/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F02 atr
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:30_01-11-26/mspec80_{num_gen_epoch}.ckpt").expanduser()   # M01 atr
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:30_01-48-07/mspec80_{num_gen_epoch}.ckpt").expanduser()   # M04 atr
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:05:30_01-48-07/mspec80_{num_gen_epoch}.ckpt").expanduser()   # M04 atr
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:09_11-40-03/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F01 atr
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:09_12-32-22/mspec80_{num_gen_epoch}.ckpt").expanduser()   # F02 atr
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:09_12-53-41/mspec80_{num_gen_epoch}.ckpt").expanduser()   # M01 atr
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:09_14-58-39/mspec80_{num_gen_epoch}.ckpt").expanduser()   # M04 atr
         
-        # multi speaker
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_12-01-35/mspec80_{num_gen_epoch}.ckpt").expanduser()   # simple
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_12-46-05/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.01
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_20-47-43/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1
+        # multi speaker atr only
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:15_01-19-13/mspec80_{num_gen_epoch}.ckpt").expanduser()   # simple
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:09_10-59-45/mspec80_{num_gen_epoch}.ckpt").expanduser()   # simple
         
+        # multi speaker all
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_12-46-05/mspec80_{num_gen_epoch}.ckpt").expanduser()   # simple
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_12-01-35/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1 res
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:11_00-38-10/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.05 res
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:11_07-32-39/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.025 res
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:02_20-47-43/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.01 res
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:11_10-04-40/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1 enc
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:11_13-38-33/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.05 enc
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_09-28-20/mspec80_{num_gen_epoch}.ckpt").expanduser()   # simple
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_17-16-01/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1 res
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_12-29-25/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.05 res
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_14-15-16/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.025 res
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_20-01-41/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.01 res
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_21-33-06/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1 enc
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:09_00-19-59/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.05 enc
+        
+        # lrs2
+        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/lrs2/2023:07:08_08-04-48/mspec80_{num_gen_epoch}.ckpt").expanduser()
+        
+        # lip2wav
         
         model = load_pretrained_model(model_path, model, "model")
         cfg.train.face_or_lip = model_path.parents[1].name

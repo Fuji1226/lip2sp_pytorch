@@ -9,6 +9,7 @@ import re
 import joblib
 from functools import partial
 import torch
+import pickle
 
 from data_process.transform import load_data_lrs2, load_data
 
@@ -16,6 +17,9 @@ text_dir = Path("~/dataset/lip/utt").expanduser()
 emb_dir = Path("~/dataset/lip/emb").expanduser()
 emb_lrs2_dir_pretrain = Path("~/lrs2/emb/pretrain").expanduser()
 emb_lrs2_dir_main = Path("~/lrs2/emb/main").expanduser()
+data_info_df_main_path = Path("~/lrs2/data_info_main.csv").expanduser()
+data_info_df_pretrain_path = Path("~/lrs2/data_info_pretrain.csv").expanduser()
+emb_lip2wav_dir = Path("~/Lip2Wav/emb").expanduser()
 
 
 def select_data(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
@@ -37,14 +41,28 @@ def select_data(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
     return data_path_list
 
 
-def select_data_lrs2(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
+def select_data_lrs2(data_root, data_bbox_root, data_landmark_root, data_df, cfg, which_data):
     print(f"\nselect existing data")
+    data_df = data_df.rename(columns={0: "filename"})
+    data_df["id"] = data_df["filename"].apply(lambda x: str(x.split("/")[0]))
+    
+    # 学習データが多すぎるので削る
+    if which_data == "train":
+        if data_root.stem == "main":
+            info_df = pd.read_csv(str(data_info_df_main_path))
+        elif data_root.stem == "pretrain":
+            info_df = pd.read_csv(str(data_info_df_pretrain_path))
+        info_df = info_df.sort_values("n_data")
+        info_df = info_df.tail(cfg.train.lrs2_n_train_speaker_used)
+        info_df["id"] = info_df["id"].astype(str)
+        data_df = data_df.loc[data_df["id"].isin(info_df["id"].to_list())]
+        
     if cfg.train.debug:
-        data_df = data_df[:1000]
+        data_df = data_df.iloc[:1000]
     
     data_path_list = []
     for i in tqdm(range(len(data_df))):
-        filename = data_df.iloc[i].values[0]
+        filename = data_df.iloc[i]["filename"]
         video_path = data_root / f"{filename}.mp4"
         bbox_path = data_bbox_root / f"{filename}.csv"
         landmark_path = data_landmark_root / f"{filename}.csv"
@@ -57,19 +75,65 @@ def select_data_lrs2(data_root, data_bbox_root, data_landmark_root, data_df, cfg
 def get_speaker_idx(data_path):
     print("\nget speaker idx")
     speaker_idx = {}
-    idx_set = {
+    idx_dict = {
         "F01_kablab" : 0,
         "F02_kablab" : 1,
         "M01_kablab" : 2,
         "M04_kablab" : 3,
-        "F01_kablab_all" : 100,
+        "F01_kablab_all" : 4,
     }
-    for path in sorted(data_path):
+    for path in data_path:
         speaker = path.parents[1].name
         if speaker in speaker_idx:
             continue
         else:
-            speaker_idx[speaker] = idx_set[speaker]
+            if speaker in idx_dict:
+                speaker_idx[speaker] = idx_dict[speaker]
+    print(f"speaker_idx = {speaker_idx}")
+    return speaker_idx
+
+
+def get_speaker_idx_lrs2(data_path, cfg):
+    print(f"\nget speaker idx lrs2")
+    speaker_idx = {}
+    if cfg.train.which_external_data == "lrs2_main":
+        train_df_path = Path("~/lrs2/train.txt")
+    elif cfg.train.which_external_data == "lrs2_pretrain":
+        train_df_path = Path("~/lrs2/pretrain.txt")
+        
+    train_data_df = pd.read_csv(str(train_df_path), header=None)
+    train_data_df = train_data_df.rename(columns={0: "filename_all"})
+    train_data_df["id"] = train_data_df["filename_all"].apply(lambda x: str(x.split("/")[0]))
+    idx_list = train_data_df["id"].unique()
+    idx_dict = dict([[x, i + 100000] for i, x in enumerate(idx_list)])
+    for path in data_path:
+        speaker = path.parents[1].name
+        if speaker in speaker_idx:
+            continue
+        else:
+            if speaker in idx_dict:
+                speaker_idx[speaker] = idx_dict[speaker]
+    print(f"speaker_idx = {speaker_idx}")
+    return speaker_idx
+
+
+def get_speaker_idx_lip2wav(data_path):
+    print(f"\nget speaker idx lip2wav")
+    speaker_idx = {}
+    idx_dict = {
+        "chem" : 200000,
+        "chess" : 200001,
+        "dl" : 200002,
+        "eh" : 200003,
+        "hs" : 200004,
+    }
+    for path in data_path:
+        speaker = path.parents[1].name
+        if speaker in speaker_idx:
+            continue
+        else:
+            if speaker in idx_dict:
+                speaker_idx[speaker] = idx_dict[speaker]
     print(f"speaker_idx = {speaker_idx}")
     return speaker_idx
 
@@ -94,7 +158,7 @@ def get_stat_load_data(train_data_path):
 
         lip = npz_key['lip']
         feature = npz_key['feature']
-        feat_add = npz_key['feat_add']
+        # feat_add = npz_key['feat_add']
         # landmark = npz_key['landmark']
 
         lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
@@ -105,9 +169,9 @@ def get_stat_load_data(train_data_path):
         feat_var_list.append(np.var(feature, axis=0))
         feat_len_list.append(feature.shape[0])
 
-        feat_add_mean_list.append(np.mean(feat_add, axis=0))
-        feat_add_var_list.append(np.var(feat_add, axis=0))
-        feat_add_len_list.append(feat_add.shape[0])
+        # feat_add_mean_list.append(np.mean(feat_add, axis=0))
+        # feat_add_var_list.append(np.var(feat_add, axis=0))
+        # feat_add_len_list.append(feat_add.shape[0])
 
         # landmark_mean_list.append(np.mean(landmark, axis=(0, 2)))
         # landmark_var_list.append(np.var(landmark, axis=(0, 2)))
@@ -321,7 +385,7 @@ def get_spk_emb_lrs2():
     spk_emb_dict = {}
     speaker_list = list(emb_lrs2_dir_pretrain.glob("*"))
     for speaker in speaker_list:
-        data_path = emb_lrs2_dir_pretrain / speaker / "emb.npy"
+        data_path = speaker / "emb.npy"
         emb = np.load(str(data_path))
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker.stem] = emb
@@ -331,11 +395,22 @@ def get_spk_emb_lrs2():
     for speaker in speaker_list:
         if speaker in spk_emb_dict:
             continue
-        data_path = emb_lrs2_dir_main / speaker / "emb.npy"
+        data_path = speaker / "emb.npy"
         emb = np.load(str(data_path))
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker.stem] = emb
+        
+    return spk_emb_dict
 
+
+def get_spk_emb_lip2wav():
+    spk_emb_dict = {}
+    speaker_list = list(emb_lip2wav_dir.glob("*"))
+    for speaker in speaker_list:
+        data_path = speaker / "emb.npy"
+        emb = np.load(str(data_path))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker.stem] = emb
     return spk_emb_dict
 
 

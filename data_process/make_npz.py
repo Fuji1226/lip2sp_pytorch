@@ -16,15 +16,15 @@ import pickle
 from transform import load_data_for_npz
 
 debug = False
-speaker = "M01_kablab"
+speaker = "M04_kablab"
 margin = 0
-fps = 50
+fps = 25
 gray = True
 
 csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
-data_dir = Path(f"~/dataset/lip/cropped_max_size/{speaker}").expanduser()
-landmark_dir = Path(f"~/dataset/lip/landmark_cropped_max_size/{speaker}").expanduser()
-dir_name = f"face_cropped_max_size_{margin}_{fps}"
+data_dir = Path(f"~/dataset/lip/cropped_max_size_fps25/{speaker}").expanduser()
+landmark_dir = Path(f"~/dataset/lip/landmark_cropped_max_size_fps25/{speaker}").expanduser()
+dir_name = f"face_cropped_max_size_fps25_{margin}_{fps}"
 
 if gray:
     dir_name = f"{dir_name}_gray"

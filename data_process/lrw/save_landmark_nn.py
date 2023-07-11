@@ -9,16 +9,17 @@ import av
 from tqdm import tqdm
 
 
-data_dir = Path("~/lrs2").expanduser()
+data_dir = Path("~/lrw/lipread_mp4").expanduser()
+save_dir = Path("~/lrw").expanduser()
 debug = False
 debug_iter = 0
 
 if debug:
-    save_dir_landmark = data_dir / "landmark_debug"
-    save_dir_bbox = data_dir / "bbox_debug"
+    save_dir_landmark = save_dir / "landmark_debug"
+    save_dir_bbox = save_dir / "bbox_debug"
 else:
-    save_dir_landmark = data_dir / "landmark"
-    save_dir_bbox = data_dir / "bbox"
+    save_dir_landmark = save_dir / "landmark"
+    save_dir_bbox = save_dir / "bbox"
 
 
 def main():
@@ -27,6 +28,10 @@ def main():
         for file in files:
             if file.endswith(".mp4"):
                 file_list.append(os.path.join(curdir, file))
+            
+            # if debug:
+            #     if len(file_list) > 10:
+            #         break
 
     file_list = sorted(list(file_list))
 

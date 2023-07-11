@@ -117,7 +117,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
         if cfg.train.adversarial_learning:
-            spaeker_idx = torch.where((speaker_idx == 0) | (speaker_idx == 2), 0, 1)
             classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
         else:
             classifier_loss = torch.tensor(0)
@@ -178,7 +177,6 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
         if cfg.train.adversarial_learning:
-            spaeker_idx = torch.where((speaker_idx == 0) | (speaker_idx == 2), 0, 1)
             classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
         else:
             classifier_loss = torch.tensor(0)
@@ -248,7 +246,6 @@ def main(cfg):
         cfg.train.speaker = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
     loss_f = MaskedLoss()
-
     train_loss_list = []
     train_mse_loss_list = []
     train_classifier_loss_list = []

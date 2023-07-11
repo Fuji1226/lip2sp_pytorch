@@ -19,5 +19,5 @@ face_cropped_max_size_test : "~/dataset/lip/np_files/face_cropped_max_size_0_50_
 
 test_df_path : "~/dataset/lip/data_split_csv/test.csv"
 
-speaker : ["M04_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+# speaker : ["F01_kablab"]
+speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]

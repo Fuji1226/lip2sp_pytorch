@@ -7,7 +7,7 @@ from tqdm import tqdm
 fps_list = [25,]
 debug = False
 
-dir_name = "cropped"
+dir_name = "cropped_max_size"
 
 def main():
     speaker_list = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab", "F01_kablab_20220930", "F01_kablab_all"]

@@ -209,8 +209,8 @@ def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
 
         lip_processed_list = []
         for i in range(lip.shape[0]):
-            top = np.clip(coords_mean[i][1] - crop_size // 2, a_min=0, a_max=lip.shape[-1] - crop_size)
-            left = np.clip(coords_mean[i][0] - crop_size // 2, a_min=0, a_max=lip.shape[-1] - crop_size)
+            top = np.clip(coords_mean[i][1] - crop_size // 2, a_min=0, a_max=lip.shape[2] - crop_size)
+            left = np.clip(coords_mean[i][0] - crop_size // 2, a_min=0, a_max=lip.shape[3] - crop_size)
             lip_processed = torchvision.transforms.functional.crop(
                 lip[i, ...],
                 top=top,
@@ -219,6 +219,7 @@ def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
                 width=crop_size,
             )
             lip_processed_list.append(lip_processed)
+            
         lip_processed = torch.stack(lip_processed_list, dim=0)      # (T, C, H, W)
         
     return lip_processed
@@ -272,17 +273,13 @@ def load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
     lip = torchvision.transforms.functional.resize(lip, [cfg.model.imsize, cfg.model.imsize])   # (T, C, W, H)
 
     # mp4から音声を読み込み
-    # sound = pydub.AudioSegment.from_file(str(video_path), frame_rate=cfg.model.sampling_rate, channels=1)
-    # sound = sound.get_array_of_samples()
-    # wav = np.array(sound).astype(np.float32)
-    # wav /= np.iinfo(sound.typecode).max
     wav, fs = librosa.load(str(video_path), sr=cfg.model.sampling_rate, mono=None)
     wav = wav / np.max(np.abs(wav), axis=0)
     feature = wav2mel(wav, cfg, ref_max=False)  # (C, T)
 
     # 系列長の調整
     upsample = get_upsample(cfg)
-    data_len = min(feature.shape[1], int(lip.shape[0] * upsample))
+    data_len = min(feature.shape[1] // 4 * 4, int(lip.shape[0] * upsample))
     lip = lip[:data_len // upsample,  ...]
     feature = feature[:, :data_len]
     n_wav_sample_per_frame = cfg.model.sampling_rate * cfg.model.frame_period // 1000
@@ -290,10 +287,10 @@ def load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
     wav_padded = np.zeros(int(n_wav_sample_per_frame * data_len))
     wav_padded[:wav.shape[0]] = wav
     wav = wav_padded
+    
+    print(upsample ,data_len, lip.shape, feature.shape, wav.shape)
 
     assert feature.shape[1] == int(lip.shape[0] * upsample)
     lip = lip.permute(1, 2, 3, 0).numpy()   # (C, H, W, T)
     feature = feature.T     # (T, C)
     return wav, lip, feature, data_len
-
-

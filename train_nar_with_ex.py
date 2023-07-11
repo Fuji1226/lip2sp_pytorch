@@ -6,20 +6,16 @@ import os
 from datetime import datetime
 import numpy as np
 import random
-
 import torch
 from torch.nn.utils import clip_grad_norm_
-from timm.scheduler import CosineLRScheduler
 
-from utils import make_train_val_loader_lrs2, save_loss, get_path_train_lrs2, check_mel_nar, count_params, set_config
+from utils import count_params, set_config, get_path_train, make_train_val_loader_with_external_data, save_loss, check_mel_nar
 from model.model_nar import Lip2SP_NAR
 from loss import MaskedLoss
 
 
-# wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
 
-# 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
 np.random.seed(777)
@@ -54,8 +50,8 @@ def save_checkpoint(
         'val_classifier_loss_list': val_classifier_loss_list,
         'epoch': epoch
     }, ckpt_path)
- 
- 
+
+
 def make_model(cfg, device):
     model = Lip2SP_NAR(
         in_channels=cfg.model.in_channels,
@@ -105,22 +101,23 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        spk_emb = spk_emb.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
+        spk_emb = spk_emb.to(device)
+        speaker_idx = speaker_idx.to(device)
 
         output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
 
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
-        # if cfg.train.use_spk_emb:
-        #     classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
-        # else:
-        #     classifier_loss = torch.tensor(0)
-        classifier_loss = torch.tensor(0)
+        if cfg.train.adversarial_learning:
+            spaeker_idx = torch.where((speaker_idx == 0) | (speaker_idx == 2), 0, 1)
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
+        else:
+            classifier_loss = torch.tensor(0)
 
         loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
 
@@ -153,7 +150,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, ckpt_ti
     return epoch_loss, epoch_mse_loss, epoch_classifier_loss
 
 
-def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
+def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
     epoch_mse_loss = 0
     epoch_classifier_loss = 0
@@ -164,23 +161,24 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        spk_emb = spk_emb.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
+        spk_emb = spk_emb.to(device)
+        speaker_idx = speaker_idx.to(device)
         
         with torch.no_grad():
             output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
 
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
-        # if cfg.train.use_spk_emb:
-        #     classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker, ignore_index=-100)
-        # else:
-        #     classifier_loss = torch.tensor(0)
-        classifier_loss = torch.tensor(0)
+        if cfg.train.adversarial_learning:
+            spaeker_idx = torch.where((speaker_idx == 0) | (speaker_idx == 2), 0, 1)
+            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
+        else:
+            classifier_loss = torch.tensor(0)
 
         loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
 
@@ -215,19 +213,11 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
     set_config(cfg)
-    cfg.model.fps = 25
-    cfg.model.imsize = 112
-    cfg.model.imsize_cropped = 96
-    cfg.model.is_large = True
-    cfg.model.mov_preprocess_method = "bbox_crop"
-    cfg.model.input_lip_sec = 5
-    cfg.model.reduction_factor = 4
-        
+    
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
-
-    # device
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
@@ -235,31 +225,17 @@ def main(cfg):
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = True
-
-    # path
-    train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, \
-        val_data_root, val_data_bbox_root, val_data_landmark_root, val_data_df, ckpt_path, save_path, ckpt_time \
-            = get_path_train_lrs2(cfg, current_time)
+    
+    train_data_root, val_data_root, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
     print(f"train_data_root = {train_data_root}")
     print(f"val_data_root = {val_data_root}")
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
-
-    # Dataloader
-    train_loader, val_loader, _, _ = make_train_val_loader_lrs2(
-        cfg, train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, 
-        val_data_root, val_data_bbox_root, val_data_landmark_root, val_data_df
-    )
-
-    # finetuning
-    if cfg.train.finetuning:
-        assert len(cfg.train.speaker) == 1
-        print(f"finetuning {cfg.train.speaker}")
-        cfg.train.speaker = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-
+    
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root)
+    
     loss_f = MaskedLoss()
-
     train_loss_list = []
     train_mse_loss_list = []
     train_classifier_loss_list = []
@@ -269,7 +245,6 @@ def main(cfg):
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
-        # model
         model = make_model(cfg, device)
         
         optimizer = torch.optim.Adam(
@@ -279,19 +254,9 @@ def main(cfg):
             weight_decay=cfg.train.weight_decay,    
         )
 
-        if cfg.train.use_warmup_scheduler:
-            scheduler = CosineLRScheduler(
-                optimizer, 
-                t_initial=cfg.train.max_epoch, 
-                lr_min=cfg.train.warmup_min, 
-                warmup_t=cfg.train.warmup_t, 
-                warmup_lr_init=cfg.train.warmup_init, 
-                warmup_prefix=True,
-            )
-        else:
-            scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, gamma=cfg.train.lr_decay_exp,
-            )
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(
+            optimizer, gamma=cfg.train.lr_decay_exp,
+        )
         
         last_epoch = 0
         if cfg.train.check_point_start:
@@ -316,22 +281,14 @@ def main(cfg):
             val_loss_list = checkpoint["val_loss_list"]
             val_mse_loss_list = checkpoint["val_mse_loss_list"]
             val_classifier_loss_list = checkpoint["val_classifier_loss_list"]
-            last_epoch = checkpoint["epoch"]
-
+            
         wandb.watch(model, **cfg.wandb_conf.watch)
-    
+        
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-            if cfg.train.use_warmup_scheduler:
-                lr = scheduler.get_epoch_values(current_epoch)[0]
-                print(f"learning_rate = {lr}")
-            else:
-                lr = scheduler.get_last_lr()[0]
-                print(f"learning_rate = {lr}")
-            wandb.log({"learning_rate": lr})
-
-            # training
+            print(f"learning_rate = {scheduler.get_last_lr()[0]}")
+            
             epoch_loss, epoch_mse_loss, epoch_classifier_loss = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
@@ -344,9 +301,8 @@ def main(cfg):
             train_loss_list.append(epoch_loss)
             train_mse_loss_list.append(epoch_mse_loss)
             train_classifier_loss_list.append(epoch_classifier_loss)
-
-            # validation
-            epoch_loss, epoch_mse_loss, epoch_classifier_loss = calc_val_loss(
+            
+            epoch_loss, epoch_mse_loss, epoch_classifier_loss = val_one_epoch(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
@@ -358,12 +314,8 @@ def main(cfg):
             val_mse_loss_list.append(epoch_mse_loss)
             val_classifier_loss_list.append(epoch_classifier_loss)
 
-            if cfg.train.use_warmup_scheduler:
-                scheduler.step(current_epoch)
-            else:
-                scheduler.step()
-
-            # check point
+            scheduler.step()
+            
             if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(
                     model=model,
@@ -378,21 +330,13 @@ def main(cfg):
                     epoch=current_epoch,
                     ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
                 )
-            
-            # save loss
+                
             save_loss(train_loss_list, val_loss_list, save_path, "loss")
             save_loss(train_mse_loss_list, val_mse_loss_list, save_path, "mse_loss")
             save_loss(train_classifier_loss_list, val_classifier_loss_list, save_path, "classifier_loss")
-                
-        # モデルの保存
-        model_save_path = save_path / f"model_{cfg.model.name}.pth"
-        torch.save(model.state_dict(), str(model_save_path))
-        artifact_model = wandb.Artifact('model', type='model')
-        artifact_model.add_file(str(model_save_path))
-        wandb.log_artifact(artifact_model)
             
     wandb.finish()
-
-
-if __name__=='__main__':
+    
+    
+if __name__ == "__main__":
     main()

@@ -14,8 +14,8 @@ import numpy as np
 debug = False
 debug_iter = 5
 
-speaker = "M01_kablab"
-data_root = Path(f"~/dataset/lip/cropped_max_size/{speaker}").expanduser()
+speaker = "M04_kablab"
+data_root = Path(f"~/dataset/lip/cropped_max_size_fps25/{speaker}").expanduser()
 
 if data_root.parents[0].name == "cropped":
     dir_name_landmark = "landmark"
@@ -29,6 +29,9 @@ elif data_root.parents[0].name == "cropped_fps25":
 elif data_root.parents[0].name == "cropped_max_size":
     dir_name_landmark = "landmark_cropped_max_size"
     dir_name_bbox = "bbox_cropped_max_size"
+elif data_root.parents[0].name == "cropped_max_size_fps25":
+    dir_name_landmark = "landmark_cropped_max_size_fps25"
+    dir_name_bbox = "bbox_cropped_max_size_fps25"
 
 if debug:
     save_dir_landmark = Path(f"~/dataset/lip/{dir_name_landmark}_debug/{speaker}").expanduser()

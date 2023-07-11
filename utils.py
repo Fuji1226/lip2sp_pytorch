@@ -19,6 +19,8 @@ import pandas as pd
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust, collate_time_adjust_tts
 from dataset.dataset_npz_f0 import KablabDatasetWithF0, KablabTransformWithF0, collate_time_adjust_withf0
 from dataset.dataset_npz_lip_face import KablabDatasetLipFaceF0, KablabTransformLipFaceF0, collate_time_adjust_lip_face_f0
+from dataset.dataset_lrs2 import LRS2Dataset, LRS2Transform, collate_time_adjust_lrs2
+from dataset.dataset_npz_with_ex import DatasetWithExternalData, TransformWithExternalData, collate_time_adjust_with_external_data
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
 
@@ -67,6 +69,9 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "face_cropped_max_size":
         train_data_root = cfg.train.face_cropped_max_size_train
         val_data_root = cfg.train.face_cropped_max_size_val
+    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
+        train_data_root = cfg.train.face_cropped_max_size_fps25_train
+        val_data_root = cfg.train.face_cropped_max_size_fps25_val
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -273,6 +278,26 @@ def get_datasets_test(data_root, cfg):
     return items
 
 
+def get_datasets_external_data(cfg):
+    if cfg.train.which_external_data == "lrs2_main":
+        print(f"\n--- get datasets lrs2_main ---")
+        data_dir = Path(cfg.train.lrs2_npz_path).expanduser()
+    elif cfg.train.which_external_data == "lrs2_pretrain":
+        print(f"\n--- get datasets lrs2_pretrain ---")
+        data_dir = Path(cfg.train.lrs2_pretrain_npz_path).expanduser()
+    elif cfg.train.which_external_data == "lip2wav":
+        print(f"\n--- get datasets lip2wav ---")
+        data_dir = Path(cfg.train.lip2wav_npz_path).expanduser()
+        
+    spk_path_list = list(data_dir.glob("*"))
+    items = []
+    for spk_path in spk_path_list:
+        spk_path = spk_path / cfg.model.name
+        data_path_list = list(spk_path.glob("*.npz"))
+        items += data_path_list
+    return items
+
+
 def make_train_val_loader(cfg, train_data_root, val_data_root):
     # パスを取得
     train_data_path = get_datasets(train_data_root, cfg)
@@ -471,6 +496,104 @@ def make_train_val_loader_lip_face(cfg, train_data_root, val_data_root):
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_lip_face_f0, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_lrs2(
+    cfg, train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, 
+    val_data_root, val_data_bbox_root, val_data_landmark_root, val_data_df):
+    train_trans = LRS2Transform(cfg, "train")
+    val_trans = LRS2Transform(cfg, "val")
+    
+    print("\n--- make train dataset ---")
+    train_dataset = LRS2Dataset(
+        data_root=train_data_root,
+        data_bbox_root=train_data_bbox_root,
+        data_landmark_root=train_data_landmark_root,
+        data_df=train_data_df,
+        train_data_root=train_data_root,
+        train_data_bbox_root=train_data_bbox_root,
+        train_data_landmark_root=train_data_landmark_root,
+        train_data_df=train_data_df,
+        transform=train_trans,
+        cfg=cfg,
+        which_data="train",
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = LRS2Dataset(
+        data_root=val_data_root,
+        data_bbox_root=val_data_bbox_root,
+        data_landmark_root=val_data_landmark_root,
+        data_df=val_data_df,
+        train_data_root=train_data_root,
+        train_data_bbox_root=train_data_bbox_root,
+        train_data_landmark_root=train_data_landmark_root,
+        train_data_df=train_data_df,
+        transform=val_trans,
+        cfg=cfg,
+        which_data="val",
+    )
+    
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lrs2, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lrs2, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    val_data_path = get_datasets(val_data_root, cfg)
+    external_data_path = get_datasets_external_data(cfg)
+        
+    train_trans = TransformWithExternalData(cfg, "train")
+    val_trans = TransformWithExternalData(cfg, "val")
+    
+    train_dataset = DatasetWithExternalData(
+        data_path=train_data_path + external_data_path,
+        train_data_path=train_data_path + external_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    val_dataset = DatasetWithExternalData(
+        data_path=val_data_path,
+        train_data_path=train_data_path + external_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+    
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 

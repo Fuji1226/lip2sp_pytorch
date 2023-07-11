@@ -6,7 +6,7 @@ name : mspec80
 # data_info
 #################################
 # video parameter
-fps : 50
+fps : 25
 
 # audio parameter
 sampling_rate : 16000
@@ -31,7 +31,7 @@ frame_period : 10
 phoneme_length : 30
 
 # reduction factor
-reduction_factor : 2
+reduction_factor : 4
 
 # "world" or "mspec"（音響特徴量の選択）
 feature_type : "mspec"
@@ -40,19 +40,19 @@ feature_type : "mspec"
 comp_mode : 'default'
 
 # 学習に使用する口唇動画の秒数
-input_lip_sec : 3
+input_lip_sec : 5
 
 # 動画
-mov_preprocess_method : "align"
+mov_preprocess_method : "bbox_crop"
 align_desired_left_eye : 0.35
 align_desired_face_size : 128
 margin : 0.15
-imsize : 56
-imsize_cropped : 48
-is_large : False
-# imsize : 96
-# imsize_cropped : 96
-# is_large : True
+# imsize : 56
+# imsize_cropped : 48
+# is_large : False
+imsize : 112
+imsize_cropped : 96
+is_large : True
 
 # griffin-limで合成するときに人為的に補正
 sharp : False
@@ -69,8 +69,8 @@ use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
-which_res : "default"
-# which_res : "default_remake"
+# which_res : "default"
+which_res : "default_remake"
 
 # landmark encoder
 use_landmark : False
