@@ -9,8 +9,8 @@ debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : True
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_09-28-20/mspec80_57.ckpt"
+check_point_start : False
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_08-04-48/mspec80_166.ckpt"
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
@@ -88,7 +88,7 @@ speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
-adversarial_learning : False
+adversarial_learning : True
 
 # max_epoch
 max_epoch : 600
@@ -154,6 +154,6 @@ max_norm : 3.0
 
 # lossの重みづけ
 mse_weight : 1.0
-classifier_weight : 0.05
+classifier_weight : 0.5
 use_weighted_mean : False
 loss_disc_weight : 0.01

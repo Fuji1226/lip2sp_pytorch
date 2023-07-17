@@ -184,6 +184,9 @@ def get_path_test(cfg, model_path):
     elif cfg.train.face_or_lip == "face_cropped_max_size":
         train_data_root = cfg.train.face_cropped_max_size_train
         test_data_root = cfg.test.face_cropped_max_size_test
+    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
+        train_data_root = cfg.train.face_cropped_max_size_fps25_train
+        test_data_root = cfg.test.face_cropped_max_size_fps25_test
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
