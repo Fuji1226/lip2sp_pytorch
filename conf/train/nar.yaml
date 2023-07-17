@@ -3,13 +3,13 @@
 name : "nar"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
-check_point_start : True
+check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_09-28-20/mspec80_57.ckpt"
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
