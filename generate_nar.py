@@ -133,7 +133,9 @@ def main(cfg):
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:11_10-04-40/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1 enc
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size/2023:06:11_13-38-33/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.05 enc
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_09-28-20/mspec80_{num_gen_epoch}.ckpt").expanduser()   # simple
-        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_17-16-01/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.5 res
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:17_08-51-22/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.5 res
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:17_18-46-04/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.3 res
+        # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:19_16-39-49/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.2 res
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:07_17-16-01/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.1 res
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_12-29-25/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.05 res
         # model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_14-15-16/mspec80_{num_gen_epoch}.ckpt").expanduser()   # adversarial 0.025 res

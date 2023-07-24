@@ -154,6 +154,6 @@ max_norm : 3.0
 
 # lossの重みづけ
 mse_weight : 1.0
-classifier_weight : 0.5
+classifier_weight : 0.2
 use_weighted_mean : False
 loss_disc_weight : 0.01
