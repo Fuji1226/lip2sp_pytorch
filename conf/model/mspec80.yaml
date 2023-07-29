@@ -40,7 +40,7 @@ feature_type : "mspec"
 comp_mode : 'default'
 
 # 学習に使用する口唇動画の秒数
-input_lip_sec : 5
+input_lip_sec : 10
 
 # 動画
 mov_preprocess_method : "bbox_crop"
@@ -50,8 +50,8 @@ margin : 0.15
 # imsize : 56
 # imsize_cropped : 48
 # is_large : False
-imsize : 112
-imsize_cropped : 96
+imsize : 96
+imsize_cropped : 88
 is_large : True
 
 # griffin-limで合成するときに人為的に補正
@@ -69,8 +69,7 @@ use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
-# which_res : "default"
-which_res : "default_remake"
+which_res : "resnet18"
 
 # landmark encoder
 use_landmark : False
@@ -105,7 +104,7 @@ trans_dec_n_layers : 4
 trans_dec_n_head : 4
 
 # conformer
-conf_n_layers : 12
+conf_n_layers : 6
 conf_n_head : 4
 conf_feed_forward_expansion_factor : 8
 
@@ -125,10 +124,10 @@ taco_dec_conv_kernel_size : 31
 taco_use_attention : True
 
 # 使用するencoder
-which_encoder : "gru"
+which_encoder : "conformer"
 
 # 使用するdecoder
-which_decoder : "glu"
+which_decoder : "linear"
 
 # audio encoder
 ae_emb_dim : 4
@@ -278,3 +277,13 @@ ae_detector_n_rnn_layers : 2
 # real time
 n_gru_layers : 2
 zoneout : 0.1
+
+# asr transformer
+asr_hidden_channels : 512
+asr_n_conv_layers : 2
+asr_conv_dropout : 0.1
+asr_trans_enc_n_layers : 6
+asr_trans_enc_n_head : 6
+asr_trans_dec_n_layers : 6
+asr_trans_dec_n_head : 6
+asr_out_channels : 47

@@ -17,8 +17,8 @@ def progress(filename, size, sent):
 
 def main():
     hostname = 'ito'
-    to_folder = '/home/minami/lip2sp_pytorch'
-    from_folder = '/home/usr4/r70264c/lip2sp_pytorch/requirements.txt'
+    to_folder = '/home/minami/lrs2'
+    from_folder = '/home/usr4/r70264c/lrs2/train.txt'
 
     config_file = os.path.expanduser('~/.ssh/config')
     ssh_config = paramiko.SSHConfig()
@@ -40,7 +40,6 @@ def main():
                 recursive=True,
                 preserve_times=False,
             )
-
 
 
 if __name__ == '__main__':

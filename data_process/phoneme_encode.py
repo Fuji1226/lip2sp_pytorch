@@ -1,9 +1,3 @@
-"""
-音素アラインメントからOneHot表現を取得
-この前にcopy_alignment.pyでアラインメントにミスしたデータを取り除いておく必要がある
-"""
-from pathlib import Path
-import numpy as np
 import re
 
 
@@ -12,7 +6,7 @@ SOS_INDEX = 1
 EOS_INDEX = 2
 
 
-def classes2index_tts():
+def classes2index_tts(cfg):
     phonemes = [
         "A",
         "E",
@@ -60,15 +54,21 @@ def classes2index_tts():
         "sil",
     ]
 
-    extra_symbols = [
-        "^",  # 文の先頭を表す特殊記号 <SOS>
-        "$",  # 文の末尾を表す特殊記号 <EOS> (通常)
-        "?",  # 文の末尾を表す特殊記号 <EOS> (疑問系)
-        "_",  # ポーズ
-        "#",  # アクセント句境界
-        "[",  # ピッチの上がり位置
-        "]",  # ピッチの下がり位置
-    ]
+    if cfg.train.for_tts:    
+        extra_symbols = [
+            "^",  # 文の先頭を表す特殊記号 <SOS>
+            "$",  # 文の末尾を表す特殊記号 <EOS> (通常)
+            "?",  # 文の末尾を表す特殊記号 <EOS> (疑問系)
+            "_",  # ポーズ
+            "#",  # アクセント句境界
+            "[",  # ピッチの上がり位置
+            "]",  # ピッチの下がり位置
+        ]
+    else:
+        extra_symbols = [
+            "^",  # 文の先頭を表す特殊記号 <SOS>
+            "$",  # 文の末尾を表す特殊記号 <EOS> (通常)
+        ]
 
     _pad = "~"
 

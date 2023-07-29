@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: asr
+    entity:
+    mode: online
+    name : asr
+watch:
+    log: all
+    log_freq: 100

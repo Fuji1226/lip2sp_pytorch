@@ -1,16 +1,16 @@
 ---
 
-name : "nar"
+name : "asr"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 0
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/asr/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
@@ -18,7 +18,7 @@ module_is_fixed : []
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/asr/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # face or lip
 face_or_lip : "face_cropped_max_size_fps25"
@@ -26,10 +26,10 @@ use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/nar/train"
+save_path : "~/lip2sp_pytorch/result/asr/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/nar"
+ckpt_path : "~/lip2sp_pytorch/check_point/asr"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -95,7 +95,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 100
+max_epoch : 20
 
 # テキスト処理
 for_tts : False
@@ -141,12 +141,12 @@ rnn_dropout : 0.1
 lm_enc_dropout : 0.1
 
 # optimizer
-lr : 0.001
+lr : 0.0005
 beta_1 : 0.9
 # beta_2 : 0.999
-# weight_decay : 1.0e-6
 beta_2 : 0.98
-weight_decay : 1.0e-2
+weight_decay : 1.0e-6
+# weight_decay : 1.0e-2
 which_optim : 'adamw'
 which_scheduler : 'warmup'
 

@@ -2,6 +2,8 @@ import re
 import os
 from pathlib import Path
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import wandb
 import random
@@ -31,9 +33,7 @@ def get_padding(kernel_size, dilation=1):
 
 def set_config(cfg):
     if cfg.train.debug:
-        cfg.train.batch_size = 4
-        cfg.train.num_workers = 1
-        cfg.train.corpus = ["ATR"]
+        cfg.train.max_epoch = 3
 
     if cfg.model.fps == 25:
         cfg.model.reduction_factor = 4
@@ -184,6 +184,9 @@ def get_path_test(cfg, model_path):
     elif cfg.train.face_or_lip == "face_cropped_max_size":
         train_data_root = cfg.train.face_cropped_max_size_train
         test_data_root = cfg.test.face_cropped_max_size_test
+    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
+        train_data_root = cfg.train.face_cropped_max_size_fps25_train
+        test_data_root = cfg.test.face_cropped_max_size_fps25_test
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
@@ -302,6 +305,10 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
     # パスを取得
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
+
+    if cfg.train.debug:
+        train_data_path = train_data_path[:100]
+        val_data_path = val_data_path[:100]
     
     if cfg.train.use_synth_corpus:
         synth_data_root = Path(cfg.train.synth_path_train).expanduser()
@@ -350,7 +357,7 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
         dataset=val_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
+        num_workers=cfg.train.batch_size,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust, cfg=cfg),
@@ -361,6 +368,10 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
 def make_train_val_loader_tts(cfg, train_data_root, val_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
+
+    if cfg.train.debug:
+        train_data_path = train_data_path[:100]
+        val_data_path = val_data_path[:100]
     
     if cfg.train.use_synth_corpus:
         synth_data_root = Path(cfg.train.synth_path_train).expanduser()
@@ -404,9 +415,9 @@ def make_train_val_loader_tts(cfg, train_data_root, val_data_root):
     )
     val_loader = DataLoader(
         dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
+        batch_size=cfg.train.batch_size,  
         shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
+        num_workers=cfg.train.batch_size,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
@@ -563,13 +574,28 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
         
     train_trans = TransformWithExternalData(cfg, "train")
     val_trans = TransformWithExternalData(cfg, "val")
+
+    if cfg.train.debug:
+        train_data_path = train_data_path[:100]
+        val_data_path = val_data_path[:100]
+        external_data_path = external_data_path[:100]
     
-    train_dataset = DatasetWithExternalData(
-        data_path=train_data_path + external_data_path,
-        train_data_path=train_data_path + external_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
+    # ここでtrain_data_pathだけを読み込むことで日本語データでのfine tuningが可能
+    if cfg.train.fine_tuning_pretrained_model_by_external_data:
+        print('fine tuning pretrained model by external data')
+        train_dataset = DatasetWithExternalData(
+            data_path=train_data_path,
+            train_data_path=train_data_path + external_data_path,
+            transform=train_trans,
+            cfg=cfg,
+        )
+    else:
+        train_dataset = DatasetWithExternalData(
+            data_path=train_data_path + external_data_path,
+            train_data_path=train_data_path + external_data_path,
+            transform=train_trans,
+            cfg=cfg,
+        )
     val_dataset = DatasetWithExternalData(
         data_path=val_data_path,
         train_data_path=train_data_path + external_data_path,
@@ -590,7 +616,7 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
         dataset=val_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
+        num_workers=cfg.train.batch_size,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
@@ -711,6 +737,30 @@ def make_test_loader_face_gen(cfg, data_root, train_data_root):
     return test_loader, test_dataset, dataset_for_first_frame, loader_for_first_frame
 
 
+def make_test_loader_with_external_data(cfg, data_root, train_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    external_data_path = get_datasets_external_data(cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
+
+    test_trans = TransformWithExternalData(cfg, "test")
+    test_dataset = DatasetWithExternalData(
+        data_path=test_data_path,
+        train_data_path=train_data_path + external_data_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return test_loader, test_dataset
+
+
 def count_params(module, attr):
     """
     モデルパラメータを計算
@@ -723,8 +773,8 @@ def count_params(module, attr):
 
 
 def requires_grad_change(net, val):
-    for param in net.parameters():
-        param.requires_grad = val
+    for p in net.parameters():
+        p.requires_grad = val
     return net
 
 

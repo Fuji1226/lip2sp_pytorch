@@ -111,8 +111,18 @@ class WaveformDecoder(nn.Module):
         return out
 
 
-if __name__ == "__main__":
-    net = TConvBlock(256, 10, 5)
-    x = torch.rand(1, 256, 300)
-    out = net(x)
-    print(out.shape)
+class LinearDecoder(nn.Module):
+    def __init__(self, in_channels, out_channels, reduction_factor):
+        super().__init__()
+        self.reduction_factor = reduction_factor
+        self.layer = nn.Linear(in_channels, out_channels * reduction_factor)
+
+    def forward(self, x):
+        '''
+        x : (B, T, C)
+        '''
+        x = self.layer(x)
+        B, T, C = x.shape
+        x = x.reshape(B, T * self.reduction_factor, C // self.reduction_factor)
+        x = x.permute(0, 2, 1)  # (B, C, T)
+        return x

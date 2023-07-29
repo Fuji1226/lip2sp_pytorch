@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from net import ResNet3D, ResNet3DVTP, ResNet3DRemake
-from nar_decoder import ResTCDecoder
+from nar_decoder import ResTCDecoder, LinearDecoder
 from rnn import GRUEncoder
 from transformer_remake import Encoder
 from grad_reversal import GradientReversal
@@ -24,7 +24,7 @@ class Lip2SP_NAR(nn.Module):
         dec_n_layers, dec_kernel_size,
         n_speaker, spk_emb_dim,
         which_encoder, which_decoder, where_spk_emb, use_spk_emb,
-        dec_dropout, res_dropout, rnn_dropout, is_large, adversarial_learning, reduction_factor=2):
+        dec_dropout, res_dropout, rnn_dropout, is_large, adversarial_learning, reduction_factor):
         super().__init__()
         self.where_spk_emb = where_spk_emb
         self.adversarial_learning = adversarial_learning
@@ -92,15 +92,22 @@ class Lip2SP_NAR(nn.Module):
             )
             self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
 
-        self.decoder = ResTCDecoder(
-            cond_channels=inner_channels,
-            out_channels=out_channels,
-            inner_channels=inner_channels,
-            n_layers=dec_n_layers,
-            kernel_size=dec_kernel_size,
-            dropout=dec_dropout,
-            reduction_factor=reduction_factor,
-        )
+        if which_decoder == 'restc':
+            self.decoder = ResTCDecoder(
+                cond_channels=inner_channels,
+                out_channels=out_channels,
+                inner_channels=inner_channels,
+                n_layers=dec_n_layers,
+                kernel_size=dec_kernel_size,
+                dropout=dec_dropout,
+                reduction_factor=reduction_factor,
+            )
+        elif which_decoder == 'linear':
+            self.decoder = LinearDecoder(
+                in_channels=inner_channels,
+                out_channels=out_channels,
+                reduction_factor=reduction_factor,
+            )
 
     def forward(self, lip, lip_len, spk_emb=None):
         """

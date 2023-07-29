@@ -25,7 +25,7 @@ class KablabDataset(Dataset):
         self.data_path = data_path
         self.transform = transform
         self.cfg = cfg
-        self.class_to_id, self.id_to_class = classes2index_tts()
+        self.class_to_id, self.id_to_class = classes2index_tts(cfg)
         
         self.speaker_idx = get_speaker_idx(data_path)
 
@@ -311,16 +311,15 @@ class KablabTransform:
         """
         音素を数値に変換
         """
-        text = pyopenjtalk.extract_fullcontext(text)
-        text = pp_symbols(text)
+        if self.cfg.train.for_tts:
+            text = pyopenjtalk.extract_fullcontext(text)
+            text = pp_symbols(text)
+        else:
+            text = pyopenjtalk.g2p(text)
+            text = text.split(' ')
+            text.insert(0, "^")
+            text.append("$")
         text = [class_to_id[t] for t in text]
-        
-        # text = pyopenjtalk.g2p(text)
-        # text = text.split(" ")
-        # text.insert(0, "sos")
-        # text.append("eos")
-        # text_index = [class_to_id[t] if t in class_to_id.keys() else None for t in text]
-        # assert (None in text_index) is False
         return torch.tensor(text)
 
     def __call__(

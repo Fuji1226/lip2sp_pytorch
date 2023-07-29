@@ -381,25 +381,10 @@ class PhonemeDecoder(nn.Module):
         return
         output : (B, C, T)
         """
-
-        # if mode == "training":
-        #     data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
-        #     max_len = enc_output.shape[1]
-
-        #     # 口唇動画のパディングした部分に対してのマスク
-        #     dec_enc_attention_mask = make_pad_mask(data_len, max_len).to(device=enc_output.device)    # (B, 1, len_enc)
-
-        #     # self attentionを因果的にするため + パディングした部分に対してのマスク
-        #     self_attention_mask = token_mask(prev).unsqueeze(1) | get_subsequent_mask(prev)  # (B, len_prev, len_prev)
-            
-        # elif mode == "inference":
-        #     dec_enc_attention_mask = None
-        #     self_attention_mask = get_subsequent_mask(prev)
-
         data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
         max_len = enc_output.shape[1]
 
-        # 口唇動画のパディングした部分に対してのマスク
+        # パディングした部分に対してのマスク
         dec_enc_attention_mask = make_pad_mask(data_len, max_len).to(device=enc_output.device)    # (B, 1, len_enc)
 
         # self attentionを因果的にするため + パディングした部分に対してのマスク
@@ -450,16 +435,3 @@ class OfficialEncoder(nn.Module):
         out = self.encoder(x, src_key_padding_mask=pad_mask)
         out = out.permute(1, 0, 2)
         return out
-
-
-if __name__ == "__main__":
-    feature = torch.rand(3, 256, 150)
-    sub_mask = get_subsequent_mask(feature).repeat(feature.shape[0], 1, 1)
-
-    data_len = torch.tensor([100, 150, 200])
-    pad_mask = make_pad_mask(data_len, max_len=150).repeat(1, 150, 1)
-
-    mask_merge = sub_mask | pad_mask
-
-    breakpoint()
-    
