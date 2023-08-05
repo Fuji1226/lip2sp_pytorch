@@ -13,4 +13,5 @@ lip_check/
 thesis_result/
 try_face_detect/
 .venv
+.venv_debug
 .python-version

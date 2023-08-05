@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_audio_vqvae
+    entity:
+    mode: online
+    name : audio_vqvae
+watch:
+    log: all
+    log_freq: 100

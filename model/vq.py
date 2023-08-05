@@ -140,6 +140,7 @@ class VQ(nn.Module):
         flatten = x.view(-1, self.emb_dim)
 
         # distance: d(flatten[N, D], embed[D, K]) --> [N, K]
+        # ベクトル間の距離の公式（展開している）で、VQのK個のembeddingとの距離を計算
         distance = (
             flatten.pow(2).sum(dim=1, keepdim=True)
             - 2 * flatten @ self.embed

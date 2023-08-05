@@ -95,7 +95,7 @@ def main():
     # speaker_list = ["chem", "chess", "dl", "eh", "hs"]
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device=device, flip_input=False)
     
     splitted_data_dir = Path(str(data_dir).replace("Dataset", VIDEO_SAVE_DIR_NAME))
 
@@ -112,7 +112,6 @@ def main():
             data_path_list = data_path_list[:5]
         
         for data_path in tqdm(data_path_list):
-            # print(f"data_path = {data_path}")
             if f"{data_path.parents[0].name}/{data_path.stem}" in splitted_data_path_list:
                 continue
             
@@ -126,15 +125,14 @@ def main():
             landmark_list = []
             bbox_list = []
             
-            # 
             # container = av.open(str(data_path))
             # stream = container.streams.video[0]
-            # fps = int(stream.rate)
+            # fps = int(stream.average_rate)
             
             # wav, fs = librosa.load(str(data_path), sr=SR)
             
             # split_count = 0
-            
+
             # for i, frame in enumerate(container.decode(video=0)):
             #     img = frame.to_image()
             #     arr = np.asarray(img)   # (H, W, C)
@@ -185,6 +183,8 @@ def main():
             #         landmark_list = []
             #         bbox_list = []
             #         split_count += 1
+
+            #     print(len(frame_list), split_count)
             
             # if len(frame_list) < NUM_FRAME_LIMIT_MIN:
             #     continue
@@ -204,7 +204,7 @@ def main():
             try:
                 container = av.open(str(data_path))
                 stream = container.streams.video[0]
-                fps = int(stream.rate)
+                fps = int(stream.average_rate)
                 
                 wav, fs = librosa.load(str(data_path), sr=SR)
                 
@@ -260,7 +260,7 @@ def main():
                         landmark_list = []
                         bbox_list = []
                         split_count += 1
-                
+
                 if len(frame_list) < NUM_FRAME_LIMIT_MIN:
                     continue
                 

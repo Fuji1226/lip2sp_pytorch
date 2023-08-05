@@ -917,7 +917,7 @@ def check_mel_default(target, output, dec_output, cfg, filename, current_time, c
 def check_mel_nar(target, output, cfg, filename, current_time, ckpt_time=None):
     target = target.to('cpu').detach().numpy().copy()
     output = output.to('cpu').detach().numpy().copy()
-
+    
     plt.close("all")
     plt.figure()
     ax = plt.subplot(2, 1, 1)

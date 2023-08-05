@@ -132,13 +132,32 @@ which_decoder : "linear"
 # audio encoder
 ae_emb_dim : 4
 vae_emb_dim : 64
-vq_emb_dim : 256
+vq_emb_dim : 128
 vq_num_emb : 64
 norm_type_audio : "in"
 content_d_model : 256
 content_n_attn_layer : 1
 content_n_head : 4
 which_spk_enc : "rnn"
+audio_enc_hidden_channels : 128
+audio_enc_conv_dropout : 0.1
+audio_enc_which_encoder : 'conformer'
+audio_enc_rnn_n_layers : 2
+audio_enc_rnn_dropout : 0.1
+audio_enc_conf_n_Layers : 6
+audio_enc_conf_n_head : 4
+audio_enc_conf_feed_forward_expansion_factor : 8
+
+# audio decoder
+audio_dec_each_gru_n_layers : 1
+audio_dec_n_gru_layers : 4
+audio_dec_which_decoder : 'gru'
+audio_dec_rnn_n_layers : 2
+audio_dec_rnn_dropout : 0.1
+audio_dec_conf_n_layers : 6
+audio_dec_conf_n_head : 4
+audio_dec_conf_feedforward_expansion_factor : 8
+audio_dec_tconv_dropout : 0.1
 
 # mutual information
 mi_hidden_channels : 256

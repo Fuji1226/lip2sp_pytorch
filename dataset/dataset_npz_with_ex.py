@@ -57,6 +57,11 @@ class DatasetWithExternalData(Dataset):
         speaker_idx = torch.tensor(self.speaker_idx[speaker])
         spk_emb = torch.from_numpy(self.embs[speaker])
         filename = data_path.stem
+
+        if 'kablab' in data_path.parents[1].name:
+            lang_id = torch.tensor(0)
+        else:
+            lang_id = torch.tensor(1)
         
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
@@ -76,7 +81,7 @@ class DatasetWithExternalData(Dataset):
         )
         feature_len = torch.tensor(feature.shape[-1])
         lip_len = torch.tensor(lip.shape[-1])
-        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename
+        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id
     
     
 class TransformWithExternalData:
@@ -175,7 +180,7 @@ class TransformWithExternalData:
     
     
 def collate_time_adjust_with_external_data(batch, cfg):
-    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = list(zip(*batch))
+    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id = list(zip(*batch))
     
     wav_adjusted = []
     lip_adjusted = []
@@ -230,4 +235,5 @@ def collate_time_adjust_with_external_data(batch, cfg):
     feature_len = torch.stack(feature_len)
     lip_len = torch.stack(lip_len)
     speaker_idx = torch.stack(speaker_idx)
-    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename
+    lang_id = torch.stack(lang_id)
+    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id

@@ -17,8 +17,8 @@ def progress(filename, size, sent):
 
 def main():
     hostname = 'ito'
-    to_folder = '/home/minami/lrs2'
-    from_folder = '/home/usr4/r70264c/lrs2/train.txt'
+    to_folder = '/home/minami/Lip2Wav/Dataset_fps25'
+    from_folder = '/home/usr4/r70264c/Lip2Wav/Dataset_fps25'
 
     config_file = os.path.expanduser('~/.ssh/config')
     ssh_config = paramiko.SSHConfig()
