@@ -287,8 +287,6 @@ def load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
     wav_padded = np.zeros(int(n_wav_sample_per_frame * data_len))
     wav_padded[:wav.shape[0]] = wav
     wav = wav_padded
-    
-    print(upsample ,data_len, lip.shape, feature.shape, wav.shape)
 
     assert feature.shape[1] == int(lip.shape[0] * upsample)
     lip = lip.permute(1, 2, 3, 0).numpy()   # (C, H, W, T)

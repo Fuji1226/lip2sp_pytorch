@@ -14,10 +14,9 @@ from face_crop_align import FaceAligner
 @hydra.main(config_name="config", config_path="../../conf")
 def main(cfg):
     data_dir = Path("~/Lip2Wav").expanduser()
-    save_dir = Path("~/dataset/lip/np_files_debug/lip2wav/train").expanduser()
-    bbox_dir = data_dir / "bbox_split_wide_debug_fps25"
-    speaker_list = ["chem", "chess", "dl", "eh", "hs"]
-    speaker_list = ["chess", "dl", "eh", "hs"]
+    save_dir = Path("~/dataset/lip/np_files/lip2wav/train").expanduser()
+    bbox_dir = data_dir / "bbox_split_wide_fps25"
+    speaker_list = ['hs', 'eh']
     
     desired_left_eye = (cfg.model.align_desired_left_eye, cfg.model.align_desired_left_eye)
     desired_face_size = cfg.model.align_desired_face_size
@@ -29,13 +28,17 @@ def main(cfg):
         bbox_path_list = list(bbox_dir_spk.glob("*/*.csv"))
         
         for bbox_path in tqdm(bbox_path_list):
-            video_path = Path(str(bbox_path).replace("bbox", "Dataset").replace(".csv", ".mp4"))
+            video_path = Path(str(bbox_path).replace("bbox", "Dataset").replace(".csv", "_merged.mp4"))
             landmark_path = Path(str(bbox_path).replace("bbox", "landmark"))
+
+            save_path = save_dir / speaker / "mspec80"
+            filename = "_".join([video_path.parents[0].name, bbox_path.stem])
+
+            if (save_path / f'{filename}.npz').exists():
+                continue
             
             # wav, lip, feature, data_len = load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner)
-            # save_path = save_dir / speaker / "mspec80"
             # save_path.mkdir(parents=True, exist_ok=True)
-            # filename = "_".join([video_path.parents[0].name, bbox_path.stem])
             # np.savez(
             #     str(save_path / filename),
             #     wav=wav,

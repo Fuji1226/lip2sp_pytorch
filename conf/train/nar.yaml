@@ -60,7 +60,7 @@ train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 外部データの指定
-which_external_data : "lrs2_pretrain"
+which_external_data : "lip2wav"
 
 # lrs2
 lrs2_train_data_root : "~/lrs2/mvlrs_v1/main"

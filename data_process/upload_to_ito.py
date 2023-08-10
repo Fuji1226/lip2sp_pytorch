@@ -1,12 +1,10 @@
 '''
-itoからローカルにデータをダウンロードするときに使用する
+ローカルからitoへのデータのアップロード
 itoのbashを起動したときにito_shardが実行されるとバグるので、.bashrcでコメントアウトしておく
 '''
 
 import os
 import sys
-import subprocess
-import glob
 import paramiko
 import scp
 import argparse
@@ -29,8 +27,6 @@ def main():
     print(f'to_folder = {to_folder}')
     print(f'from_folder = {from_folder}')
 
-    os.makedirs(to_folder, exist_ok=True)
-
     config_file = os.path.expanduser('~/.ssh/config')
     ssh_config = paramiko.SSHConfig()
     ssh_config.parse(open(config_file, 'r'))
@@ -45,9 +41,9 @@ def main():
         )
 
         with scp.SCPClient(ssh.get_transport(), progress=progress) as scpc:
-            scpc.get(
-                remote_path=from_folder,
-                local_path=to_folder,
+            scpc.put(
+                files=from_folder,
+                remote_path=to_folder,
                 recursive=True,
                 preserve_times=False,
             )

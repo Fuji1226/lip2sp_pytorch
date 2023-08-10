@@ -571,7 +571,7 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
     external_data_path = get_datasets_external_data(cfg)
-        
+
     train_trans = TransformWithExternalData(cfg, "train")
     val_trans = TransformWithExternalData(cfg, "val")
 
