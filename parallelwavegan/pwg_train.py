@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 
-from utils import count_params, get_path_train, save_loss, make_train_val_loader, set_config, check_wav
+from utils import count_params, get_path_train, save_loss, make_train_val_loader_with_external_data, set_config, check_wav, requires_grad_change
 from parallelwavegan.model.generator import Generator
 from parallelwavegan.model.discriminator import Discriminator, WaveNetLikeDiscriminator
 from parallelwavegan.stft_loss import MultiResolutionSTFTLoss
@@ -118,10 +118,9 @@ def train_one_epoch(gen, train_loader, optimizer_g, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
         noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         wav_pred = gen(noise, feature)
@@ -166,10 +165,9 @@ def val_one_epoch(gen, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
         noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         with torch.no_grad():
@@ -212,33 +210,42 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
         noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         wav_pred = gen(noise, feature)
 
         ### discriminator ###
+        disc = requires_grad_change(disc, True)
+
         out_real = disc(wav)
         out_pred = disc(wav_pred.detach())
 
         loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
-        epoch_loss_disc += loss_disc.item()
-        wandb.log({"train_loss_disc": loss_disc})
-
+        
         loss_disc.backward()
         optimizer_d.step()
         optimizer_d.zero_grad()
         optimizer_g.zero_grad()
 
+        epoch_loss_disc += loss_disc.item()
+        wandb.log({"train_loss_disc": loss_disc})
+
         ### generator ###
+        disc = requires_grad_change(disc, False)
+
         out_pred = disc(wav_pred)
 
         loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
         loss_gen_gan = torch.mean((out_pred - 1) ** 2)
         loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
+
+        loss_gen_all.backward()
+        optimizer_g.step()
+        optimizer_d.zero_grad()
+        optimizer_g.zero_grad()
 
         epoch_loss_gen_stft += loss_gen_stft.item()
         epoch_loss_gen_gan += loss_gen_gan.item()
@@ -246,11 +253,6 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
         wandb.log({"train_loss_gen_stft": loss_gen_stft})
         wandb.log({"train_loss_gen_gan": loss_gen_gan})
         wandb.log({"train_loss_gen_all": loss_gen_all})
-
-        loss_gen_all.backward()
-        optimizer_g.step()
-        optimizer_d.zero_grad()
-        optimizer_g.zero_grad()
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -284,10 +286,9 @@ def val_one_epoch_gan(gen, disc, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
         noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         with torch.no_grad():
@@ -353,7 +354,7 @@ def main(cfg):
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
 
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, train_data_root, val_data_root)
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root)
 
     loss_f = MultiResolutionSTFTLoss(
         n_fft_list=cfg.train.n_fft_list,

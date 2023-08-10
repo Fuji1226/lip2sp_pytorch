@@ -3,23 +3,18 @@ import matplotlib.pyplot as plt
 
 
 def main():
+    N_DATA_USE = 200
     main_df = pd.read_csv("/home/usr4/r70264c/lip2sp_pytorch/data_process/lrs2/duration_check/main.csv")
     pretrain_df = pd.read_csv("/home/usr4/r70264c/lip2sp_pytorch/data_process/lrs2/duration_check/pretrain.csv")    
     
-    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
-    ax[0].hist(main_df["duration"].values, bins=20, alpha=0.5, label="main")
-    ax[0].hist(pretrain_df["duration"].values, bins=20, alpha=0.5, label="pretrain")
-    ax[0].grid()
-    ax[0].legend()
+    train_data_df = main_df
+    train_data_id_used = train_data_df["id"].value_counts().nlargest(N_DATA_USE).index.values
+    train_data_df = train_data_df.loc[train_data_df["id"].isin(train_data_id_used)]
+    breakpoint()
     
-    ax[1].boxplot((main_df["duration"].values, pretrain_df["duration"].values))
-    ax[1].set_xticklabels(["main", "pretrain"])
-    ax[1].grid()
-    
-    fig.tight_layout()
-    fig.savefig("duration.png")
-    plt.close()
-    
+    train_data_df = pretrain_df
+    train_data_id_used = train_data_df["id"].value_counts().nlargest(N_DATA_USE).index.values
+    train_data_df = train_data_df.loc[train_data_df["id"].isin(train_data_id_used)]
     breakpoint()
 
     

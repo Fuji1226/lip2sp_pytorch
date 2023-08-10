@@ -96,6 +96,20 @@ def get_speaker_idx_lrs2(data_path):
     return speaker_idx
 
 
+def get_speaker_idx_jsut():
+    print(f"\nget speaker idx jsut")
+    speaker_idx = {"female": 300000}
+    print(f"speaker_idx = {speaker_idx}")
+    return speaker_idx
+
+
+def get_speaker_idx_jvs():
+    print(f"\nget speaker idx jvs")
+    speaker_idx = dict([[f"jvs{i:03d}", 400000 + i] for i in range(1, 101)])
+    print(f"speaker_idx = {speaker_idx}")
+    return speaker_idx
+
+
 def get_spk_emb(cfg):
     spk_emb_dict = {}
     for speaker in cfg.train.speaker:
@@ -128,22 +142,38 @@ def get_spk_emb_lrs2():
     return spk_emb_dict
 
 
+def get_spk_emb_jsut():
+    data_path = Path("~/dataset/jsut_ver1.1/emb.npy").expanduser()
+    emb = np.load(str(data_path))
+    emb = emb / np.linalg.norm(emb)
+    spk_emb_dict = {"female": emb}
+    return spk_emb_dict
+
+
+def get_spk_emb_jvs():
+    data_path = Path("~/dataset/jvs_ver1/emb").expanduser()
+    speaker_list = [f"jvs{i:03d}" for i in range(1, 101)]
+    spk_emb_dict = {}
+    for speaker in speaker_list:
+        emb = np.load(str(data_path / speaker / "emb.npy"))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker] = emb
+    return spk_emb_dict
+
+
 @hydra.main(version_base=None, config_name="config", config_path="../conf")
 def main(cfg):
-    train_data_root = cfg.train.face_cropped_max_size_fps25_train
-    train_data_root = Path(train_data_root).expanduser()
-    train_data_path = get_datasets(train_data_root, cfg)
-    external_data_path = get_datasets_external_data(cfg)
-    data_path = train_data_path + external_data_path
+    jsut_data_root = Path(cfg.train.jsut_path_train).expanduser()
+    jsut_data_path = list(jsut_data_root.glob("*/*/*.npz"))
+    jvs_data_root = Path(cfg.train.jvs_path_train).expanduser()
+    jvs_data_path = list(jvs_data_root.glob("*/*/*.npz"))
     
-    speaker_idx_kablab = get_speaker_idx(data_path)
-    embs_kablab = get_spk_emb(cfg)
-    if cfg.train.which_external_data == "lrs2_main" or cfg.train.which_external_data == "lrs2_pretrain":
-        speaker_idx_ex = get_speaker_idx_lrs2(data_path)
-        embs_ex = get_spk_emb_lrs2()
-        
+    emb_jsut = get_spk_emb_jsut()
+    emb_jvs = get_spk_emb_jvs()
+    emb_kablab = get_spk_emb(cfg)
     
-        
+    speaker_idx_jsut = get_speaker_idx_jsut()
+    speaker_idx_jvs = get_speaker_idx_jvs()
     breakpoint()
     
     

@@ -16,9 +16,9 @@ DEBUG = False
 SR = 16000
 NUM_FRAME_LIMIT_MIN = 50
 
-LANDMARK_SAVE_DIR_NAME = "landmark_split_wide"
-BBOX_SAVE_DIR_NAME = "bbox_split_wide"
-VIDEO_SAVE_DIR_NAME = "Dataset_split_wide"
+LANDMARK_SAVE_DIR_NAME = "landmark_split_wide_debug"
+BBOX_SAVE_DIR_NAME = "bbox_split_wide_debug"
+VIDEO_SAVE_DIR_NAME = "Dataset_split_wide_debug"
 
 if DEBUG:
     LANDMARK_SAVE_DIR_NAME = LANDMARK_SAVE_DIR_NAME + "_debug"
@@ -92,7 +92,6 @@ def main():
     
     data_dir = Path("~/Lip2Wav/Dataset_fps25").expanduser()
     speaker_list = args.speaker
-    # speaker_list = ["chem", "chess", "dl", "eh", "hs"]
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
@@ -112,9 +111,12 @@ def main():
             data_path_list = data_path_list[:5]
         
         for data_path in tqdm(data_path_list):
-            # print(f"data_path = {data_path}")
+            if data_path.parents[0].name != 'fiJ6UDSt8hU':
+                continue
             if f"{data_path.parents[0].name}/{data_path.stem}" in splitted_data_path_list:
                 continue
+            
+            print(f"data_path = {data_path}")
             
             save_path_landmark = Path(str(data_path).replace("Dataset", LANDMARK_SAVE_DIR_NAME).replace(".mp4", ".csv"))
             save_path_bbox = Path(str(data_path).replace("Dataset", BBOX_SAVE_DIR_NAME).replace(".mp4", ".csv"))
@@ -126,159 +128,160 @@ def main():
             landmark_list = []
             bbox_list = []
             
-            # 
-            # container = av.open(str(data_path))
-            # stream = container.streams.video[0]
-            # fps = int(stream.rate)
+            container = av.open(str(data_path))
+            stream = container.streams.video[0]
+            fps = int(stream.rate)
             
-            # wav, fs = librosa.load(str(data_path), sr=SR)
+            wav, fs = librosa.load(str(data_path), sr=SR)
             
-            # split_count = 0
+            split_count = 0
             
-            # for i, frame in enumerate(container.decode(video=0)):
-            #     img = frame.to_image()
-            #     arr = np.asarray(img)   # (H, W, C)
-            #     arr = crop_frame(arr, speaker)
-            #     width = arr.shape[1]
-            #     height = arr.shape[0]
+            for i, frame in enumerate(container.decode(video=0)):
+                img = frame.to_image()
+                arr = np.asarray(img)   # (H, W, C)
+                arr = crop_frame(arr, speaker)
+                width = arr.shape[1]
+                height = arr.shape[0]
                 
-            #     landmarks, landmark_scores, bboxes = fa.get_landmarks(arr, return_bboxes=True, return_landmark_score=True)
+                landmarks, landmark_scores, bboxes = fa.get_landmarks(arr, return_bboxes=True, return_landmark_score=True)
                 
-            #     if landmarks is not None:
-            #         max_mean = 0
-            #         max_score_idx = 0
-            #         for j, score in enumerate(landmark_scores):
-            #             score_mean = np.mean(score)
-            #             if score_mean > max_mean:
-            #                 max_mean = score_mean
-            #                 max_score_idx = j
+                if landmarks is not None:
+                    max_mean = 0
+                    max_score_idx = 0
+                    for j, score in enumerate(landmark_scores):
+                        score_mean = np.mean(score)
+                        if score_mean > max_mean:
+                            max_mean = score_mean
+                            max_score_idx = j
 
-            #         landmark = landmarks[max_score_idx]
-            #         bbox = bboxes[max_score_idx][:-1]
+                    landmark = landmarks[max_score_idx]
+                    bbox = bboxes[max_score_idx][:-1]
 
-            #         coords_list = []
-            #         for coords in landmark:
-            #             coords_list.append(coords[0])
-            #             coords_list.append(coords[1])
+                    coords_list = []
+                    for coords in landmark:
+                        coords_list.append(coords[0])
+                        coords_list.append(coords[1])
 
-            #         frame_list.append(arr)
-            #         landmark_list.append(coords_list)
-            #         bbox_list.append(bbox)
+                    frame_list.append(arr)
+                    landmark_list.append(coords_list)
+                    bbox_list.append(bbox)
                 
-            #     else:
-            #         if len(frame_list) < NUM_FRAME_LIMIT_MIN:
-            #             continue
+                else:
+                    if len(frame_list) < NUM_FRAME_LIMIT_MIN:
+                        continue
                     
-            #         save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
-            #         save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+                    save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+                    save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
                     
-            #         # print("save_split")
-            #         # print(len(frame_list), len(landmark_list), len(bbox_list))
-            #         # print(f"save_path_landmark_split = {save_path_landmark_split}")
-            #         # print(f"save_path_bbox_split = {save_path_bbox_split}")
+                    # print("save_split")
+                    # print(len(frame_list), len(landmark_list), len(bbox_list))
+                    # print(f"save_path_landmark_split = {save_path_landmark_split}")
+                    # print(f"save_path_bbox_split = {save_path_bbox_split}")
                     
-            #         save_csv(save_path_landmark_split, landmark_list)
-            #         save_csv(save_path_bbox_split, bbox_list)
-            #         save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
+                    save_csv(save_path_landmark_split, landmark_list)
+                    save_csv(save_path_bbox_split, bbox_list)
+                    save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
                     
-            #         frame_list = []        
-            #         landmark_list = []
-            #         bbox_list = []
-            #         split_count += 1
+                    frame_list = []        
+                    landmark_list = []
+                    bbox_list = []
+                    split_count += 1
             
-            # if len(frame_list) < NUM_FRAME_LIMIT_MIN:
-            #     continue
+                print(len(frame_list))
             
-            # save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
-            # save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
-            
-            # # print("save last")
-            # # print(len(frame_list), len(landmark_list), len(bbox_list))
-            # # print(f"save_path_landmark_split = {save_path_landmark_split}")
-            # # print(f"save_path_bbox_split = {save_path_bbox_split}")
-            
-            # save_csv(save_path_landmark_split, landmark_list)
-            # save_csv(save_path_bbox_split, bbox_list)
-            # save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
-            
-            try:
-                container = av.open(str(data_path))
-                stream = container.streams.video[0]
-                fps = int(stream.rate)
-                
-                wav, fs = librosa.load(str(data_path), sr=SR)
-                
-                split_count = 0
-                
-                for i, frame in enumerate(container.decode(video=0)):
-                    img = frame.to_image()
-                    arr = np.asarray(img)   # (H, W, C)
-                    arr = crop_frame(arr, speaker)
-                    width = arr.shape[1]
-                    height = arr.shape[0]
-                    
-                    landmarks, landmark_scores, bboxes = fa.get_landmarks(arr, return_bboxes=True, return_landmark_score=True)
-                    
-                    if landmarks is not None:
-                        max_mean = 0
-                        max_score_idx = 0
-                        for j, score in enumerate(landmark_scores):
-                            score_mean = np.mean(score)
-                            if score_mean > max_mean:
-                                max_mean = score_mean
-                                max_score_idx = j
-
-                        landmark = landmarks[max_score_idx]
-                        bbox = bboxes[max_score_idx][:-1]
-
-                        coords_list = []
-                        for coords in landmark:
-                            coords_list.append(coords[0])
-                            coords_list.append(coords[1])
-
-                        frame_list.append(arr)
-                        landmark_list.append(coords_list)
-                        bbox_list.append(bbox)
-                    
-                    else:
-                        if len(frame_list) < NUM_FRAME_LIMIT_MIN:
-                            continue
-                        
-                        save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
-                        save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
-                        
-                        # print("save_split")
-                        # print(len(frame_list), len(landmark_list), len(bbox_list))
-                        # print(f"save_path_landmark_split = {save_path_landmark_split}")
-                        # print(f"save_path_bbox_split = {save_path_bbox_split}")
-                        
-                        save_csv(save_path_landmark_split, landmark_list)
-                        save_csv(save_path_bbox_split, bbox_list)
-                        save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
-                        
-                        frame_list = []        
-                        landmark_list = []
-                        bbox_list = []
-                        split_count += 1
-                
-                if len(frame_list) < NUM_FRAME_LIMIT_MIN:
-                    continue
-                
-                save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
-                save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
-                
-                # print("save last")
-                # print(len(frame_list), len(landmark_list), len(bbox_list))
-                # print(f"save_path_landmark_split = {save_path_landmark_split}")
-                # print(f"save_path_bbox_split = {save_path_bbox_split}")
-                
-                save_csv(save_path_landmark_split, landmark_list)
-                save_csv(save_path_bbox_split, bbox_list)
-                save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
-                    
-            except:
-                print(f"error: {data_path}")
+            if len(frame_list) < NUM_FRAME_LIMIT_MIN:
                 continue
+            
+            save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+            save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+            
+            # print("save last")
+            # print(len(frame_list), len(landmark_list), len(bbox_list))
+            # print(f"save_path_landmark_split = {save_path_landmark_split}")
+            # print(f"save_path_bbox_split = {save_path_bbox_split}")
+            
+            save_csv(save_path_landmark_split, landmark_list)
+            save_csv(save_path_bbox_split, bbox_list)
+            save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
+            
+            # try:
+            #     container = av.open(str(data_path))
+            #     stream = container.streams.video[0]
+            #     fps = int(stream.rate)
+                
+            #     wav, fs = librosa.load(str(data_path), sr=SR)
+                
+            #     split_count = 0
+                
+            #     for i, frame in enumerate(container.decode(video=0)):
+            #         img = frame.to_image()
+            #         arr = np.asarray(img)   # (H, W, C)
+            #         arr = crop_frame(arr, speaker)
+            #         width = arr.shape[1]
+            #         height = arr.shape[0]
+                    
+            #         landmarks, landmark_scores, bboxes = fa.get_landmarks(arr, return_bboxes=True, return_landmark_score=True)
+                    
+            #         if landmarks is not None:
+            #             max_mean = 0
+            #             max_score_idx = 0
+            #             for j, score in enumerate(landmark_scores):
+            #                 score_mean = np.mean(score)
+            #                 if score_mean > max_mean:
+            #                     max_mean = score_mean
+            #                     max_score_idx = j
+
+            #             landmark = landmarks[max_score_idx]
+            #             bbox = bboxes[max_score_idx][:-1]
+
+            #             coords_list = []
+            #             for coords in landmark:
+            #                 coords_list.append(coords[0])
+            #                 coords_list.append(coords[1])
+
+            #             frame_list.append(arr)
+            #             landmark_list.append(coords_list)
+            #             bbox_list.append(bbox)
+                    
+            #         else:
+            #             if len(frame_list) < NUM_FRAME_LIMIT_MIN:
+            #                 continue
+                        
+            #             save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+            #             save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+                        
+            #             # print("save_split")
+            #             # print(len(frame_list), len(landmark_list), len(bbox_list))
+            #             # print(f"save_path_landmark_split = {save_path_landmark_split}")
+            #             # print(f"save_path_bbox_split = {save_path_bbox_split}")
+                        
+            #             save_csv(save_path_landmark_split, landmark_list)
+            #             save_csv(save_path_bbox_split, bbox_list)
+            #             save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
+                        
+            #             frame_list = []        
+            #             landmark_list = []
+            #             bbox_list = []
+            #             split_count += 1
+                
+            #     if len(frame_list) < NUM_FRAME_LIMIT_MIN:
+            #         continue
+                
+            #     save_path_landmark_split = save_path_landmark.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+            #     save_path_bbox_split = save_path_bbox.parents[0] / f"{data_path.stem}_split{split_count}.csv"
+                
+            #     # print("save last")
+            #     # print(len(frame_list), len(landmark_list), len(bbox_list))
+            #     # print(f"save_path_landmark_split = {save_path_landmark_split}")
+            #     # print(f"save_path_bbox_split = {save_path_bbox_split}")
+                
+            #     save_csv(save_path_landmark_split, landmark_list)
+            #     save_csv(save_path_bbox_split, bbox_list)
+            #     save_video(frame_list, wav, data_path, fps, width, height, i, split_count)
+                    
+            # except:
+            #     print(f"error: {data_path}")
+            #     continue
                 
         
 if __name__ == "__main__":

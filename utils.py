@@ -282,22 +282,28 @@ def get_datasets_test(data_root, cfg):
 
 
 def get_datasets_external_data(cfg):
+    items = []
     if cfg.train.which_external_data == "lrs2_main":
         print(f"\n--- get datasets lrs2_main ---")
         data_dir = Path(cfg.train.lrs2_npz_path).expanduser()
-    elif cfg.train.which_external_data == "lrs2_pretrain":
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.which_external_data == "lrs2_pretrain":
         print(f"\n--- get datasets lrs2_pretrain ---")
         data_dir = Path(cfg.train.lrs2_pretrain_npz_path).expanduser()
-    elif cfg.train.which_external_data == "lip2wav":
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.which_external_data == "lip2wav":
         print(f"\n--- get datasets lip2wav ---")
         data_dir = Path(cfg.train.lip2wav_npz_path).expanduser()
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.use_jsut_corpus:
+        print(f"\n--- get datasets jsut ---")
+        data_dir = Path(cfg.train.jsut_path_train).expanduser()
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.use_jvs_corpus:
+        print(f"\n--- get datasets jvs ---")
+        data_dir = Path(cfg.train.jvs_path_train).expanduser()
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
         
-    spk_path_list = list(data_dir.glob("*"))
-    items = []
-    for spk_path in spk_path_list:
-        spk_path = spk_path / cfg.model.name
-        data_path_list = list(spk_path.glob("*.npz"))
-        items += data_path_list
     return items
 
 
@@ -309,6 +315,12 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
     if cfg.train.use_synth_corpus:
         synth_data_root = Path(cfg.train.synth_path_train).expanduser()
         synth_data_path = get_datasets_synth(synth_data_root, cfg)
+    if cfg.train.use_jsut_corpus:
+        jsut_data_root = Path(cfg.train.jsut_path_train).expanduser()
+        jsut_data_path = list(jsut_data_root.glob("*/*/*.npz"))
+    if cfg.train.use_jvs_corpus:
+        jvs_data_root = Path(cfg.train.jvs_path_train).expanduser()
+        jvs_data_path = list(jvs_data_root.glob("*/*/*.npz"))
 
     # 学習用，検証用それぞれに対してtransformを作成
     train_trans = KablabTransform(cfg, "train")
@@ -316,21 +328,20 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
 
     # dataset作成
     print("\n--- make train dataset ---")
+    data_path = train_data_path
     if cfg.train.use_synth_corpus:
-        train_data_path_synth = train_data_path + synth_data_path
-        train_dataset = KablabDataset(
-            data_path=train_data_path_synth,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-    else:
-        train_dataset = KablabDataset(
-            data_path=train_data_path,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
+        data_path += synth_data_path
+    if cfg.train.use_jsut_corpus:
+        data_path += jsut_data_path
+    if cfg.train.use_jvs_corpus:
+        data_path += jvs_data_path
+    train_dataset = KablabDataset(
+        data_path=data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    
     print("\n--- make validation dataset ---")
     val_dataset = KablabDataset(
         data_path=val_data_path,

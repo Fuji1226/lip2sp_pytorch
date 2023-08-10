@@ -138,6 +138,20 @@ def get_speaker_idx_lip2wav(data_path):
     return speaker_idx
 
 
+def get_speaker_idx_jsut():
+    print(f"\nget speaker idx jsut")
+    speaker_idx = {"female": 300000}
+    print(f"speaker_idx = {speaker_idx}")
+    return speaker_idx
+
+
+def get_speaker_idx_jvs():
+    print(f"\nget speaker idx jvs")
+    speaker_idx = dict([[f"jvs{i:03d}", 400000 + i] for i in range(1, 101)])
+    print(f"speaker_idx = {speaker_idx}")
+    return speaker_idx
+
+
 def get_stat_load_data(train_data_path):
     print("\nget stat")
     lip_mean_list = []
@@ -400,6 +414,25 @@ def get_spk_emb_lrs2():
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker.stem] = emb
         
+    return spk_emb_dict
+
+
+def get_spk_emb_jsut():
+    data_path = Path("~/dataset/jsut_ver1.1/emb.npy").expanduser()
+    emb = np.load(str(data_path))
+    emb = emb / np.linalg.norm(emb)
+    spk_emb_dict = {"female": emb}
+    return spk_emb_dict
+
+
+def get_spk_emb_jvs():
+    data_path = Path("~/dataset/jvs_ver1/emb").expanduser()
+    speaker_list = [f"jvs{i:03d}" for i in range(1, 101)]
+    spk_emb_dict = {}
+    for speaker in speaker_list:
+        emb = np.load(str(data_path / speaker / "emb.npy"))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker] = emb
     return spk_emb_dict
 
 

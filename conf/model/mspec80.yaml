@@ -50,8 +50,8 @@ margin : 0.15
 # imsize : 56
 # imsize_cropped : 48
 # is_large : False
-imsize : 112
-imsize_cropped : 96
+imsize : 96
+imsize_cropped : 88
 is_large : True
 
 # griffin-limで合成するときに人為的に補正

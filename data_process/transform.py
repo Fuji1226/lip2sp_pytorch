@@ -203,9 +203,12 @@ def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
     elif cfg.model.mov_preprocess_method == "bbox_crop":
         lip = lip.permute(0, -1, 1, 2)  # (T, C, H, W)
         coords_mean, crop_size = get_crop_info(bbox_path, cfg.model.margin)
+        print(f"lip = {lip.shape}")
+        print(f"crop_size = {crop_size}")
         if crop_size > lip.shape[-1]:
             crop_size = lip.shape[-1]
             crop_size = crop_size // 2 * 2
+        print(f"crop_size_adjusted = {crop_size.shape}")
 
         lip_processed_list = []
         for i in range(lip.shape[0]):
@@ -218,6 +221,7 @@ def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
                 height=crop_size,
                 width=crop_size,
             )
+            print(f"top = {top}, left = {left}, lip_processed = {lip_processed.shape}")
             lip_processed_list.append(lip_processed)
             
         lip_processed = torch.stack(lip_processed_list, dim=0)      # (T, C, H, W)
@@ -287,8 +291,6 @@ def load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
     wav_padded = np.zeros(int(n_wav_sample_per_frame * data_len))
     wav_padded[:wav.shape[0]] = wav
     wav = wav_padded
-    
-    print(upsample ,data_len, lip.shape, feature.shape, wav.shape)
 
     assert feature.shape[1] == int(lip.shape[0] * upsample)
     lip = lip.permute(1, 2, 3, 0).numpy()   # (C, H, W, T)

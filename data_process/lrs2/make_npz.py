@@ -6,34 +6,37 @@ import pandas as pd
 import numpy as np
 import hydra
 from tqdm import tqdm
+import argparse
 
 from transform import load_data_lrs2
 from face_crop_align import FaceAligner
 
-MAIN_OR_PRETRAIN = "pretrain"
-N_DATA_USE = 200
-
 
 @hydra.main(config_name="config", config_path="../../conf")
 def main(cfg):
-    if MAIN_OR_PRETRAIN == "main":    
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("--data")
+    argParser.add_argument("--num")
+    args = argParser.parse_args()
+    
+    if args.data == "main":
         train_df_path = Path("~/lrs2/train.txt")
         train_data_df = pd.read_csv(str(train_df_path), header=None)
         train_data_df = train_data_df.rename(columns={0: "filename_all"})
         train_data_df["id"] = train_data_df["filename_all"].apply(lambda x: str(x.split("/")[0]))
-        train_data_id_used = train_data_df["id"].value_counts().nlargest(N_DATA_USE).index.values
+        train_data_id_used = train_data_df["id"].value_counts().nlargest(args.num).index.values
         train_data_df = train_data_df.loc[train_data_df["id"].isin(train_data_id_used)]
         data_dir = Path("~/lrs2/mvlrs_v1/main").expanduser()
         landmark_dir = Path("~/lrs2/landmark/main").expanduser()
         bbox_dir = Path("~/lrs2/bbox/main").expanduser()
         save_dir = Path("~/dataset/lip/np_files/lrs2/train").expanduser()
         
-    elif MAIN_OR_PRETRAIN == "pretrain":
+    elif args.data == "pretrain":
         train_df_path = Path("~/lrs2/pretrain.txt")
         train_data_df = pd.read_csv(str(train_df_path), header=None)
         train_data_df = train_data_df.rename(columns={0: "filename_all"})
         train_data_df["id"] = train_data_df["filename_all"].apply(lambda x: str(x.split("/")[0]))
-        train_data_id_used = train_data_df["id"].value_counts().nlargest(N_DATA_USE).index.values
+        train_data_id_used = train_data_df["id"].value_counts().nlargest(args.num).index.values
         train_data_df = train_data_df.loc[train_data_df["id"].isin(train_data_id_used)]
         data_dir = Path("~/lrs2/mvlrs_v1/pretrain").expanduser()
         landmark_dir = Path("~/lrs2/landmark/pretrain").expanduser()

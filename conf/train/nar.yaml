@@ -73,6 +73,15 @@ lrs2_pretrain_npz_path : "~/dataset/lip/np_files/lrs2_pretrain/train"
 
 # lip2wav
 lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
+npz_process_speaker_list : []
+
+# jsut corpus
+use_jsut_corpus : True
+jsut_path_train : "~/dataset/lip/np_files/jsut/train"
+
+# jvs corpus
+use_jvs_corpus : True
+jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
