@@ -417,6 +417,17 @@ def get_spk_emb_lrs2():
     return spk_emb_dict
 
 
+def get_spk_emb_lip2wav():
+    spk_emb_dict = {}
+    speaker_list = list(emb_lip2wav_dir.glob("*"))
+    for speaker in speaker_list:
+        data_path = speaker / "emb.npy"
+        emb = np.load(str(data_path))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker.stem] = emb
+    return spk_emb_dict
+
+
 def get_spk_emb_jsut():
     data_path = Path("~/dataset/jsut_ver1.1/emb.npy").expanduser()
     emb = np.load(str(data_path))
@@ -433,17 +444,6 @@ def get_spk_emb_jvs():
         emb = np.load(str(data_path / speaker / "emb.npy"))
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker] = emb
-    return spk_emb_dict
-
-
-def get_spk_emb_lip2wav():
-    spk_emb_dict = {}
-    speaker_list = list(emb_lip2wav_dir.glob("*"))
-    for speaker in speaker_list:
-        data_path = speaker / "emb.npy"
-        emb = np.load(str(data_path))
-        emb = emb / np.linalg.norm(emb)
-        spk_emb_dict[speaker.stem] = emb
     return spk_emb_dict
 
 

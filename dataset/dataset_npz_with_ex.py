@@ -10,8 +10,20 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 
-from dataset.utils import get_spk_emb, get_spk_emb_lrs2, get_spk_emb_lip2wav, get_stat_load_data, calc_mean_var_std, \
-    get_speaker_idx, get_speaker_idx_lrs2, get_speaker_idx_lip2wav, get_spk_emb_jsut, get_spk_emb_jvs, get_speaker_idx_jsut, get_speaker_idx_jvs
+from dataset.utils import (
+    get_spk_emb, 
+    get_spk_emb_lrs2, 
+    get_spk_emb_lip2wav, 
+    get_spk_emb_jsut, 
+    get_spk_emb_jvs, 
+    get_speaker_idx, 
+    get_speaker_idx_lrs2, 
+    get_speaker_idx_lip2wav, 
+    get_speaker_idx_jsut, 
+    get_speaker_idx_jvs,
+    get_stat_load_data, 
+    calc_mean_var_std,
+)
 
 
 class DatasetWithExternalData(Dataset):
@@ -62,6 +74,11 @@ class DatasetWithExternalData(Dataset):
         spk_emb = torch.from_numpy(self.embs[speaker])
         filename = data_path.stem
         
+        if 'kablab' in data_path.parents[1].name:
+            lang_id = torch.tensor(0)
+        else:
+            lang_id = torch.tensor(1)
+        
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
         # 保存時のミスに対応 (1, T) -> (T,)
@@ -84,7 +101,7 @@ class DatasetWithExternalData(Dataset):
         wav = wav.to(torch.float32)
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
-        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename
+        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id
     
     
 class TransformWithExternalData:
@@ -183,7 +200,7 @@ class TransformWithExternalData:
     
     
 def collate_time_adjust_with_external_data(batch, cfg):
-    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = list(zip(*batch))
+    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id = list(zip(*batch))
     
     wav_adjusted = []
     lip_adjusted = []
@@ -238,4 +255,5 @@ def collate_time_adjust_with_external_data(batch, cfg):
     feature_len = torch.stack(feature_len)
     lip_len = torch.stack(lip_len)
     speaker_idx = torch.stack(speaker_idx)
-    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename
+    lang_id = torch.stack(lang_id)
+    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id

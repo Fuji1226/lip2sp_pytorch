@@ -40,7 +40,7 @@ feature_type : "mspec"
 comp_mode : 'default'
 
 # 学習に使用する口唇動画の秒数
-input_lip_sec : 5
+input_lip_sec : 10
 
 # 動画
 mov_preprocess_method : "bbox_crop"
@@ -69,8 +69,7 @@ use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
-# which_res : "default"
-which_res : "default_remake"
+which_res : "resnet18"
 
 # landmark encoder
 use_landmark : False
@@ -105,7 +104,7 @@ trans_dec_n_layers : 4
 trans_dec_n_head : 4
 
 # conformer
-conf_n_layers : 12
+conf_n_layers : 6
 conf_n_head : 4
 conf_feed_forward_expansion_factor : 8
 
@@ -125,21 +124,40 @@ taco_dec_conv_kernel_size : 31
 taco_use_attention : True
 
 # 使用するencoder
-which_encoder : "gru"
+which_encoder : "conformer"
 
 # 使用するdecoder
-which_decoder : "glu"
+which_decoder : "linear"
 
 # audio encoder
 ae_emb_dim : 4
 vae_emb_dim : 64
-vq_emb_dim : 256
+vq_emb_dim : 128
 vq_num_emb : 64
 norm_type_audio : "in"
 content_d_model : 256
 content_n_attn_layer : 1
 content_n_head : 4
 which_spk_enc : "rnn"
+audio_enc_hidden_channels : 128
+audio_enc_conv_dropout : 0.1
+audio_enc_which_encoder : 'conformer'
+audio_enc_rnn_n_layers : 2
+audio_enc_rnn_dropout : 0.1
+audio_enc_conf_n_Layers : 6
+audio_enc_conf_n_head : 4
+audio_enc_conf_feed_forward_expansion_factor : 8
+
+# audio decoder
+audio_dec_each_gru_n_layers : 1
+audio_dec_n_gru_layers : 4
+audio_dec_which_decoder : 'gru'
+audio_dec_rnn_n_layers : 2
+audio_dec_rnn_dropout : 0.1
+audio_dec_conf_n_layers : 6
+audio_dec_conf_n_head : 4
+audio_dec_conf_feedforward_expansion_factor : 8
+audio_dec_tconv_dropout : 0.1
 
 # mutual information
 mi_hidden_channels : 256
@@ -278,3 +296,13 @@ ae_detector_n_rnn_layers : 2
 # real time
 n_gru_layers : 2
 zoneout : 0.1
+
+# asr transformer
+asr_hidden_channels : 512
+asr_n_conv_layers : 2
+asr_conv_dropout : 0.1
+asr_trans_enc_n_layers : 6
+asr_trans_enc_n_head : 6
+asr_trans_dec_n_layers : 6
+asr_trans_dec_n_head : 6
+asr_out_channels : 47
