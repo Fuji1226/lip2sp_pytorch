@@ -3,10 +3,10 @@
 name : "nar"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 0
+debug_iter : 10
 
 # checkpointから再開する場合
 check_point_start : False
@@ -77,10 +77,19 @@ lrs2_pretrain_npz_path : "~/dataset/lip/np_files/lrs2_pretrain/train"
 
 # lip2wav
 lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
+npz_process_speaker_list : []
+
+# jsut corpus
+use_jsut_corpus : False
+jsut_path_train : "~/dataset/lip/np_files/jsut/train"
+
+# jvs corpus
+use_jvs_corpus : False
+jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+# corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
@@ -148,12 +157,12 @@ beta_1 : 0.9
 beta_2 : 0.98
 weight_decay : 1.0e-2
 which_optim : 'adamw'
-which_scheduler : 'warmup'
+which_scheduler : 'exp'
 
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.995
+lr_decay_exp : 0.92
 use_warmup_scheduler : False
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5
@@ -167,3 +176,6 @@ mse_weight : 1.0
 classifier_weight : 0.05
 use_weighted_mean : False
 loss_disc_weight : 0.01
+
+# gradient accumulation
+iters_to_accumulate : 10

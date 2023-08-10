@@ -10,8 +10,20 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 
-from dataset.utils import get_spk_emb, get_spk_emb_lrs2, get_spk_emb_lip2wav, get_stat_load_data, calc_mean_var_std, \
-    get_speaker_idx, get_speaker_idx_lrs2, get_speaker_idx_lip2wav
+from dataset.utils import (
+    get_spk_emb, 
+    get_spk_emb_lrs2, 
+    get_spk_emb_lip2wav, 
+    get_spk_emb_jsut, 
+    get_spk_emb_jvs, 
+    get_speaker_idx, 
+    get_speaker_idx_lrs2, 
+    get_speaker_idx_lip2wav, 
+    get_speaker_idx_jsut, 
+    get_speaker_idx_jvs,
+    get_stat_load_data, 
+    calc_mean_var_std,
+)
 
 
 class DatasetWithExternalData(Dataset):
@@ -22,16 +34,20 @@ class DatasetWithExternalData(Dataset):
         self.transform = transform
         self.cfg = cfg
         
-        speaker_idx_kablab = get_speaker_idx(data_path)
-        embs_kablab = get_spk_emb(cfg)
+        self.speaker_idx = get_speaker_idx(data_path)
+        self.embs = get_spk_emb(cfg)
         if cfg.train.which_external_data == "lrs2_main" or cfg.train.which_external_data == "lrs2_pretrain":
-            speaker_idx_ex = get_speaker_idx_lrs2(data_path, cfg)
-            embs_ex = get_spk_emb_lrs2()
-        elif cfg.train.which_external_data == "lip2wav":
-            speaker_idx_ex = get_speaker_idx_lip2wav(data_path)
-            embs_ex = get_spk_emb_lip2wav()
-        self.speaker_idx = dict(**speaker_idx_kablab, **speaker_idx_ex)
-        self.embs = dict(**embs_kablab, **embs_ex)
+            self.speaker_idx.update(get_speaker_idx_lrs2(data_path, cfg))
+            self.embs.update(get_spk_emb_lrs2())
+        if cfg.train.which_external_data == "lip2wav":
+            self.speaker_idx.update(get_speaker_idx_lip2wav(data_path))
+            self.embs.update(get_spk_emb_lip2wav())
+        if cfg.train.use_jsut_corpus:
+            self.speaker_idx.update(get_speaker_idx_jsut())
+            self.embs.update(get_spk_emb_jsut())
+        if cfg.train.use_jvs_corpus:
+            self.speaker_idx.update(get_speaker_idx_jvs())
+            self.embs.update(get_spk_emb_jvs())
         
         lip_mean_list, lip_var_list, lip_len_list, \
             feat_mean_list, feat_var_list, feat_len_list, \
@@ -81,6 +97,10 @@ class DatasetWithExternalData(Dataset):
         )
         feature_len = torch.tensor(feature.shape[-1])
         lip_len = torch.tensor(lip.shape[-1])
+
+        wav = wav.to(torch.float32)
+        lip = lip.to(torch.float32)
+        feature = feature.to(torch.float32)
         return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id
     
     

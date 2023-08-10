@@ -282,22 +282,28 @@ def get_datasets_test(data_root, cfg):
 
 
 def get_datasets_external_data(cfg):
+    items = []
     if cfg.train.which_external_data == "lrs2_main":
         print(f"\n--- get datasets lrs2_main ---")
         data_dir = Path(cfg.train.lrs2_npz_path).expanduser()
-    elif cfg.train.which_external_data == "lrs2_pretrain":
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.which_external_data == "lrs2_pretrain":
         print(f"\n--- get datasets lrs2_pretrain ---")
         data_dir = Path(cfg.train.lrs2_pretrain_npz_path).expanduser()
-    elif cfg.train.which_external_data == "lip2wav":
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.which_external_data == "lip2wav":
         print(f"\n--- get datasets lip2wav ---")
         data_dir = Path(cfg.train.lip2wav_npz_path).expanduser()
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.use_jsut_corpus:
+        print(f"\n--- get datasets jsut ---")
+        data_dir = Path(cfg.train.jsut_path_train).expanduser()
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    if cfg.train.use_jvs_corpus:
+        print(f"\n--- get datasets jvs ---")
+        data_dir = Path(cfg.train.jvs_path_train).expanduser()
+        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
         
-    spk_path_list = list(data_dir.glob("*"))
-    items = []
-    for spk_path in spk_path_list:
-        spk_path = spk_path / cfg.model.name
-        data_path_list = list(spk_path.glob("*.npz"))
-        items += data_path_list
     return items
 
 

@@ -8,6 +8,7 @@ import numpy as np
 import random
 import torch
 from torch.nn.utils import clip_grad_norm_
+from timm.scheduler import CosineLRScheduler
 
 from utils import count_params, set_config, get_path_train, make_train_val_loader_with_external_data, save_loss, check_mel_nar, requires_grad_change
 from model.model_nar import Lip2SP_NAR
@@ -115,24 +116,28 @@ def train_one_epoch(model, train_loader, optimizer, scaler, loss_f, device, cfg,
             mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
             if cfg.train.adversarial_learning:
-                spaeker_idx = torch.where((speaker_idx == 0) | (speaker_idx == 2), 0, 1)
                 classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
             else:
                 classifier_loss = torch.tensor(0)
 
             loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
 
-        epoch_loss += loss.item()
-        epoch_mse_loss += mse_loss.item()
-        epoch_classifier_loss += classifier_loss.item()
-        wandb.log({"train_loss": loss})
-        wandb.log({"train_mse_loss": mse_loss})
-        wandb.log({"train_classifier_loss": classifier_loss})
+            epoch_loss += loss.item()
+            epoch_mse_loss += mse_loss.item()
+            epoch_classifier_loss += classifier_loss.item()
+            wandb.log({"train_loss": loss})
+            wandb.log({"train_mse_loss": mse_loss})
+            wandb.log({"train_classifier_loss": classifier_loss})
+            
+            loss = loss / cfg.train.iters_to_accumulate
 
         scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        optimizer.zero_grad()
+
+        if (iter_cnt + 1) % cfg.train.iters_to_accumulate == 0 or (iter_cnt + 1) % (all_iter - 1) == 0:
+            print('update')
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -176,7 +181,6 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
         if cfg.train.adversarial_learning:
-            spaeker_idx = torch.where((speaker_idx == 0) | (speaker_idx == 2), 0, 1)
             classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
         else:
             classifier_loss = torch.tensor(0)
@@ -248,16 +252,34 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         model = make_model(cfg, device)
         
-        optimizer = torch.optim.Adam(
-            params=model.parameters(),
-            lr=cfg.train.lr, 
-            betas=(cfg.train.beta_1, cfg.train.beta_2),
-            weight_decay=cfg.train.weight_decay,    
-        )
+        if cfg.train.which_optim == 'adam':
+            optimizer = torch.optim.Adam(
+                params=model.parameters(),
+                lr=cfg.train.lr, 
+                betas=(cfg.train.beta_1, cfg.train.beta_2),
+                weight_decay=cfg.train.weight_decay,    
+            )
+        elif cfg.train.which_optim == 'adamw':
+            optimizer = torch.optim.AdamW(
+                params=model.parameters(),
+                lr=cfg.train.lr, 
+                betas=(cfg.train.beta_1, cfg.train.beta_2),
+                weight_decay=cfg.train.weight_decay,    
+            )
 
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer, gamma=cfg.train.lr_decay_exp,
-        )
+        if cfg.train.which_scheduler == 'exp':
+            scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, gamma=cfg.train.lr_decay_exp,
+            )
+        elif cfg.train.which_scheduler == 'warmup':
+            scheduler = CosineLRScheduler(
+                optimizer=optimizer,
+                t_initial=cfg.train.max_epoch,
+                lr_min=cfg.train.warmup_lr_min,
+                warmup_t=int(cfg.train.max_epoch * cfg.train.warmup_t_rate),
+                warmup_lr_init=cfg.train.warmup_lr_init,
+                warmup_prefix=True,
+            )
 
         scaler = torch.cuda.amp.GradScaler()
         
@@ -312,7 +334,6 @@ def main(cfg):
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-            print(f"learning_rate = {scheduler.get_last_lr()[0]}")
             
             epoch_loss, epoch_mse_loss, epoch_classifier_loss = train_one_epoch(
                 model=model, 
@@ -340,7 +361,12 @@ def main(cfg):
             val_mse_loss_list.append(epoch_mse_loss)
             val_classifier_loss_list.append(epoch_classifier_loss)
 
-            scheduler.step()
+            if cfg.train.which_scheduler == 'exp':
+                wandb.log({"learning_rate": scheduler.get_last_lr()[0]})
+                scheduler.step()
+            elif cfg.train.which_scheduler == 'warmup':
+                wandb.log({"learning_rate": scheduler.optimizer.param_groups[0]['lr']})
+                scheduler.step(epoch)
             
             if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(
