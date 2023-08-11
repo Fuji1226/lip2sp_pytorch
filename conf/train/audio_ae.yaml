@@ -13,13 +13,13 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # audio autoencoder
-pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
+pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_23-30-56/mspec80_12.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
 
 # モデルの中で固定するところ
-module_is_fixed : ['lip_encoder']
+module_is_fixed : ['audio_encoder', 'audio_decoder']
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
@@ -85,11 +85,11 @@ lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
 npz_process_speaker_list : []
 
 # jsut corpus
-use_jsut_corpus : True
+use_jsut_corpus : False
 jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 
 # jvs corpus
-use_jvs_corpus : True
+use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
