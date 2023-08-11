@@ -134,7 +134,6 @@ def train_one_epoch(model, train_loader, optimizer, scaler, loss_f, device, cfg,
         scaler.scale(loss).backward()
 
         if (iter_cnt + 1) % cfg.train.iters_to_accumulate == 0 or (iter_cnt + 1) % (all_iter - 1) == 0:
-            print('update')
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()

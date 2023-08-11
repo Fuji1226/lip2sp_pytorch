@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_audio_ae
+    entity:
+    mode: online
+    name : audio_ae
+watch:
+    log: all
+    log_freq: 100

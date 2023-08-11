@@ -69,7 +69,7 @@ use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
-which_res : "resnet18"
+which_res : "default_remake"
 
 # landmark encoder
 use_landmark : False
@@ -124,24 +124,24 @@ taco_dec_conv_kernel_size : 31
 taco_use_attention : True
 
 # 使用するencoder
-which_encoder : "conformer"
+which_encoder : "gru"
 
 # 使用するdecoder
-which_decoder : "linear"
+which_decoder : "restc"
 
 # audio encoder
-ae_emb_dim : 4
+ae_emb_dim : 32
 vae_emb_dim : 64
-vq_emb_dim : 128
+vq_emb_dim : 256
 vq_num_emb : 64
 norm_type_audio : "in"
 content_d_model : 256
 content_n_attn_layer : 1
 content_n_head : 4
 which_spk_enc : "rnn"
-audio_enc_hidden_channels : 128
+audio_enc_hidden_channels : 64
 audio_enc_conv_dropout : 0.1
-audio_enc_which_encoder : 'conformer'
+audio_enc_which_encoder : ''
 audio_enc_rnn_n_layers : 2
 audio_enc_rnn_dropout : 0.1
 audio_enc_conf_n_Layers : 6

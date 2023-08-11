@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+from torch.utils.data.sampler import BatchSampler
 from torchvision import transforms as T
 
 from dataset.utils import (
@@ -74,10 +75,10 @@ class DatasetWithExternalData(Dataset):
         spk_emb = torch.from_numpy(self.embs[speaker])
         filename = data_path.stem
 
-        if 'kablab' in data_path.parents[1].name:
-            lang_id = torch.tensor(0)
-        else:
+        if data_path.parents[3].name == 'lip2wav' or data_path.parents[3].name == 'lrs2_pretrain':
             lang_id = torch.tensor(1)
+        else:
+            lang_id = torch.tensor(0)
         
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
