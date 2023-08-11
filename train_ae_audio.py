@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from model.model_ae import VoiceConversionNetAE, LipEncoder
+from model.model_ae_v import VoiceConversionNetAE, LipEncoder
 from loss import MaskedLoss
 from model.mi_estimater import MyCLUBSample
 from model.nar_decoder import FeadAddPredicter

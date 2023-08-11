@@ -1,27 +1,29 @@
 ---
 
-name : "audio_vqvae"
+name : "audio_ae"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 0
+debug_iter : 10
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_vqvae/face_cropped_max_size_fps25/2023:08:11_03-09-59/mspec80_1.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # audio autoencoder
-autoencoder_check_point_path : "~/lip2sp_pytorch/check_point/audio_vqvae/face_cropped_max_size_fps25/2023:08:05_04-11-35/mspec80_1.ckpt"
+pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
-module_is_fixed : []
+
+# モデルの中で固定するところ
+module_is_fixed : ['lip_encoder']
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/audio_vqvae/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # face or lip
 face_or_lip : "face_cropped_max_size_fps25"
@@ -29,10 +31,10 @@ use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/audio_vqvae/train"
+save_path : "~/lip2sp_pytorch/result/audio_ae/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/audio_vqvae"
+ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -63,7 +65,7 @@ train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 外部データの指定
-which_external_data : "lip2wav"
+which_external_data : ""
 
 # lrs2
 lrs2_train_data_root : "~/lrs2/mvlrs_v1/main"
@@ -91,8 +93,8 @@ use_jvs_corpus : True
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
-# corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : ["ATR"]
+corpus : ["ATR", "BASIC5000", "balanced"]
+# corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
@@ -118,8 +120,8 @@ use_color_jitter : False
 use_blur : False
 use_pad : False
 use_rotation : False
-use_horizontal_flip : True
-use_random_crop : True
+use_horizontal_flip : False
+use_random_crop : False
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
@@ -175,10 +177,9 @@ warmup_lr_min : 0
 max_norm : 3.0
 
 # lossの重みづけ
-mse_weight : 1.0
-classifier_weight : 0.05
-use_weighted_mean : False
-loss_disc_weight : 0.01
+mse_loss_mel_weight : 1.0
+mse_loss_enc_feature : 1.0
+mse_loss_mel_between_enc : 1.0
 
 # gradient accumulation
 iters_to_accumulate : 1

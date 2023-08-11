@@ -582,20 +582,20 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
         print('fine tuning pretrained model by external data')
         train_dataset = DatasetWithExternalData(
             data_path=train_data_path,
-            train_data_path=train_data_path + external_data_path,
+            train_data_path=train_data_path,
             transform=train_trans,
             cfg=cfg,
         )
     else:
         train_dataset = DatasetWithExternalData(
             data_path=train_data_path + external_data_path,
-            train_data_path=train_data_path + external_data_path,
+            train_data_path=train_data_path,
             transform=train_trans,
             cfg=cfg,
         )
     val_dataset = DatasetWithExternalData(
         data_path=val_data_path,
-        train_data_path=train_data_path + external_data_path,
+        train_data_path=train_data_path,
         transform=val_trans,
         cfg=cfg,
     )

@@ -60,7 +60,7 @@ train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 外部データの指定
-which_external_data : "lrs2_pretrain"
+which_external_data : "lip2wav"
 
 # lrs2
 lrs2_train_data_root : "~/lrs2/mvlrs_v1/main"
@@ -80,16 +80,16 @@ lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
 npz_process_speaker_list : []
 
 # jsut corpus
-use_jsut_corpus : True
+use_jsut_corpus : False
 jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 
 # jvs corpus
-use_jvs_corpus : True
+use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+# corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
@@ -101,7 +101,7 @@ speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
-adversarial_learning : True
+adversarial_learning : False
 
 # max_epoch
 max_epoch : 50
@@ -112,8 +112,8 @@ use_color_jitter : False
 use_blur : False
 use_pad : False
 use_rotation : False
-use_horizontal_flip : False
-use_random_crop : False
+use_horizontal_flip : True
+use_random_crop : True
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
@@ -148,19 +148,22 @@ lm_enc_dropout : 0.1
 
 # optimizer
 lr : 0.001
-lr_lf : 0.0001
 beta_1 : 0.9
-beta_2 : 0.999
-weight_decay : 1.0e-6
+# beta_2 : 0.999
+# weight_decay : 1.0e-6
+beta_2 : 0.98
+weight_decay : 1.0e-2
+which_optim : 'adamw'
+which_scheduler : 'exp'
 
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.995
+lr_decay_exp : 0.92
 use_warmup_scheduler : False
-warmup_t : 10
-warmup_init : 1.0e-5
-warmup_min : 1.0e-6
+warmup_t_rate : 0.1
+warmup_lr_init : 1.0e-5
+warmup_lr_min : 0
 
 # gradient clipping
 max_norm : 3.0
