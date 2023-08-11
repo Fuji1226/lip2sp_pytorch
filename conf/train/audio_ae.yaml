@@ -13,7 +13,7 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # audio autoencoder
-pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
+pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_23-30-56/mspec80_12.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False

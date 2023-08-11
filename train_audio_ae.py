@@ -147,15 +147,15 @@ def train_one_epoch(lip_encoder, audio_encoder, audio_decoder, train_loader, opt
         speaker_idx = speaker_idx.to(device)
         lang_id = lang_id.to(device)
 
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
+        with torch.cuda.amp.autocast():
             audio_enc_output = audio_encoder(feature, feature_len)
             feature_pred_audio = audio_decoder(audio_enc_output, lip_len, spk_emb, lang_id)
 
             mse_loss_mel = loss_f.mse_loss(feature_pred_audio, feature, feature_len, feature_pred_audio.shape[-1])
             loss = mse_loss_mel * cfg.train.mse_loss_mel_weight
 
-            epoch_loss = loss.item()
-            epoch_mse_loss_mel = mse_loss_mel.item()
+            epoch_loss += loss.item()
+            epoch_mse_loss_mel += mse_loss_mel.item()
             wandb.log({'train_loss': loss})
             wandb.log({'train_mse_loss_mel': mse_loss_mel})
 
@@ -209,7 +209,7 @@ def val_one_epoch(lip_encoder, audio_encoder, audio_decoder, val_loader, loss_f,
         speaker_idx = speaker_idx.to(device)
         lang_id = lang_id.to(device)
 
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
+        with torch.cuda.amp.autocast():
             with torch.no_grad():
                 audio_enc_output = audio_encoder(feature, feature_len)
                 feature_pred_audio = audio_decoder(audio_enc_output, lip_len, spk_emb, lang_id)
@@ -217,8 +217,8 @@ def val_one_epoch(lip_encoder, audio_encoder, audio_decoder, val_loader, loss_f,
                 mse_loss_mel = loss_f.mse_loss(feature_pred_audio, feature, feature_len, feature_pred_audio.shape[-1])
                 loss = mse_loss_mel * cfg.train.mse_loss_mel_weight
 
-                epoch_loss = loss.item()
-                epoch_mse_loss_mel = mse_loss_mel.item()
+                epoch_loss += loss.item()
+                epoch_mse_loss_mel += mse_loss_mel.item()
                 wandb.log({'val_loss': loss})
                 wandb.log({'val_mse_loss_mel': mse_loss_mel})
 
