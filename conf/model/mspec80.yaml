@@ -141,7 +141,7 @@ content_n_head : 4
 which_spk_enc : "rnn"
 audio_enc_hidden_channels : 64
 audio_enc_conv_dropout : 0.1
-audio_enc_which_encoder : ''
+audio_enc_which_encoder : 'gru'
 audio_enc_rnn_n_layers : 2
 audio_enc_rnn_dropout : 0.1
 audio_enc_conf_n_Layers : 6

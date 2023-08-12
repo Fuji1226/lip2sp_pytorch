@@ -17,6 +17,7 @@ import seaborn as sns
 from torch.utils.data.distributed import DistributedSampler
 from collections import OrderedDict
 import pandas as pd
+import copy
 
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust, collate_time_adjust_tts
 from dataset.dataset_npz_f0 import KablabDatasetWithF0, KablabTransformWithF0, collate_time_adjust_withf0
@@ -573,6 +574,12 @@ def make_train_val_loader_lrs2(
     return train_loader, val_loader, train_dataset, val_dataset
 
 
+def data_upsampling(data_path, upsamling_factor):
+    data_path = copy.deepcopy(data_path)
+    data_path *= upsamling_factor
+    return data_path
+
+
 def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
@@ -596,12 +603,21 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
             cfg=cfg,
         )
     else:
-        train_dataset = DatasetWithExternalData(
-            data_path=train_data_path + external_data_path,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
+        if cfg.train.apply_upsampling:
+            upsampling_factor = len(external_data_path) // len(train_data_path)
+            train_dataset = DatasetWithExternalData(
+                data_path=data_upsampling(train_data_path, upsampling_factor) + external_data_path,
+                train_data_path=train_data_path,
+                transform=train_trans,
+                cfg=cfg,
+            )
+        else:
+            train_dataset = DatasetWithExternalData(
+                data_path=train_data_path + external_data_path,
+                train_data_path=train_data_path,
+                transform=train_trans,
+                cfg=cfg,
+            )
     val_dataset = DatasetWithExternalData(
         data_path=val_data_path,
         train_data_path=train_data_path,
@@ -613,7 +629,7 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
         dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=cfg.train.num_workers,      
+        num_workers=cfg.train.num_workers,
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
@@ -745,13 +761,13 @@ def make_test_loader_face_gen(cfg, data_root, train_data_root):
 
 def make_test_loader_with_external_data(cfg, data_root, train_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
-    external_data_path = get_datasets_external_data(cfg)
     test_data_path = get_datasets_test(data_root, cfg)
+    test_data_path = sorted(test_data_path)
 
-    test_trans = TransformWithExternalData(cfg, "test")
+    test_trans = TransformWithExternalData(cfg, 'test')
     test_dataset = DatasetWithExternalData(
         data_path=test_data_path,
-        train_data_path=train_data_path + external_data_path,
+        train_data_path=train_data_path,
         transform=test_trans,
         cfg=cfg,
     )

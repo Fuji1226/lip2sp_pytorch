@@ -13,7 +13,8 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # audio autoencoder
-pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_23-30-56/mspec80_12.ckpt"
+# pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_23-30-56/mspec80_12.ckpt"
+pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_02-14-55/mspec80_200.ckpt'
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
@@ -85,20 +86,23 @@ lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
 npz_process_speaker_list : []
 
 # jsut corpus
-use_jsut_corpus : False
+use_jsut_corpus : True
 jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 
 # jvs corpus
-use_jvs_corpus : False
+use_jvs_corpus : True
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+# corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
 ]
+
+# data upsampling
+apply_upsampling : True
 
 # 使用する話者
 # speaker : ["M04_kablab"]
@@ -120,8 +124,8 @@ use_color_jitter : False
 use_blur : False
 use_pad : False
 use_rotation : False
-use_horizontal_flip : False
-use_random_crop : False
+use_horizontal_flip : True
+use_random_crop : True
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
@@ -155,7 +159,7 @@ rnn_dropout : 0.1
 lm_enc_dropout : 0.1
 
 # optimizer
-lr : 0.001
+lr : 1.0e-3
 beta_1 : 0.9
 beta_2 : 0.999
 weight_decay : 1.0e-6
@@ -167,7 +171,7 @@ which_scheduler : 'exp'
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.98
+lr_decay_exp : 0.95
 use_warmup_scheduler : False
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5

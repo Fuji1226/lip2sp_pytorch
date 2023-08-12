@@ -87,7 +87,12 @@ class DatasetWithExternalData(Dataset):
             wav = wav.squeeze(0)
         lip = torch.from_numpy(npz_key['lip'])
         feature = torch.from_numpy(npz_key['feature'])
-        
+
+        if data_path.parents[3].name == 'jsut' or data_path.parents[3].name == 'jvs':
+            is_video = torch.tensor(0)
+        else:
+            is_video = torch.tensor(1)
+
         lip, feature = self.transform(
             lip=lip, 
             feature=feature, 
@@ -102,7 +107,7 @@ class DatasetWithExternalData(Dataset):
         wav = wav.to(torch.float32)
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
-        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id
+        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
     
     
 class TransformWithExternalData:
@@ -201,7 +206,7 @@ class TransformWithExternalData:
     
     
 def collate_time_adjust_with_external_data(batch, cfg):
-    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id = list(zip(*batch))
+    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
     
     wav_adjusted = []
     lip_adjusted = []
@@ -257,4 +262,5 @@ def collate_time_adjust_with_external_data(batch, cfg):
     lip_len = torch.stack(lip_len)
     speaker_idx = torch.stack(speaker_idx)
     lang_id = torch.stack(lang_id)
-    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id
+    is_video = torch.stack(is_video)
+    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video

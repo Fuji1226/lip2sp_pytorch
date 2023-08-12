@@ -2,8 +2,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import subprocess
-import schedule
-import time
 
 
 def send_email(subject, body, to_email, from_email, password):
