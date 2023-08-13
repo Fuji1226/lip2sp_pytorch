@@ -111,7 +111,7 @@ class ResNet3D(nn.Module):
     def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type) -> None:
         super().__init__()
         # FrondEndを通した時点で(H, W)が(48, 48) -> (12, 12)になるので,層数を制限しています
-        assert layers <= 3
+        assert layers <= 4
 
         self.frontend = FrontEnd(in_channels, inner_channels, dropout, norm_type)
 

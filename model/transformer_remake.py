@@ -93,7 +93,7 @@ def make_pad_mask_for_loss_test(lengths, max_len):
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
     mask = seq_range_expand >= seq_length_expand
     mask = mask.unsqueeze(1).to(device=device)
-    
+
     return mask
 
 def token_mask(x):
@@ -225,8 +225,8 @@ class PositionwiseFeedForward(nn.Module):
         super().__init__()
         # self.w_1 = nn.Linear(d_in, d_hid) # position-wise
         # self.w_2 = nn.Linear(d_hid, d_in) # position-wise
-        self.conv1 = nn.Conv1d(d_in, d_hid, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv1d(d_hid, d_in, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv1d(d_in, d_hid, kernel_size=1)
+        self.conv2 = nn.Conv1d(d_hid, d_in, kernel_size=1)
 
         self.layer_norm = nn.LayerNorm(d_in, eps=1e-6)
         self.dropout = nn.Dropout(dropout)

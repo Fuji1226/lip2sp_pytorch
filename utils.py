@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import json
 
-from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust
+from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust, collate_time_adjust_lipemb
 
 
 def prime_factorize(n):
@@ -57,6 +57,49 @@ def get_path_train(cfg, current_time):
         mean_std_path = cfg.train.face_mean_std_path
     elif cfg.train.face_or_lip == "lip":
         data_root = cfg.train.lip_pre_loaded_path
+        mean_std_path = cfg.train.lip_mean_std_path
+    data_root = Path(data_root).expanduser()
+    mean_std_path = Path(mean_std_path).expanduser()
+
+    ckpt_time = None
+    if cfg.train.check_point_start:
+        checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
+        ckpt_time = checkpoint_path.parents[0].name
+
+    # check point
+    ckpt_path = Path(cfg.train.ckpt_path).expanduser()
+    if ckpt_time is not None:
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
+    else:
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
+    os.makedirs(ckpt_path, exist_ok=True)
+
+    # save
+    save_path = Path(cfg.train.save_path).expanduser()
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
+    else:
+        save_path = save_path / cfg.train.face_or_lip / current_time
+    os.makedirs(save_path, exist_ok=True)
+
+    from omegaconf import DictConfig, OmegaConf
+    wandb_cfg = OmegaConf.to_container(
+        cfg, resolve=True, throw_on_missing=True,
+    )
+    save_path_json = os.path.join(save_path, 'config.json')
+    config_save = open(save_path_json, mode='w')
+    json.dump(wandb_cfg, config_save, indent=4)
+
+    return data_root, mean_std_path, ckpt_path, save_path, ckpt_time
+
+
+def get_path_test_tmp(cfg, current_time):
+    # data
+    if cfg.train.face_or_lip == "face":
+        data_root = cfg.test.face_pre_loaded_path
+        mean_std_path = cfg.train.face_mean_std_path
+    elif cfg.train.face_or_lip == "lip":
+        data_root = cfg.test.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
     data_root = Path(data_root).expanduser()
     mean_std_path = Path(mean_std_path).expanduser()
@@ -175,6 +218,31 @@ def save_loss(train_loss_list, val_loss_list, save_path, filename):
         xname="epoch",
     )})
 
+def save_loss_test(train_loss_list, save_path, filename):
+    loss_save_path = save_path / f"{filename}.png"
+    plt.figure()
+    plt.plot(np.arange(len(train_loss_list)), train_loss_list)
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.legend(["train loss"])
+    plt.grid()
+    plt.savefig(str(loss_save_path))
+    plt.close("all")
+    # wandb.log({f"{filename}": plt})
+    # wandb.log({f"Image {filename}": wandb.Image(os.path.join(save_path, f"{filename}.png"))})
+
+
+def save_GAN_prob(correct_list, wrong_list, save_path, filename):
+    prob_save_path = save_path / f"{filename}.png"
+    plt.figure()
+    plt.plot(np.arange(len(correct_list)), correct_list)
+    plt.plot(np.arange(len(correct_list)), wrong_list)
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.legend(["correct", "wrong"])
+    plt.grid()
+    plt.savefig(str(prob_save_path))
+    plt.close("all")
 
 def make_train_val_loader(cfg, data_root, mean_std_path):
     # パスを取得
@@ -235,6 +303,93 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
+
+def make_train_val_loader_lip_emb(cfg, data_root, mean_std_path):
+    # パスを取得
+    data_path = get_datasets(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    data_path = random.sample(data_path, len(data_path))
+    n_samples = len(data_path)
+    train_size = int(n_samples * 0.95)
+    train_data_path = data_path[:train_size]
+    val_data_path = data_path[train_size:]
+
+    # 学習用，検証用それぞれに対してtransformを作成
+    train_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="train",
+    )
+    val_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="val",
+    )
+
+    # dataset作成
+    print("\n--- make train dataset ---")
+    train_dataset = KablabDatasetLipEmb(
+        data_path=train_data_path,
+        mean_std_path = mean_std_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = KablabDatasetLipEmb(
+        data_path=val_data_path,
+        mean_std_path=mean_std_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    # それぞれのdata loaderを作成
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lipemb, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_lipemb, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_test_loader_emb(cfg, data_root, mean_std_path):
+    test_data_path = get_datasets_test(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    test_data_path = sorted(test_data_path)
+    test_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="test",
+    )
+    test_dataset = KablabDatasetLipEmb(
+        data_path=test_data_path,
+        mean_std_path = mean_std_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None
+    )
+    return test_loader, test_dataset
 
 def make_test_loader(cfg, data_root, mean_std_path):
     test_data_path = get_datasets_test(
@@ -370,7 +525,7 @@ def check_mel_nar(target, output, cfg, filename, current_time, ckpt_time=None):
     plt.title("output")
 
     plt.tight_layout()
-    save_path = Path("~/lip2sp_pytorch/data_check").expanduser()
+    save_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
     if ckpt_time is not None:
         save_path = save_path / cfg.train.name / ckpt_time
     else:

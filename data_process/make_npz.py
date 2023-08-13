@@ -16,10 +16,10 @@ except:
 # speakerのみ変更してください
 speaker = "F01_kabulab"
 LIP_PATH = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/train").expanduser()
-LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/mean_std").expanduser()
-LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files_fujita/lip_cropped/test").expanduser()
-LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_fujita1/lip_cropped/mean_std").expanduser()
+LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files_96/lip_cropped/train").expanduser()
+LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_96/lip_cropped/mean_std").expanduser()
+LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files_96/lip_cropped/test").expanduser()
+LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_96/lip_cropped/mean_std").expanduser()
 
 
 def get_dataset_lip(data_root):    

@@ -115,6 +115,7 @@ def train_one_epoch(model: nn.Module, train_loader, optimizer, loss_f_mse, loss_
         print(f'iter {iter_cnt}/{all_iter}')
         
         (lip, target, feat_add), data_len, label = batch
+        print(f'batch_size: {lip.shape[0]}')
         lip, target, feat_add, data_len = lip.to(device), target.to(device), feat_add.to(device), data_len.to(device)
 
         batch_size = lip.shape[0]

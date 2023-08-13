@@ -84,20 +84,8 @@ class Lip2SP(nn.Module):
         self.multi_task = multi_task
         self.add_feat_add = add_feat_add
 
-        if apply_first_bn:
-            self.first_batch_norm = nn.BatchNorm3d(in_channels)
-
-        self.ResNet_GAP = ResNet3D(
-            in_channels=in_channels, 
-            out_channels=d_model, 
-            inner_channels=res_inner_channels,
-            layers=res_layers, 
-            dropout=res_dropout,
-            norm_type=norm_type,
-        )
-
         #re-centering(linear projection)
-        self.re_centering = nn.Linear(d_model, d_model)
+        self.re_centering = nn.Linear(1000, d_model)
     
         # encoder
         if self.which_encoder == "transformer":
@@ -159,7 +147,7 @@ class Lip2SP(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
 
-    def forward(self, lip, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
+    def forward(self, emb, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
         """
         lip : (B, C, H, W, T)
         prev, out, dec_output : (B, C, T)
@@ -169,12 +157,8 @@ class Lip2SP(nn.Module):
 
     
         # encoder
-        if self.apply_first_bn:
-            lip = self.first_batch_norm(lip)
-        lip_feature = self.ResNet_GAP(lip) #(B, C, T)
-        
         #re-centering(linear projection)
-        lip_feature = self.re_centering(lip_feature.transpose(1, 2))
+        lip_feature = self.re_centering(emb.transpose(1, 2))
         lip_feature = lip_feature.transpose(1, 2)
         
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
@@ -218,6 +202,7 @@ class Lip2SP(nn.Module):
                 dec_output = self.decoder_forward(enc_output, mixed_prev, data_len)
         # 推論時
         else:
+            print('prev is None')
             dec_output = self.decoder_inference(enc_output)
 
         # postnet
@@ -245,6 +230,7 @@ class Lip2SP(nn.Module):
         enc_output : (B, T, C)
         dec_output : (B, C, T)
         """
+        print('start inference2')
         dec_outputs = []
         max_decoder_time_steps = enc_output.shape[1] 
 

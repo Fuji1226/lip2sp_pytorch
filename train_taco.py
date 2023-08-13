@@ -13,11 +13,13 @@ from librosa.display import specshow
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
-from synthesis import generate_for_train_check, generate_for_FR_train_loss
+from synthesis import generate_for_train_check_taco
 
 from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader
-from model.model_default import Lip2SP
+from model.model_trans_taco import Lip2SP
 from loss import MaskedLoss
+
+import psutil
 
 # wandbへのログイン
 wandb.login()
@@ -101,14 +103,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         print(f'iter {iter_cnt}/{all_iter}')
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
        
-        lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
       
         # output : postnet後の出力
         # dec_output : postnet前の出力
         if cfg.train.use_gc:
             output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
         else:
-            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+            #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
+            output, dec_output, feat_add_out, _ = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
+                        
         B, C, T = output.shape
 
         if cfg.train.multi_task:
@@ -155,6 +159,9 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
                 if cfg.train.multi_task:
                     check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
+        
+        del lip, feature, feat_add, upsample, data_len, speaker, label, output, dec_output
+        torch.cuda.empty_cache()
 
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
@@ -181,7 +188,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             if cfg.train.use_gc:
                 output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
             else:
-                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+                output, dec_output, feat_add_out, _ = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
@@ -233,6 +240,19 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
     else:
         return mixing_prob
 
+
+def mixing_prob_controller_test(cfg):
+    prob_list = []
+    mixing_prob = 0
+    min_prob = 0.1
+    base_prob = 0.75
+    for i in range(700):
+        mixing_prob = base_prob * (0.993 ** i)
+        if mixing_prob > 0.1:
+            prob_list.append(mixing_prob)
+        else:
+            prob_list.append(min_prob)
+    return prob_list
 
 
 @hydra.main(config_name="config", config_path="conf")
@@ -335,6 +355,9 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
+        prob_list = mixing_prob_controller_test(cfg)
+
+
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
@@ -357,13 +380,11 @@ def main(cfg):
                     mixing_prob = cfg.train.mixing_prob
             else:
                 mixing_prob = cfg.train.mixing_prob
-            # if  False:
-            #     mixing_prob = 0.5
-            # else:
-            #     mixing_prob =0.995**epoch
+
+            mixing_prob = prob_list[current_epoch-1]
 
             print(f"training_method : {training_method}")
-            print(f"mixing_prob = {mixing_prob}")
+            print(f"mixing prob: {mixing_prob}")
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
 
             # training
@@ -414,35 +435,24 @@ def main(cfg):
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
 
-            epoch_output_loss_FR_train, epoch_dec_output_loss_FR_train = generate_for_FR_train_loss(
-                cfg = cfg,
-                model = model,
-                train_loader = train_loader,
-                dataset=train_dataset,
-                device=device,
-                save_path=save_path,
-                epoch=epoch,
-                loss_f=loss_f
-            )
-            epoch_output_loss_FR_val, epoch_dec_output_loss_FR_val = generate_for_FR_train_loss(
-                cfg = cfg,
-                model = model,
-                train_loader = val_loader,
-                dataset=val_dataset,
-                device=device,
-                save_path=save_path,
-                epoch=epoch,
-                loss_f=loss_f
-            )
+            # epoch_output_loss_FR_train, epoch_dec_output_loss_FR_train = generate_for_FR_train_loss(
+            #     cfg = cfg,
+            #     model = model,
+            #     train_loader = train_loader,
+            #     dataset=train_dataset,
+            #     device=device,
+            #     save_path=save_path,
+            #     epoch=epoch,
+            #     loss_f=loss_f
+            # )
+            # train_output_loss_list_FR.append(epoch_output_loss_FR_train)
+            # train_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_train)
+            # val_output_loss_list_FR.append(epoch_output_loss_FR_val)
+            # val_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_val)  
+            # save_loss(train_output_loss_list_FR, val_output_loss_list_FR, save_path, "FR_output_loss")
+            # save_loss(train_dec_output_loss_list_FR, val_dec_output_loss_list_FR, save_path, "FR_dec_output_loss")
             
-            train_output_loss_list_FR.append(epoch_output_loss_FR_train)
-            train_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_train)
-            val_output_loss_list_FR.append(epoch_output_loss_FR_val)
-            val_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_val)  
-            save_loss(train_output_loss_list_FR, val_output_loss_list_FR, save_path, "FR_output_loss")
-            save_loss(train_dec_output_loss_list_FR, val_dec_output_loss_list_FR, save_path, "FR_dec_output_loss")
-            
-            generate_for_train_check(
+            generate_for_train_check_taco(
                 cfg = cfg,
                 model = model,
                 test_loader = test_loader,
@@ -451,6 +461,9 @@ def main(cfg):
                 save_path=save_path,
                 epoch=epoch
             )
+            
+            mem = psutil.virtual_memory() 
+            print(f'cpu usage: {mem.percent}')
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

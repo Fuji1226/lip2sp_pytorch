@@ -41,6 +41,7 @@ class Prenet(nn.Module):
         # out = F.dropout(out, self.dropout, training=True)
 
         # out = F.relu(self.conv3(out))
+        
         out = self.fc(x)
 
         out = self.project_pre(out)

@@ -28,13 +28,14 @@ import numpy as np
 import random
 import time
 from tqdm import tqdm
+import seaborn as sns
 
 import torch
 from torch.utils.data import DataLoader
 
 from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets
 from data_check import save_data
-from train_default import make_model
+from train_taco import make_model
 from calc_accuracy import calc_accuracy
 from utils import make_test_loader, get_path_test, make_train_val_loader
 
@@ -46,6 +47,18 @@ torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
 random.seed(0)
 
+def check_attention_weight(att_w, filename, save_path):
+    att_w = att_w.to('cpu').detach().numpy().copy()
+
+    plt.figure()
+    sns.heatmap(att_w, cmap="viridis", cbar=True)
+    plt.title("attention weight")
+    plt.xlabel("text")
+    plt.ylabel("feature")
+
+    att_path = save_path / f"{filename}.png"
+    plt.savefig(str(att_path))
+    plt.close()
 
 def fix_model_state_dict(state_dict):
     new_state_dict = OrderedDict()
@@ -81,7 +94,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         start_time = time.time()
         with torch.no_grad():
             print(f'generate {iter_cnt}')
-            output, dec_output, feat_add_out = model(lip)
+            output, dec_output, feat_add_out, att_w = model(lip, data_len=data_len)
             #tf_output, _, _ = model(lip=lip, prev=feature)
 
         end_time = time.time()
@@ -106,15 +119,17 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
             feat_mean=feat_mean,
             feat_std=feat_std,
         )
+        
+        check_attention_weight(att_w[0], "attention_FR", _save_path)
 
         with torch.no_grad():
-            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method='ss', mixing_prob=0.1)
+            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method='ss', mixing_prob=0.1)
 
         feature = feature[0].to('cpu').detach().numpy().copy()
         output = output[0].to('cpu').detach().numpy().copy()
         dec_output = dec_output[0].to('cpu').detach().numpy().copy()
 
-        _save_path = str(_save_path) + '/melspec_ss.png'
+        ss_save_path = str(_save_path) + '/melspec_ss.png'
 
 
         plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
@@ -157,7 +172,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         plt.title("dec_output")
         plt.tight_layout()
 
-        plt.savefig(str(_save_path))
+        plt.savefig(ss_save_path)
         plt.close()
 
         # save_data(
@@ -173,6 +188,7 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
         #     feat_mean=feat_mean,
         #     feat_std=feat_std,
         # )
+        check_attention_weight(att_w[0], "attention_SS", _save_path)
 
 
         iter_cnt += 1

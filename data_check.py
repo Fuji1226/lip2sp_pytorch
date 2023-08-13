@@ -240,7 +240,7 @@ def plot_mel(cfg, save_path, wav_input, wav_AbS, wav_gen):
     plt.colorbar(format="%+2.f dB")
     plt.xlabel("Time[s]")
     plt.ylabel("Frequency[Hz]")
-    plt.title("Synthesis")
+    plt.title("Transformer+GAN")
 
     plt.tight_layout()
     plt.savefig(str(save_path / "melspectrogram.png"))

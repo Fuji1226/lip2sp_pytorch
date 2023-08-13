@@ -13,12 +13,13 @@ from librosa.display import specshow
 import torch
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
-from synthesis import generate_for_train_check, generate_for_FR_train_loss
+from synthesis import generate_for_train_check
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader
+from utils import make_train_val_loader, get_path_train, get_path_test_tmp, save_loss, check_feat_add, check_mel_default, make_test_loader, save_loss_test, save_GAN_prob
 from model.model_default import Lip2SP
 from loss import MaskedLoss
 
+from model.SAGAN.model import Discriminator_simple, train_SAGAN_one_epoch, train_SAGAN_PF_epoch, train_SAGAN_PFsimple_epoch
 # wandbへのログイン
 wandb.login()
 
@@ -79,8 +80,9 @@ def make_model(cfg, device):
         reduction_factor=cfg.model.reduction_factor,
         use_gc=cfg.train.use_gc,
     )
-    
-    # multi GPU
+    checkpoint_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2022:12:20_16-17-47_transformer_face/mspec80_600.ckpt'
+    checkpoint = torch.load(checkpoint_path)
+    model.load_state_dict(checkpoint["model"])
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
         print(f"\nusing {torch.cuda.device_count()} GPU")
@@ -93,16 +95,14 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     epoch_loss_feat_add = 0
     iter_cnt = 0
     all_iter = len(train_loader)
-    print("iter start")
-    optimizer.zero_grad()
+    print("iter start") 
     model.train()
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
         lip, feature, feat_add, upsample, data_len, speaker, label = batch
-       
         lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
-      
+        
         # output : postnet後の出力
         # dec_output : postnet前の出力
         if cfg.train.use_gc:
@@ -162,6 +162,60 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add
 
 
+def train_SAGAN_loop(epochs, G, D, train_loader, opt_G, opt_D, loss_f, save_path, device, training_method, mixing_prob, cfg, test_loader, test_dataset):
+    print('start SAGAN')
+
+    output_loss_list = []
+    dec_output_loss_list = []
+    loss_G_list = []
+    loss_D_list = []
+    correct_cnt_list = []
+    wrong_cnt_list = []
+
+    change_g = False
+    change_d = True
+
+    generate_for_train_check(
+        cfg = cfg,
+        model = G,
+        test_loader = test_loader,
+        dataset=test_dataset,
+        device=device,
+        save_path=save_path,
+        epoch=-1
+    )
+
+
+    for epoch in range(epochs): 
+        print(f'########### epoch {epoch}  ##########')
+        output_loss_all, dec_output_loss_all, loss_G_all, loss_D_all, corret_cnt, wrong_cnt, change_g, change_d = train_SAGAN_PFsimple_epoch(G, D, opt_D, opt_G, train_loader, training_method, mixing_prob, loss_f, device, change_g, change_d)
+
+        output_loss_list.append(output_loss_all)
+        dec_output_loss_list.append(dec_output_loss_all)
+        loss_G_list.append(loss_G_all)
+        loss_D_list.append(loss_D_all)
+        correct_cnt_list.append(corret_cnt)
+        wrong_cnt_list.append(wrong_cnt)
+
+
+        save_loss_test(output_loss_list, save_path, "output_loss")
+        save_loss_test(dec_output_loss_list, save_path, "dec_output_loss")
+        save_loss_test(loss_G_list, save_path, "loss_G")
+        save_loss_test(loss_D_list, save_path, "loss_D")
+        save_GAN_prob(correct_cnt_list, wrong_cnt_list, save_path, "GAN_prob")
+
+        generate_for_train_check(
+            cfg = cfg,
+            model = G,
+            test_loader = test_loader,
+            dataset=test_dataset,
+            device=device,
+            save_path=save_path,
+            epoch=epoch
+        )
+
+
+
 def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
@@ -174,7 +228,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
 
-        lip, feature, feat_add, upsample, data_len, speaker, label = batch        
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch
         lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
@@ -253,6 +307,7 @@ def main(cfg):
     #breakpoint()
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = 'cpu'
     print(f"device = {device}")
 
     print(f"cpu_num = {os.cpu_count()}")
@@ -271,9 +326,11 @@ def main(cfg):
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
 
+    test_data_root, _, _, _, _ = get_path_test_tmp(cfg, current_time)
     # Dataloader作成
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, data_root, mean_std_path)
-    test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
+
+    train_loader, val_loader, _, _ = make_train_val_loader(cfg, data_root, mean_std_path)
+    test_loader, test_dataset = make_test_loader(cfg, test_data_root, mean_std_path)
 
     # 損失関数
     loss_f = MaskedLoss()
@@ -283,15 +340,15 @@ def main(cfg):
     val_output_loss_list = []
     val_dec_output_loss_list = []
     val_feat_add_loss_list = []
-    
-    train_output_loss_list_FR = []
-    train_dec_output_loss_list_FR = []
-    val_output_loss_list_FR = []
-    val_dec_output_loss_list_FR = []
 
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
- 
+
+    if cfg.tag == "debug_test":
+        cfg.train.batch_size = 8
+
+    D = Discriminator_simple()
+    D = D.to(device)
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
@@ -299,6 +356,13 @@ def main(cfg):
         # optimizer
         optimizer = torch.optim.Adam(
             params=model.parameters(),
+            lr=cfg.train.lr, 
+            betas=(cfg.train.beta_1, cfg.train.beta_2),
+            weight_decay=cfg.train.weight_decay    
+        )
+
+        optimizer_d = torch.optim.Adam(
+            params=D.parameters(),
             lr=cfg.train.lr, 
             betas=(cfg.train.beta_1, cfg.train.beta_2),
             weight_decay=cfg.train.weight_decay    
@@ -335,7 +399,9 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
+
         for epoch in range(cfg.train.max_epoch - last_epoch):
+            break
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
           
@@ -346,21 +412,21 @@ def main(cfg):
                 training_method = "ss"  # scheduled sampling
 
             # mixing_probの変更
-            if cfg.train.change_mixing_prob:
-                if current_epoch >= cfg.train.mp_change_step:
-                    if cfg.train.fixed_mixing_prob:
-                        mixing_prob = 0.1
-                    else:
-                        mixing_prob = torch.randint(10, 50, (1,)) / 100     # [0.1, 0.5]でランダム
-                        mixing_prob = mixing_prob.item()
-                else:
-                    mixing_prob = cfg.train.mixing_prob
-            else:
-                mixing_prob = cfg.train.mixing_prob
-            # if  False:
-            #     mixing_prob = 0.5
+            # if cfg.train.change_mixing_prob:
+            #     if current_epoch >= cfg.train.mp_change_step:
+            #         if cfg.train.fixed_mixing_prob:
+            #             mixing_prob = 0.1
+            #         else:
+            #             mixing_prob = torch.randint(10, 50, (1,)) / 100     # [0.1, 0.5]でランダム
+            #             mixing_prob = mixing_prob.item()
+            #     else:
+            #         mixing_prob = cfg.train.mixing_prob
             # else:
-            #     mixing_prob =0.995**epoch
+            #     mixing_prob = cfg.train.mixing_prob
+            if epoch < 100:
+                mixing_prob = 0.5
+            else:
+                mixing_prob = 0.5 * 0.98**(epoch-100)
 
             print(f"training_method : {training_method}")
             print(f"mixing_prob = {mixing_prob}")
@@ -414,33 +480,6 @@ def main(cfg):
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
 
-            epoch_output_loss_FR_train, epoch_dec_output_loss_FR_train = generate_for_FR_train_loss(
-                cfg = cfg,
-                model = model,
-                train_loader = train_loader,
-                dataset=train_dataset,
-                device=device,
-                save_path=save_path,
-                epoch=epoch,
-                loss_f=loss_f
-            )
-            epoch_output_loss_FR_val, epoch_dec_output_loss_FR_val = generate_for_FR_train_loss(
-                cfg = cfg,
-                model = model,
-                train_loader = val_loader,
-                dataset=val_dataset,
-                device=device,
-                save_path=save_path,
-                epoch=epoch,
-                loss_f=loss_f
-            )
-            
-            train_output_loss_list_FR.append(epoch_output_loss_FR_train)
-            train_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_train)
-            val_output_loss_list_FR.append(epoch_output_loss_FR_val)
-            val_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_val)  
-            save_loss(train_output_loss_list_FR, val_output_loss_list_FR, save_path, "FR_output_loss")
-            save_loss(train_dec_output_loss_list_FR, val_dec_output_loss_list_FR, save_path, "FR_dec_output_loss")
             
             generate_for_train_check(
                 cfg = cfg,
@@ -451,6 +490,13 @@ def main(cfg):
                 save_path=save_path,
                 epoch=epoch
             )
+
+            if epoch > 5:
+                break
+
+        mixing_prob = 0.1
+  
+        train_SAGAN_loop(500, model, D, train_loader, optimizer, optimizer_d, loss_f=loss_f, save_path=save_path, device=device, training_method='ss', mixing_prob=mixing_prob, cfg=cfg, test_loader=test_loader, test_dataset=test_dataset)
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"
