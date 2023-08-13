@@ -12,8 +12,8 @@ from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
 from utils import count_params, set_config, get_path_train, make_train_val_loader_with_external_data, save_loss, check_mel_nar, requires_grad_change
-from model.model_ae import LipEncoder, AudioEncoder, AudioDecoder
 from loss import MaskedLoss
+from train_audio_ae import make_model
 
 # wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -67,61 +67,6 @@ def save_checkpoint(
         'val_mse_loss_mel_lip_list': val_mse_loss_mel_lip_list,
         'epoch': epoch
     }, ckpt_path)
-
-
-def make_model(cfg, device):
-    lip_encoder = LipEncoder(
-        which_res=cfg.model.which_res,
-        in_channels=cfg.model.in_channels,
-        res_inner_channels=cfg.model.res_inner_channels,
-        res_dropout=cfg.train.res_dropout,
-        is_large=cfg.model.is_large,
-        which_encoder=cfg.model.which_encoder,
-        rnn_n_layers=cfg.model.rnn_n_layers,
-        rnn_dropout=cfg.train.rnn_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        conf_n_layers=cfg.model.conf_n_layers,
-        conf_n_head=cfg.model.conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
-        out_channels=cfg.model.ae_emb_dim,
-    )
-    audio_encoder = AudioEncoder(
-        in_channels=cfg.model.n_mel_channels,
-        hidden_channels=cfg.model.audio_enc_hidden_channels,
-        conv_dropout=cfg.model.audio_enc_conv_dropout,
-        which_encoder=cfg.model.audio_enc_which_encoder,
-        rnn_n_layers=cfg.model.audio_enc_rnn_n_layers,
-        rnn_dropout=cfg.model.audio_enc_rnn_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        conf_n_layers=cfg.model.audio_enc_conf_n_Layers,
-        conf_n_head=cfg.model.audio_enc_conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.audio_enc_conf_feed_forward_expansion_factor,
-        out_channels=cfg.model.ae_emb_dim,
-    )
-    audio_decoder = AudioDecoder(
-        which_decoder=cfg.model.audio_dec_which_decoder,
-        hidden_channels=cfg.model.ae_emb_dim + cfg.model.spk_emb_dim + 1,
-        rnn_n_layers=cfg.model.audio_dec_rnn_n_layers,
-        rnn_dropout=cfg.model.audio_dec_rnn_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        conf_n_layers=cfg.model.audio_dec_conf_n_layers,
-        conf_n_head=cfg.model.audio_dec_conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.audio_dec_conf_feedforward_expansion_factor,
-        tconv_dropout=cfg.model.audio_dec_tconv_dropout,
-        out_channels=cfg.model.n_mel_channels,
-    )
-
-    count_params(lip_encoder, 'lip_encoder')
-    count_params(audio_encoder, 'audio_encoder')
-    count_params(audio_decoder, 'audio_decoder')
-
-    lip_encoder = lip_encoder.to(device)
-    audio_encoder = audio_encoder.to(device)
-    audio_decoder = audio_decoder.to(device)
-    return lip_encoder, audio_encoder, audio_decoder
 
 
 def train_one_epoch(lip_encoder, audio_encoder, audio_decoder, train_loader, optimizer, scaler, loss_f, device, cfg, ckpt_time):
@@ -318,14 +263,15 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         lip_encoder, audio_encoder, audio_decoder = make_model(cfg, device)
 
-        pretrained_model_path = Path(cfg.train.pretrained_model_path).expanduser()
-        if torch.cuda.is_available():
-            checkpoint = torch.load(pretrained_model_path)
-        else:
-            checkpoint = torch.load(pretrained_model_path, map_location=torch.device('cpu'))
-        lip_encoder.load_state_dict(checkpoint["lip_encoder"])
-        audio_encoder.load_state_dict(checkpoint["audio_encoder"])
-        audio_decoder.load_state_dict(checkpoint["audio_decoder"])
+        if cfg.train.load_pretrained_model:
+            pretrained_model_path = Path(cfg.train.pretrained_model_path).expanduser()
+            if torch.cuda.is_available():
+                checkpoint = torch.load(pretrained_model_path)
+            else:
+                checkpoint = torch.load(pretrained_model_path, map_location=torch.device('cpu'))
+            lip_encoder.load_state_dict(checkpoint["lip_encoder"])
+            audio_encoder.load_state_dict(checkpoint["audio_encoder"])
+            audio_decoder.load_state_dict(checkpoint["audio_decoder"])
 
         if cfg.train.which_optim == 'adam':
             optimizer = torch.optim.Adam(

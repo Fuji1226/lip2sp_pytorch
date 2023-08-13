@@ -12,8 +12,8 @@ from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
 from utils import count_params, set_config, get_path_train, make_train_val_loader_with_external_data, save_loss, check_mel_nar, requires_grad_change
-from model.model_ae import LipEncoder, AudioEncoder, AudioDecoder
 from loss import MaskedLoss
+from train_audio_ae import make_model
 
 # wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -35,11 +35,13 @@ def save_checkpoint(
     scheduler,
     scaler,
     train_loss_list,
-    train_mse_loss_mel_list,
+    train_mse_loss_mel_audio_list,
+    train_mse_loss_mel_lip_list,
     train_mse_loss_enc_feature_list,
     train_mse_loss_mel_between_enc_list,
     val_loss_list,
-    val_mse_loss_mel_list,
+    val_mse_loss_mel_audio_list,
+    val_mse_loss_mel_lip_list,
     val_mse_loss_enc_feature_list,
     val_mse_loss_mel_between_enc_list,
     epoch,
@@ -58,75 +60,23 @@ def save_checkpoint(
         "torch_random": torch.random.get_rng_state(),
         'cuda_random' : torch.cuda.get_rng_state(),
         'train_loss_list': train_loss_list,
-        'train_mse_loss_mel_list': train_mse_loss_mel_list,
+        'train_mse_loss_mel_audio_list': train_mse_loss_mel_audio_list,
+        'train_mse_loss_mel_lip_list': train_mse_loss_mel_lip_list,
         'train_mse_loss_enc_feature_list': train_mse_loss_enc_feature_list,
         'train_mse_loss_mel_between_enc_list': train_mse_loss_mel_between_enc_list,
         'val_loss_list': val_loss_list,
-        'val_mse_loss_mel_list': val_mse_loss_mel_list,
+        'val_mse_loss_mel_audio_list': val_mse_loss_mel_audio_list,
+        'val_mse_loss_mel_lip_list': val_mse_loss_mel_lip_list,
         'val_mse_loss_enc_feature_list': val_mse_loss_enc_feature_list,
         'val_mse_loss_mel_between_enc_list': val_mse_loss_mel_between_enc_list,
         'epoch': epoch
     }, ckpt_path)
 
 
-def make_model(cfg, device):
-    lip_encoder = LipEncoder(
-        which_res=cfg.model.which_res,
-        in_channels=cfg.model.in_channels,
-        res_inner_channels=cfg.model.res_inner_channels,
-        res_dropout=cfg.train.res_dropout,
-        is_large=cfg.model.is_large,
-        which_encoder=cfg.model.which_encoder,
-        rnn_n_layers=cfg.model.rnn_n_layers,
-        rnn_dropout=cfg.train.rnn_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        conf_n_layers=cfg.model.conf_n_layers,
-        conf_n_head=cfg.model.conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
-        out_channels=cfg.model.ae_emb_dim,
-    )
-    audio_encoder = AudioEncoder(
-        in_channels=cfg.model.n_mel_channels,
-        hidden_channels=cfg.model.audio_enc_hidden_channels,
-        conv_dropout=cfg.model.audio_enc_conv_dropout,
-        which_encoder=cfg.model.audio_enc_which_encoder,
-        rnn_n_layers=cfg.model.audio_enc_rnn_n_layers,
-        rnn_dropout=cfg.model.audio_enc_rnn_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        conf_n_layers=cfg.model.audio_enc_conf_n_Layers,
-        conf_n_head=cfg.model.audio_enc_conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.audio_enc_conf_feed_forward_expansion_factor,
-        out_channels=cfg.model.ae_emb_dim,
-    )
-    audio_decoder = AudioDecoder(
-        which_decoder=cfg.model.audio_dec_which_decoder,
-        hidden_channels=cfg.model.ae_emb_dim + cfg.model.spk_emb_dim + 1,
-        rnn_n_layers=cfg.model.audio_dec_rnn_n_layers,
-        rnn_dropout=cfg.model.audio_dec_rnn_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        conf_n_layers=cfg.model.audio_dec_conf_n_layers,
-        conf_n_head=cfg.model.audio_dec_conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.audio_dec_conf_feedforward_expansion_factor,
-        tconv_dropout=cfg.model.audio_dec_tconv_dropout,
-        out_channels=cfg.model.n_mel_channels,
-    )
-
-    count_params(lip_encoder, 'lip_encoder')
-    count_params(audio_encoder, 'audio_encoder')
-    count_params(audio_decoder, 'audio_decoder')
-
-    lip_encoder = lip_encoder.to(device)
-    audio_encoder = audio_encoder.to(device)
-    audio_decoder = audio_decoder.to(device)
-    return lip_encoder, audio_encoder, audio_decoder
-
-
 def train_one_epoch(lip_encoder, audio_encoder, audio_decoder, train_loader, optimizer, scaler, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
-    epoch_mse_loss_mel = 0
+    epoch_mse_loss_mel_audio = 0
+    epoch_mse_loss_mel_lip = 0
     epoch_mse_loss_enc_feature = 0
     epoch_mse_loss_mel_between_enc = 0
     iter_cnt = 0
@@ -153,19 +103,21 @@ def train_one_epoch(lip_encoder, audio_encoder, audio_decoder, train_loader, opt
             lip_enc_output = lip_encoder(lip, lip_len)
             feature_pred_lip = audio_decoder(lip_enc_output, lip_len, spk_emb, lang_id)
 
-            mse_loss_mel = loss_f.mse_loss(feature_pred_audio, feature, feature_len, feature_pred_audio.shape[-1])
+            mse_loss_mel_audio = loss_f.mse_loss(feature_pred_audio, feature, feature_len, feature_pred_audio.shape[-1])
+            mse_loss_mel_lip = loss_f.mse_loss(feature_pred_lip, feature, feature_len, feature_pred_lip.shape[-1])
             mse_loss_enc_feature = loss_f.mse_loss(lip_enc_output.permute(0, 2, 1), audio_enc_output.permute(0, 2, 1), lip_len, lip_enc_output.shape[1])
             mse_loss_mel_between_enc = loss_f.mse_loss(feature_pred_lip, feature_pred_audio, feature_len, feature_pred_audio.shape[-1])
-            loss = mse_loss_mel * cfg.train.mse_loss_mel_weight +\
-                mse_loss_enc_feature * cfg.train.mse_loss_enc_feature +\
+            loss = mse_loss_enc_feature * cfg.train.mse_loss_enc_feature +\
                 mse_loss_mel_between_enc * cfg.train.mse_loss_mel_between_enc
 
             epoch_loss += loss.item()
-            epoch_mse_loss_mel += mse_loss_mel.item()
+            epoch_mse_loss_mel_audio += mse_loss_mel_audio.item()
+            epoch_mse_loss_mel_lip += mse_loss_mel_lip.item()
             epoch_mse_loss_enc_feature += mse_loss_enc_feature.item()
             epoch_mse_loss_mel_between_enc += mse_loss_mel_between_enc.item()
             wandb.log({'train_loss': loss})
-            wandb.log({'train_mse_loss_mel': mse_loss_mel})
+            wandb.log({'train_mse_loss_mel_audio': mse_loss_mel_audio})
+            wandb.log({'train_mse_loss_mel_lip': mse_loss_mel_lip})
             wandb.log({'train_mse_loss_enc_feature': mse_loss_enc_feature})
             wandb.log({'train_mse_loss_mel_between_enc': mse_loss_mel_between_enc})
 
@@ -192,15 +144,17 @@ def train_one_epoch(lip_encoder, audio_encoder, audio_decoder, train_loader, opt
                 check_mel_nar(feature[0], feature_pred_lip[0], cfg, "mel_lip_train", current_time, ckpt_time)
 
     epoch_loss /= iter_cnt
-    epoch_mse_loss_mel /= iter_cnt
+    epoch_mse_loss_mel_audio /= iter_cnt
+    epoch_mse_loss_mel_lip /= iter_cnt
     epoch_mse_loss_enc_feature /= iter_cnt
     epoch_mse_loss_mel_between_enc /= iter_cnt
-    return epoch_loss, epoch_mse_loss_mel, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc
+    return epoch_loss, epoch_mse_loss_mel_audio, epoch_mse_loss_mel_lip, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc
 
 
 def val_one_epoch(lip_encoder, audio_encoder, audio_decoder, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_loss = 0
-    epoch_mse_loss_mel = 0
+    epoch_mse_loss_mel_audio = 0
+    epoch_mse_loss_mel_lip = 0
     epoch_mse_loss_enc_feature = 0
     epoch_mse_loss_mel_between_enc = 0
     iter_cnt = 0
@@ -228,21 +182,23 @@ def val_one_epoch(lip_encoder, audio_encoder, audio_decoder, val_loader, loss_f,
                 lip_enc_output = lip_encoder(lip, lip_len)
                 feature_pred_lip = audio_decoder(lip_enc_output, lip_len, spk_emb, lang_id)
 
-                mse_loss_mel = loss_f.mse_loss(feature_pred_audio, feature, feature_len, feature_pred_audio.shape[-1])
-                mse_loss_enc_feature = loss_f.mse_loss(lip_enc_output.permute(0, 2, 1), audio_enc_output.permute(0, 2, 1), lip_len, lip_enc_output.shape[1])
-                mse_loss_mel_between_enc = loss_f.mse_loss(feature_pred_lip, feature_pred_audio, feature_len, feature_pred_audio.shape[-1])
-                loss = mse_loss_mel * cfg.train.mse_loss_mel_weight +\
-                    mse_loss_enc_feature * cfg.train.mse_loss_enc_feature +\
-                    mse_loss_mel_between_enc * cfg.train.mse_loss_mel_between_enc
+            mse_loss_mel_audio = loss_f.mse_loss(feature_pred_audio, feature, feature_len, feature_pred_audio.shape[-1])
+            mse_loss_mel_lip = loss_f.mse_loss(feature_pred_lip, feature, feature_len, feature_pred_lip.shape[-1])
+            mse_loss_enc_feature = loss_f.mse_loss(lip_enc_output.permute(0, 2, 1), audio_enc_output.permute(0, 2, 1), lip_len, lip_enc_output.shape[1])
+            mse_loss_mel_between_enc = loss_f.mse_loss(feature_pred_lip, feature_pred_audio, feature_len, feature_pred_audio.shape[-1])
+            loss = mse_loss_enc_feature * cfg.train.mse_loss_enc_feature +\
+                mse_loss_mel_between_enc * cfg.train.mse_loss_mel_between_enc
 
-                epoch_loss += loss.item()
-                epoch_mse_loss_mel += mse_loss_mel.item()
-                epoch_mse_loss_enc_feature += mse_loss_enc_feature.item()
-                epoch_mse_loss_mel_between_enc += mse_loss_mel_between_enc.item()
-                wandb.log({'val_loss': loss})
-                wandb.log({'val_mse_loss_mel': mse_loss_mel})
-                wandb.log({'val_mse_loss_enc_feature': mse_loss_enc_feature})
-                wandb.log({'val_mse_loss_mel_between_enc': mse_loss_mel_between_enc})
+            epoch_loss += loss.item()
+            epoch_mse_loss_mel_audio += mse_loss_mel_audio.item()
+            epoch_mse_loss_mel_lip += mse_loss_mel_lip.item()
+            epoch_mse_loss_enc_feature += mse_loss_enc_feature.item()
+            epoch_mse_loss_mel_between_enc += mse_loss_mel_between_enc.item()
+            wandb.log({'val_loss': loss})
+            wandb.log({'val_mse_loss_mel_audio': mse_loss_mel_audio})
+            wandb.log({'val_mse_loss_mel_lip': mse_loss_mel_lip})
+            wandb.log({'val_mse_loss_enc_feature': mse_loss_enc_feature})
+            wandb.log({'val_mse_loss_mel_between_enc': mse_loss_mel_between_enc})
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -263,10 +219,11 @@ def val_one_epoch(lip_encoder, audio_encoder, audio_decoder, val_loader, loss_f,
                 check_mel_nar(feature[0], feature_pred_lip[0], cfg, "mel_lip_validation", current_time, ckpt_time)
             
     epoch_loss /= iter_cnt
-    epoch_mse_loss_mel /= iter_cnt
+    epoch_mse_loss_mel_audio /= iter_cnt
+    epoch_mse_loss_mel_lip /= iter_cnt
     epoch_mse_loss_enc_feature /= iter_cnt
     epoch_mse_loss_mel_between_enc /= iter_cnt
-    return epoch_loss, epoch_mse_loss_mel, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc
+    return epoch_loss, epoch_mse_loss_mel_audio, epoch_mse_loss_mel_lip, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf")
@@ -299,11 +256,13 @@ def main(cfg):
 
     loss_f = MaskedLoss()
     train_loss_list = []
-    train_mse_loss_mel_list = []
+    train_mse_loss_mel_audio_list = []
+    train_mse_loss_mel_lip_list = []
     train_mse_loss_enc_feature_list = []
     train_mse_loss_mel_between_enc_list = []
     val_loss_list = []
-    val_mse_loss_mel_list = []
+    val_mse_loss_mel_audio_list = []
+    val_mse_loss_mel_lip_list = []
     val_mse_loss_enc_feature_list = []
     val_mse_loss_mel_between_enc_list = []
 
@@ -311,13 +270,14 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         lip_encoder, audio_encoder, audio_decoder = make_model(cfg, device)
 
-        pretrained_model_path = Path(cfg.train.pretrained_model_path).expanduser()
-        if torch.cuda.is_available():
-            checkpoint = torch.load(pretrained_model_path)
-        else:
-            checkpoint = torch.load(pretrained_model_path, map_location=torch.device('cpu'))
-        audio_encoder.load_state_dict(checkpoint["audio_encoder"])
-        audio_decoder.load_state_dict(checkpoint["audio_decoder"])
+        if cfg.train.load_pretrained_model:
+            pretrained_model_path = Path(cfg.train.pretrained_model_path).expanduser()
+            if torch.cuda.is_available():
+                checkpoint = torch.load(pretrained_model_path)
+            else:
+                checkpoint = torch.load(pretrained_model_path, map_location=torch.device('cpu'))
+            audio_encoder.load_state_dict(checkpoint["audio_encoder"])
+            audio_decoder.load_state_dict(checkpoint["audio_decoder"])
 
         if cfg.train.which_optim == 'adam':
             optimizer = torch.optim.Adam(
@@ -378,8 +338,16 @@ def main(cfg):
             torch.random.set_rng_state(checkpoint["torch_random"])
             torch.cuda.set_rng_state(checkpoint["cuda_random"])
             last_epoch = checkpoint["epoch"]
-            train_loss_list = checkpoint["train_loss_list"]
-            val_loss_list = checkpoint["val_loss_list"]
+            train_loss_list = checkpoint['train_loss_list']
+            train_mse_loss_mel_audio_list = checkpoint['train_mse_loss_mel_audio_list']
+            train_mse_loss_mel_lip_list = checkpoint['train_mse_loss_mel_lip_list']
+            train_mse_loss_enc_feature_list = checkpoint['train_mse_loss_enc_feature_list']
+            train_mse_loss_mel_between_enc_list = checkpoint['train_mse_loss_mel_between_enc_list']
+            val_loss_list = checkpoint['val_loss_list']
+            val_mse_loss_mel_audio_list = checkpoint['val_mse_loss_mel_audio_list']
+            val_mse_loss_mel_lip_list = checkpoint['val_mse_loss_mel_lip_list']
+            val_mse_loss_enc_feature_list = checkpoint['val_mse_loss_enc_feature_list']
+            val_mse_loss_mel_between_enc_list = checkpoint['val_mse_loss_mel_between_enc_list']
 
         if len(cfg.train.module_is_fixed) != 0:
             print(f'\n--- Fix model parameters ---')
@@ -401,11 +369,15 @@ def main(cfg):
         wandb.watch(audio_encoder, **cfg.wandb_conf.watch)
         wandb.watch(audio_decoder, **cfg.wandb_conf.watch)
 
+        early_stopping_cnt = 0
+        best_val_loss = 1.0e10
+        best_val_loss_epoch = 0
+
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
 
-            epoch_loss, epoch_mse_loss_mel, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc = train_one_epoch(
+            epoch_loss, epoch_mse_loss_mel_audio, epoch_mse_loss_mel_lip, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc = train_one_epoch(
                 lip_encoder=lip_encoder,
                 audio_encoder=audio_encoder,
                 audio_decoder=audio_decoder,
@@ -418,11 +390,12 @@ def main(cfg):
                 ckpt_time=ckpt_time,
             )
             train_loss_list.append(epoch_loss)
-            train_mse_loss_mel_list.append(epoch_mse_loss_mel)
+            train_mse_loss_mel_audio_list.append(epoch_mse_loss_mel_audio)
+            train_mse_loss_mel_lip_list.append(epoch_mse_loss_mel_lip)
             train_mse_loss_enc_feature_list.append(epoch_mse_loss_enc_feature)
             train_mse_loss_mel_between_enc_list.append(epoch_mse_loss_mel_between_enc)
 
-            epoch_loss, epoch_mse_loss_mel, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc = val_one_epoch(
+            epoch_loss, epoch_mse_loss_mel_audio, epoch_mse_loss_mel_lip, epoch_mse_loss_enc_feature, epoch_mse_loss_mel_between_enc = val_one_epoch(
                 lip_encoder=lip_encoder,
                 audio_encoder=audio_encoder,
                 audio_decoder=audio_decoder,
@@ -433,7 +406,8 @@ def main(cfg):
                 ckpt_time=ckpt_time,
             )
             val_loss_list.append(epoch_loss)
-            val_mse_loss_mel_list.append(epoch_mse_loss_mel)
+            val_mse_loss_mel_audio_list.append(epoch_mse_loss_mel_audio)
+            val_mse_loss_mel_lip_list.append(epoch_mse_loss_mel_lip)
             val_mse_loss_enc_feature_list.append(epoch_mse_loss_enc_feature)
             val_mse_loss_mel_between_enc_list.append(epoch_mse_loss_mel_between_enc)
 
@@ -453,11 +427,13 @@ def main(cfg):
                     scheduler=scheduler,
                     scaler=scaler,
                     train_loss_list=train_loss_list,
-                    train_mse_loss_mel_list=train_mse_loss_mel_list,
+                    train_mse_loss_mel_audio_list=train_mse_loss_mel_audio_list,
+                    train_mse_loss_mel_lip_list=train_mse_loss_mel_lip_list,
                     train_mse_loss_enc_feature_list=train_mse_loss_enc_feature_list,
                     train_mse_loss_mel_between_enc_list=train_mse_loss_mel_between_enc_list,
                     val_loss_list=val_loss_list,
-                    val_mse_loss_mel_list=val_mse_loss_mel_list,
+                    val_mse_loss_mel_audio_list=val_mse_loss_mel_audio_list,
+                    val_mse_loss_mel_lip_list=val_mse_loss_mel_lip_list,
                     val_mse_loss_enc_feature_list=val_mse_loss_enc_feature_list,
                     val_mse_loss_mel_between_enc_list=val_mse_loss_mel_between_enc_list,
                     epoch=current_epoch,
@@ -465,9 +441,28 @@ def main(cfg):
                 )
 
             save_loss(train_loss_list, val_loss_list, save_path, 'loss')
-            save_loss(train_mse_loss_mel_list, val_mse_loss_mel_list, save_path, 'mel_loss')
+            save_loss(train_mse_loss_mel_audio_list, val_mse_loss_mel_audio_list, save_path, 'mel_loss_audio')
+            save_loss(train_mse_loss_mel_lip_list, val_mse_loss_mel_lip_list, save_path, 'mel_loss_lip')
             save_loss(train_mse_loss_enc_feature_list, val_mse_loss_enc_feature_list, save_path, 'enc_feature_loss')
             save_loss(train_mse_loss_mel_between_enc_list, val_mse_loss_mel_between_enc_list, save_path, 'mel_between_enc_loss')
+
+            if cfg.train.use_early_stopping:
+                if val_loss_list[-1] > best_val_loss:
+                    early_stopping_cnt += 1
+                else:
+                    best_val_loss = val_loss_list[-1]
+                    best_val_loss_epoch = current_epoch
+                    early_stopping_cnt = 0
+                    
+                print(f'early_stopping_cnt = {early_stopping_cnt}')
+                print(f'best_val_loss = {best_val_loss}')
+                print(f'best_val_loss_epoch = {best_val_loss_epoch}')
+
+                if early_stopping_cnt >= cfg.train.num_wait_epoch_for_early_stopping:
+                    print(f'early stopping')
+                    break
+
+            print()
 
     wandb.finish()
 

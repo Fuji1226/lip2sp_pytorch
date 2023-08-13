@@ -33,7 +33,7 @@ def generate(cfg, lip_encoder, audio_encoder, audio_decoder, test_loader, datase
     feat_std = dataset.feat_std.to(device)
 
     for batch in tqdm(test_loader, total=(len(test_loader))):
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
@@ -100,14 +100,17 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    start_epoch = 200
+    start_epoch = 82
     num_gen = 1
     num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
 
     lip_encoder, audio_encoder, audio_decoder = make_model(cfg, device)
 
     for num_gen_epoch in num_gen_epoch_list:
-        model_path = Path(f'~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_02-14-55/mspec80_{num_gen_epoch}.ckpt').expanduser()
+        # model_path = Path(f'~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_02-14-55/mspec80_{num_gen_epoch}.ckpt').expanduser()
+
+        # random initialized lip2sp
+        model_path = Path(f'~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_15-30-47/mspec80_{num_gen_epoch}.ckpt').expanduser()
 
         lip_encoder = load_pretrained_model(model_path, lip_encoder, "lip_encoder")
         audio_encoder = load_pretrained_model(model_path, audio_encoder, "audio_encoder")

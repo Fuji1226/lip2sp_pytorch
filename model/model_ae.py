@@ -172,12 +172,13 @@ class TransposedConvBlock(nn.Module):
     def __init__(
         self,
         in_channels,
+        out_channels,
         dropout,
     ):
         super().__init__()
         self.layers = nn.Sequential(
-            nn.ConvTranspose1d(in_channels, in_channels // 2, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm1d(in_channels // 2),
+            nn.ConvTranspose1d(in_channels, out_channels, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm1d(out_channels),
             nn.ReLU(),
             nn.Dropout(dropout)
         )
@@ -191,6 +192,7 @@ class AudioDecoder(nn.Module):
     def __init__(
         self,
         which_decoder,
+        in_channels,
         hidden_channels,
         rnn_n_layers,
         rnn_dropout,
@@ -199,13 +201,16 @@ class AudioDecoder(nn.Module):
         conf_n_layers,
         conf_n_head,
         conf_feedforward_expansion_factor,
-        tconv_dropout,
+        dec_conv_n_layers,
+        dec_conv_kernel_size,
+        dec_conv_dropout,
         out_channels,
     ):
         super().__init__()
+        self.concat_layer = nn.Linear(in_channels, hidden_channels)
 
         if which_decoder == 'gru':
-            self.decoder = GRUEncoder(
+            self.temporal_decoder = GRUEncoder(
                 hidden_channels=hidden_channels,
                 n_layers=rnn_n_layers,
                 dropout=rnn_dropout,
@@ -213,20 +218,22 @@ class AudioDecoder(nn.Module):
                 which_norm=rnn_which_norm,
             )
         elif which_decoder == 'conformer':
-            self.decoder = ConformerEncoder(
+            self.temporal_decoder = ConformerEncoder(
                 encoder_dim=hidden_channels,
                 num_layers=conf_n_layers,
                 num_attention_heads=conf_n_head,
                 feed_forward_expansion_factor=conf_feedforward_expansion_factor,
             )
 
-        tconv_layers = [
-            TransposedConvBlock(hidden_channels, tconv_dropout),
-            TransposedConvBlock(hidden_channels // 2, tconv_dropout)
-        ]
-        self.tconv_layers = nn.ModuleList(tconv_layers)
-
-        self.out_layer = nn.Conv1d(hidden_channels // 4, out_channels, kernel_size=1)
+        self.conv_decoder = ResTCDecoder(
+            cond_channels=hidden_channels,
+            out_channels=out_channels,
+            inner_channels=hidden_channels,
+            n_layers=dec_conv_n_layers,
+            kernel_size=dec_conv_kernel_size,
+            dropout=dec_conv_dropout,
+            reduction_factor=reduction_factor,
+        )
 
     def forward(self, feature, data_len, spk_emb, lang_id):
         '''
@@ -237,14 +244,9 @@ class AudioDecoder(nn.Module):
         '''
         spk_emb = spk_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)
         lang_id = lang_id.unsqueeze(1).unsqueeze(1).expand(-1, feature.shape[1], -1)
-        feature = torch.cat([feature, spk_emb, lang_id], dim=-1)
+        feature = torch.cat([feature, spk_emb, lang_id], dim=-1)    # (B, T, C)
+        feature = self.concat_layer(feature)
         feature = feature.permute(0, 2, 1)    # (B, C, T)
-
-        output = self.decoder(feature, data_len)     # (B, T, C)
-        output = output.permute(0, 2, 1)    # (B, C, T)
-
-        for layer in self.tconv_layers:
-            output = layer(output)
-
-        output = self.out_layer(output)     # (B, C, T)
+        output = self.temporal_decoder(feature, data_len)     # (B, T, C)
+        output = self.conv_decoder(output)     # (B, C, T)
         return output

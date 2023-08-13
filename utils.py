@@ -34,7 +34,7 @@ def get_padding(kernel_size, dilation=1):
 
 def set_config(cfg):
     if cfg.train.debug:
-        cfg.train.max_epoch = 3
+        cfg.train.max_epoch = 10
 
     if cfg.model.fps == 25:
         cfg.model.reduction_factor = 4

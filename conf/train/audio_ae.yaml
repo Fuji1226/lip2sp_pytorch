@@ -13,8 +13,15 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # audio autoencoder
-# pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_23-30-56/mspec80_12.ckpt"
-pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_02-14-55/mspec80_200.ckpt'
+# pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_23-30-56/mspec80_12.ckpt" 
+# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_02-14-55/mspec80_200.ckpt'
+# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_22-16-30/mspec80_20.ckpt'  # ae_emb_dim=64, enc=''
+pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_00-43-47/mspec80_20.ckpt'  # ae_emb_dim=32, enc=''
+# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_03-10-09/mspec80_20.ckpt'  # ae_emb_dim=16, enc=''
+# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_05-37-16/mspec80_20.ckpt'  # ae_emb_dim=64, enc='gru'
+# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_08-06-38/mspec80_20.ckpt'  # ae_emb_dim=32, enc='gru'
+# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_10-36-01/mspec80_20.ckpt'  # ae_emb_dim=16, enc='gru'
+load_pretrained_model : False
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
@@ -171,7 +178,7 @@ which_scheduler : 'exp'
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.95
+lr_decay_exp : 0.99
 use_warmup_scheduler : False
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5
@@ -187,3 +194,7 @@ mse_loss_mel_between_enc : 1.0
 
 # gradient accumulation
 iters_to_accumulate : 1
+
+# early stopping
+num_wait_epoch_for_early_stopping : 10
+use_early_stopping : False
