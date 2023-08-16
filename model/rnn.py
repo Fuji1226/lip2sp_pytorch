@@ -44,7 +44,6 @@ class LSTMEncoder(nn.Module):
 class GRUEncoder(nn.Module):
     def __init__(self, hidden_channels, n_layers, dropout, reduction_factor, which_norm):
         super().__init__()
-        self.reduction_factor = reduction_factor
         self.which_norm = which_norm
         self.dropout = nn.Dropout(dropout)
         self.gru = nn.GRU(hidden_channels, hidden_channels, num_layers=n_layers, batch_first=True, bidirectional=True)

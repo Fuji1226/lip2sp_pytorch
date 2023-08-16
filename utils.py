@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from jiwer import wer
 import seaborn as sns
 from torch.utils.data.distributed import DistributedSampler
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import pandas as pd
 import copy
 
@@ -34,7 +34,7 @@ def get_padding(kernel_size, dilation=1):
 
 def set_config(cfg):
     if cfg.train.debug:
-        cfg.train.max_epoch = 10
+        cfg.train.max_epoch = 3
 
     if cfg.model.fps == 25:
         cfg.model.reduction_factor = 4
@@ -364,7 +364,7 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
         dataset=val_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=cfg.train.batch_size,      # 0じゃないとバグることがあります
+        num_workers=cfg.train.num_workers,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust, cfg=cfg),
@@ -638,7 +638,7 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
         dataset=val_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=cfg.train.batch_size,      # 0じゃないとバグることがあります
+        num_workers=cfg.train.num_workers,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
@@ -650,6 +650,20 @@ def make_test_loader(cfg, data_root, train_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
+
+    if cfg.test.debug:
+        train_data_path = train_data_path[:100]
+
+        test_data_path_for_debug = []
+        n_data_per_speaker =  defaultdict(int)
+        for data_path in test_data_path:
+            speaker = data_path.parents[1].name
+            if n_data_per_speaker[speaker] >= 3:
+                continue
+            test_data_path_for_debug.append(data_path)
+            n_data_per_speaker[speaker] += 1
+
+        test_data_path = test_data_path_for_debug
 
     test_trans = KablabTransform(cfg, "test")
     test_dataset = KablabDataset(
@@ -763,6 +777,20 @@ def make_test_loader_with_external_data(cfg, data_root, train_data_root):
     train_data_path = get_datasets(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
+
+    if cfg.test.debug:
+        train_data_path = train_data_path[:100]
+
+        test_data_path_for_debug = []
+        n_data_per_speaker =  defaultdict(int)
+        for data_path in test_data_path:
+            speaker = data_path.parents[1].name
+            if n_data_per_speaker[speaker] >= 3:
+                continue
+            test_data_path_for_debug.append(data_path)
+            n_data_per_speaker[speaker] += 1
+
+        test_data_path = test_data_path_for_debug
 
     test_trans = TransformWithExternalData(cfg, 'test')
     test_dataset = DatasetWithExternalData(
@@ -1178,6 +1206,23 @@ def fix_model_state_dict(state_dict):
             name = name[7:]  # remove 'module.' of dataparallel
         new_state_dict[name] = v
     return new_state_dict
+
+
+def select_checkpoint(cfg):
+    '''
+    checkpointの中から最も検証データに対しての損失が小さいものを選ぶ
+    '''
+    checkpoint_path_last = Path(cfg.test.model_path).expanduser()
+    checkpoint_dict_last = torch.load(str(checkpoint_path_last))
+    best_checkpoint = np.argmin(checkpoint_dict_last[cfg.test.metric_for_select]) + 1
+    
+    filename_prev = checkpoint_path_last.stem
+    filename_new = filename_prev.split('_')
+    filename_new[-1] = str(best_checkpoint)
+    filename_new = '_'.join(filename_new)
+
+    checkpoint_path = Path(str(checkpoint_path_last).replace(filename_prev, filename_new))
+    return checkpoint_path
 
 
 def load_pretrained_model(model_path, model, model_name):

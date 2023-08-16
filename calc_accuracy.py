@@ -51,6 +51,7 @@ def load_utt():
 
 
 def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
+    speaker = data_dir.stem
     wav2flac(data_dir)
     df = load_utt()
 
@@ -243,6 +244,11 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                         print(f"per_ref = {error_in:f}, per_gen = {error_gen:f}")
                         per_target_list.append(error_in)
                         per_gen_list.append(error_gen)
+                    else:
+                        wer_target_list.append(100)
+                        wer_gen_list.append(100)
+                        per_target_list.append(100)
+                        per_gen_list.append(100)
 
         if debug:
             if iter_cnt > 0:
@@ -284,6 +290,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
         file_name = save_path / f"{filename}.txt"
         with open(str(file_name), "a") as f:
             f.write("--- Objective Evaluation Metrics ---\n")
+            f.write(f'speaker = {speaker}\n')
             f.write(f"PESQ = {pesq:f}\n")
             f.write(f"STOI = {stoi:f}\n")
             f.write(f"rmse power = {rmse_power:f}dB\n")
@@ -297,12 +304,13 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
             f.write(f"phoneme error rate target = {per_target * 100:f}%\n")
             f.write(f"phoneme error rate gen = {per_gen * 100:f}%\n")
 
-
             if process_times is not None:
                 f.write("\n--- Duration and Process Time ---\n")
                 f.write(f"duration_mean = {sum(duration) / len(duration):f}, process_time_mean = {sum(process_times) / len(process_times):f}\n")
                 for dur, time in zip(duration, process_times):
                     f.write(f"duration = {dur:f}, process_time = {time:f}\n")
+
+            f.write('\n')
                     
 
 def calc_accuracy_vc(cfg, data_root_same, data_root_mix):

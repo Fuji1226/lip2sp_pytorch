@@ -172,24 +172,25 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, ckpt_time):
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
         
-        with torch.no_grad():
-            output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            with torch.no_grad():
+                output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
 
-        mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
+            mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
-        if cfg.train.adversarial_learning:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
-        else:
-            classifier_loss = torch.tensor(0)
+            if cfg.train.adversarial_learning:
+                classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
+            else:
+                classifier_loss = torch.tensor(0)
 
-        loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
+            loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
 
-        epoch_loss += loss.item()
-        epoch_mse_loss += mse_loss.item()
-        epoch_classifier_loss += classifier_loss.item()
-        wandb.log({"val_loss": loss})
-        wandb.log({"val_mse_loss": mse_loss})
-        wandb.log({"val_classifier_loss": classifier_loss})
+            epoch_loss += loss.item()
+            epoch_mse_loss += mse_loss.item()
+            epoch_classifier_loss += classifier_loss.item()
+            wandb.log({"val_loss": loss})
+            wandb.log({"val_mse_loss": mse_loss})
+            wandb.log({"val_classifier_loss": classifier_loss})
 
         iter_cnt += 1
         if cfg.train.debug:

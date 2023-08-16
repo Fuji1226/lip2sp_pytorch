@@ -6,21 +6,14 @@ name : "audio_ae"
 debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 10
+debug_iter : 3
 
 # checkpointから再開する場合
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # audio autoencoder
-# pretrained_model_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_23-30-56/mspec80_12.ckpt" 
-# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_02-14-55/mspec80_200.ckpt'
-# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_22-16-30/mspec80_20.ckpt'  # ae_emb_dim=64, enc=''
-pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_00-43-47/mspec80_20.ckpt'  # ae_emb_dim=32, enc=''
-# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_03-10-09/mspec80_20.ckpt'  # ae_emb_dim=16, enc=''
-# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_05-37-16/mspec80_20.ckpt'  # ae_emb_dim=64, enc='gru'
-# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_08-06-38/mspec80_20.ckpt'  # ae_emb_dim=32, enc='gru'
-# pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_10-36-01/mspec80_20.ckpt'  # ae_emb_dim=16, enc='gru'
+pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_00-43-47/mspec80_20.ckpt'
 load_pretrained_model : False
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
@@ -120,7 +113,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 200
+max_epoch : 30
 
 # テキスト処理
 for_tts : False
@@ -166,7 +159,7 @@ rnn_dropout : 0.1
 lm_enc_dropout : 0.1
 
 # optimizer
-lr : 1.0e-3
+lr : 1.0e-4
 beta_1 : 0.9
 beta_2 : 0.999
 weight_decay : 1.0e-6
@@ -178,7 +171,7 @@ which_scheduler : 'exp'
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.99
+lr_decay_exp : 0.9
 use_warmup_scheduler : False
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5

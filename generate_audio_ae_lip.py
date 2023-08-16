@@ -11,7 +11,7 @@ import torch
 from data_check import save_data, save_data_pwg
 from train_audio_ae_lip import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
-from utils import make_test_loader_with_external_data, get_path_test, load_pretrained_model, gen_data_separate, gen_data_concat
+from utils import make_test_loader_with_external_data, get_path_test, load_pretrained_model, gen_data_separate, gen_data_concat, select_checkpoint
 from calc_accuracy import calc_accuracy
 
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -47,52 +47,57 @@ def generate(cfg, lip_encoder, audio_encoder, audio_decoder, test_loader, datase
         spk_emb = spk_emb.expand(lip_sep.shape[0], -1)
         lang_id = lang_id.expand(lip_sep.shape[0])
 
-        with torch.no_grad():
-            audio_enc_output = audio_encoder(feature, feature_len)
-            feature_pred_audio = audio_decoder(audio_enc_output, lip_len, spk_emb, lang_id)
-            lip_enc_output = lip_encoder(lip, lip_len)
-            feature_pred_lip = audio_decoder(lip_enc_output, lip_len, spk_emb, lang_id)
+        if cfg.test.save_pred_audio:
+            with torch.no_grad():
+                audio_enc_output = audio_encoder(feature, feature_len)
+                feature_pred_audio = audio_decoder(audio_enc_output, lip_len, spk_emb, lang_id)
 
-        feature_pred_audio = gen_data_concat(
-            feature_pred_audio, 
-            int(cfg.model.fps * cfg.model.reduction_factor), 
-            int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
-        )
-        feature_pred_lip = gen_data_concat(
-            feature_pred_lip, 
-            int(cfg.model.fps * cfg.model.reduction_factor), 
-            int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
-        )
+            feature_pred_audio = gen_data_concat(
+                feature_pred_audio, 
+                int(cfg.model.fps * cfg.model.reduction_factor), 
+                int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
+            )
 
-        _save_path = save_path / "griffinlim_audio" / speaker[0] / filename[0]
-        _save_path.mkdir(parents=True, exist_ok=True)
-        save_data(
-            cfg=cfg,
-            save_path=_save_path,
-            wav=wav,
-            lip=lip,
-            feature=feature,
-            output=feature_pred_audio,
-            lip_mean=lip_mean,
-            lip_std=lip_std,
-            feat_mean=feat_mean,
-            feat_std=feat_std,
-        )
+            _save_path = save_path / "griffinlim_audio" / speaker[0] / filename[0]
+            _save_path.mkdir(parents=True, exist_ok=True)
+            save_data(
+                cfg=cfg,
+                save_path=_save_path,
+                wav=wav,
+                lip=lip,
+                feature=feature,
+                output=feature_pred_audio,
+                lip_mean=lip_mean,
+                lip_std=lip_std,
+                feat_mean=feat_mean,
+                feat_std=feat_std,
+            )
 
-        _save_path = save_path / "griffinlim_lip" / speaker[0] / filename[0]
-        _save_path.mkdir(parents=True, exist_ok=True)
-        save_data(
-            cfg=cfg,
-            save_path=_save_path,
-            wav=wav,
-            lip=lip,
-            feature=feature,
-            output=feature_pred_lip,
-            lip_mean=lip_mean,
-            lip_std=lip_std,
-            feat_mean=feat_mean,
-            feat_std=feat_std,
-        )
+        if cfg.test.save_pred_lip:
+            with torch.no_grad():
+                lip_enc_output = lip_encoder(lip, lip_len)
+                feature_pred_lip = audio_decoder(lip_enc_output, lip_len, spk_emb, lang_id)
+
+            feature_pred_lip = gen_data_concat(
+                feature_pred_lip, 
+                int(cfg.model.fps * cfg.model.reduction_factor), 
+                int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
+            )
+
+            _save_path = save_path / "griffinlim_lip" / speaker[0] / filename[0]
+            _save_path.mkdir(parents=True, exist_ok=True)
+            save_data(
+                cfg=cfg,
+                save_path=_save_path,
+                wav=wav,
+                lip=lip,
+                feature=feature,
+                output=feature_pred_lip,
+                lip_mean=lip_mean,
+                lip_std=lip_std,
+                feat_mean=feat_mean,
+                feat_std=feat_std,
+            )
 
 
 @hydra.main(config_name='config', config_path='conf')
@@ -100,44 +105,38 @@ def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
-    start_epoch = 82
-    num_gen = 1
-    num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
+    model_path = select_checkpoint(cfg)
 
     lip_encoder, audio_encoder, audio_decoder = make_model(cfg, device)
 
-    for num_gen_epoch in num_gen_epoch_list:
-        # model_path = Path(f'~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:12_02-14-55/mspec80_{num_gen_epoch}.ckpt').expanduser()
+    lip_encoder = load_pretrained_model(model_path, lip_encoder, "lip_encoder")
+    audio_encoder = load_pretrained_model(model_path, audio_encoder, "audio_encoder")
+    audio_decoder = load_pretrained_model(model_path, audio_decoder, "audio_decoder")
+    cfg.train.face_or_lip = model_path.parents[1].name
+    cfg.test.face_or_lip = model_path.parents[1].name
 
-        # random initialized lip2sp
-        model_path = Path(f'~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_15-30-47/mspec80_{num_gen_epoch}.ckpt').expanduser()
+    data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
+    
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        test_loader, test_dataset = make_test_loader_with_external_data(cfg, data_root, train_data_root)
+        generate(
+            cfg=cfg,
+            lip_encoder=lip_encoder,
+            audio_encoder=audio_encoder,
+            audio_decoder=audio_decoder,
+            test_loader=test_loader,
+            dataset=test_dataset,
+            device=device,
+            save_path=save_path,
+        )
 
-        lip_encoder = load_pretrained_model(model_path, lip_encoder, "lip_encoder")
-        audio_encoder = load_pretrained_model(model_path, audio_encoder, "audio_encoder")
-        audio_decoder = load_pretrained_model(model_path, audio_decoder, "audio_decoder")
-        cfg.train.face_or_lip = model_path.parents[1].name
-        cfg.test.face_or_lip = model_path.parents[1].name
-
-        data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
-        
-        for data_root, save_path in zip(data_root_list, save_path_list):
-            test_loader, test_dataset = make_test_loader_with_external_data(cfg, data_root, train_data_root)
-            generate(
-                cfg=cfg,
-                lip_encoder=lip_encoder,
-                audio_encoder=audio_encoder,
-                audio_decoder=audio_decoder,
-                test_loader=test_loader,
-                dataset=test_dataset,
-                device=device,
-                save_path=save_path,
-            )
-
-        for data_root, save_path in zip(data_root_list, save_path_list):
-            for speaker in cfg.test.speaker:
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        for speaker in cfg.test.speaker:
+            if cfg.test.save_pred_audio:
                 save_path_spk_gl_audio = save_path / "griffinlim_audio" / speaker
-                save_path_spk_gl_lip = save_path / "griffinlim_lip" / speaker
                 calc_accuracy(save_path_spk_gl_audio, save_path.parents[0], cfg, "accuracy_griffinlim_audio")
+            if cfg.test.save_pred_lip:
+                save_path_spk_gl_lip = save_path / "griffinlim_lip" / speaker
                 calc_accuracy(save_path_spk_gl_lip, save_path.parents[0], cfg, "accuracy_griffinlim_lip")
 
 

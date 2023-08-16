@@ -7,6 +7,12 @@ debug_data_len : 1
 # face or lip
 face_or_lip : "face"
 
+# 合成するモデルのパス
+model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:14_16-21-15/mspec80_600.ckpt'
+
+# モデルパスを検証データの結果から選択するための指標
+metric_for_select : ''
+
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/generate"
 

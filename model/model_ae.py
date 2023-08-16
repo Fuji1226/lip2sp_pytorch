@@ -250,3 +250,65 @@ class AudioDecoder(nn.Module):
         output = self.temporal_decoder(feature, data_len)     # (B, T, C)
         output = self.conv_decoder(output)     # (B, C, T)
         return output
+    
+
+class DomainClassifier(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        hidden_channels,
+        n_conv_layers,
+        conv_dropout,
+        rnn_n_layers,
+        rnn_dropout,
+        reduction_factor,
+        rnn_which_norm,
+    ):
+        super().__init__()
+        self.first_layer = nn.Linear(in_channels, hidden_channels)
+
+        convs = []
+        for i in range(n_conv_layers):
+            convs.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channels, hidden_channels, kernel_size=3, padding=1),
+                    nn.BatchNorm1d(hidden_channels),
+                    nn.LeakyReLU(0.2),
+                    nn.Dropout(conv_dropout),
+                )
+            )
+        self.convs = nn.ModuleList(convs)
+
+        self.gru = GRUEncoder(
+            hidden_channels=hidden_channels,
+            n_layers=rnn_n_layers,
+            dropout=rnn_dropout,
+            reduction_factor=reduction_factor,
+            which_norm=rnn_which_norm,
+        ) 
+
+        self.out_layer = nn.Linear(hidden_channels, 1)
+
+    def forward(self, audio_enc_output, lip_enc_output, data_len):
+        '''
+        audio_enc_output : (B, T, C)
+        lip_enc_output : (B, T, C)
+        data_len : (B,)
+        '''
+        output = torch.cat([audio_enc_output, lip_enc_output], dim=-1)
+        output = self.first_layer(output).permute(0, 2, 1)  # (B, C, T)
+
+        for layer in self.convs:
+            output = layer(output)
+
+        output = self.gru(output, data_len)     # (B, T, C)
+
+        # パディング部分は平均の計算に含まない
+        output_list = []
+        for i in range(output.shape[0]):
+            x = output[i, :data_len[i], :]  # (T, C)
+            output_list.append(torch.mean(x, dim=0))
+        
+        output = torch.stack(output_list, dim=0)    # (B, C)
+        output = self.out_layer(output)     # (B, 1)
+        return output
