@@ -73,6 +73,9 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
         train_data_root = cfg.train.face_cropped_max_size_fps25_train
         val_data_root = cfg.train.face_cropped_max_size_fps25_val
+    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25_new":
+        train_data_root = cfg.train.face_cropped_max_size_fps25_new_train
+        val_data_root = cfg.train.face_cropped_max_size_fps25_new_val
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -188,6 +191,9 @@ def get_path_test(cfg, model_path):
     elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
         train_data_root = cfg.train.face_cropped_max_size_fps25_train
         test_data_root = cfg.test.face_cropped_max_size_fps25_test
+    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25_new":
+        train_data_root = cfg.train.face_cropped_max_size_fps25_new_train
+        test_data_root = cfg.test.face_cropped_max_size_fps25_new_test
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
@@ -658,7 +664,7 @@ def make_test_loader(cfg, data_root, train_data_root):
         n_data_per_speaker =  defaultdict(int)
         for data_path in test_data_path:
             speaker = data_path.parents[1].name
-            if n_data_per_speaker[speaker] >= 3:
+            if n_data_per_speaker[speaker] >= 1:
                 continue
             test_data_path_for_debug.append(data_path)
             n_data_per_speaker[speaker] += 1
@@ -785,7 +791,7 @@ def make_test_loader_with_external_data(cfg, data_root, train_data_root):
         n_data_per_speaker =  defaultdict(int)
         for data_path in test_data_path:
             speaker = data_path.parents[1].name
-            if n_data_per_speaker[speaker] >= 3:
+            if n_data_per_speaker[speaker] >= 1:
                 continue
             test_data_path_for_debug.append(data_path)
             n_data_per_speaker[speaker] += 1

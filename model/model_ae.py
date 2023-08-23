@@ -289,14 +289,12 @@ class DomainClassifier(nn.Module):
 
         self.out_layer = nn.Linear(hidden_channels, 1)
 
-    def forward(self, audio_enc_output, lip_enc_output, data_len):
+    def forward(self, enc_output, data_len):
         '''
-        audio_enc_output : (B, T, C)
-        lip_enc_output : (B, T, C)
+        enc_output : (B, T, C)
         data_len : (B,)
         '''
-        output = torch.cat([audio_enc_output, lip_enc_output], dim=-1)
-        output = self.first_layer(output).permute(0, 2, 1)  # (B, C, T)
+        output = self.first_layer(enc_output).permute(0, 2, 1)  # (B, C, T)
 
         for layer in self.convs:
             output = layer(output)
@@ -312,3 +310,77 @@ class DomainClassifier(nn.Module):
         output = torch.stack(output_list, dim=0)    # (B, C)
         output = self.out_layer(output)     # (B, 1)
         return output
+    
+
+class DomainClassifierLinear(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        hidden_channels,
+        n_layers,
+    ):
+        super().__init__()
+        self.first_layer = nn.Linear(in_channels, hidden_channels)
+        
+        layers = []
+        for i in range(n_layers):
+            layers.append(
+                nn.Sequential(
+                    nn.Linear(hidden_channels, hidden_channels),
+                    nn.LayerNorm(hidden_channels),
+                    nn.LeakyReLU(0.2),
+                )
+            )
+        self.layers = nn.ModuleList(layers)
+
+        self.out_layer = nn.Linear(hidden_channels, 1)
+
+    def forward(self, enc_output, data_len):
+        '''
+        enc_output : (B, T, C)
+        data_len : (B,)
+        '''
+        output = self.first_layer(enc_output)
+        for layer in self.layers:
+            output = layer(output)
+        output = self.out_layer(output).permute(0, 2, 1)    # (B, C, T)
+        return output
+    
+
+class FeatureConverter(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        hidden_channels,
+        n_layers,
+        dropout,
+    ):
+        super().__init__()
+        self.first_layer = nn.Linear(in_channels, hidden_channels)
+        
+        layers = []
+        for i in range(n_layers):
+            layers.append(
+                nn.Sequential(
+                    nn.Linear(hidden_channels, hidden_channels),
+                    nn.LayerNorm(hidden_channels),
+                    nn.ReLU(),
+                    nn.Dropout(dropout),
+                )
+            )
+        self.layers = nn.ModuleList(layers)
+
+        self.out_layer = nn.Linear(hidden_channels, in_channels)
+
+    def forward(
+        self,
+        x,
+    ):
+        '''
+        x : (B, T, C)
+        '''
+        x = self.first_layer(x)
+        for layer in self.layers:
+            x = layer(x)
+        x = self.out_layer(x)
+        return x

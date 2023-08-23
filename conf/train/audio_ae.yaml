@@ -20,7 +20,7 @@ load_pretrained_model : False
 fine_tuning_pretrained_model_by_external_data : False
 
 # モデルの中で固定するところ
-module_is_fixed : ['audio_encoder', 'audio_decoder']
+module_is_fixed : []
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
@@ -113,7 +113,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 30
+max_epoch : 200
 
 # テキスト処理
 for_tts : False
@@ -124,8 +124,8 @@ use_color_jitter : False
 use_blur : False
 use_pad : False
 use_rotation : False
-use_horizontal_flip : True
-use_random_crop : True
+use_horizontal_flip : False
+use_random_crop : False
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
@@ -159,7 +159,7 @@ rnn_dropout : 0.1
 lm_enc_dropout : 0.1
 
 # optimizer
-lr : 1.0e-4
+lr : 1.0e-3
 beta_1 : 0.9
 beta_2 : 0.999
 weight_decay : 1.0e-6
@@ -171,7 +171,7 @@ which_scheduler : 'exp'
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.9
+lr_decay_exp : 0.98
 use_warmup_scheduler : False
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5
@@ -184,6 +184,7 @@ max_norm : 3.0
 mse_loss_mel_weight : 1.0
 mse_loss_enc_feature : 1.0
 mse_loss_mel_between_enc : 1.0
+bce_loss_weight : 0.1
 
 # gradient accumulation
 iters_to_accumulate : 1

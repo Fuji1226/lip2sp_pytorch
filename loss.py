@@ -35,7 +35,6 @@ class MaskedLoss:
         mask = mask.squeeze(1)  # (B, T)
         n_loss = torch.where(mask == 0, torch.ones_like(mask).to(torch.float32), torch.zeros_like(mask).to(torch.float32))
         mse_loss = torch.sum(loss) / torch.sum(n_loss)
-
         return mse_loss
 
     def l1_loss(self, output, target, data_len, max_len):
@@ -67,7 +66,14 @@ class MaskedLoss:
             loss = sum(loss_list) / len(loss_list)
         else:
             loss = F.cross_entropy(output, target, ignore_index=ignore_index)
-
+        return loss
+    
+    def bce_with_logits_loss(self, output, target, data_len, max_len):
+        mask = make_pad_mask(data_len, max_len) 
+        loss = F.binary_cross_entropy_with_logits(output, target, reduction='none')
+        loss = torch.where(mask == 0, loss, torch.zeros_like(loss))
+        n_loss = torch.where(mask == 0, torch.ones_like(mask).to(torch.float32), torch.zeros_like(mask).to(torch.float32))
+        loss = torch.sum(loss) / torch.sum(n_loss)
         return loss
 
 
