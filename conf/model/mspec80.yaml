@@ -139,7 +139,7 @@ content_d_model : 256
 content_n_attn_layer : 1
 content_n_head : 4
 which_spk_enc : "rnn"
-audio_enc_hidden_channels : 64
+audio_enc_hidden_channels : 128
 audio_enc_conv_dropout : 0.1
 audio_enc_which_encoder : ''
 audio_enc_rnn_n_layers : 2
@@ -168,7 +168,7 @@ domain_classifier_rnn_n_layers : 2
 domain_classifier_rnn_dropout : 0
 
 # feature converter
-converter_hidden_channels : 256
+converter_hidden_channels : 128
 converter_n_layers : 3
 converter_dropout : 0
 

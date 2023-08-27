@@ -1,6 +1,6 @@
 ---
 
-name : "audio_ae"
+name : "nar_cycle"
 
 # デバッグ
 debug : False
@@ -10,10 +10,10 @@ debug_iter : 3
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar_cycle/face_cropped_max_size_fps25/2023:08:11_22-14-18/mspec80_1.ckpt"
 
 # audio autoencoder
-pretrained_model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:13_00-43-47/mspec80_20.ckpt'
+pretrained_model_path : '~/lip2sp_pytorch/check_point/nar_cycle/face_cropped_max_size_fps25/2023:08:13_00-43-47/mspec80_20.ckpt'
 load_pretrained_model : False
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
@@ -24,7 +24,7 @@ module_is_fixed : []
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar_cycle/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # face or lip
 face_or_lip : "face_cropped_max_size_fps25"
@@ -32,10 +32,10 @@ use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/audio_ae/train"
+save_path : "~/lip2sp_pytorch/result/nar_cycle/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/audio_ae"
+ckpt_path : "~/lip2sp_pytorch/check_point/nar_cycle"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -139,7 +139,7 @@ use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : True
+use_segment_masking : False
 which_seg_mask : "seg_mean"
 max_segment_masking_sec : 0.5
 
@@ -184,7 +184,7 @@ max_norm : 3.0
 mse_loss_mel_weight : 1.0
 mse_loss_enc_feature : 1.0
 mse_loss_mel_between_enc : 1.0
-bce_loss_weight : 0.2
+bce_loss_weight : 0.1
 
 # gradient accumulation
 iters_to_accumulate : 1

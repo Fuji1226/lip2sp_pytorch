@@ -12,7 +12,7 @@ from data_check import save_data, save_data_pwg
 from train_audio_ae_lip import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import make_test_loader_with_external_data, get_path_test, load_pretrained_model, gen_data_separate, gen_data_concat, select_checkpoint
-from calc_accuracy import calc_accuracy
+from calc_accuracy import calc_accuracy, calc_mean
 
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
@@ -138,6 +138,11 @@ def main(cfg):
             if cfg.test.save_pred_lip:
                 save_path_spk_gl_lip = save_path / "griffinlim_lip" / speaker
                 calc_accuracy(save_path_spk_gl_lip, save_path.parents[0], cfg, "accuracy_griffinlim_lip")
+
+        if cfg.test.save_pred_audio:
+            calc_mean(save_path.parents[0] / 'accuracy_griffinlim_audio.txt')
+        if cfg.test.save_pred_lip:
+            calc_mean(save_path.parents[0] / 'accuracy_griffinlim_lip.txt')
 
 
 if __name__ == '__main__':

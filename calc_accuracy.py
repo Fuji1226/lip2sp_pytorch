@@ -18,6 +18,8 @@ from jiwer import wer, cer
 import MeCab
 import pyopenjtalk
 import pandas as pd
+from collections import defaultdict
+import re
 
 
 debug = False
@@ -245,35 +247,23 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                         per_target_list.append(error_in)
                         per_gen_list.append(error_gen)
                     else:
-                        wer_target_list.append(100)
-                        wer_gen_list.append(100)
-                        per_target_list.append(100)
-                        per_gen_list.append(100)
+                        result_in_w = mecab.parse(result_in)
+                        utt_w = mecab.parse(utt)
+                        error_in = wer(utt_w, result_in_w)
+                        wer_target_list.append(error_in)
+                        wer_gen_list.append(1)
 
-        if debug:
-            if iter_cnt > 0:
+                        result_in_p = pyopenjtalk.g2p(result_in)
+                        utt_p = pyopenjtalk.g2p(utt)
+                        error_in = wer(utt_p, result_in_p)
+                        per_target_list.append(error_in)
+                        per_gen_list.append(1)
+
+        if cfg.test.debug:
+            if iter_cnt > 2:
                 break
 
     if debug == False:
-        plt.figure()
-        ax = plt.subplot(2, 1, 1)
-        ax.scatter(duration, pesq_list)
-        plt.xlabel("duration[s]")
-        plt.ylabel("PESQ")
-        plt.title("relationships between duration and PESQ")
-        plt.grid()
-
-        ax = plt.subplot(2, 1, 2)
-        ax.scatter(duration, stoi_list)
-        plt.xlabel("duration[s]")
-        plt.ylabel("STOI")
-        plt.title("relationships between duration and STOI")
-        plt.grid()
-
-        img_save_path = save_path / "check_PESQ_STOI.png"
-        plt.tight_layout()
-        plt.savefig(img_save_path)
-
         pesq = sum(pesq_list) / len(pesq_list)
         stoi = sum(stoi_list) / len(stoi_list)
         rmse_power = sum(rmse_power_list) / len(rmse_power_list)
@@ -347,3 +337,26 @@ def calc_accuracy_vc(cfg, data_root_same, data_root_mix):
     with open(str(save_path), "a") as f:
         f.write(f"{data_root_same.parents[1].name}\n")
         f.write(f"mcd = {mcd:f}dB\n")
+
+
+def calc_mean(result_file_path):
+    with open(str(result_file_path), 'r') as f:
+        content = f.readlines()
+
+    result_dict = defaultdict(float)
+    cnt = 0
+    for line in content:
+        key = line.strip().split('=')[0][:-1]
+        if key == 'speaker':
+            cnt += 1
+        value = re.findall(r'\d+\.\d+', line)
+        if value:
+            value = [float(v) for v in value][0]
+            result_dict[key] += value
+
+    result_dict = {key: value / cnt for key, value in result_dict.items()}
+    with open(str(result_file_path), 'a') as f:
+        f.write('--- mean ---\n')
+        for key, value in result_dict.items():
+            f.write(f'{key} = {value}\n')
+        f.write('\n')

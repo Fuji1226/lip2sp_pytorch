@@ -12,7 +12,7 @@ from data_check import save_data, save_data_pwg
 from train_nar import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import make_test_loader, get_path_test, load_pretrained_model, gen_data_separate, gen_data_concat, select_checkpoint
-from calc_accuracy import calc_accuracy
+from calc_accuracy import calc_accuracy, calc_mean
 
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
@@ -120,6 +120,9 @@ def main(cfg):
             print("--- calc accuracy ---")
             calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             # calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+
+        calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
+    
         
 
 if __name__ == "__main__":

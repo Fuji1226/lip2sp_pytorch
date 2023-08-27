@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_nar_cycle
+    entity:
+    mode: online
+    name : nar_cycle
+watch:
+    log: all
+    log_freq: 100
