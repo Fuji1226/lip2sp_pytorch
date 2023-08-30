@@ -61,7 +61,7 @@ def generate_for_FR_train_loss(cfg, model, train_loader, dataset, device, save_p
     
     return epoch_output_loss, epoch_dec_output_loss
 
-def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save_path, epoch):
+def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save_path, epoch, mixing_prob):
     model.eval()
 
     lip_mean = dataset.lip_mean.to(device)
@@ -148,7 +148,67 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
         check_attention_weight(att_w[0], "attention", str(_save_path))
 
         with torch.no_grad():
-            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method='ss', mixing_prob=0.1)
+            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method='tf')
+
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_TF'
+        os.makedirs(str(_save_path), exist_ok=True)
+        _save_path = _save_path / label[0]
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+       
+        feature_tmp = feature[0].to('cpu').detach().numpy().copy()
+        output_tmp = output[0].to('cpu').detach().numpy().copy()
+        dec_output_tmp = dec_output[0].to('cpu').detach().numpy().copy()
+
+        plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
+        ax = plt.subplot(3, 1, 1)
+        specshow(
+        data=feature_tmp, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=16000,
+        cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("target")
+        ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
+        specshow(
+        data=output_tmp, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=16000,
+        cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("output")
+
+        ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
+        specshow(
+        data=dec_output_tmp, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=16000,
+        cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("dec_output")
+        plt.tight_layout()
+
+        plt.savefig(str(_save_path))
+        plt.close()
+        
+        check_attention_weight(att_w[0], "attention", str(_save_path)+"_attention")
+
+        with torch.no_grad():
+            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method='ss', mixing_prob=mixing_prob)
 
 
         _save_path = save_path / 'synthesis' / f'epoch_{epoch}_SS'
@@ -206,6 +266,7 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
         plt.close()
         
         check_attention_weight(att_w[0], "attention", str(_save_path)+"_attention")
+
         print('synthesis finished')
         break
     
@@ -302,14 +363,14 @@ def generate_for_train_check(cfg, model, test_loader, dataset, device, save_path
         #_save_path_tf = save_path / label[0]+'_tf'
         #os.makedirs(_save_path, exist_ok=True)
        
-        feature = feature[0].to('cpu').detach().numpy().copy()
-        output = output[0].to('cpu').detach().numpy().copy()
-        dec_output = dec_output[0].to('cpu').detach().numpy().copy()
+        feature_tmp = feature[0].to('cpu').detach().numpy().copy()
+        output_tmp = output[0].to('cpu').detach().numpy().copy()
+        dec_output_tmp = dec_output[0].to('cpu').detach().numpy().copy()
 
         plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
         ax = plt.subplot(3, 1, 1)
         specshow(
-        data=feature, 
+        data=feature_tmp, 
         x_axis="time", 
         y_axis="mel", 
         sr=16000,
@@ -321,7 +382,7 @@ def generate_for_train_check(cfg, model, test_loader, dataset, device, save_path
         plt.title("target")
         ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
         specshow(
-        data=output, 
+        data=output_tmp, 
         x_axis="time", 
         y_axis="mel", 
         sr=16000,
@@ -334,7 +395,7 @@ def generate_for_train_check(cfg, model, test_loader, dataset, device, save_path
 
         ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
         specshow(
-        data=dec_output, 
+        data=dec_output_tmp, 
         x_axis="time", 
         y_axis="mel", 
         sr=16000,

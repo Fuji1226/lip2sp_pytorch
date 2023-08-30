@@ -74,7 +74,7 @@ class Lip2SP(nn.Module):
         n_speaker, spk_emb_dim,
         pre_inner_channels, post_inner_channels, post_n_layers,
         n_position, which_encoder, which_decoder, apply_first_bn, multi_task, add_feat_add,
-        dec_dropout, res_dropout, reduction_factor=2, use_gc=False):
+        dec_dropout, res_dropout, reduction_factor=2, use_gc=False, use_stop_token=False):
         super().__init__()
 
         assert d_model % n_head == 0
@@ -118,43 +118,43 @@ class Lip2SP(nn.Module):
                 reduction_factor=reduction_factor,
             )
 
-        self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
-        self.spk_emb_layer = nn.Linear(d_model + spk_emb_dim, d_model)
+        # self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
+        # self.spk_emb_layer = nn.Linear(d_model + spk_emb_dim, d_model)
 
-        print(f'self decoder: {self.which_decoder}')
-        # decoder
-        if self.which_decoder == "transformer":
-            self.decoder = Decoder(
-                dec_n_layers=dec_n_layers, 
-                n_head=n_head, 
-                dec_d_model=dec_d_model, 
-                pre_in_channels=out_channels * reduction_factor, 
-                pre_inner_channels=pre_inner_channels, 
-                out_channels=out_channels, 
-                n_position=n_position, 
-                reduction_factor=reduction_factor, 
-                use_gc=use_gc,
-            )
-        elif self.which_decoder == "glu":
-            self.decoder = GLU(
-                inner_channels=glu_inner_channels, 
-                out_channels=out_channels,
-                pre_in_channels=out_channels * reduction_factor, 
-                pre_inner_channels=pre_inner_channels,
-                cond_channels=d_model,
-                reduction_factor=reduction_factor, 
-                n_layers=glu_layers,
-                kernel_size=glu_kernel_size,
-                dropout=dec_dropout,
-            )
-        elif self.which_decoder == 'taco':
-            self.decoder = TacotronDecoder()
+        # print(f'self decoder: {self.which_decoder}')
+        # # decoder
+        # if self.which_decoder == "transformer":
+        #     self.decoder = Decoder(
+        #         dec_n_layers=dec_n_layers, 
+        #         n_head=n_head, 
+        #         dec_d_model=dec_d_model, 
+        #         pre_in_channels=out_channels * reduction_factor, 
+        #         pre_inner_channels=pre_inner_channels, 
+        #         out_channels=out_channels, 
+        #         n_position=n_position, 
+        #         reduction_factor=reduction_factor, 
+        #         use_gc=use_gc,
+        #     )
+        # elif self.which_decoder == "glu":
+        #     self.decoder = GLU(
+        #         inner_channels=glu_inner_channels, 
+        #         out_channels=out_channels,
+        #         pre_in_channels=out_channels * reduction_factor, 
+        #         pre_inner_channels=pre_inner_channels,
+        #         cond_channels=d_model,
+        #         reduction_factor=reduction_factor, 
+        #         n_layers=glu_layers,
+        #         kernel_size=glu_kernel_size,
+        #         dropout=dec_dropout,
+        #     )
+        # elif self.which_decoder == 'taco':
+        #     self.decoder = TacotronDecoder()
 
         self.decoder = TacotronDecoder(
             enc_channels=256,
             dec_channels=1024,
             atten_conv_channels=32,
-            atten_conv_kernel_size=31,
+            atten_conv_kernel_size=61,
             atten_hidden_channels=128,
             rnn_n_layers=2,
             prenet_hidden_channels=256,
@@ -171,7 +171,7 @@ class Lip2SP(nn.Module):
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
 
-    def forward(self, lip, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None):
+    def forward(self, lip, prev=None, data_len=None, gc=None, training_method=None, mixing_prob=None, use_stop_token=False):
         """
         lip : (B, C, H, W, T)
         prev, out, dec_output : (B, C, T)
@@ -197,14 +197,30 @@ class Lip2SP(nn.Module):
 
         # decoder
         # 学習時
-        if prev is not None:
-            #print('prev is not None')
-            dec_output, logit, att_w = self.decoder(enc_output=enc_output, text_len=data_len, feature_target=prev, training_method=training_method, mixing_prob=mixing_prob)
+        if not use_stop_token:
+            if prev is not None:
+                #print('prev is not None')
+                dec_output, logit, att_w = self.decoder(enc_output=enc_output, text_len=data_len, feature_target=prev, training_method=training_method, mixing_prob=mixing_prob)
+            else:
+                dec_output, logit, att_w = self.decoder(enc_output, data_len) 
+
+            # postnet
+            out = self.postnet(dec_output) 
+            
+
+            return out, dec_output, enc_output.clone().detach(), att_w
         else:
-            dec_output, logit, att_w = self.decoder(enc_output, data_len)       
-        # postnet
-        out = self.postnet(dec_output) 
-        return out, dec_output, enc_output.clone().detach(), att_w
+            if prev is not None:
+                #print('prev is not None')
+                dec_output, logit, att_w, stop_token = self.decoder(enc_output=enc_output, text_len=data_len, feature_target=prev, training_method=training_method, mixing_prob=mixing_prob)
+            else:
+                dec_output, logit, att_w, stop_token = self.decoder(enc_output, data_len) 
+
+            # postnet
+            out = self.postnet(dec_output) 
+            
+
+            return out, dec_output, enc_output.clone().detach(), att_w, stop_token
 
  
 

@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import json
 
 from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust, collate_time_adjust_lipemb
-
+from dataset.dataset_npz_stop_token import KablabDatasetStopToken
 
 def prime_factorize(n):
     a = []
@@ -276,6 +276,66 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
     )
     print("\n--- make validation dataset ---")
     val_dataset = KablabDataset(
+        data_path=val_data_path,
+        mean_std_path=mean_std_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    # それぞれのdata loaderを作成
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_stop_token(cfg, data_root, mean_std_path):
+    # パスを取得
+    data_path = get_datasets(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    data_path = random.sample(data_path, len(data_path))
+    n_samples = len(data_path)
+    train_size = int(n_samples * 0.95)
+    train_data_path = data_path[:train_size]
+    val_data_path = data_path[train_size:]
+
+    # 学習用，検証用それぞれに対してtransformを作成
+    train_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="train",
+    )
+    val_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="val",
+    )
+
+    # dataset作成
+    print("\n--- make train dataset ---")
+    train_dataset = KablabDatasetStopToken(
+        data_path=train_data_path,
+        mean_std_path = mean_std_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = KablabDatasetStopToken(
         data_path=val_data_path,
         mean_std_path=mean_std_path,
         transform=val_trans,
