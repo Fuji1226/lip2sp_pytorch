@@ -29,21 +29,23 @@ random.seed(777)
 
 
 def make_classifier(cfg, device):
-    # domain_classifier = DomainClassifier(
-    #     in_channels=cfg.model.ae_emb_dim,
-    #     hidden_channels=cfg.model.domain_classifier_hidden_channels,
-    #     n_conv_layers=cfg.model.domain_classifier_n_conv_layers,
-    #     conv_dropout=cfg.model.domain_classifier_conv_dropout,
-    #     rnn_n_layers=cfg.model.domain_classifier_rnn_n_layers,
-    #     rnn_dropout=cfg.model.domain_classifier_rnn_dropout,
-    #     reduction_factor=cfg.model.reduction_factor,
-    #     rnn_which_norm=cfg.model.rnn_which_norm,
-    # )
-    domain_classifier = DomainClassifierLinear(
-        in_channels=cfg.model.ae_emb_dim,
-        hidden_channels=cfg.model.domain_classifier_hidden_channels,
-        n_layers=3,
-    )
+    if cfg.model.which_domain_classifier == 'convrnn':
+        domain_classifier = DomainClassifier(
+            in_channels=cfg.model.ae_emb_dim,
+            hidden_channels=cfg.model.domain_classifier_hidden_channels,
+            n_conv_layers=cfg.model.domain_classifier_n_conv_layers,
+            conv_dropout=cfg.model.domain_classifier_conv_dropout,
+            rnn_n_layers=cfg.model.domain_classifier_rnn_n_layers,
+            rnn_dropout=cfg.model.domain_classifier_rnn_dropout,
+            reduction_factor=cfg.model.reduction_factor,
+            rnn_which_norm=cfg.model.rnn_which_norm,
+        )
+    elif cfg.model.which_domain_classifier == 'linear':
+        domain_classifier = DomainClassifierLinear(
+            in_channels=cfg.model.ae_emb_dim,
+            hidden_channels=cfg.model.domain_classifier_hidden_channels,
+            n_layers=cfg.model.domain_classifier_n_layers,
+        )
     count_params(domain_classifier, 'domain_classifier')
     domain_classifier = domain_classifier.to(device)
     return domain_classifier

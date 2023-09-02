@@ -15,7 +15,7 @@ from utils import count_params, set_config, get_path_train, make_train_val_loade
 from loss import MaskedLoss
 from train_audio_ae import make_model
 from train_audio_ae_adv import make_classifier
-from model.model_ae import FeatureConverter
+from model.model_ae import FeatureConverterLinear, FeatureConverter
 
 # wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -30,18 +30,40 @@ random.seed(777)
 
 
 def make_converter(cfg, device):
-    lip2audio_converter = FeatureConverter(
-        in_channels=cfg.model.ae_emb_dim,
-        hidden_channels=cfg.model.converter_hidden_channels,
-        n_layers=cfg.model.converter_n_layers,
-        dropout=cfg.model.converter_dropout,
-    )
-    audio2lip_converter = FeatureConverter(
-        in_channels=cfg.model.ae_emb_dim,
-        hidden_channels=cfg.model.converter_hidden_channels,
-        n_layers=cfg.model.converter_n_layers,
-        dropout=cfg.model.converter_dropout,
-    )
+    if cfg.model.which_feature_converter == 'convrnn':
+        lip2audio_converter = FeatureConverter(
+            in_channels=cfg.model.ae_emb_dim,
+            hidden_channels=cfg.model.converter_hidden_channels,
+            n_conv_layers=cfg.model.converter_n_conv_layers,
+            conv_dropout=cfg.model.converter_conv_dropout,
+            rnn_n_layers=cfg.model.converter_rnn_n_layers,
+            rnn_dropout=cfg.model.converter_rnn_dropout,
+            reduction_factor=cfg.model.reduction_factor,
+            rnn_which_norm=cfg.model.rnn_which_norm,
+        )
+        audio2lip_converter = FeatureConverter(
+            in_channels=cfg.model.ae_emb_dim,
+            hidden_channels=cfg.model.converter_hidden_channels,
+            n_conv_layers=cfg.model.converter_n_conv_layers,
+            conv_dropout=cfg.model.converter_conv_dropout,
+            rnn_n_layers=cfg.model.converter_rnn_n_layers,
+            rnn_dropout=cfg.model.converter_rnn_dropout,
+            reduction_factor=cfg.model.reduction_factor,
+            rnn_which_norm=cfg.model.rnn_which_norm,
+        )
+    elif cfg.model.which_feature_converter == 'linear':
+        lip2audio_converter = FeatureConverterLinear(
+            in_channels=cfg.model.ae_emb_dim,
+            hidden_channels=cfg.model.converter_hidden_channels,
+            n_layers=cfg.model.converter_n_layers,
+            dropout=cfg.model.converter_dropout,
+        )
+        audio2lip_converter = FeatureConverterLinear(
+            in_channels=cfg.model.ae_emb_dim,
+            hidden_channels=cfg.model.converter_hidden_channels,
+            n_layers=cfg.model.converter_n_layers,
+            dropout=cfg.model.converter_dropout,
+        )
     count_params(lip2audio_converter, 'lip2audio_converter')
     count_params(audio2lip_converter, 'audio2lip_converter')
     lip2audio_converter = lip2audio_converter.to(device)
@@ -191,8 +213,8 @@ def train_one_epoch(
             with torch.no_grad():
                 audio_enc_output = audio_encoder(feature, feature_len)
                 lip_enc_output = lip_encoder(lip[video_index], lip_len[video_index])
-                audio_enc_output_from_lip = lip2audio_converter(lip_enc_output)
-                lip_enc_output_from_audio = audio2lip_converter(audio_enc_output)
+                audio_enc_output_from_lip = lip2audio_converter(lip_enc_output, lip_len[video_index])
+                lip_enc_output_from_audio = audio2lip_converter(audio_enc_output, lip_len)
 
             disc_pred_audio_real = audio_discriminator(audio_enc_output, lip_len)
             disc_pred_audio_fake = audio_discriminator(audio_enc_output_from_lip, lip_len[video_index])
@@ -230,10 +252,10 @@ def train_one_epoch(
                 audio_enc_output = audio_encoder(feature, feature_len)
                 lip_enc_output = lip_encoder(lip[video_index], lip_len[video_index])
 
-            audio_enc_output_from_lip = lip2audio_converter(lip_enc_output)
-            lip_enc_output_from_audio = audio2lip_converter(audio_enc_output)
-            audio_enc_output_cycle = lip2audio_converter(lip_enc_output_from_audio.detach())
-            lip_enc_output_cycle = audio2lip_converter(audio_enc_output_from_lip.detach())
+            audio_enc_output_from_lip = lip2audio_converter(lip_enc_output, lip_len[video_index])
+            lip_enc_output_from_audio = audio2lip_converter(audio_enc_output, lip_len)
+            audio_enc_output_cycle = lip2audio_converter(lip_enc_output_from_audio.detach(), lip_len)
+            lip_enc_output_cycle = audio2lip_converter(audio_enc_output_from_lip.detach(), lip_len[video_index])
             feature_pred_audio_from_lip = audio_decoder(audio_enc_output_from_lip, lip_len[video_index], spk_emb[video_index], lang_id[video_index])
             feature_pred_audio_from_cycle = audio_decoder(audio_enc_output_cycle, lip_len, spk_emb, lang_id)
             disc_pred_audio_fake = audio_discriminator(audio_enc_output_from_lip, lip_len[video_index])
@@ -365,10 +387,10 @@ def val_one_epoch(
             with torch.no_grad():
                 audio_enc_output = audio_encoder(feature, feature_len)
                 lip_enc_output = lip_encoder(lip[video_index], lip_len[video_index])
-                audio_enc_output_from_lip = lip2audio_converter(lip_enc_output)
-                lip_enc_output_from_audio = audio2lip_converter(audio_enc_output)
-                audio_enc_output_cycle = lip2audio_converter(lip_enc_output_from_audio)
-                lip_enc_output_cycle = audio2lip_converter(audio_enc_output_from_lip)
+                audio_enc_output_from_lip = lip2audio_converter(lip_enc_output, lip_len[video_index])
+                lip_enc_output_from_audio = audio2lip_converter(audio_enc_output, lip_len)
+                audio_enc_output_cycle = lip2audio_converter(lip_enc_output_from_audio, lip_len)
+                lip_enc_output_cycle = audio2lip_converter(audio_enc_output_from_lip, lip_len[video_index])
                 feature_pred_audio_from_lip = audio_decoder(audio_enc_output_from_lip, lip_len[video_index], spk_emb[video_index], lang_id[video_index])
                 feature_pred_audio_from_cycle = audio_decoder(audio_enc_output_cycle, lip_len, spk_emb, lang_id)
 
@@ -588,6 +610,10 @@ def main(cfg):
             lip_encoder.load_state_dict(checkpoint["lip_encoder"])
             audio_encoder.load_state_dict(checkpoint["audio_encoder"])
             audio_decoder.load_state_dict(checkpoint["audio_decoder"])
+            audio_discriminator.load_state_dict(checkpoint["audio_discriminator"])
+            lip_discriminator.load_state_dict(checkpoint["lip_discriminator"])
+            lip2audio_converter.load_state_dict(checkpoint["lip2audio_converter"])
+            audio2lip_converter.load_state_dict(checkpoint["audio2lip_converter"])
             optimizer.load_state_dict(checkpoint["optimizer"])
             scheduler.load_state_dict(checkpoint["scheduler"])
             scaler.load_state_dict(checkpoint["scaler"])

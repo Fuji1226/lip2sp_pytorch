@@ -161,16 +161,23 @@ audio_dec_conf_feedforward_expansion_factor : 8
 audio_dec_conv_dropout : 0.1
 
 # domain classifier
+which_domain_classifier : 'linear'
 domain_classifier_hidden_channels : 128
+domain_classifier_n_layers : 3
 domain_classifier_n_conv_layers : 2
 domain_classifier_conv_dropout : 0
 domain_classifier_rnn_n_layers : 2
 domain_classifier_rnn_dropout : 0
 
 # feature converter
+which_feature_converter : 'linear'
 converter_hidden_channels : 128
 converter_n_layers : 3
 converter_dropout : 0
+converter_n_conv_layers : 2
+converter_conv_dropout : 0
+converter_rnn_n_layers : 2
+converter_rnn_dropout : 0
 
 # mutual information
 mi_hidden_channels : 256

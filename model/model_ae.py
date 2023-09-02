@@ -285,7 +285,7 @@ class DomainClassifier(nn.Module):
             dropout=rnn_dropout,
             reduction_factor=reduction_factor,
             which_norm=rnn_which_norm,
-        ) 
+        )
 
         self.out_layer = nn.Linear(hidden_channels, 1)
 
@@ -295,22 +295,12 @@ class DomainClassifier(nn.Module):
         data_len : (B,)
         '''
         output = self.first_layer(enc_output).permute(0, 2, 1)  # (B, C, T)
-
         for layer in self.convs:
             output = layer(output)
-
         output = self.gru(output, data_len)     # (B, T, C)
-
-        # パディング部分は平均の計算に含まない
-        output_list = []
-        for i in range(output.shape[0]):
-            x = output[i, :data_len[i], :]  # (T, C)
-            output_list.append(torch.mean(x, dim=0))
-        
-        output = torch.stack(output_list, dim=0)    # (B, C)
-        output = self.out_layer(output)     # (B, 1)
+        output = self.out_layer(output).permute(0, 2, 1)    # (B, C, T)
         return output
-    
+
 
 class DomainClassifierLinear(nn.Module):
     def __init__(
@@ -352,6 +342,56 @@ class FeatureConverter(nn.Module):
         self,
         in_channels,
         hidden_channels,
+        n_conv_layers,
+        conv_dropout,
+        rnn_n_layers,
+        rnn_dropout,
+        reduction_factor,
+        rnn_which_norm,
+    ):
+        super().__init__()
+        self.first_layer = nn.Linear(in_channels, hidden_channels)
+
+        convs = []
+        for i in range(n_conv_layers):
+            convs.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channels, hidden_channels, kernel_size=3, padding=1),
+                    nn.BatchNorm1d(hidden_channels),
+                    nn.ReLU(),
+                    nn.Dropout(conv_dropout),
+                )
+            )
+        self.convs = nn.ModuleList(convs)
+
+        self.gru = GRUEncoder(
+            hidden_channels=hidden_channels,
+            n_layers=rnn_n_layers,
+            dropout=rnn_dropout,
+            reduction_factor=reduction_factor,
+            which_norm=rnn_which_norm,
+        )
+
+        self.out_layer = nn.Linear(hidden_channels, in_channels)
+
+    def forward(self, x, data_len):
+        '''
+        x : (B, T, C)
+        data_len : (B,)
+        '''
+        x = self.first_layer(x).permute(0, 2, 1)    # (B, C, T)
+        for layer in self.convs:
+            x = layer(x)
+        x = self.gru(x, data_len)     # (B, T, C)
+        x = self.out_layer(x)
+        return x
+
+
+class FeatureConverterLinear(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        hidden_channels,
         n_layers,
         dropout,
     ):
@@ -372,12 +412,10 @@ class FeatureConverter(nn.Module):
 
         self.out_layer = nn.Linear(hidden_channels, in_channels)
 
-    def forward(
-        self,
-        x,
-    ):
+    def forward(self, x, data_len):
         '''
         x : (B, T, C)
+        data_len : (B,)
         '''
         x = self.first_layer(x)
         for layer in self.layers:
