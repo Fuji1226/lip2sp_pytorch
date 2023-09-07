@@ -120,6 +120,7 @@ class ConvEncoder(nn.Module):
         x : (B, C, T)
         data_len : (B,)
         """
+        tmp_len = data_len.clone().detach()
         # print(f'x: {x.shape}')
         # print(f'data_len: {data_len}')
         #x = x.permute(0, 2, 1)      # (B, C, T)
@@ -133,10 +134,10 @@ class ConvEncoder(nn.Module):
         for i in range(x.shape[0]):
             max_len = x.shape[1]
             
-            if data_len[i]>max_len:
-                data_len[i] = max_len
+            if tmp_len[i]>max_len:
+                tmp_len[i] = max_len
             
-        x = pack_padded_sequence(x, data_len.cpu(), batch_first=True, enforce_sorted=False)
+        x = pack_padded_sequence(x, tmp_len.cpu(), batch_first=True, enforce_sorted=False)
         x, _ = self.lstm(x)
         #print(f'after lstm: {x}')
         x = pad_packed_sequence(x, batch_first=True)[0]
