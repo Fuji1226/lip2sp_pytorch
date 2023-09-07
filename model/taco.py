@@ -392,8 +392,8 @@ class TacotronDecoder(nn.Module):
             hidden_channels=atten_hidden_channels,
         )
 
-        self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
-        #self.prenet = PrenetForLip2SP(int(out_channels * reduction_factor), prenet_hidden_channels)
+        #self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
+        self.prenet = PrenetForLip2SP(int(out_channels * reduction_factor), prenet_hidden_channels)
 
 
         lstm = []

@@ -16,7 +16,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_taco
 
-from utils import make_train_val_loader_stop_token, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader
+from utils import make_train_val_loader_stop_token, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att
 from model.model_trans_taco import Lip2SP
 from loss import MaskedLoss
 
@@ -136,7 +136,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             output, dec_output, feat_add_out, stop_tokens = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
         else:
             #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-            output, dec_output, feat_add_out, _, logit = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)
+            output, dec_output, feat_add_out, att_w, logit = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)
         
         B, C, T = output.shape
 
@@ -189,6 +189,8 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         scheduler.step()
 
         iter_cnt += 1
+        
+        check_att(att_w[0], cfg, "attention", current_time, ckpt_time)
 
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
