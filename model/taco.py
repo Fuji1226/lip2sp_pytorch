@@ -120,12 +120,12 @@ class ConvEncoder(nn.Module):
         x : (B, C, T)
         data_len : (B,)
         """
-        print(f'x: {x.shape}')
-        print(f'data_len: {data_len}')
+        # print(f'x: {x.shape}')
+        # print(f'data_len: {data_len}')
         #x = x.permute(0, 2, 1)      # (B, C, T)
         for layer in self.conv_layers:
             x = layer(x)
-        print(f'after layer: {x.shape}')
+        #print(f'after layer: {x.shape}')
         x = x.permute(0, 2, 1)      # (B, T, C)
 
         seq_len_orig = x.shape[1]
@@ -138,7 +138,7 @@ class ConvEncoder(nn.Module):
             
         x = pack_padded_sequence(x, data_len.cpu(), batch_first=True, enforce_sorted=False)
         x, _ = self.lstm(x)
-        print(f'after lstm: {x}')
+        #print(f'after lstm: {x}')
         x = pad_packed_sequence(x, batch_first=True)[0]
         
         # # 複数GPUを使用して最大系列長のデータがバッチ内に含まれない場合などに,系列長が短くなってしまうので再度パディング

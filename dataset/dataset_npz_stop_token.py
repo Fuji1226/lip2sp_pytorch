@@ -449,7 +449,13 @@ def collate_time_adjust_stop_token(batch, cfg):
                     f_padded[:, t] = f[:, t]
                     f_add_padded[:, t] = f_add[:, t]
 
-                stop_token_padded[d_len-1] = 1.0
+                stop_token_padded[d_len-2:d_len] = 1.0
+                # print(f'lip: {l.shape}')
+                # print(f'feature: {f.shape}')
+                # print(f'd_len: {d_len}')
+                # print(f'feat len: {feature_len}')
+                # print(stop_token_padded)
+                # breakpoint()
 
                 l = l_padded
                 f = f_padded
