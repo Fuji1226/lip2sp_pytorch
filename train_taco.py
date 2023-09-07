@@ -15,7 +15,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_taco
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader
+from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att
 from model.model_trans_taco import Lip2SP
 from loss import MaskedLoss
 
@@ -117,7 +117,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
         else:
             #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-            output, dec_output, feat_add_out, _ = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
+            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
                         
         B, C, T = output.shape
 
@@ -152,10 +152,12 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
 
         iter_cnt += 1
 
+        check_att(att_w, cfg, "attention", current_time, ckpt_time)
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
+                    check_att(att_w, cfg, "attention", current_time, ckpt_time)
                     if cfg.train.multi_task:
                         check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
                 break

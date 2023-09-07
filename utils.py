@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import json
+import seaborn as sns
+
 
 from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust, collate_time_adjust_lipemb
 from dataset.dataset_npz_stop_token import KablabDatasetStopToken, collate_time_adjust_stop_token
@@ -630,3 +632,36 @@ def check_feat_add(target, output, cfg, filename, current_time, ckpt_time=None):
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
+    
+    
+def check_att(att, cfg, filename, current_time, ckpt_time=None):
+    att = att.to('cpu').detach().numpy().copy()
+    att = att[0]
+    # power_target = target[1]
+    # power_output = output[1]
+    # ax = plt.subplot(2, 1, 2)
+    # ax.plot(time, power_target, label="target")
+    # ax.plot(time, power_output, label="output")
+    # plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
+    # plt.xlabel("Time[s]")
+    # plt.title("power")
+    # plt.grid()
+
+    # plt.tight_layout()
+
+    plt.figure()
+    sns.heatmap(att, cmap="viridis", cbar=True)
+    plt.title("attention weight")
+    plt.xlabel("text")
+    plt.ylabel("feature")
+
+    save_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
+    os.makedirs(save_path, exist_ok=True)
+    plt.savefig(str(save_path / f"{filename}.png"))
+    wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
+    
+
