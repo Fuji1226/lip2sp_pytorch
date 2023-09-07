@@ -22,13 +22,13 @@ n_mel_channels : 80
 gray : True
 
 # input first and second derivative.（動的特徴量を使うかどうか）
-delta : True
+delta : False
 
 # frame period
 frame_period : 10
 
 # acoutic feature frames in training
-length : 500
+length : 600
 
 # phoneme length
 phoneme_length : 30
@@ -40,14 +40,14 @@ reduction_factor : 2
 feature_type : "mspec"
 
 # 学習に使用する口唇動画のフレーム数
-lip_min_frame : 250
-lip_max_frame : 251
+lip_min_frame : 300
+lip_max_frame : 301
 
 #################################
 # model_info
 #################################
 # in_channels
-in_channels : 5
+in_channels : 3
 
 # ResNet3D parameter
 res_layers : 3

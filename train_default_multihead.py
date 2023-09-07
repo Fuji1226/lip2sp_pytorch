@@ -11,19 +11,13 @@ from functools import partial
 from librosa.display import specshow
 
 import torch
-import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
-from synthesis import generate_for_train_check_taco
+from synthesis_multihead import generate_for_train_check, generate_for_FR_train_loss
 
-from utils import make_train_val_loader_stop_token, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader
-from model.model_trans_taco import Lip2SP
+from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader
+from model.model_default_multihead import Lip2SP
 from loss import MaskedLoss
-
-import psutil
-
-from prob_list import *
-from transformers import get_cosine_schedule_with_warmup
 
 # wandbへのログイン
 wandb.login()
@@ -36,23 +30,6 @@ torch.manual_seed(777)
 torch.cuda.manual_seed_all(777)
 random.seed(777)
 
-
-def make_pad_mask_stop_token(lengths, max_len):
-    device = lengths.device
-
-    if not isinstance(lengths, list):
-        lengths = lengths.tolist()
-    bs = int(len(lengths))
-    if max_len is None:
-        max_len = int(max(lengths))
-
-    seq_range = torch.arange(0, max_len, dtype=torch.int64)
-    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
-    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
-    mask = seq_range_expand >= seq_length_expand
-    mask = mask.to(device=device)  # マスクをデバイスに送る
-
-    return mask
 
 def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
 	torch.save({
@@ -110,11 +87,10 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_loss_feat_add = 0
-    epoch_stop_token_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start")
@@ -123,22 +99,16 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        lip, feature, feat_add, upsample, data_len, speaker, label, stop_tokens = batch
-        if iter_cnt==0:
-            print(f'lip: {lip.shape}')
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch
        
-        lip, feature, feat_add, data_len, target_stop_tokens = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), stop_tokens.to(device)
+        lip, feature, feat_add, data_len, speaker = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), speaker.to(device)
       
         # output : postnet後の出力
         # dec_output : postnet前の出力
-
-        optimizer.zero_grad()
         if cfg.train.use_gc:
-            output, dec_output, feat_add_out, stop_tokens = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
         else:
-            #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-            output, dec_output, feat_add_out, _, logit = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)
-                        
+            output, dec_output, feat_add_out, att = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
         B, C, T = output.shape
 
         if cfg.train.multi_task:
@@ -155,38 +125,19 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
         epoch_dec_output_loss += dec_output_loss.item()
         wandb.log({"train_dec_output_loss": dec_output_loss})
-
-        
         #dec_output_loss.backward()
-        # print(f'lip: {lip.shape}')
-        # print(f'feature: {feature.shape}')
-        # print(f'data_len: {data_len}')
-        # print(f'data_lenx2: {data_len*2}')
-        # print(f'predict prob: {stop_tokens.shape}')
-        # print(f'output;: {output.shape}')
-
-        logit_mask = 1.0 - make_pad_mask_stop_token(data_len*2, feature.shape[-1]).to(torch.float32)
-        logit_mask = logit_mask.to(torch.bool)
-        # print(f'stop_tokens: {stop_tokens.shape}')
-        # print(f'logit_mask: {logit_mask.shape}')
-
-        logit = torch.masked_select(logit, logit_mask)
-        stop_token = torch.masked_select(target_stop_tokens, logit_mask)
-        stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
-        epoch_stop_token_loss += stop_token_loss.item()
 
         if not cfg.train.multi_task:
             loss = output_loss + dec_output_loss
             loss.backward()
         else:
-            loss = output_loss + dec_output_loss + feat_add_out + stop_token_loss
+            loss = output_loss + dec_output_loss + feat_add_out
             loss.backward()
 
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         optimizer.step()
         optimizer.zero_grad()
-        scheduler.step()
 
         iter_cnt += 1
 
@@ -204,22 +155,17 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
                 if cfg.train.multi_task:
                     check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
-        
-        del lip, feature, feat_add, upsample, data_len, speaker, label, output, dec_output
-        torch.cuda.empty_cache()
 
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
-    epoch_stop_token_loss /= iter_cnt
-    return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add, epoch_stop_token_loss
+    return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add
 
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_loss_feat_add = 0
-    epoch_stop_token_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("calc val loss")
@@ -228,14 +174,14 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
 
-        lip, feature, feat_add, upsample, data_len, speaker, label, target_stop_tokens = batch        
-        lip, feature, feat_add, data_len, target_stop_tokens = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), target_stop_tokens.to(device)
+        lip, feature, feat_add, upsample, data_len, speaker, label = batch        
+        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
         
         with torch.no_grad():
             if cfg.train.use_gc:
                 output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
             else:
-                output, dec_output, feat_add_out, _, logit = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)               
+                output, dec_output, feat_add_out, att = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
 
         B, C, T = output.shape
 
@@ -251,18 +197,6 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
         epoch_dec_output_loss += dec_output_loss.item()
         wandb.log({"val_dec_output_loss": dec_output_loss})
-
-        logit_mask = 1.0 - make_pad_mask_stop_token(data_len*2, feature.shape[-1]).to(torch.float32)
-        logit_mask = logit_mask.to(torch.bool)
-        # print(f'stop_tokens: {stop_tokens.shape}')
-        # print(f'logit_mask: {logit_mask.shape}')
-
-        logit = torch.masked_select(logit, logit_mask)
-        stop_token = torch.masked_select(target_stop_tokens, logit_mask)
-        stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
-        epoch_stop_token_loss += stop_token_loss.item()
-        wandb.log({"stop_token_loss": stop_token_loss})
-
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -282,9 +216,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
     epoch_loss_feat_add /= iter_cnt
-    epoch_stop_token_loss /= iter_cnt
-    
-    return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add, epoch_stop_token_loss
+    return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add
 
 
 def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
@@ -300,6 +232,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
             return mixing_prob
     else:
         return mixing_prob
+
 
 
 @hydra.main(config_name="config", config_path="conf")
@@ -339,7 +272,7 @@ def main(cfg):
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_stop_token(cfg, data_root, mean_std_path)
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, data_root, mean_std_path)
     test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
 
     # 損失関数
@@ -347,12 +280,9 @@ def main(cfg):
     train_output_loss_list = []
     train_dec_output_loss_list = []
     train_feat_add_loss_list = []
-    train_stop_token_loss_list = []
-
     val_output_loss_list = []
     val_dec_output_loss_list = []
     val_feat_add_loss_list = []
-    val_stop_token_loss_list = []
     
     train_output_loss_list_FR = []
     train_dec_output_loss_list_FR = []
@@ -374,20 +304,11 @@ def main(cfg):
             weight_decay=cfg.train.weight_decay    
         )
         # scheduler
-        # scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        #     optimizer=optimizer,
-        #     milestones=cfg.train.multi_lr_decay_step,
-        #     gamma=cfg.train.lr_decay_rate,
-        # )
-
-        #lr_scheduler = optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=100000)
-
-        num_warmup_steps = 455 * 3
-
-        num_training_steps = 455 * 300
-
-        scheduler = get_cosine_schedule_with_warmup(optimizer, 
-            num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer=optimizer,
+            milestones=cfg.train.multi_lr_decay_step,
+            gamma=cfg.train.lr_decay_rate,
+        )
         # scheduler = CosineLRScheduler(
         #     optimizer, 
         #     t_initial=cfg.train.max_epoch, 
@@ -414,9 +335,6 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test9(cfg)
-
-
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
@@ -439,15 +357,17 @@ def main(cfg):
                     mixing_prob = cfg.train.mixing_prob
             else:
                 mixing_prob = cfg.train.mixing_prob
-
-            mixing_prob = prob_list[current_epoch-1]
+            # if  False:
+            #     mixing_prob = 0.5
+            # else:
+            #     mixing_prob =0.995**epoch
 
             print(f"training_method : {training_method}")
-            print(f"mixing prob: {mixing_prob}")
+            print(f"mixing_prob = {mixing_prob}")
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
 
             # training
-            train_epoch_loss_output, train_epoch_loss_dec_output, train_epoch_loss_feat_add, train_stop_token_loss = train_one_epoch(
+            train_epoch_loss_output, train_epoch_loss_dec_output, train_epoch_loss_feat_add = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
@@ -458,15 +378,13 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 epoch=current_epoch,
                 ckpt_time=ckpt_time,
-                scheduler=scheduler
             )
             train_output_loss_list.append(train_epoch_loss_output)
             train_dec_output_loss_list.append(train_epoch_loss_dec_output)
             train_feat_add_loss_list.append(train_epoch_loss_feat_add)
-            train_stop_token_loss_list.append(train_stop_token_loss)
 
             # validation
-            val_epoch_loss_output, val_epoch_loss_dec_output, val_epoch_loss_feat_add, val_epoch_stop_token_loss = calc_val_loss(
+            val_epoch_loss_output, val_epoch_loss_dec_output, val_epoch_loss_feat_add = calc_val_loss(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
@@ -479,9 +397,8 @@ def main(cfg):
             val_output_loss_list.append(val_epoch_loss_output)
             val_dec_output_loss_list.append(val_epoch_loss_dec_output)
             val_feat_add_loss_list.append(val_epoch_loss_feat_add)
-            val_stop_token_loss_list.append(val_epoch_stop_token_loss)
         
-            #scheduler.step()
+            scheduler.step()
 
             # check point
             if current_epoch % cfg.train.ckpt_step == 0:
@@ -496,7 +413,6 @@ def main(cfg):
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
-            save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token")
 
             # epoch_output_loss_FR_train, epoch_dec_output_loss_FR_train = generate_for_FR_train_loss(
             #     cfg = cfg,
@@ -508,6 +424,17 @@ def main(cfg):
             #     epoch=epoch,
             #     loss_f=loss_f
             # )
+            # epoch_output_loss_FR_val, epoch_dec_output_loss_FR_val = generate_for_FR_train_loss(
+            #     cfg = cfg,
+            #     model = model,
+            #     train_loader = val_loader,
+            #     dataset=val_dataset,
+            #     device=device,
+            #     save_path=save_path,
+            #     epoch=epoch,
+            #     loss_f=loss_f
+            # )
+            
             # train_output_loss_list_FR.append(epoch_output_loss_FR_train)
             # train_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_train)
             # val_output_loss_list_FR.append(epoch_output_loss_FR_val)
@@ -515,19 +442,15 @@ def main(cfg):
             # save_loss(train_output_loss_list_FR, val_output_loss_list_FR, save_path, "FR_output_loss")
             # save_loss(train_dec_output_loss_list_FR, val_dec_output_loss_list_FR, save_path, "FR_dec_output_loss")
             
-            generate_for_train_check_taco(
+            generate_for_train_check(
                 cfg = cfg,
                 model = model,
                 test_loader = test_loader,
                 dataset=test_dataset,
                 device=device,
                 save_path=save_path,
-                epoch=epoch,
-                mixing_prob=mixing_prob
+                epoch=epoch
             )
-            
-            mem = psutil.virtual_memory() 
-            print(f'cpu usage: {mem.percent}')
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

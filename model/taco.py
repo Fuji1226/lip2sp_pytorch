@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 
 import torch.nn.functional as F
-
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 def make_pad_mask(lengths, max_len):
     """
@@ -94,6 +94,52 @@ class PreNet(nn.Module):
         for layer in self.layers:
             x = F.dropout(layer(x))
         return x
+
+
+class ConvEncoder(nn.Module):
+    def __init__(self, hidden_channels, conv_n_layers, conv_kernel_size, rnn_n_layers, dropout):
+        super().__init__()
+        conv_layers = []
+        padding = (conv_kernel_size - 1) // 2
+        for i in range(conv_n_layers):
+            conv_layers.append(
+                nn.Sequential(
+                    nn.Conv1d(hidden_channels, hidden_channels, kernel_size=conv_kernel_size, padding=padding, bias=False),
+                    nn.BatchNorm1d(hidden_channels),
+                    nn.ReLU(),
+                    nn.Dropout(dropout),
+                )
+            )
+        self.conv_layers = nn.ModuleList(conv_layers)
+        self.lstm = nn.LSTM(
+            hidden_channels, hidden_channels // 2, num_layers=rnn_n_layers, batch_first=True, bidirectional=True
+        )
+
+    def forward(self, x, data_len):
+        """
+        x : (B, C, T)
+        data_len : (B,)
+        """
+        print(f'x: {x.shape}')
+        print(f'data_len: {data_len}')
+        #x = x.permute(0, 2, 1)      # (B, C, T)
+        for layer in self.conv_layers:
+            x = layer(x)
+        print(f'after layer: {x.shape}')
+        x = x.permute(0, 2, 1)      # (B, T, C)
+
+        seq_len_orig = x.shape[1]
+        x = pack_padded_sequence(x, data_len.cpu(), batch_first=True, enforce_sorted=False)
+        x, _ = self.lstm(x)
+        print(f'after lstm: {x}')
+        x = pad_packed_sequence(x, batch_first=True)[0]
+        
+        # # 複数GPUを使用して最大系列長のデータがバッチ内に含まれない場合などに,系列長が短くなってしまうので再度パディング
+        # if x.shape[1] < seq_len_orig:
+        #     zero_pad = torch.zeros(x.shape[0], seq_len_orig - x.shape[1], x.shape[2]).to(device=x.device, dtype=x.dtype)
+        #     x = torch.cat([x, zero_pad], dim=1)
+
+        return x    # (B, T, C)
 
 class Attention(nn.Module):
     def __init__(self, enc_channels, dec_channels, conv_channels, conv_kernel_size, hidden_channels):
@@ -362,7 +408,7 @@ class TacotronDecoder(nn.Module):
         init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
         return init_hs
 
-    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None):
+    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False):
         """
         enc_output : (B, T, C)
         text_len : (B,)
@@ -462,4 +508,7 @@ class TacotronDecoder(nn.Module):
         
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
         
-        return output, logit, att_w #(B, mel, T) (B, T)
+        if not use_stop_token:
+            return output, logit, att_w #(B, mel, T) (B, T)
+        else:
+            return output, logit, att_w, logit

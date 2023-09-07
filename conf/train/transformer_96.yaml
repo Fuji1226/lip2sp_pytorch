@@ -13,7 +13,7 @@ check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/default/lip_128128/2022:07:20_13-10-21/world_melfb_100.ckpt"
 
 # face or lip
-face_or_lip : "lip"
+face_or_lip : "face"
 
 # データを置いているディレクトリまでのパス
 lip_path : "~/dataset/lip/lip_cropped"
@@ -28,18 +28,18 @@ ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
 lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
-face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
+face_mean_std_path : "~/dataset/lip/np_files_96/lip_cropped/mean_std"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
-face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
+face_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
 
 # 使用する話者
-speaker : ["F01_kablab"]
+speaker : ["F01_kabulab"]
 use_gc : False
 
 # max_epoch
-max_epoch : 1000
+max_epoch : 5000
 
 # validation lossを計算する間隔
 display_val_loss_step : 1
@@ -48,7 +48,7 @@ display_val_loss_step : 1
 # 空間
 use_color_jitter : False
 use_blur : False
-use_horizontal_flip : False
+use_horizontal_flip :  False
 use_pad : False
 use_rotation : False
 # 時間
@@ -99,6 +99,13 @@ visualize_step : 400    # iteration
 # delta loss
 blur : True
 batch_norm : True
+
+# 空間領域にランダムマスキング
+use_spatial_masking : False
+which_spatial_mask : "cutout"
+spatial_divide_factor : 4
+n_spatial_mask : 8
+mask_length : 24
 
 # 動画に対して最初にbatch normalizationをするかどうか
 apply_first_bn : False

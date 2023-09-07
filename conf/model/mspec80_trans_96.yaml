@@ -28,7 +28,7 @@ delta : True
 frame_period : 10
 
 # acoutic feature frames in training
-length : 500
+length : 400
 
 # phoneme length
 phoneme_length : 30
@@ -40,8 +40,8 @@ reduction_factor : 2
 feature_type : "mspec"
 
 # 学習に使用する口唇動画のフレーム数
-lip_min_frame : 250
-lip_max_frame : 251
+lip_min_frame : 200
+lip_max_frame : 201
 
 #################################
 # model_info
@@ -50,7 +50,7 @@ lip_max_frame : 251
 in_channels : 5
 
 # ResNet3D parameter
-res_layers : 3
+res_layers : 4
 res_inner_channels : 128
 norm_type_lip : "bn"
 

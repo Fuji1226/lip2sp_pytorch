@@ -28,7 +28,7 @@ delta : True
 frame_period : 10
 
 # acoutic feature frames in training
-length : 300    
+length : 300
 
 # phoneme length
 phoneme_length : 30
@@ -87,7 +87,7 @@ which_encoder : "transformer"
 # 使用するdecoder
 # 自己回帰 : "transformer" or "glu"
 # 非自己回帰 : "simple_tc", "gated_tc" or "res_tc"
-which_decoder : "res_tc"
+which_decoder : "re_tc"
 
 # audio encoder
 ae_emb_dim : 2
@@ -105,7 +105,7 @@ which_spk_enc : "rnn"
 mi_hidden_channels : 256
 
 # discriminator
-which_d : "jcu"
+which_d :
 
 # out_channels
 out_channels : 80  # 音響特徴量から計算します

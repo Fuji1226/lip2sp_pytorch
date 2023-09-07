@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import json
 
 from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust, collate_time_adjust_lipemb
-from dataset.dataset_npz_stop_token import KablabDatasetStopToken
+from dataset.dataset_npz_stop_token import KablabDatasetStopToken, collate_time_adjust_stop_token
 
 def prime_factorize(n):
     a = []
@@ -350,7 +350,7 @@ def make_train_val_loader_stop_token(cfg, data_root, mean_std_path):
         num_workers=cfg.train.num_workers,      
         pin_memory=True,
         drop_last=True,
-        collate_fn=partial(collate_time_adjust, cfg=cfg),
+        collate_fn=partial(collate_time_adjust_stop_token, cfg=cfg),
     )
     val_loader = DataLoader(
         dataset=val_dataset,
@@ -359,7 +359,7 @@ def make_train_val_loader_stop_token(cfg, data_root, mean_std_path):
         num_workers=0,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
-        collate_fn=partial(collate_time_adjust, cfg=cfg),
+        collate_fn=partial(collate_time_adjust_stop_token, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 

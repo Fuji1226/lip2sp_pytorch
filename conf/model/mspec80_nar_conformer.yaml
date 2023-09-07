@@ -19,7 +19,7 @@ f_max : 8000
 n_mel_channels : 80
 
 # input grayscale（グレースケールかRGBか）
-gray : True
+gray : False
 
 # input first and second derivative.（動的特徴量を使うかどうか）
 delta : True
@@ -28,7 +28,7 @@ delta : True
 frame_period : 10
 
 # acoutic feature frames in training
-length : 500
+length : 300
 
 # phoneme length
 phoneme_length : 30
@@ -40,8 +40,8 @@ reduction_factor : 2
 feature_type : "mspec"
 
 # 学習に使用する口唇動画のフレーム数
-lip_min_frame : 250
-lip_max_frame : 251
+lip_min_frame : 150
+lip_max_frame : 151
 
 #################################
 # model_info
@@ -82,12 +82,12 @@ tc_n_head : 2
 conformer_conv_kernel_size : 31   # 7, 15 or 31
 
 # 使用するencoder（"transformer" or "conformer"）
-which_encoder : "transformer"
+which_encoder : "conformer"
 
 # 使用するdecoder
 # 自己回帰 : "transformer" or "glu"
 # 非自己回帰 : "simple_tc", "gated_tc" or "res_tc"
-which_decoder : "transformer"
+which_decoder : "re_tc"
 
 # audio encoder
 ae_emb_dim : 2

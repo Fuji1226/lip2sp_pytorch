@@ -31,7 +31,7 @@ try:
     from model.conformer.encoder import ConformerEncoder
     from model.glu_remake import GLU
     from model.nar_decoder import FeadAddPredicter
-    from model.taco import TacotronDecoder
+    from model.taco import TacotronDecoder, ConvEncoder
 except:
     from .net import ResNet3D
     from .transformer_remake import Encoder, Decoder
@@ -39,7 +39,7 @@ except:
     from .conformer.encoder import ConformerEncoder
     from .glu_remake import GLU
     from .nar_decoder import FeadAddPredicter
-    from .model.taco import TacotronDecoder
+    from .model.taco import TacotronDecoder, ConvEncoder
 
 def spec_augment(y, time_ratio=0.1, freq_ratio=0.1):
     #breakpoint()
@@ -117,6 +117,16 @@ class Lip2SP(nn.Module):
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
             )
+        
+        self.encoder = ConvEncoder(
+            #embed_dim=d_model,  # 文字埋め込みの次元数
+            hidden_channels=d_model,  # 隠れ層の次元数
+            conv_n_layers=3,  # 畳み込み層数
+            #conv_channels=d_model,  # 畳み込み層のチャネル数
+            conv_kernel_size=9,  # 畳み込み層のカーネルサイズ
+            rnn_n_layers=2,
+            dropout=0.5,  # Dropout 率
+        )
 
         # self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
         # self.spk_emb_layer = nn.Linear(d_model + spk_emb_dim, d_model)
@@ -185,8 +195,9 @@ class Lip2SP(nn.Module):
         lip_feature = self.ResNet_GAP(lip) #(B, C, T)
         
         #re-centering(linear projection)
-        lip_feature = self.re_centering(lip_feature.transpose(1, 2))
-        lip_feature = lip_feature.transpose(1, 2)
+        # lip_feature = self.re_centering(lip_feature.transpose(1, 2))
+        # lip_feature = lip_feature.transpose(1, 2)
+        
         
         enc_output = self.encoder(lip_feature, data_len)    # (B, T, C) 
 
@@ -212,7 +223,7 @@ class Lip2SP(nn.Module):
         else:
             if prev is not None:
                 #print('prev is not None')
-                dec_output, logit, att_w, stop_token = self.decoder(enc_output=enc_output, text_len=data_len, feature_target=prev, training_method=training_method, mixing_prob=mixing_prob)
+                dec_output, logit, att_w, stop_token = self.decoder(enc_output=enc_output, text_len=data_len, feature_target=prev, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=use_stop_token)
             else:
                 dec_output, logit, att_w, stop_token = self.decoder(enc_output, data_len) 
 

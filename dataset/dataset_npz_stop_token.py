@@ -398,8 +398,7 @@ class KablabTransform:
     
         return lip.to(torch.float32), feature.to(torch.float32), feat_add.to(torch.float32), data_len            
 
-
-def collate_time_adjust(batch, cfg):
+def collate_time_adjust_stop_token(batch, cfg):
     """
     フレーム数の調整を行う
     """
@@ -408,16 +407,21 @@ def collate_time_adjust(batch, cfg):
     use_all = False
     
     if use_all:
+        stop_tokens = adjust_max_data_len_stop_token(feature)
         wav = adjust_max_data_len(wav)
         lip = adjust_max_data_len(lip)
         feature = adjust_max_data_len(feature)
         feat_add = adjust_max_data_len(feat_add)
+
+
         
         wav = torch.stack(wav)
         lip = torch.stack(lip)
         feature = torch.stack(feature)
         feat_add = torch.stack(feat_add)
         data_len = torch.stack(data_len)
+
+        stop_tokens = torch.stack(stop_tokens)
     else:
         lip_adjusted = []
         feature_adjusted = []
@@ -429,6 +433,7 @@ def collate_time_adjust(batch, cfg):
         upsample_scale = upsample[0].item()
         feature_len = int(lip_len * upsample_scale)
 
+        #print(f'start data_len: {data_len}')
         for l, f, f_add, d_len in zip(lip, feature, feat_add, data_len):
             # 揃えるlenよりも短い時
             if d_len <= feature_len:
@@ -455,17 +460,26 @@ def collate_time_adjust(batch, cfg):
             else:
                 lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()
 
-                # if random.random() < 0.25:
-                #     lip_start_frame = 0
+                if random.random() < 1.0:
+                    print('start!!!')
+                    lip_start_frame = l.shape[-1] - lip_len - 1
+                    print(f'{lip_start_frame} {l.shape}')
 
                 feature_start_frame = int(lip_start_frame * upsample_scale)
                 l = l[..., lip_start_frame:lip_start_frame + lip_len]
                 f = f[:, feature_start_frame:feature_start_frame + feature_len]
                 f_add = f_add[:, feature_start_frame:feature_start_frame + feature_len]
+                stop_token = torch.zeros(feature_len)
 
                 if feature_start_frame+feature_len == f.shape[-1]:
                     stop_token[-1] = 1.0
-                
+
+                print(f'frame_start: {feature_start_frame}, d_len: {d_len}')
+                print(f'check stop_token: ')
+                print(stop_token)
+
+                print(f'lip_len: {lip_len}, l.shape: {l.shape}')
+
 
             assert l.shape[-1] == lip_len
             assert f.shape[-1] == feature_len
@@ -475,6 +489,8 @@ def collate_time_adjust(batch, cfg):
             feature_adjusted.append(f)
             feat_add_adjusted.append(f_add)
             stop_tokens.append(stop_token)
+
+            #print(f'stop: {stop_token}, {stop_token.shape} d_len: {d_len}, feature: {f.shape}')
 
         lip = torch.stack(lip_adjusted)
         feature = torch.stack(feature_adjusted)
@@ -660,6 +676,28 @@ def adjust_max_data_len(data):
 
         for t in range(d.shape[-1]):
             d_padded[..., t] = d[..., t]
+
+        new_data.append(d_padded)
+    
+    return new_data
+
+def adjust_max_data_len_stop_token(feature):
+    max_data_len = 0
+    max_data_len_id = 0
+
+    # minibatchの中でのdata_lenの最大値と，そのデータのインデックスを取得
+    for idx, d in enumerate(feature):
+        if max_data_len < d.shape[-1]:
+            max_data_len = d.shape[-1]
+            max_data_len_id = idx
+
+    new_data = []
+
+    for d in feature:
+        index = d.shape[-1]
+
+        d_padded = torch.zeros_like(feature[max_data_len_id])
+        d_padded[index-1] = 1.0
 
         new_data.append(d_padded)
     
