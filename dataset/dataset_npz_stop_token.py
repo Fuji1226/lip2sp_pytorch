@@ -458,28 +458,22 @@ def collate_time_adjust_stop_token(batch, cfg):
 
             # 揃えるlenよりも長い時
             else:
-                lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()
-
-                if random.random() < 1.0:
-                    print('start!!!')
+                if random.random() < 0.5:
                     lip_start_frame = l.shape[-1] - lip_len - 1
-                    print(f'{lip_start_frame} {l.shape}')
+                else:
+                    lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()
 
                 feature_start_frame = int(lip_start_frame * upsample_scale)
                 l = l[..., lip_start_frame:lip_start_frame + lip_len]
+                
+                stop_token = torch.zeros(feature_len)
+                if feature_start_frame+feature_len+2 == f.shape[-1]:
+                
+                    stop_token[-2:] = 1.0
+                    
                 f = f[:, feature_start_frame:feature_start_frame + feature_len]
                 f_add = f_add[:, feature_start_frame:feature_start_frame + feature_len]
-                stop_token = torch.zeros(feature_len)
-
-                if feature_start_frame+feature_len == f.shape[-1]:
-                    stop_token[-1] = 1.0
-
-                print(f'frame_start: {feature_start_frame}, d_len: {d_len}')
-                print(f'check stop_token: ')
-                print(stop_token)
-
-                print(f'lip_len: {lip_len}, l.shape: {l.shape}')
-
+                
 
             assert l.shape[-1] == lip_len
             assert f.shape[-1] == feature_len
