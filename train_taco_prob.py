@@ -128,7 +128,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             print(f'lip: {lip.shape}')
        
         lip, feature, feat_add, data_len, target_stop_tokens = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device), stop_tokens.to(device)
-        print(f'data_len: {data_len}')
         # output : postnet後の出力
         # dec_output : postnet前の出力
 
@@ -139,7 +138,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
             output, dec_output, feat_add_out, _, logit = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)
         
-        print(f'after: {data_len}')
         B, C, T = output.shape
 
         if cfg.train.multi_task:
