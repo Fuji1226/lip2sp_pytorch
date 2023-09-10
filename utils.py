@@ -310,7 +310,6 @@ def get_datasets_external_data(cfg):
         print(f"\n--- get datasets jvs ---")
         data_dir = Path(cfg.train.jvs_path_train).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-        
     return items
 
 

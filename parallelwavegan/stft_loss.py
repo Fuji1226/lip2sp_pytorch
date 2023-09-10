@@ -16,13 +16,13 @@ class STFTLoss:
             hop_length=self.hop_length,
             win_length=self.win_length,
             window=self.window,
-            return_complex=False,
+            return_complex=True,
         )
+        stft = torch.view_as_real(stft)
 
         real = stft[..., 0]
         imag = stft[..., 1]
         spec_mag = torch.sqrt(torch.clamp(real**2 + imag**2, min=1e-7)).transpose(2, 1)
-
         return spec_mag
     
     def SpectralConvergenceLoss(self, x_mag, x_pred_mag):

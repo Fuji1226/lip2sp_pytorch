@@ -3,7 +3,7 @@
 name : "default"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 0
@@ -15,8 +15,16 @@ use_disc : True
 start_gan_training_pretrained_gen : False
 gen_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt"
 
+# 複数言語で事前学習したモデルをfine tuningするかどうか
+fine_tuning_pretrained_model_by_external_data : False
+
+# モデルの中で固定するところ
+module_is_fixed : []
+
 # face or lip
-face_or_lip : "face"
+face_or_lip : "face_cropped_max_size_fps25"
+use_synth_corpus : False
+n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/parallelwavegan/result/default/train"
@@ -34,26 +42,76 @@ face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50
 face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
 face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
 face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
+synth_path_train : "~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train"
+recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
+recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
+face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/train"
+face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
+face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
+face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
 
 # 元データ
-data_dir : "~/dataset/lip/cropped_fps25"
-bbox_dir : "~/dataset/lip/bbox_fps25"
-landmark_dir : "~/dataset/lip/landmark_fps25"
+data_dir : "~/dataset/lip/cropped"
+bbox_dir : "~/dataset/lip/bbox"
+landmark_dir : "~/dataset/lip/landmark"
+# data_dir : "~/dataset/lip/cropped_fps25"
+# bbox_dir : "~/dataset/lip/bbox_fps25"
+# landmark_dir : "~/dataset/lip/landmark_fps25"
 train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
+# 外部データの指定
+which_external_data : ""
+
+# lrs2
+lrs2_train_data_root : "~/lrs2/mvlrs_v1/main"
+lrs2_val_data_root : "~/lrs2/mvlrs_v1/main"
+lrs2_train_data_bbox_root : "~/lrs2/bbox/main"
+lrs2_val_data_bbox_root : "~/lrs2/bbox/main"
+lrs2_train_data_landmark_root : "~/lrs2/landmark/main"
+lrs2_val_data_landmark_root : "~/lrs2/landmark/main"
+lrs2_train_df_path : "~/lrs2/train.txt"
+lrs2_val_df_path : "~/lrs2/val.txt"
+lrs2_n_train_speaker_used : 200
+lrs2_main_npz_path : "~/dataset/lip/np_files/lrs2_main/train"
+lrs2_pretrain_npz_path : "~/dataset/lip/np_files/lrs2_pretrain/train"
+
+# lip2wav
+lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
+npz_process_speaker_list : []
+
+# jsut corpus
+use_jsut_corpus : True
+jsut_path_train : "~/dataset/lip/np_files/jsut/train"
+
+# jvs corpus
+use_jvs_corpus : True
+jvs_path_train : "~/dataset/lip/np_files/jvs/train"
+
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+# corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : ["ATR"]
+corpus_synth : [
+  "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
+  "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
+]
+
+# data upsampling
+apply_upsampling : False
 
 # 使用する話者
-speaker : ["F01_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
-# speaker : ["F01_kablab", "F02_kablab"]
-# speaker : ["M01_kablab", "M04_kablab"]
+# speaker : ["M04_kablab"]
+speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+use_spk_emb : True
+finetuning : False
+where_spk_emb : "after_res"
+adversarial_learning : False
 
 # max_epoch
-max_epoch : 600
+max_epoch : 50
+
+# テキスト処理
+for_tts : False
 
 # data augmentationの有無
 # 見た目変換系
@@ -67,8 +125,8 @@ use_random_crop : False
 # 空間領域にランダムマスキング
 use_spatial_masking : False
 which_spatial_mask : "has"
-spatial_divide_factor : 4
-n_spatial_mask : 8
+spatial_divide_factor : 8
+n_spatial_mask : 24
 mask_length : 24
 
 # 再生速度変換
@@ -78,8 +136,7 @@ time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速�
 # 動画の連続したフレームをある程度まとめてマスキング
 use_segment_masking : False
 which_seg_mask : "seg_mean"
-min_segment_masking_length : 0
-max_segment_masking_length : 25
+max_segment_masking_sec : 0.5
 
 # 音響特徴量に対してのマスキング
 use_time_frequency_masking : False
@@ -100,7 +157,7 @@ weight_decay : 1.0e-6
 
 # scheduler
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay : 0.998
+lr_decay : 0.95
 
 # gradient clipping
 max_norm : 3.0

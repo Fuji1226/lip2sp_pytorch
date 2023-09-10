@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 
-from utils import count_params, get_path_train, save_loss, make_train_val_loader, set_config, check_wav
+from utils import count_params, get_path_train, save_loss, make_train_val_loader_with_external_data, set_config, check_wav, requires_grad_change
 from parallelwavegan.model.generator import Generator
 from parallelwavegan.model.discriminator import Discriminator, WaveNetLikeDiscriminator
 from parallelwavegan.stft_loss import MultiResolutionSTFTLoss
@@ -33,7 +33,12 @@ random.seed(777)
 
 
 def save_checkpoint(
-    gen, disc, optimizer_g, optimizer_d, scheduler_g, scheduler_d,
+    gen, 
+    disc, 
+    optimizer_g, 
+    optimizer_d, 
+    scheduler_g, 
+    scheduler_d,
     train_epoch_loss_disc_list,
     train_epoch_loss_gen_stft_list,
     train_epoch_loss_gen_gan_list,
@@ -42,7 +47,9 @@ def save_checkpoint(
     val_epoch_loss_gen_stft_list,
     val_epoch_loss_gen_gan_list,
     val_epoch_loss_gen_all_list,
-    epoch, ckpt_path):
+    epoch, 
+    ckpt_path
+):
     torch.save({
         'gen': gen.state_dict(),
         'disc': disc.state_dict(),
@@ -105,7 +112,16 @@ def make_model(cfg, device):
     return gen.to(device), disc.to(device)
 
 
-def train_one_epoch(gen, train_loader, optimizer_g, loss_f, device, cfg, ckpt_time):
+def train_one_epoch(
+    gen,
+    train_loader,
+    optimizer_g,
+    scaler,
+    loss_f,
+    device,
+    cfg,
+    ckpt_time
+):
     epoch_loss_disc = 0
     epoch_loss_gen_stft = 0
     epoch_loss_gen_gan = 0
@@ -118,21 +134,20 @@ def train_one_epoch(gen, train_loader, optimizer_g, loss_f, device, cfg, ckpt_ti
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
-        noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
-        wav_pred = gen(noise, feature)
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+            wav_pred = gen(noise, feature)
+            loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
+            epoch_loss_gen_stft += loss_gen_stft.item()
+            wandb.log({"train_loss_gen_stft": loss_gen_stft})
 
-        loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
-
-        epoch_loss_gen_stft += loss_gen_stft.item()
-        wandb.log({"train_loss_gen_stft": loss_gen_stft})
-
-        loss_gen_stft.backward()
-        optimizer_g.step()
+        scaler.scale(loss_gen_stft).backward()
+        scaler.step(optimizer_g)
+        scaler.update()
         optimizer_g.zero_grad()
 
         iter_cnt += 1
@@ -166,19 +181,17 @@ def val_one_epoch(gen, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
-        noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         with torch.no_grad():
-            wav_pred = gen(noise, feature)
-
-        loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
-
-        epoch_loss_gen_stft += loss_gen_stft.item()
-        wandb.log({"val_loss_gen_stft": loss_gen_stft})
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+                wav_pred = gen(noise, feature)
+                loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
+                epoch_loss_gen_stft += loss_gen_stft.item()
+                wandb.log({"val_loss_gen_stft": loss_gen_stft})
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -198,7 +211,18 @@ def val_one_epoch(gen, val_loader, loss_f, device, cfg, ckpt_time):
     return epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all
 
 
-def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_f, device, cfg, ckpt_time):
+def train_one_epoch_gan(
+    gen,
+    disc,
+    train_loader,
+    optimizer_g,
+    optimizer_d,
+    scaler,
+    loss_f,
+    device,
+    cfg,
+    ckpt_time
+):
     epoch_loss_disc = 0
     epoch_loss_gen_stft = 0
     epoch_loss_gen_gan = 0
@@ -212,43 +236,47 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
-        noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
-        wav_pred = gen(noise, feature)
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+            wav_pred = gen(noise, feature)
 
         ### discriminator ###
-        out_real = disc(wav)
-        out_pred = disc(wav_pred.detach())
+        disc = requires_grad_change(disc, True)
 
-        loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
-        epoch_loss_disc += loss_disc.item()
-        wandb.log({"train_loss_disc": loss_disc})
-
-        loss_disc.backward()
-        optimizer_d.step()
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            out_real = disc(wav)
+            out_pred = disc(wav_pred.detach())
+            loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
+            epoch_loss_disc += loss_disc.item()
+            wandb.log({"train_loss_disc": loss_disc})
+    
+        scaler.scale(loss_disc).backward()
+        scaler.step(optimizer_d)
         optimizer_d.zero_grad()
         optimizer_g.zero_grad()
 
         ### generator ###
-        out_pred = disc(wav_pred)
+        disc = requires_grad_change(disc, False)
 
-        loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
-        loss_gen_gan = torch.mean((out_pred - 1) ** 2)
-        loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            out_pred = disc(wav_pred)
+            loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
+            loss_gen_gan = torch.mean((out_pred - 1) ** 2)
+            loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
+            epoch_loss_gen_stft += loss_gen_stft.item()
+            epoch_loss_gen_gan += loss_gen_gan.item()
+            epoch_loss_gen_all += loss_gen_all.item()
+            wandb.log({"train_loss_gen_stft": loss_gen_stft})
+            wandb.log({"train_loss_gen_gan": loss_gen_gan})
+            wandb.log({"train_loss_gen_all": loss_gen_all})
 
-        epoch_loss_gen_stft += loss_gen_stft.item()
-        epoch_loss_gen_gan += loss_gen_gan.item()
-        epoch_loss_gen_all += loss_gen_all.item()
-        wandb.log({"train_loss_gen_stft": loss_gen_stft})
-        wandb.log({"train_loss_gen_gan": loss_gen_gan})
-        wandb.log({"train_loss_gen_all": loss_gen_all})
-
-        loss_gen_all.backward()
-        optimizer_g.step()
+        scaler.scale(loss_gen_all).backward()
+        scaler.step(optimizer_g)
+        scaler.update()
         optimizer_d.zero_grad()
         optimizer_g.zero_grad()
 
@@ -256,12 +284,12 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+                    check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+                check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
 
     epoch_loss_disc /= iter_cnt
     epoch_loss_gen_stft /= iter_cnt
@@ -270,7 +298,15 @@ def train_one_epoch_gan(gen, disc, train_loader, optimizer_g, optimizer_d, loss_
     return epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all
 
 
-def val_one_epoch_gan(gen, disc, val_loader, loss_f, device, cfg, ckpt_time):
+def val_one_epoch_gan(
+    gen,
+    disc,
+    val_loader,
+    loss_f,
+    device,
+    cfg,
+    ckpt_time,
+):
     epoch_loss_disc = 0
     epoch_loss_gen_stft = 0
     epoch_loss_gen_gan = 0
@@ -284,42 +320,42 @@ def val_one_epoch_gan(gen, disc, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
 
-        noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         with torch.no_grad():
-            wav_pred = gen(noise, feature)
-            out_real = disc(wav)
-            out_pred = disc(wav_pred)
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+                wav_pred = gen(noise, feature)
+                out_real = disc(wav)
+                out_pred = disc(wav_pred)
 
-        loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
-        epoch_loss_disc += loss_disc.item()
-        wandb.log({"val_loss_disc": loss_disc})
+                loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
+                epoch_loss_disc += loss_disc.item()
+                wandb.log({"val_loss_disc": loss_disc})
 
-        loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
-        loss_gen_gan = torch.mean((out_pred - 1) ** 2)
-        loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
+                loss_gen_stft = loss_f.calc_loss(wav, wav_pred)
+                loss_gen_gan = torch.mean((out_pred - 1) ** 2)
+                loss_gen_all =  cfg.train.stft_loss_weight * loss_gen_stft + cfg.train.gan_loss_weight * loss_gen_gan
 
-        epoch_loss_gen_stft += loss_gen_stft.item()
-        epoch_loss_gen_gan += loss_gen_gan.item()
-        epoch_loss_gen_all += loss_gen_all.item()
-        wandb.log({"val_loss_gen_stft": loss_gen_stft})
-        wandb.log({"val_loss_gen_gan": loss_gen_gan})
-        wandb.log({"val_loss_gen_all": loss_gen_all})
+                epoch_loss_gen_stft += loss_gen_stft.item()
+                epoch_loss_gen_gan += loss_gen_gan.item()
+                epoch_loss_gen_all += loss_gen_all.item()
+                wandb.log({"val_loss_gen_stft": loss_gen_stft})
+                wandb.log({"val_loss_gen_gan": loss_gen_gan})
+                wandb.log({"val_loss_gen_all": loss_gen_all})
 
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
-                    check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+                    check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
-                check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+                check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
 
     epoch_loss_disc /= iter_cnt
     epoch_loss_gen_stft /= iter_cnt
@@ -353,7 +389,7 @@ def main(cfg):
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
 
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, train_data_root, val_data_root)
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root)
 
     loss_f = MultiResolutionSTFTLoss(
         n_fft_list=cfg.train.n_fft_list,
@@ -394,6 +430,8 @@ def main(cfg):
         scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
             optimizer_d, gamma=cfg.train.lr_decay
         )
+
+        scaler = torch.cuda.amp.GradScaler()
 
         last_epoch = 0
         if cfg.train.check_point_start:
@@ -441,8 +479,8 @@ def main(cfg):
             print(f"##### {current_epoch} #####")
 
             if cfg.train.use_disc:
-                print(f"learning_rate gen = {scheduler_g.get_last_lr()[0]}")
-                print(f"learning_rate disc = {scheduler_d.get_last_lr()[0]}")
+                wandb.log({"learning_rate": scheduler_g.get_last_lr()[0]})
+                wandb.log({"learning_rate": scheduler_d.get_last_lr()[0]})
 
                 epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch_gan(
                     gen=gen,
@@ -450,6 +488,7 @@ def main(cfg):
                     train_loader=train_loader,
                     optimizer_g=optimizer_g,
                     optimizer_d=optimizer_d,
+                    scaler=scaler,
                     loss_f=loss_f,
                     device=device,
                     cfg=cfg,
@@ -478,7 +517,7 @@ def main(cfg):
                 scheduler_g.step()
 
             else:
-                print(f"learning_rate gen = {scheduler_g.get_last_lr()[0]}")
+                wandb.log({"learning_rate": scheduler_g.get_last_lr()[0]})
                 
                 epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch(
                     gen=gen,
