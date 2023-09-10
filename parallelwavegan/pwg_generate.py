@@ -13,12 +13,11 @@ import numpy as np
 import random
 import time
 from tqdm import tqdm
-
 import torch
 
 from parallelwavegan.pwg_train import make_model
 from data_check import save_data_pwg
-from utils import make_test_loader, get_path_test, load_pretrained_model
+from utils import make_test_loader_with_external_data, get_path_test, load_pretrained_model
 from data_process.phoneme_encode import get_keys_from_value
 
 # 現在時刻を取得
@@ -33,24 +32,15 @@ random.seed(0)
 def generate(cfg, gen, test_loader, dataset, device, save_path):
     gen.eval()
 
-    speaker_idx = dataset.speaker_idx
-
-    process_times = []
-
-    iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, wav_q, lip, feature, feat_add, landmark, feature_masked, upsample, data_len, spk_emb, speaker, label = batch
-        wav_q = wav_q.to(device)
-        lip = lip.to(device)
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
-        data_len = data_len.to(device)
-        speaker = speaker.to(device)
 
         noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
         wav_pred = gen(noise, feature)
 
-        speaker_label = get_keys_from_value(speaker_idx, speaker[0])
-        _save_path = save_path / speaker_label / label[0]
+        _save_path = save_path / speaker[0] / filename[0]
         os.makedirs(_save_path, exist_ok=True)
 
         save_data_pwg(
@@ -79,15 +69,6 @@ def main(cfg):
         # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_{num_gen_epoch}.ckpt").expanduser()     # training 1 sec
         model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:02:02_16-06-28/mspec80_{num_gen_epoch}.ckpt").expanduser()     # training 1 sec 
 
-        # multi speaker
-        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_{num_gen_epoch}.ckpt").expanduser()
-
-        # women
-        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:20_14-52-31/mspec80_{num_gen_epoch}.ckpt").expanduser()
-
-        # men
-        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:20_13-30-39/mspec80_{num_gen_epoch}.ckpt").expanduser()
-        
         gen = load_pretrained_model(model_path, gen, "gen")
         cfg.train.face_or_lip = model_path.parents[1].name
         cfg.test.face_or_lip = model_path.parents[1].name
@@ -95,7 +76,7 @@ def main(cfg):
         data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
         
         for data_root, save_path in zip(data_root_list, save_path_list):
-            test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
+            test_loader, test_dataset = make_test_loader_with_external_data(cfg, data_root, train_data_root)
             generate(
                 cfg=cfg,
                 gen=gen,

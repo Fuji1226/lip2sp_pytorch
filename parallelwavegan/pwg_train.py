@@ -39,6 +39,8 @@ def save_checkpoint(
     optimizer_d, 
     scheduler_g, 
     scheduler_d,
+    scaler_g,
+    scaler_d,
     train_epoch_loss_disc_list,
     train_epoch_loss_gen_stft_list,
     train_epoch_loss_gen_gan_list,
@@ -57,6 +59,8 @@ def save_checkpoint(
         'optimizer_d': optimizer_d.state_dict(),
         'scheduler_g': scheduler_g.state_dict(),
         'scheduler_d': scheduler_d.state_dict(),
+        'scaler_g': scaler_g.state_dict(),
+        'scaler_d': scaler_d.state_dict(),
         "random": random.getstate(),
         "np_random": np.random.get_state(), 
         "torch": torch.get_rng_state(),
@@ -217,11 +221,12 @@ def train_one_epoch_gan(
     train_loader,
     optimizer_g,
     optimizer_d,
-    scaler,
+    scaler_g,
+    scaler_d,
     loss_f,
     device,
     cfg,
-    ckpt_time
+    ckpt_time,
 ):
     epoch_loss_disc = 0
     epoch_loss_gen_stft = 0
@@ -246,7 +251,6 @@ def train_one_epoch_gan(
 
         ### discriminator ###
         disc = requires_grad_change(disc, True)
-
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             out_real = disc(wav)
             out_pred = disc(wav_pred.detach())
@@ -254,10 +258,10 @@ def train_one_epoch_gan(
             epoch_loss_disc += loss_disc.item()
             wandb.log({"train_loss_disc": loss_disc})
     
-        scaler.scale(loss_disc).backward()
-        scaler.step(optimizer_d)
+        scaler_d.scale(loss_disc).backward()
+        scaler_d.step(optimizer_d)
+        scaler_d.update()
         optimizer_d.zero_grad()
-        optimizer_g.zero_grad()
 
         ### generator ###
         disc = requires_grad_change(disc, False)
@@ -274,10 +278,9 @@ def train_one_epoch_gan(
             wandb.log({"train_loss_gen_gan": loss_gen_gan})
             wandb.log({"train_loss_gen_all": loss_gen_all})
 
-        scaler.scale(loss_gen_all).backward()
-        scaler.step(optimizer_g)
-        scaler.update()
-        optimizer_d.zero_grad()
+        scaler_g.scale(loss_gen_all).backward()
+        scaler_g.step(optimizer_g)
+        scaler_g.update()
         optimizer_g.zero_grad()
 
         iter_cnt += 1
@@ -431,7 +434,8 @@ def main(cfg):
             optimizer_d, gamma=cfg.train.lr_decay
         )
 
-        scaler = torch.cuda.amp.GradScaler()
+        scaler_g = torch.cuda.amp.GradScaler()
+        scaler_d = torch.cuda.amp.GradScaler()
 
         last_epoch = 0
         if cfg.train.check_point_start:
@@ -479,8 +483,8 @@ def main(cfg):
             print(f"##### {current_epoch} #####")
 
             if cfg.train.use_disc:
-                wandb.log({"learning_rate": scheduler_g.get_last_lr()[0]})
-                wandb.log({"learning_rate": scheduler_d.get_last_lr()[0]})
+                wandb.log({"learning_rate_gen": scheduler_g.get_last_lr()[0]})
+                wandb.log({"learning_rate_disc": scheduler_d.get_last_lr()[0]})
 
                 epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch_gan(
                     gen=gen,
@@ -488,7 +492,8 @@ def main(cfg):
                     train_loader=train_loader,
                     optimizer_g=optimizer_g,
                     optimizer_d=optimizer_d,
-                    scaler=scaler,
+                    scaler_g=scaler_g,
+                    scaler_d=scaler_d,
                     loss_f=loss_f,
                     device=device,
                     cfg=cfg,
@@ -517,7 +522,7 @@ def main(cfg):
                 scheduler_g.step()
 
             else:
-                wandb.log({"learning_rate": scheduler_g.get_last_lr()[0]})
+                wandb.log({"learning_rate_gen": scheduler_g.get_last_lr()[0]})
                 
                 epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch(
                     gen=gen,
@@ -556,6 +561,8 @@ def main(cfg):
                     optimizer_d=optimizer_d,
                     scheduler_g=scheduler_g,
                     scheduler_d=scheduler_d,
+                    scaler_g=scaler_g,
+                    scaler_d=scaler_d,
                     train_epoch_loss_disc_list=train_epoch_loss_disc_list,
                     train_epoch_loss_gen_stft_list=train_epoch_loss_gen_stft_list,
                     train_epoch_loss_gen_gan_list=train_epoch_loss_gen_gan_list,
@@ -572,12 +579,6 @@ def main(cfg):
             save_loss(train_epoch_loss_gen_stft_list, val_epoch_loss_gen_stft_list, save_path, "loss_gen_stft")
             save_loss(train_epoch_loss_gen_gan_list, val_epoch_loss_gen_gan_list, save_path, "loss_gen_gan")
             save_loss(train_epoch_loss_gen_all_list, val_epoch_loss_gen_all_list, save_path, "loss_gen_all")
-
-        model_save_path = save_path / f"model_{cfg.model.name}.pth"
-        torch.save(gen.state_dict(), str(model_save_path))
-        artifact_model = wandb.Artifact('model', type='model')
-        artifact_model.add_file(str(model_save_path))
-        wandb.log_artifact(artifact_model)
             
     wandb.finish()
 
