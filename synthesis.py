@@ -82,6 +82,9 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
         with torch.no_grad():
             print('taco generate')
             output, dec_output, feat_add_out, att_w = model(lip, data_len=data_len)
+            output, dec_output, feat_add_out, att_w, logit = model(lip, data_len=data_len, use_stop_token=True)
+
+        
             #tf_output, _, _ = model(lip=lip, prev=feature)
 
     
@@ -93,6 +96,10 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
         os.makedirs(str(_save_path), exist_ok=True)
         tmp_label = label[0]+'_FR'
         _save_path = _save_path / label[0]
+
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
 
         #_save_path_tf = save_path / label[0]+'_tf'
         #os.makedirs(_save_path, exist_ok=True)
@@ -148,7 +155,7 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
         check_attention_weight(att_w[0], "attention", str(_save_path))
 
         with torch.no_grad():
-            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method='tf')
+            output, dec_output, feat_add_out, att_w, logit = model(lip=lip, prev=feature, data_len=data_len, training_method='tf', use_stop_token=True)
 
 
         _save_path = save_path / 'synthesis' / f'epoch_{epoch}_TF'
@@ -157,6 +164,11 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
 
         #_save_path_tf = save_path / label[0]+'_tf'
         #os.makedirs(_save_path, exist_ok=True)
+        
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
        
         feature_tmp = feature[0].to('cpu').detach().numpy().copy()
         output_tmp = output[0].to('cpu').detach().numpy().copy()
@@ -208,7 +220,7 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
         check_attention_weight(att_w[0], "attention", str(_save_path)+"_attention")
 
         with torch.no_grad():
-            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method='ss', mixing_prob=mixing_prob)
+            output, dec_output, feat_add_out, att_w, logit = model(lip=lip, prev=feature, data_len=data_len, training_method='ss', mixing_prob=mixing_prob, use_stop_token=True)
 
 
         _save_path = save_path / 'synthesis' / f'epoch_{epoch}_SS'
@@ -217,6 +229,10 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
 
         #_save_path_tf = save_path / label[0]+'_tf'
         #os.makedirs(_save_path, exist_ok=True)
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
        
         feature = feature[0].to('cpu').detach().numpy().copy()
         output = output[0].to('cpu').detach().numpy().copy()
@@ -585,13 +601,13 @@ def generate_for_train_check_nar(cfg, model, test_loader, dataset, device, save_
         _save_path = save_path / 'synthesis' / f'epoch_{epoch}'
         os.makedirs(str(_save_path), exist_ok=True)
         _save_path = _save_path / label[0]
-
+    
         #_save_path_tf = save_path / label[0]+'_tf'
         #os.makedirs(_save_path, exist_ok=True)
        
         feature = feature[0].to('cpu').detach().numpy().copy()
         output = output[0].to('cpu').detach().numpy().copy()
-        
+        breakpoint()
         plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
         ax = plt.subplot(2, 1, 1)
         specshow(
@@ -622,3 +638,10 @@ def generate_for_train_check_nar(cfg, model, test_loader, dataset, device, save_
         plt.close()
         print('synthesis finished')
         break
+    
+def save_stop_token(logit, save_path):
+    logit_save = save_path + 'stop_token'
+  
+    plt.plot(range(len(logit)), logit)
+    plt.savefig(logit_save)
+    plt.close()

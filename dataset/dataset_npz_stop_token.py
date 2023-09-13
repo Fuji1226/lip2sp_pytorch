@@ -126,10 +126,6 @@ class KablabDatasetStopToken(Dataset):
         upsample = torch.from_numpy(npz_key['upsample'])
         data_len = torch.from_numpy(npz_key['data_len'])
         
-        print(f'lip: {lip.shape}')
-        print(f'feat: {feature.shape}')
-        print(f'datalen {data_len}')
-
         lip, feature, feat_add, data_len = self.transform(
             lip=lip,
             feature=feature,

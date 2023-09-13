@@ -225,7 +225,7 @@ class Lip2SP(nn.Module):
                 #print('prev is not None')
                 dec_output, logit, att_w, stop_token = self.decoder(enc_output=enc_output, text_len=data_len, feature_target=prev, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=use_stop_token)
             else:
-                dec_output, logit, att_w, stop_token = self.decoder(enc_output, data_len) 
+                dec_output, logit, att_w, stop_token = self.decoder(enc_output, data_len, use_stop_token=use_stop_token) 
 
             # postnet
             out = self.postnet(dec_output) 
