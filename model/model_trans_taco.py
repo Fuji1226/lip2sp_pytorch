@@ -123,8 +123,8 @@ class Lip2SP(nn.Module):
             hidden_channels=d_model,  # 隠れ層の次元数
             conv_n_layers=3,  # 畳み込み層数
             #conv_channels=d_model,  # 畳み込み層のチャネル数
-            conv_kernel_size=9,  # 畳み込み層のカーネルサイズ
-            rnn_n_layers=2,
+            conv_kernel_size=7,  # 畳み込み層のカーネルサイズ
+            rnn_n_layers=1,
             dropout=0.5,  # Dropout 率
         )
 
@@ -164,7 +164,7 @@ class Lip2SP(nn.Module):
             enc_channels=256,
             dec_channels=1024,
             atten_conv_channels=32,
-            atten_conv_kernel_size=61,
+            atten_conv_kernel_size=31,
             atten_hidden_channels=128,
             rnn_n_layers=2,
             prenet_hidden_channels=256,
@@ -231,7 +231,7 @@ class Lip2SP(nn.Module):
             out = self.postnet(dec_output) 
             
 
-            return out, dec_output, enc_output.clone().detach(), att_w, stop_token
+            return out, dec_output, enc_output.clone().detach(), att_w, logit
 
  
 

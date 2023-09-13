@@ -164,7 +164,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         # print(f'predict prob: {stop_tokens.shape}')
         # print(f'output;: {output.shape}')
 
-        logit_mask = 1.0 - make_pad_mask_stop_token(data_len*2, feature.shape[-1]).to(torch.float32)
+        logit_mask = 1.0 - make_pad_mask_stop_token(data_len, feature.shape[-1]).to(torch.float32)
         logit_mask = logit_mask.to(torch.bool)
         # print(f'stop_tokens: {stop_tokens.shape}')
         # print(f'logit_mask: {logit_mask.shape}')
@@ -179,7 +179,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             loss = output_loss + dec_output_loss
             loss.backward()
         else:
-            loss = output_loss + dec_output_loss + feat_add_out + stop_token_loss
+            loss = output_loss + dec_output_loss + feat_add_out + cfg.stop_weight*stop_token_loss
             loss.backward()
 
         
@@ -190,7 +190,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
 
         iter_cnt += 1
         
-        check_att(att_w[0], cfg, "attention", current_time, ckpt_time)
+        check_att(att_w, cfg, "attention", current_time, ckpt_time)
 
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:

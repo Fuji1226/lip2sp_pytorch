@@ -125,6 +125,10 @@ class KablabDatasetStopToken(Dataset):
         feat_add = torch.from_numpy(npz_key['feat_add'])
         upsample = torch.from_numpy(npz_key['upsample'])
         data_len = torch.from_numpy(npz_key['data_len'])
+        
+        print(f'lip: {lip.shape}')
+        print(f'feat: {feature.shape}')
+        print(f'datalen {data_len}')
 
         lip, feature, feat_add, data_len = self.transform(
             lip=lip,
@@ -464,7 +468,7 @@ def collate_time_adjust_stop_token(batch, cfg):
 
             # 揃えるlenよりも長い時
             else:
-                if random.random() < 0.5:
+                if random.random() < 0.75:
                     lip_start_frame = l.shape[-1] - lip_len - 1
                 else:
                     lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()

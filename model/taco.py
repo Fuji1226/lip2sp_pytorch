@@ -177,9 +177,14 @@ class Attention(nn.Module):
             if test[i] > enc_output.shape[1]:
                 test[i] = enc_output.shape[1] 
    
+
+        # if prev_att_w is None:
+        #     prev_att_w = 1.0 - make_pad_mask(test, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
+        #     prev_att_w = prev_att_w / test.unsqueeze(1)
+            
         if prev_att_w is None:
-            prev_att_w = 1.0 - make_pad_mask(test, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
-            prev_att_w = prev_att_w / test.unsqueeze(1)
+            prev_att_w = torch.zeros(enc_output.shape[0], enc_output.shape[1]).to(enc_output.device)
+            prev_att_w[:, 0] = 1.0
 
         att_conv = self.loc_conv(prev_att_w.unsqueeze(1))     # (B, C, T)
         att_conv = att_conv.permute(0, 2, 1)    # (B, T, C)
@@ -244,8 +249,8 @@ class TacotronDecoder(nn.Module):
             hidden_channels=atten_hidden_channels,
         )
 
-        #self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
-        self.prenet = PrenetForLip2SP(int(out_channels * reduction_factor), prenet_hidden_channels)
+        self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
+        #self.prenet = PrenetForLip2SP(int(out_channels * reduction_factor), prenet_hidden_channels)
 
 
         lstm = []
@@ -349,7 +354,7 @@ class TacotronDecoder(nn.Module):
                         prev_out = feature_target[:, t, :]
                     else:
                         #prev_out = output.clone().detach()
-                        prev_out = output
+                        prev_out = output.clone().detach()
             else:
                 prev_out = output
 
@@ -358,6 +363,8 @@ class TacotronDecoder(nn.Module):
             t += 1
     
             if t > max_decoder_time_step - 1:
+                break
+            if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
                 break
         
         output = torch.cat(output_list, dim=1)  # (B, T, C)
@@ -392,8 +399,8 @@ class TacotronDecoder(nn.Module):
             hidden_channels=atten_hidden_channels,
         )
 
-        #self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
-        self.prenet = PrenetForLip2SP(int(out_channels * reduction_factor), prenet_hidden_channels)
+        self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
+        #self.prenet = PrenetForLip2SP(int(out_channels * reduction_factor), prenet_hidden_channels)
 
 
         lstm = []
