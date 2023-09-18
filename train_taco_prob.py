@@ -384,9 +384,9 @@ def main(cfg):
 
         #lr_scheduler = optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=100000)
 
-        num_warmup_steps = 455 * 3
+        num_warmup_steps = 455 * 5
 
-        num_training_steps = 455 * 300
+        num_training_steps = 455 * 400
 
         scheduler = get_cosine_schedule_with_warmup(optimizer, 
             num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
@@ -416,7 +416,7 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test9(cfg)
+        prob_list = mixing_prob_controller_test10(cfg)
 
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
