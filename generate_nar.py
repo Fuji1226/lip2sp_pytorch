@@ -117,10 +117,8 @@ def main(cfg):
         for speaker in cfg.test.speaker:
             save_path_spk = save_path / "griffinlim" / speaker
             # save_path_pwg_spk = save_path / "pwg" / speaker
-            print("--- calc accuracy ---")
             calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             # calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
-
         calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
     
         

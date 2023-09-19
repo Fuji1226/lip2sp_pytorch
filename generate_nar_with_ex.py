@@ -9,17 +9,21 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data, save_data_pwg
-from train_nar import make_model
+from train_nar_with_ex_amp import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
-from utils import make_test_loader_with_external_data, get_path_test, load_pretrained_model, gen_data_separate, gen_data_concat
-from calc_accuracy import calc_accuracy
+from utils import (
+    make_test_loader_with_external_data,
+    get_path_test,
+    load_pretrained_model,
+    gen_data_separate,
+    gen_data_concat,
+    select_checkpoint,
+    fix_random_seed,
+    delete_unnecessary_checkpoint,
+)
+from calc_accuracy import calc_accuracy, calc_mean
 
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
-
-np.random.seed(0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
-random.seed(0)
 
 
 def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
@@ -31,9 +35,8 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
     feat_mean = dataset.feat_mean.to(device)
     feat_std = dataset.feat_std.to(device)
 
-    iter_cnt = 0
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
@@ -55,7 +58,6 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
 
         _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
-
         save_data(
             cfg=cfg,
             save_path=_save_path,
@@ -69,26 +71,28 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
             feat_std=feat_std,
         )
         
-        noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=output.dtype)
+        # noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=output.dtype)
 
-        with torch.no_grad():
-            wav_pred = pwg(noise, output)
-            wav_abs = pwg(noise, feature)
+        # with torch.no_grad():
+        #     wav_pred = pwg(noise, output)
+        #     wav_abs = pwg(noise, feature)
 
-        _save_path = save_path / "pwg" / speaker[0] / filename[0]
-        os.makedirs(_save_path, exist_ok=True)
+        # _save_path = save_path / "pwg" / speaker[0] / filename[0]
+        # os.makedirs(_save_path, exist_ok=True)
 
-        save_data_pwg(
-            cfg=cfg,
-            save_path=_save_path,
-            target=wav,
-            output=wav_pred,
-            ana_syn=wav_abs,
-        )
+        # save_data_pwg(
+        #     cfg=cfg,
+        #     save_path=_save_path,
+        #     target=wav,
+        #     output=wav_pred,
+        #     ana_syn=wav_abs,
+        # )
 
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
+    fix_random_seed(cfg.train.random_seed)
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
@@ -96,61 +100,39 @@ def main(cfg):
     model_path_pwg = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt").expanduser()
     pwg = load_pretrained_model(model_path_pwg, pwg, "gen")
 
-    start_epoch = 400
-    num_gen = 1
-    num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
-
+    model_path = select_checkpoint(cfg)
     model = make_model(cfg, device)
-    for num_gen_epoch in num_gen_epoch_list:
-        # lrs2
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_{num_gen_epoch}.ckpt").expanduser()
+    model = load_pretrained_model(model_path, model, "model")
+    cfg.train.face_or_lip = model_path.parents[1].name
+    cfg.test.face_or_lip = model_path.parents[1].name    
 
-        # finetuning lr=0.0001
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:22_23-22-16/mspec80_{num_gen_epoch}.ckpt").expanduser()    # all
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_01-08-23/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix res
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_02-01-37/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix enc
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_03-44-37/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix dec
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_05-26-21/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix res enc
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_06-19-34/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix res dec
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_majx_size_fps25/2023:07:23_07-12-28/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix enc dec
+    data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
+    
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        test_loader, test_dataset = make_test_loader_with_external_data(cfg, data_root, train_data_root)
+        generate(
+            cfg=cfg,
+            model=model,
+            pwg=pwg,
+            test_loader=test_loader,
+            dataset=test_dataset,
+            device=device,
+            save_path=save_path,
+        )
 
-        # finetuning lr=0.001
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_15-28-32/mspec80_{num_gen_epoch}.ckpt").expanduser()    # all
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_17-30-12/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix res
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_18-23-49/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix enc
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_20-08-35/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix dec
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_21-52-32/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix res enc
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_22-57-08/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix res dec
-        model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:23_23-50-00/mspec80_{num_gen_epoch}.ckpt").expanduser()    # fix enc dec
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        for speaker in cfg.test.speaker:
+            save_path_spk = save_path / "griffinlim" / speaker
+            # save_path_pwg_spk = save_path / "pwg" / speaker
+            calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
+            # calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+        calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
         
-        model = load_pretrained_model(model_path, model, "model")
-        cfg.train.face_or_lip = model_path.parents[1].name
-        cfg.test.face_or_lip = model_path.parents[1].name
+    delete_unnecessary_checkpoint(
+        result_dir=save_path.parents[3],
+        checkpoint_dir=model_path.parents[1],
+    )
 
-        data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
-        
-        for data_root, save_path in zip(data_root_list, save_path_list):
-            test_loader, test_dataset = make_test_loader_with_external_data(cfg, data_root, train_data_root)
-
-            print("--- generate ---")
-            generate(
-                cfg=cfg,
-                model=model,
-                pwg=pwg,
-                test_loader=test_loader,
-                dataset=test_dataset,
-                device=device,
-                save_path=save_path,
-            )
-
-        for data_root, save_path in zip(data_root_list, save_path_list):
-            for speaker in cfg.test.speaker:
-                save_path_spk = save_path / "griffinlim" / speaker
-                save_path_pwg_spk = save_path / "pwg" / speaker
-                print("--- calc accuracy ---")
-                calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
-                calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
-        
 
 if __name__ == "__main__":
     main()

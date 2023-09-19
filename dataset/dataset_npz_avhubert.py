@@ -5,7 +5,10 @@ sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 import random
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import Dataset
+from torch.utils.data.sampler import BatchSampler
 from torchvision import transforms as T
 
 from dataset.utils import (
@@ -24,7 +27,7 @@ from dataset.utils import (
 )
 
 
-class DatasetWithExternalData(Dataset):
+class DatasetAVHubert(Dataset):
     def __init__(self, data_path, train_data_path, transform, cfg):
         super().__init__()
         self.data_path = data_path
@@ -51,11 +54,7 @@ class DatasetWithExternalData(Dataset):
                 feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
                     landmark_mean_list, landmark_var_list, landmark_len_list = get_stat_load_data(train_data_path)
 
-        if cfg.model.use_avhubert_encoder:
-            lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
-        else:
-            lip_mean = cfg.model.avhubert_lip_mean
-            lip_std = cfg.model.avhubert_lip_std
+        lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
 
         self.lip_mean = torch.from_numpy(lip_mean)
@@ -110,18 +109,10 @@ class DatasetWithExternalData(Dataset):
         return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
     
     
-class TransformWithExternalData:
+class TransformAVHubert:
     def __init__(self, cfg, train_val_test):
         self.cfg = cfg
         self.train_val_test = train_val_test
-        self.hflip = T.RandomHorizontalFlip(p=0.5)
-
-    def horizontal_flip(self, lip):
-        '''
-        lip : (T, C, H, W)
-        '''
-        lip = self.hflip(lip)
-        return lip
     
     def random_crop(self, lip, center):
         """
@@ -197,8 +188,6 @@ class TransformWithExternalData:
                     lip = self.random_crop(lip, center=False)
                 else:
                     lip = self.random_crop(lip, center=True)
-                if self.cfg.train.use_horizontal_flip:
-                    lip = self.horizontal_flip(lip)
             lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
             
             if self.cfg.train.use_segment_masking:

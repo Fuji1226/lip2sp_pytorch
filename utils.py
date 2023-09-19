@@ -28,13 +28,22 @@ from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
 
 
+def fix_random_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms = True
+
+
 def get_padding(kernel_size, dilation=1):
     return (kernel_size*dilation - dilation) // 2
 
 
 def set_config(cfg):
     if cfg.train.debug:
-        cfg.train.max_epoch = 3
+        cfg.train.max_epoch = 2
 
     if cfg.model.fps == 25:
         cfg.model.reduction_factor = 4
@@ -73,9 +82,9 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
         train_data_root = cfg.train.face_cropped_max_size_fps25_train
         val_data_root = cfg.train.face_cropped_max_size_fps25_val
-    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25_new":
-        train_data_root = cfg.train.face_cropped_max_size_fps25_new_train
-        val_data_root = cfg.train.face_cropped_max_size_fps25_new_val
+    elif cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
+        train_data_root = cfg.train.avhubert_preprocess_fps25_train
+        val_data_root = cfg.train.avhubert_preprocess_fps25_val
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
@@ -191,9 +200,9 @@ def get_path_test(cfg, model_path):
     elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
         train_data_root = cfg.train.face_cropped_max_size_fps25_train
         test_data_root = cfg.test.face_cropped_max_size_fps25_test
-    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25_new":
-        train_data_root = cfg.train.face_cropped_max_size_fps25_new_train
-        test_data_root = cfg.test.face_cropped_max_size_fps25_new_test
+    elif cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
+        train_data_root = cfg.train.avhubert_preprocess_fps25_train
+        test_data_root = cfg.test.avhubert_preprocess_fps25_test
     
     train_data_root = Path(train_data_root).expanduser()
     test_data_root = Path(test_data_root).expanduser()
@@ -827,10 +836,16 @@ def count_params(module, attr):
     print(f"{attr}_parameter = {params}")
 
 
-def requires_grad_change(net, val):
-    for p in net.parameters():
-        p.requires_grad = val
+def requires_grad_change(net, requires_grad):
+    for param in net.parameters():
+        param.requires_grad = requires_grad
     return net
+
+
+def set_requires_grad_by_name(model, condition, requires_grad):
+    for name, param in model.named_parameters():
+        if condition(name):
+            param.requires_grad = requires_grad
 
 
 def save_loss(train_loss_list, val_loss_list, save_path, filename):
@@ -1231,10 +1246,6 @@ def select_checkpoint(cfg):
 
 
 def load_pretrained_model(model_path, model, model_name):
-    """
-    学習したモデルの読み込み
-    現在のモデルと事前学習済みのモデルで一致した部分だけを読み込むので,モデルが変わっていても以前のパラメータを読み込むことが可能
-    """
     model_dict = model.state_dict()
 
     if model_path.suffix == ".ckpt":
@@ -1296,3 +1307,18 @@ def gen_data_concat(data, shift_frame, n_last_frame):
 
     data = torch.cat(data_list, dim=-1).unsqueeze(0)     # (1, C, T)
     return data
+
+
+def delete_unnecessary_checkpoint(result_dir, checkpoint_dir):
+    checkpoint_dir_list = list(checkpoint_dir.glob('*'))
+    for ckpt_dir in checkpoint_dir_list:
+        ckpt_path_list = list(ckpt_dir.glob('*'))
+        result_path = result_dir / ckpt_dir.stem
+        if not result_path.exists():
+            continue
+        result_path = list(result_path.glob('*'))[0]
+        required_ckpt_filename = result_path.stem
+        for ckpt_path in ckpt_path_list:
+            if ckpt_path.stem == required_ckpt_filename:
+                continue
+            os.remove(str(ckpt_path))

@@ -10,19 +10,23 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
-from utils import count_params, set_config, get_path_train, make_train_val_loader_with_external_data, save_loss, check_mel_nar, requires_grad_change
+from utils import (
+    count_params,
+    set_config,
+    get_path_train,
+    make_train_val_loader_with_external_data,
+    save_loss,
+    check_mel_nar,
+    requires_grad_change,
+    fix_random_seed,
+    set_requires_grad_by_name,
+)
 from model.model_nar import Lip2SP_NAR
+from model.model_nar_avhubert import Lip2SP_NAR_AVHubert
 from loss import MaskedLoss
 
-
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
-
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
-
-np.random.seed(777)
-torch.manual_seed(777)
-torch.cuda.manual_seed_all(777)
-random.seed(777)
 
 
 def save_checkpoint(
@@ -55,34 +59,56 @@ def save_checkpoint(
 
 
 def make_model(cfg, device):
-    model = Lip2SP_NAR(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        res_inner_channels=cfg.model.res_inner_channels,
-        which_res=cfg.model.which_res,
-        rnn_n_layers=cfg.model.rnn_n_layers,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        trans_n_layers=cfg.model.trans_enc_n_layers,
-        trans_n_head=cfg.model.trans_enc_n_head,
-        trans_pos_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
-        conf_n_layers=cfg.model.conf_n_layers,
-        conf_n_head=cfg.model.conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
-        dec_n_layers=cfg.model.tc_n_layers,
-        dec_kernel_size=cfg.model.tc_kernel_size,
-        n_speaker=len(cfg.train.speaker),
-        spk_emb_dim=cfg.model.spk_emb_dim,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        where_spk_emb=cfg.train.where_spk_emb,
-        use_spk_emb=cfg.train.use_spk_emb,
-        dec_dropout=cfg.train.dec_dropout,
-        res_dropout=cfg.train.res_dropout,
-        rnn_dropout=cfg.train.rnn_dropout,
-        is_large=cfg.model.is_large,
-        adversarial_learning=cfg.train.adversarial_learning,
-        reduction_factor=cfg.model.reduction_factor,
-    )
+    if cfg.model.use_avhubert_encoder:
+        model = Lip2SP_NAR_AVHubert(
+            avhubert_ckpt_path=Path(cfg.model.avhubert_ckpt_path).expanduser(),
+            avhubert_model_size=cfg.model.avhubert_model_size,
+            avhubert_return_res_output=cfg.model.avhubert_return_res_output,
+            load_avhubert_pretrained_weight=cfg.model.load_avhubert_pretrained_weight,
+            avhubert_layer_loaded=cfg.model.avhubert_layer_loaded,
+            which_encoder=cfg.model.which_encoder,
+            rnn_n_layers=cfg.model.rnn_n_layers,
+            rnn_dropout=cfg.train.rnn_dropout,
+            reduction_factor=cfg.model.reduction_factor,
+            rnn_which_norm=cfg.model.rnn_which_norm,
+            which_decoder=cfg.model.which_decoder,
+            out_channels=cfg.model.out_channels,
+            dec_n_layers=cfg.model.tc_n_layers,
+            dec_kernel_size=cfg.model.tc_kernel_size,
+            dec_dropout=cfg.train.dec_dropout,
+            use_spk_emb=cfg.train.use_spk_emb,
+            spk_emb_dim=cfg.model.spk_emb_dim,
+            dec_args=cfg.model.avhubert_dec_args,
+        )
+    else:
+        model = Lip2SP_NAR(
+            in_channels=cfg.model.in_channels,
+            out_channels=cfg.model.out_channels,
+            res_inner_channels=cfg.model.res_inner_channels,
+            which_res=cfg.model.which_res,
+            rnn_n_layers=cfg.model.rnn_n_layers,
+            rnn_which_norm=cfg.model.rnn_which_norm,
+            trans_n_layers=cfg.model.trans_enc_n_layers,
+            trans_n_head=cfg.model.trans_enc_n_head,
+            trans_pos_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
+            conf_n_layers=cfg.model.conf_n_layers,
+            conf_n_head=cfg.model.conf_n_head,
+            conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
+            dec_n_layers=cfg.model.tc_n_layers,
+            dec_kernel_size=cfg.model.tc_kernel_size,
+            n_speaker=len(cfg.train.speaker),
+            spk_emb_dim=cfg.model.spk_emb_dim,
+            which_encoder=cfg.model.which_encoder,
+            which_decoder=cfg.model.which_decoder,
+            where_spk_emb=cfg.train.where_spk_emb,
+            use_spk_emb=cfg.train.use_spk_emb,
+            dec_dropout=cfg.train.dec_dropout,
+            res_dropout=cfg.train.res_dropout,
+            rnn_dropout=cfg.train.rnn_dropout,
+            is_large=cfg.model.is_large,
+            adversarial_learning=cfg.train.adversarial_learning,
+            reduction_factor=cfg.model.reduction_factor,
+        )
 
     count_params(model, "model")
     # multi GPU
@@ -98,12 +124,12 @@ def train_one_epoch(model, train_loader, optimizer, scaler, loss_f, device, cfg,
     epoch_classifier_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
-    print("iter start") 
+    print("training") 
     model.train()
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
@@ -161,12 +187,12 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
     epoch_classifier_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
-    print("\ncalc val loss")
+    print("validation")
     model.eval()
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id = batch
+        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
         lip_len = lip_len.to(device)
@@ -217,6 +243,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
     set_config(cfg)
+    fix_random_seed(cfg.train.random_seed)
     
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
@@ -224,12 +251,9 @@ def main(cfg):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
-
     print(f"cpu_num = {os.cpu_count()}")
     print(f"gpu_num = {torch.cuda.device_count()}")
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = True
-    
+        
     train_data_root, val_data_root, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
     print(f"train_data_root = {train_data_root}")
@@ -317,14 +341,18 @@ def main(cfg):
             model.load_state_dict(checkpoint["model"])
         
         if len(cfg.train.module_is_fixed) != 0:
-            print()
-            print('--- Number of Model Parameters ---')
+            print('\n--- Fix Model Parameters ---')
             count_params(model, 'model')
+
             for module in cfg.train.module_is_fixed:
-                if hasattr(model, module):
-                    print(f'{module} is fixed')
-                    requires_grad_change(getattr(model, module), False)
-            print('--- Number of Fixed Model Parameter ---')
+                if module == 'avhubert':
+                    set_requires_grad_by_name(model, lambda name: name.startswith('avhubert.'), requires_grad=False)
+                elif module == 'avhubert_transformer':
+                    set_requires_grad_by_name(model, lambda name: name.startswith('avhubert.encoder.'), requires_grad=False)
+                elif module == 'avhubert_resnet':
+                    set_requires_grad_by_name(model, lambda name: not name.startswith('avhubert.encoder'), requires_grad=False)
+
+            print('--- Number of Learnable Parameters ---')
             count_params(model, 'model')
             print()
             

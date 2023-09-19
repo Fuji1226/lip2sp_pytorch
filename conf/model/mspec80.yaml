@@ -69,7 +69,7 @@ use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
-which_res : "default_remake"
+which_res : "avhubert"
 
 # landmark encoder
 use_landmark : False
@@ -127,7 +127,7 @@ taco_use_attention : True
 which_encoder : "gru"
 
 # 使用するdecoder
-which_decoder : "restc"
+which_decoder : "avhubert_transformer"
 
 # audio encoder
 ae_emb_dim : 16
@@ -326,3 +326,26 @@ asr_trans_enc_n_head : 6
 asr_trans_dec_n_layers : 6
 asr_trans_dec_n_head : 6
 asr_out_channels : 47
+
+# avhubert
+avhubert_ckpt_path : '~/av_hubert_data/base_vox_iter5_torch.ckpt'
+avhubert_model_size : 'base'
+use_avhubert_encoder : True
+load_avhubert_pretrained_weight : True
+avhubert_return_res_output : False
+avhubert_layer_loaded : 'all'
+avhubert_lip_mean : 0.421 
+avhubert_lip_std : 0.165
+avhubert_dec_args:
+  dropout : 0.1
+  conv_pos : 128
+  conv_pos_groups : 16
+  encoder_layers : 6
+  encoder_ffn_embed_dim : 1536
+  encoder_attention_heads : 12
+  encoder_embed_dim : 768
+  attention_dropout : 0.1
+  activation_dropout : 0.0
+  activation_fn : 'gelu'
+  layer_norm_first : True
+  encoder_layerdrop : 0.05

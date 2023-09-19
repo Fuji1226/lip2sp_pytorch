@@ -2,8 +2,11 @@
 
 name : "nar"
 
+# 乱数固定
+random_seed : 777
+
 # デバッグ
-debug : False
+debug : True
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 10
@@ -14,14 +17,16 @@ start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
-module_is_fixed : []
+
+# 固定するレイヤーを指定
+module_is_fixed : ['avhubert_resnet']
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
 start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # face or lip
-face_or_lip : "face_cropped_max_size_fps25"
+face_or_lip : "avhubert_preprocess_fps25_gray"
 use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
@@ -48,8 +53,8 @@ face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50
 face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
 face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
 face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
-face_cropped_max_size_fps25_new_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_new_gray/train"
-face_cropped_max_size_fps25_new_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_new_gray/val"
+avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
+avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
 
 # 元データ
 data_dir : "~/dataset/lip/cropped"
@@ -62,7 +67,7 @@ train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
 val_df_path : "~/dataset/lip/data_split_csv/val.csv"
 
 # 外部データの指定
-which_external_data : "lip2wav"
+which_external_data : ""
 
 # lrs2
 lrs2_train_data_root : "~/lrs2/mvlrs_v1/main"
@@ -97,6 +102,9 @@ corpus_synth : [
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
 ]
 
+# data upsampling
+apply_upsampling : False
+
 # 使用する話者
 # speaker : ["M04_kablab"]
 speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
@@ -106,7 +114,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 200
+max_epoch : 100
 
 # テキスト処理
 for_tts : False
@@ -117,8 +125,8 @@ use_color_jitter : False
 use_blur : False
 use_pad : False
 use_rotation : False
-use_horizontal_flip : False
-use_random_crop : False
+use_horizontal_flip : True
+use_random_crop : True
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
@@ -142,8 +150,8 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 16
-num_workers : 16
+batch_size : 8
+num_workers : 8
 
 # dropout
 dec_dropout : 0.1
@@ -152,19 +160,19 @@ rnn_dropout : 0.1
 lm_enc_dropout : 0.1
 
 # optimizer
-lr : 0.001
+lr : 1.0e-3
 beta_1 : 0.9
-beta_2 : 0.999
-weight_decay : 1.0e-6
-# beta_2 : 0.98
-# weight_decay : 1.0e-2
+# beta_2 : 0.999
+# weight_decay : 1.0e-6
+beta_2 : 0.98
+weight_decay : 1.0e-2
 which_optim : 'adam'
-which_scheduler : 'exp'
+which_scheduler : 'warmup'
 
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.995
+lr_decay_exp : 0.92
 use_warmup_scheduler : False
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5
@@ -180,4 +188,4 @@ use_weighted_mean : False
 loss_disc_weight : 0.01
 
 # gradient accumulation
-iters_to_accumulate : 1
+iters_to_accumulate : 2

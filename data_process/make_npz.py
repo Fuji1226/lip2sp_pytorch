@@ -1,7 +1,3 @@
-"""
-train_val_test_split.pyでデータ分割を行った後に実行
-動画や音響特徴量を事前に全て計算しておき,npz形式で保存しておくことでモデル学習時の計算時間を短縮します
-"""
 import os
 import sys
 from pathlib import Path

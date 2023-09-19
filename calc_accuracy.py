@@ -58,12 +58,14 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
     df = load_utt()
 
     wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
-    stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, False)
+    stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
+    estoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=True)
     r = sr.Recognizer()
     mecab = MeCab.Tagger('-Owakati')
 
     pesq_list = []
     stoi_list = []
+    estoi_list = []
     duration = []
     rmse_power_list = []
     rmse_f0_list_librosa = []
@@ -94,14 +96,17 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                     wav_in = wav_in[:shorter_n_frame]
                     assert wav_gen.shape[0] == wav_in.shape[0]
 
-                    # pesq, stoi
+                    # pesq, stoi, estoi
                     p = wb_pesq(wav_gen, wav_in)
                     s = stoi(wav_gen, wav_in)
+                    es = estoi(wav_gen, wav_in)
                     pesq_list.append(p)
                     stoi_list.append(s)
+                    estoi_list.append(es)
                     duration.append(shorter_n_frame / cfg.model.sampling_rate)
                     print(f"PESQ = {p}")
                     print(f"STOI = {s}")
+                    print(f"ESTOI = {es}")
 
                     wav_gen = wav_gen.to("cpu").numpy()
                     wav_in = wav_in.to("cpu").numpy()
@@ -266,6 +271,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
     if debug == False:
         pesq = sum(pesq_list) / len(pesq_list)
         stoi = sum(stoi_list) / len(stoi_list)
+        estoi = sum(estoi_list) / len(estoi_list)
         rmse_power = sum(rmse_power_list) / len(rmse_power_list)
         rmse_f0_librosa = sum(rmse_f0_list_librosa) / len(rmse_f0_list_librosa)
         vuv_acc_librosa = sum(vuv_acc_list_librosa) / len(vuv_acc_list_librosa)
@@ -283,6 +289,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
             f.write(f'speaker = {speaker}\n')
             f.write(f"PESQ = {pesq:f}\n")
             f.write(f"STOI = {stoi:f}\n")
+            f.write(f"ESTOI = {estoi:f}\n")
             f.write(f"rmse power = {rmse_power:f}dB\n")
             f.write(f"rmsef0 librosa = {rmse_f0_librosa:f}\n")
             f.write(f"vuv accuracy librosa = {vuv_acc_librosa:f}%\n")
