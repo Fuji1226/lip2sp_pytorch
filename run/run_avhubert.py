@@ -231,7 +231,7 @@ def run_nar(
 
 
 def main():
-    debug = True
+    debug = False
     wandb_conf = 'debug' if debug else 'nar'
     subject = 'プログラム経過'
     avhubert_layer_loaded_list = ['resnet', 'transformer', 'all']
