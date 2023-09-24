@@ -13,9 +13,19 @@ import random
 
 import torch
 import torch.nn.functional as F
-from torch.nn.utils import clip_grad_norm_
+from timm.scheduler import CosineLRScheduler
 
-from utils import count_params, get_path_train, save_loss, make_train_val_loader_with_external_data, set_config, check_wav, requires_grad_change
+from utils import (
+    count_params,
+    get_path_train,
+    save_loss,
+    make_train_val_loader_with_external_data,
+    make_train_val_loader_pwg,
+    set_config,
+    check_wav,
+    requires_grad_change,
+    fix_random_seed,
+)
 from parallelwavegan.model.generator import Generator
 from parallelwavegan.model.discriminator import Discriminator, WaveNetLikeDiscriminator
 from parallelwavegan.stft_loss import MultiResolutionSTFTLoss
@@ -25,11 +35,6 @@ wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
-
-np.random.seed(777)
-torch.manual_seed(777)
-torch.cuda.manual_seed_all(777)
-random.seed(777)
 
 
 def save_checkpoint(
@@ -133,12 +138,11 @@ def train_one_epoch(
     iter_cnt = 0
     all_iter = len(train_loader)
     print("training only generator")
-    print("iter start")
     gen.train()
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
 
@@ -180,12 +184,11 @@ def val_one_epoch(gen, val_loader, loss_f, device, cfg, ckpt_time):
     iter_cnt = 0
     all_iter = len(val_loader)
     print("validation only generator")
-    print("iter start")
     gen.eval()
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
 
@@ -235,13 +238,12 @@ def train_one_epoch_gan(
     iter_cnt = 0
     all_iter = len(train_loader)
     print("training gan")
-    print("iter start")
     gen.train()
     disc.train()
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
 
@@ -317,13 +319,12 @@ def val_one_epoch_gan(
     iter_cnt = 0
     all_iter = len(val_loader)
     print("validation gan")
-    print("iter start")
     gen.eval()
     disc.eval()
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
 
@@ -370,6 +371,7 @@ def val_one_epoch_gan(
 @hydra.main(version_base=None, config_name="config", config_path="conf")
 def main(cfg):
     set_config(cfg)
+    fix_random_seed(cfg.train.random_seed)
 
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
@@ -391,8 +393,9 @@ def main(cfg):
     print(f"val_data_root = {val_data_root}")
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
-
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root)
+    
+    # train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root)
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_pwg(cfg, train_data_root, val_data_root)
 
     loss_f = MultiResolutionSTFTLoss(
         n_fft_list=cfg.train.n_fft_list,
@@ -414,25 +417,44 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         gen, disc = make_model(cfg, device)
 
-        optimizer_g = torch.optim.Adam(
-            params=gen.parameters(),
-            lr=cfg.train.lr_gen,
-            betas=(cfg.train.beta_1, cfg.train.beta_2),
-            weight_decay=cfg.train.weight_decay,
-        )
-        optimizer_d = torch.optim.Adam(
-            params=disc.parameters(),
-            lr=cfg.train.lr_disc,
-            betas=(cfg.train.beta_1, cfg.train.beta_2),
-            weight_decay=cfg.train.weight_decay,
-        )
+        if cfg.train.which_optim == 'adam':
+            optimizer_g = torch.optim.Adam(
+                params=gen.parameters(),
+                lr=cfg.train.lr_gen,
+                betas=(cfg.train.beta_1, cfg.train.beta_2),
+                weight_decay=cfg.train.weight_decay,
+            )
+            optimizer_d = torch.optim.Adam(
+                params=disc.parameters(),
+                lr=cfg.train.lr_disc,
+                betas=(cfg.train.beta_1, cfg.train.beta_2),
+                weight_decay=cfg.train.weight_decay,
+            )
 
-        scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer_g, gamma=cfg.train.lr_decay
-        )
-        scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
-            optimizer_d, gamma=cfg.train.lr_decay
-        )
+        if cfg.train.which_scheduler == 'exp':
+            scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer_g, gamma=cfg.train.lr_decay_exp
+            )
+            scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer_d, gamma=cfg.train.lr_decay_exp
+            )
+        elif cfg.train.which_scheduler == 'warmup':
+            scheduler_g = CosineLRScheduler(
+                optimizer=optimizer_g,
+                t_initial=cfg.train.max_epoch,
+                lr_min=cfg.train.warmup_lr_min,
+                warmup_t=int(cfg.train.max_epoch * cfg.train.warmup_t_rate),
+                warmup_lr_init=cfg.train.warmup_lr_init,
+                warmup_prefix=True,
+            )
+            scheduler_d = CosineLRScheduler(
+                optimizer=optimizer_d,
+                t_initial=cfg.train.max_epoch,
+                lr_min=cfg.train.warmup_lr_min,
+                warmup_t=int(cfg.train.max_epoch * cfg.train.warmup_t_rate),
+                warmup_lr_init=cfg.train.warmup_lr_init,
+                warmup_prefix=True,
+            )
 
         scaler_g = torch.cuda.amp.GradScaler()
         scaler_d = torch.cuda.amp.GradScaler()
@@ -475,6 +497,16 @@ def main(cfg):
                     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
                 gen.load_state_dict(checkpoint["gen"])
 
+        if cfg.train.check_point_start_separate_save_dir:
+            print("load check point (separate save dir)")
+            checkpoint_path = Path(cfg.train.start_ckpt_path_separate_save_dir).expanduser()
+            if torch.cuda.is_available():
+                checkpoint = torch.load(checkpoint_path)
+            else:
+                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+            gen.load_state_dict(checkpoint["gen"])
+            disc.load_state_dict(checkpoint["disc"])
+
         wandb.watch(gen, **cfg.wandb_conf.watch)
         wandb.watch(disc, **cfg.wandb_conf.watch)
 
@@ -483,9 +515,6 @@ def main(cfg):
             print(f"##### {current_epoch} #####")
 
             if cfg.train.use_disc:
-                wandb.log({"learning_rate_gen": scheduler_g.get_last_lr()[0]})
-                wandb.log({"learning_rate_disc": scheduler_d.get_last_lr()[0]})
-
                 epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch_gan(
                     gen=gen,
                     disc=disc,
@@ -518,12 +547,17 @@ def main(cfg):
                 val_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
                 val_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
 
-                scheduler_d.step()
-                scheduler_g.step()
-
+                if cfg.train.which_scheduler == 'exp':
+                    wandb.log({"learning_rate": scheduler_g.get_last_lr()[0]})
+                    wandb.log({"learning_rate": scheduler_d.get_last_lr()[0]})
+                    scheduler_g.step()
+                    scheduler_d.step()
+                elif cfg.train.which_scheduler == 'warmup':
+                    wandb.log({"learning_rate": scheduler_g.optimizer.param_groups[0]['lr']})
+                    wandb.log({"learning_rate": scheduler_d.optimizer.param_groups[0]['lr']})
+                    scheduler_g.step(epoch)
+                    scheduler_d.step(epoch)
             else:
-                wandb.log({"learning_rate_gen": scheduler_g.get_last_lr()[0]})
-                
                 epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all = train_one_epoch(
                     gen=gen,
                     train_loader=train_loader,
@@ -551,7 +585,12 @@ def main(cfg):
                 val_epoch_loss_gen_gan_list.append(epoch_loss_gen_gan)
                 val_epoch_loss_gen_all_list.append(epoch_loss_gen_all)
 
-                scheduler_g.step()
+                if cfg.train.which_scheduler == 'exp':
+                    wandb.log({"learning_rate": scheduler_g.get_last_lr()[0]})
+                    scheduler_g.step()
+                elif cfg.train.which_scheduler == 'warmup':
+                    wandb.log({"learning_rate": scheduler_g.optimizer.param_groups[0]['lr']})
+                    scheduler_g.step(epoch)
 
             if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(

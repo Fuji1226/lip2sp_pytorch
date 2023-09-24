@@ -3,13 +3,12 @@ from librosa import filters
 from librosa.util import nnls
 from scipy import signal
 from scipy.interpolate import interp1d
-
-# add
 import pyworld
 from pyreaper import reaper
 import pysptk
 from nnmnkwii.postfilters import merlin_post_filter
 import librosa
+from python_speech_features import logfbank
 
 import torch
 import torch.nn as nn
@@ -72,6 +71,25 @@ def wav2spec(wav, cfg, ref_max=False):
     else:
         spec = log10(spec)
     return spec
+
+
+def wav2mel_avhubert(wav, cfg):
+    '''
+    avhubertで用いられる音響特徴量
+    '''
+    feature = logfbank(
+        wav, 
+        samplerate=cfg.model.sampling_rate,
+        winlen=cfg.model.win_length_sec,
+        winstep=cfg.model.hop_length_sec,
+        nfft=cfg.model.n_fft,
+        nfilt=cfg.model.avhubert_nfilt,
+        preemph=cfg.model.avhubert_preemph,
+        lowfreq=cfg.model.f_min,
+        highfreq=cfg.model.f_max,
+    ).T    # (C, T)
+    feature = feature.astype(np.float32)
+    return feature
     
 
 def calc_spec_and_mel(wav, cfg):

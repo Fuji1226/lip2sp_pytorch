@@ -1219,22 +1219,32 @@ class MyAVHubertModel(nn.Module):
 
     def forward(
         self,
-        x,
+        video,
+        audio,
         return_res_output,
         padding_mask=None,
         output_layer=None,
     ):
         '''
-        padding_mask (ByteTensor, Optional): mask to exclude
-            keys that are pads, of shape `(batch, src_len)`, 
-            where padding elements are indicated by 1s.
+        video : (B, C, T, H, W)
+        audio : (B, C, T)
+        padding_mask (padding elements are indicated by 1.) : (B, T)
         '''
-        features_video = self.feature_extractor_video(x)
-        features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
+        if video is not None and audio is None:
+            features_video = self.feature_extractor_video(video)
+            features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
+        elif video is None and audio is not None:
+            features_audio = self.feature_extractor_audio(audio)
+            features_video = features_audio.new_zeros(features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1))
+        elif video is not None and audio is not None:
+            features_video = self.feature_extractor_video(video)
+            features_audio = self.feature_extractor_audio(audio)
+
         if self.modality_fuse == 'concat':
             features = torch.cat([features_audio, features_video], dim=1)
         elif self.modality_fuse == 'add':
             features = features_audio + features_video
+
         features = features.transpose(1, 2)
         features = self.layer_norm(features)
 

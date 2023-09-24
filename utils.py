@@ -97,17 +97,17 @@ def get_path_train(cfg, current_time):
     # check point
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
     if ckpt_time is not None:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
     else:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / current_time
     os.makedirs(ckpt_path, exist_ok=True)
 
     # save
     save_path = Path(cfg.train.save_path).expanduser()
     if ckpt_time is not None:
-        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
+        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time    
     else:
-        save_path = save_path / cfg.train.face_or_lip / current_time
+        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / current_time
     os.makedirs(save_path, exist_ok=True)
 
     return train_data_root, val_data_root, ckpt_path, save_path, ckpt_time
@@ -208,7 +208,7 @@ def get_path_test(cfg, model_path):
     test_data_root = Path(test_data_root).expanduser()
 
     save_path = Path(cfg.test.save_path).expanduser()
-    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+    save_path = save_path / cfg.test.face_or_lip / cfg.model.name / model_path.parents[0].name / model_path.stem
 
     train_save_path = save_path / "train_data" / "audio"
     test_save_path = save_path / "test_data" / "audio"
@@ -598,7 +598,6 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
     external_data_path = get_datasets_external_data(cfg)
-
     train_trans = TransformWithExternalData(cfg, "train")
     val_trans = TransformWithExternalData(cfg, "val")
 
@@ -639,6 +638,57 @@ def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root
         cfg=cfg,
     )
     
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_pwg(cfg, train_data_root, val_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    val_data_path = get_datasets(val_data_root, cfg)
+    external_data_path = get_datasets_external_data(cfg)
+    train_trans = TransformWithExternalData(cfg, "train")
+    val_trans = TransformWithExternalData(cfg, "val")
+
+    if cfg.train.pwg_pretraining:
+        train_data_dir = Path(cfg.train.jsut_path_train).expanduser()
+        train_data_path = list(train_data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+        val_data_dir = Path(cfg.train.jsut_path_val).expanduser()
+        val_data_path = list(val_data_dir.glob(f"*/{cfg.model.name}/*.npz"))
+    
+    if cfg.train.debug:
+        train_data_path = train_data_path[:100]
+        val_data_path = val_data_path[:100]
+        external_data_path = external_data_path[:100]
+
+    train_dataset = DatasetWithExternalData(
+        data_path=train_data_path,
+        train_data_path=external_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    val_dataset = DatasetWithExternalData(
+        data_path=val_data_path,
+        train_data_path=external_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
     train_loader = DataLoader(
         dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
@@ -810,6 +860,46 @@ def make_test_loader_with_external_data(cfg, data_root, train_data_root):
     test_dataset = DatasetWithExternalData(
         data_path=test_data_path,
         train_data_path=train_data_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None,
+    )
+    return test_loader, test_dataset
+
+
+def make_test_loader_pwg(cfg, data_root, train_data_root):
+    train_data_path = get_datasets(train_data_root, cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
+    external_data_path = get_datasets_external_data(cfg)
+    test_data_path = sorted(test_data_path)
+
+    if cfg.test.debug:
+        train_data_path = train_data_path[:100]
+        external_data_path = external_data_path[:100]
+
+        test_data_path_for_debug = []
+        n_data_per_speaker =  defaultdict(int)
+        for data_path in test_data_path:
+            speaker = data_path.parents[1].name
+            if n_data_per_speaker[speaker] >= 1:
+                continue
+            test_data_path_for_debug.append(data_path)
+            n_data_per_speaker[speaker] += 1
+
+        test_data_path = test_data_path_for_debug
+
+    test_trans = TransformWithExternalData(cfg, 'test')
+    test_dataset = DatasetWithExternalData(
+        data_path=test_data_path,
+        train_data_path=external_data_path,
         transform=test_trans,
         cfg=cfg,
     )
@@ -1235,12 +1325,8 @@ def select_checkpoint(cfg):
     checkpoint_path_last = Path(cfg.test.model_path).expanduser()
     checkpoint_dict_last = torch.load(str(checkpoint_path_last))
     best_checkpoint = np.argmin(checkpoint_dict_last[cfg.test.metric_for_select]) + 1
-    
-    filename_prev = checkpoint_path_last.stem
-    filename_new = filename_prev.split('_')
-    filename_new[-1] = str(best_checkpoint)
-    filename_new = '_'.join(filename_new)
-
+    filename_prev = checkpoint_path_last.stem + checkpoint_path_last.suffix
+    filename_new = str(best_checkpoint) + checkpoint_path_last.suffix
     checkpoint_path = Path(str(checkpoint_path_last).replace(filename_prev, filename_new))
     return checkpoint_path
 

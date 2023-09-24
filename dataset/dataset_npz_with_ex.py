@@ -5,6 +5,7 @@ sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 import random
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 
@@ -82,20 +83,24 @@ class DatasetWithExternalData(Dataset):
         
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
-        # 保存時のミスに対応 (1, T) -> (T,)
         if wav.dim() == 2:
             wav = wav.squeeze(0)
         lip = torch.from_numpy(npz_key['lip'])
         feature = torch.from_numpy(npz_key['feature'])
+        if 'feature_avhubert' in npz_key.files:
+            feature_avhubert = torch.from_numpy(npz_key['feature_avhubert'])
+        else:
+            feature_avhubert = torch.zeros(feature.shape[0] ,self.cfg.model.avhubert_nfilt)
 
         if data_path.parents[3].name == 'jsut' or data_path.parents[3].name == 'jvs':
             is_video = torch.tensor(0)
         else:
             is_video = torch.tensor(1)
 
-        lip, feature = self.transform(
+        lip, feature, feature_avhubert = self.transform(
             lip=lip, 
             feature=feature, 
+            feature_avhubert=feature_avhubert,
             lip_mean=self.lip_mean, 
             lip_std=self.lip_std, 
             feat_mean=self.feat_mean, 
@@ -107,7 +112,8 @@ class DatasetWithExternalData(Dataset):
         wav = wav.to(torch.float32)
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
-        return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
+        feature_avhubert = feature_avhubert.to(torch.float32)
+        return wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
     
     
 class TransformWithExternalData:
@@ -139,19 +145,30 @@ class TransformWithExternalData:
         lip = T.functional.crop(lip, top, left, height, width)
         return lip
 
-    def normalization(self, lip, feature, lip_mean, lip_std, feat_mean, feat_std):
+    def normalization(
+        self,
+        lip,
+        feature,
+        feature_avhubert,
+        lip_mean,
+        lip_std,
+        feat_mean,
+        feat_std,
+    ):
         """
         lip : (C, H, W, T)
         feature : (C, T)
+        feature_avhubert : (T, C)
         lip_mean, lip_std, feat_mean, feat_std : (C,)
         """
         lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
         lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
         feat_mean = feat_mean.unsqueeze(-1)     # (C, 1)
         feat_std = feat_std.unsqueeze(-1)       # (C, 1)
-        lip = (lip - lip_mean) / lip_std        
+        lip = (lip - lip_mean) / lip_std
         feature = (feature - feat_mean) / feat_std
-        return lip, feature
+        feature_avhubert = F.layer_norm(feature_avhubert, feature_avhubert.shape[1:]).permute(1, 0)     # (C, T)
+        return lip, feature, feature_avhubert
 
     def segment_masking_segmean(self, lip):
         """
@@ -182,11 +199,38 @@ class TransformWithExternalData:
                 break
         
         return lip
+    
+    def stacker(self, feats, stack_order):
+        """
+        Concatenating consecutive audio frames
+        Args:
+        feats - numpy.ndarray of shape [T, F]
+        stack_order - int (number of neighboring frames to concatenate
+        Returns:
+        feats - numpy.ndarray of shape [T', F']
+        """
+        feat_dim = feats.shape[1]
+        if len(feats) % stack_order != 0:
+            res = stack_order - len(feats) % stack_order
+            res = np.zeros([res, feat_dim]).astype(feats.dtype)
+            feats = np.concatenate([feats, res], axis=0)
+        feats = feats.reshape((-1, stack_order, feat_dim)).reshape(-1, stack_order*feat_dim)
+        return feats
 
-    def __call__(self, lip, feature, lip_mean, lip_std, feat_mean, feat_std):
+    def __call__(
+        self,
+        lip,
+        feature,
+        feature_avhubert,
+        lip_mean,
+        lip_std,
+        feat_mean,
+        feat_std,
+    ):
         """
         lip : (C, H, W, T)
         feature : (T, C)
+        feature_avhubert : (T, C)
         """
         feature = feature.permute(1, 0)     # (C, T)
         lip = lip.permute(3, 0, 1, 2)   # (T, C, H, W)
@@ -208,31 +252,44 @@ class TransformWithExternalData:
                 lip = self.random_crop(lip, center=True)
             lip = lip.permute(1, 2, 3, 0)   # (C, H, W, T)
 
-        lip, feature = self.normalization(lip, feature, lip_mean, lip_std, feat_mean, feat_std)
+        feature_avhubert = self.stacker(feature_avhubert, self.cfg.model.reduction_factor)  # (T // reduction_factor, C * reduction_factor)
+
+        lip, feature, feature_avhubert = self.normalization(
+            lip=lip,
+            feature=feature,
+            feature_avhubert=feature_avhubert,
+            lip_mean=lip_mean,
+            lip_std=lip_std,
+            feat_mean=feat_mean,
+            feat_std=feat_std,
+        )
 
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
-        return lip, feature
+        feature_avhubert = feature_avhubert.to(torch.float32)
+        return lip, feature, feature_avhubert
     
     
 def collate_time_adjust_with_external_data(batch, cfg):
-    wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
+    wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
     
     wav_adjusted = []
     lip_adjusted = []
     feature_adjusted = []
+    feature_avhubert_adjusted = []
 
     lip_input_len = cfg.model.input_lip_sec * cfg.model.fps
     upsample_scale = 1000 // cfg.model.frame_period // cfg.model.fps
     feat_input_len = int(lip_input_len * upsample_scale)
     wav_input_len = int(feat_input_len * cfg.model.hop_length)
 
-    for w, l, f, f_len in zip(wav, lip, feature, feature_len):
+    for w, l, f, f_avhubert, f_len in zip(wav, lip, feature, feature_avhubert, feature_len):
         # 揃えるlenよりも短い時は足りない分をゼロパディング
         if f_len <= feat_input_len:
             w_padded = torch.zeros(wav_input_len)
             l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_input_len)
             f_padded = torch.zeros(f.shape[0], feat_input_len)
+            f_avhubert_padded = torch.zeros(f_avhubert.shape[0], lip_input_len)
 
             # 音響特徴量の系列長をベースに判定しているので、稀に波形のサンプル数が多い場合がある
             # その際に余ったサンプルを除外する（シフト幅的に余りが生じているのでそれを省いている）
@@ -241,10 +298,12 @@ def collate_time_adjust_with_external_data(batch, cfg):
             w_padded[:w.shape[0]] = w
             l_padded[..., :l.shape[-1]] = l
             f_padded[:, :f.shape[-1]] = f
+            f_avhubert_padded[:, :f_avhubert.shape[-1]] = f_avhubert
 
             w = w_padded
             l = l_padded
             f = f_padded
+            f_avhubert = f_avhubert_padded
 
         # 揃えるlenよりも長い時はランダムに切り取り
         else:
@@ -255,22 +314,26 @@ def collate_time_adjust_with_external_data(batch, cfg):
             w = w[wav_start_sample:wav_start_sample + wav_input_len]
             l = l[..., lip_start_frame:lip_start_frame + lip_input_len]
             f = f[:, feature_start_frame:feature_start_frame + feat_input_len]
+            f_avhubert = f_avhubert[:, feature_start_frame:feature_start_frame + lip_input_len]
 
         assert w.shape[0] == wav_input_len
         assert l.shape[-1] == lip_input_len
         assert f.shape[-1] == feat_input_len
+        assert f_avhubert.shape[-1] == lip_input_len
 
         wav_adjusted.append(w)
         lip_adjusted.append(l)
         feature_adjusted.append(f)
+        feature_avhubert_adjusted.append(f_avhubert)
     
     wav = torch.stack(wav_adjusted)
     lip = torch.stack(lip_adjusted)
     feature = torch.stack(feature_adjusted)
+    feature_avhubert = torch.stack(feature_avhubert_adjusted)
     spk_emb = torch.stack(spk_emb)
     feature_len = torch.stack(feature_len)
     lip_len = torch.stack(lip_len)
     speaker_idx = torch.stack(speaker_idx)
     lang_id = torch.stack(lang_id)
     is_video = torch.stack(is_video)
-    return wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
+    return wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video

@@ -2,8 +2,11 @@
 
 name : "default"
 
+# 乱数固定
+random_seed : 777
+
 # デバッグ
-debug : False
+debug : True
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 0
@@ -18,11 +21,15 @@ gen_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
 
+# check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
+check_point_start_separate_save_dir : False
+start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+
 # モデルの中で固定するところ
 module_is_fixed : []
 
 # face or lip
-face_or_lip : "face_cropped_max_size_fps25"
+face_or_lip : "avhubert_preprocess_fps25_gray"
 use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
@@ -49,6 +56,8 @@ face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50
 face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
 face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
 face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
+avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
+avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
 
 # 元データ
 data_dir : "~/dataset/lip/cropped"
@@ -83,9 +92,10 @@ npz_process_speaker_list : []
 # jsut corpus
 use_jsut_corpus : True
 jsut_path_train : "~/dataset/lip/np_files/jsut/train"
+jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 
 # jvs corpus
-use_jvs_corpus : True
+use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
@@ -99,6 +109,9 @@ corpus_synth : [
 # data upsampling
 apply_upsampling : False
 
+# parallelwaveganのpretrainingをする場合に、jsutのみで回せるようにするための設定
+pwg_pretraining : True
+
 # 使用する話者
 # speaker : ["M04_kablab"]
 speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
@@ -108,7 +121,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 50
+max_epoch : 100
 
 # テキスト処理
 for_tts : False
@@ -154,10 +167,15 @@ beta_1 : 0.9
 beta_2 : 0.999
 eps : 1.0e-6
 weight_decay : 1.0e-6
+which_optim : 'adam'
+which_scheduler : 'warmup'
 
 # scheduler
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay : 0.95
+lr_decay_exp : 0.96
+warmup_t_rate : 0.1
+warmup_lr_init : 1.0e-5
+warmup_lr_min : 0
 
 # gradient clipping
 max_norm : 3.0

@@ -9,7 +9,7 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data, save_data_pwg
-from train_nar_with_ex_amp import make_model
+from train_nar_with_ex_avhubert import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import (
     make_test_loader_with_external_data,
@@ -36,19 +36,36 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
     feat_std = dataset.feat_std.to(device)
 
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
 
         lip_sep = gen_data_separate(lip, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
+        feature_avhubert_sep = gen_data_separate(feature_avhubert, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
         lip_len = lip_len.expand(lip_sep.shape[0])
         spk_emb = spk_emb.expand(lip_sep.shape[0], -1)
 
         with torch.no_grad():
-            output, classifier_out, fmaps = model(lip_sep, lip_len, spk_emb)
+            if cfg.model.use_avhubert_video_modality:
+                print('use video modality')
+                output, classifier_out, fmaps = model(
+                    lip=lip,
+                    audio=None,
+                    lip_len=lip_len,
+                    spk_emb=spk_emb,
+                )
+            elif cfg.model.use_avhubert_audio_modality:
+                print('use audio modality')
+                output, classifier_out, fmaps = model(
+                    lip=None,
+                    audio=feature_avhubert_sep,
+                    lip_len=lip_len,
+                    spk_emb=spk_emb,
+                )
 
         output = gen_data_concat(
             output, 
@@ -103,8 +120,8 @@ def main(cfg):
     model_path = select_checkpoint(cfg)
     model = make_model(cfg, device)
     model = load_pretrained_model(model_path, model, "model")
-    cfg.train.face_or_lip = model_path.parents[1].name
-    cfg.test.face_or_lip = model_path.parents[1].name    
+    cfg.train.face_or_lip = model_path.parents[2].name
+    cfg.test.face_or_lip = model_path.parents[2].name    
 
     data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
     

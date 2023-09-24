@@ -739,7 +739,7 @@ def save_data_lipreading(cfg, save_path, target, output, classes_index):
 
 
 def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
-    target = target.squeeze(0)
+    target = target.squeeze(0).squeeze(0)
     output = output.squeeze(0).squeeze(0)
     target = target.to('cpu').detach().numpy()
     output = output.to('cpu').detach().numpy()
@@ -747,7 +747,10 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
     output /= np.max(np.abs(output))
     target = target.astype(np.float32)
     output = output.astype(np.float32)
-
+    data_len = min(target.shape[0], output.shape[0])
+    target = target[:data_len]
+    output = output[:data_len]
+    ana_syn = ana_syn[:data_len]
     write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=target)
     write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=output)
 
@@ -756,6 +759,7 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
         ana_syn = ana_syn.to('cpu').detach().numpy()
         ana_syn /= np.max(np.abs(ana_syn))
         ana_syn = ana_syn.astype(np.float32)
+        ana_syn = ana_syn[:data_len]
         write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=ana_syn)
 
     target = wav2mel(target, cfg, ref_max=True)

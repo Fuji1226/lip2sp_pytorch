@@ -61,6 +61,7 @@ def save_checkpoint(
 def make_model(cfg, device):
     if cfg.model.use_avhubert_encoder:
         model = Lip2SP_NAR_AVHubert(
+            avhubert_config=cfg.model.avhubert_config,
             avhubert_ckpt_path=Path(cfg.model.avhubert_ckpt_path).expanduser(),
             avhubert_model_size=cfg.model.avhubert_model_size,
             avhubert_return_res_output=cfg.model.avhubert_return_res_output,
@@ -129,16 +130,33 @@ def train_one_epoch(model, train_loader, optimizer, scaler, loss_f, device, cfg,
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
 
         with torch.autocast(device_type='cuda', dtype=torch.float16):
-            output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
+            if cfg.model.use_avhubert_video_modality:
+                print('use video modality')
+                output, classifier_out, fmaps = model(
+                    lip=lip,
+                    audio=None,
+                    lip_len=lip_len,
+                    spk_emb=spk_emb,
+                )
+            elif cfg.model.use_avhubert_audio_modality:
+                print('use audio modality')
+                output, classifier_out, fmaps = model(
+                    lip=None,
+                    audio=feature_avhubert,
+                    lip_len=lip_len,
+                    spk_emb=spk_emb,
+                )
+
             mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
             if cfg.train.adversarial_learning:
@@ -192,32 +210,49 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
         
-        with torch.no_grad():
-            output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            with torch.no_grad():
+                if cfg.model.use_avhubert_video_modality:
+                    print('use video modality')
+                    output, classifier_out, fmaps = model(
+                        lip=lip,
+                        audio=None,
+                        lip_len=lip_len,
+                        spk_emb=spk_emb,
+                    )
+                elif cfg.model.use_avhubert_audio_modality:
+                    print('use audio modality')
+                    output, classifier_out, fmaps = model(
+                        lip=None,
+                        audio=feature_avhubert,
+                        lip_len=lip_len,
+                        spk_emb=spk_emb,
+                    )
 
-        mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
+            mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
-        if cfg.train.adversarial_learning:
-            classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
-        else:
-            classifier_loss = torch.tensor(0)
+            if cfg.train.adversarial_learning:
+                classifier_loss = loss_f.cross_entropy_loss(classifier_out, speaker_idx, ignore_index=-100)
+            else:
+                classifier_loss = torch.tensor(0)
 
-        loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
+            loss = cfg.train.mse_weight * mse_loss + cfg.train.classifier_weight * classifier_loss
 
-        epoch_loss += loss.item()
-        epoch_mse_loss += mse_loss.item()
-        epoch_classifier_loss += classifier_loss.item()
-        wandb.log({"val_loss": loss})
-        wandb.log({"val_mse_loss": mse_loss})
-        wandb.log({"val_classifier_loss": classifier_loss})
+            epoch_loss += loss.item()
+            epoch_mse_loss += mse_loss.item()
+            epoch_classifier_loss += classifier_loss.item()
+            wandb.log({"val_loss": loss})
+            wandb.log({"val_mse_loss": mse_loss})
+            wandb.log({"val_classifier_loss": classifier_loss})
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -408,7 +443,7 @@ def main(cfg):
                     val_mse_loss_list=val_mse_loss_list,
                     val_classifier_loss_list=val_classifier_loss_list,
                     epoch=current_epoch,
-                    ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
+                    ckpt_path=str(ckpt_path / f"{current_epoch}.ckpt")
                 )
                 
             save_loss(train_loss_list, val_loss_list, save_path, "loss")

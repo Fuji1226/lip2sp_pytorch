@@ -17,16 +17,17 @@ import torch
 
 from parallelwavegan.pwg_train import make_model
 from data_check import save_data_pwg
-from utils import make_test_loader_with_external_data, get_path_test, load_pretrained_model
-from data_process.phoneme_encode import get_keys_from_value
+from utils import (
+    make_test_loader_pwg,
+    get_path_test,
+    load_pretrained_model,
+    fix_random_seed,
+    select_checkpoint,
+)
+from calc_accuracy import calc_accuracy, calc_mean
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
-
-np.random.seed(0)
-torch.manual_seed(0)
-torch.cuda.manual_seed_all(0)
-random.seed(0)
 
 
 def generate(cfg, gen, test_loader, dataset, device, save_path):
@@ -37,10 +38,11 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
 
-        noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
-        wav_pred = gen(noise, feature)
+        with torch.no_grad():
+            noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+            wav_pred = gen(noise, feature)
 
-        _save_path = save_path / speaker[0] / filename[0]
+        _save_path = save_path / 'pwg' / speaker[0] / filename[0]
         os.makedirs(_save_path, exist_ok=True)
 
         save_data_pwg(
@@ -48,43 +50,43 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
             save_path=_save_path,
             target=wav,
             output=wav_pred,
+            ana_syn=wav_pred,
         )
 
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
+    fix_random_seed(cfg.train.random_seed)
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     gen, disc = make_model(cfg, device)
+    model_path = select_checkpoint(cfg)
+    gen, disc = make_model(cfg, device)
+    gen = load_pretrained_model(model_path, gen, "gen")
+    cfg.train.face_or_lip = model_path.parents[1].name
+    cfg.test.face_or_lip = model_path.parents[1].name
 
-    start_epoch = 68
-    num_gen = 1
-    num_gen_epoch_list = [start_epoch + int(i * 10) for i in range(num_gen)]
-
-    for num_gen_epoch in num_gen_epoch_list:
-        # single speaker
-        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:06_08-35-21/mspec80_{num_gen_epoch}.ckpt").expanduser()
-        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:26_13-18-16/mspec80_{num_gen_epoch}.ckpt").expanduser()
-        # model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_{num_gen_epoch}.ckpt").expanduser()     # training 1 sec
-        model_path = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:02:02_16-06-28/mspec80_{num_gen_epoch}.ckpt").expanduser()     # training 1 sec 
-
-        gen = load_pretrained_model(model_path, gen, "gen")
-        cfg.train.face_or_lip = model_path.parents[1].name
-        cfg.test.face_or_lip = model_path.parents[1].name
-
-        data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
+    data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
         
-        for data_root, save_path in zip(data_root_list, save_path_list):
-            test_loader, test_dataset = make_test_loader_with_external_data(cfg, data_root, train_data_root)
-            generate(
-                cfg=cfg,
-                gen=gen,
-                test_loader=test_loader,
-                dataset=test_dataset,
-                device=device,
-                save_path=save_path,
-            )
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        test_loader, test_dataset = make_test_loader_pwg(cfg, data_root, train_data_root)
+        generate(
+            cfg=cfg,
+            gen=gen,
+            test_loader=test_loader,
+            dataset=test_dataset,
+            device=device,
+            save_path=save_path,
+        )
+
+    for data_root, save_path in zip(data_root_list, save_path_list):
+        for speaker in cfg.test.speaker:
+            save_path_pwg_spk = save_path / "pwg" / speaker
+            calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+        calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
+    
 
 
 if __name__ == "__main__":

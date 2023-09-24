@@ -109,7 +109,13 @@ class Lip2SP_NAR(nn.Module):
                 reduction_factor=reduction_factor,
             )
 
-    def forward(self, lip, lip_len, spk_emb=None):
+    def forward(
+        self,
+        lip,
+        audio,
+        lip_len,
+        spk_emb=None,
+    ):
         """
         lip : (B, C, H, W, T)
         lip_len : (B,)

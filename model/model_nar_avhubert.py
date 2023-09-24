@@ -11,9 +11,17 @@ from rnn import GRUEncoder
 from avhubert import Config, MyAVHubertModel, TransformerEncoder
 
 
-def load_avhubert_torch(ckpt_path, model_size, load_pretrained_weight, layer_loaded):
-    cfg = Config(model_size)
-    avhubert = MyAVHubertModel(cfg)
+def load_avhubert_torch(
+    cfg,
+    ckpt_path,
+    model_size,
+    load_pretrained_weight,
+    layer_loaded,
+):
+    if model_size == 'base':
+        avhubert = MyAVHubertModel(cfg.base)
+    elif model_size == 'large':
+        avhubert = MyAVHubertModel(cfg.large)
 
     if load_pretrained_weight:
         pretrained_dict = torch.load(str(ckpt_path))[str('avhubert')]
@@ -61,6 +69,7 @@ class TransformerDecoder(nn.Module):
 class Lip2SP_NAR_AVHubert(nn.Module):
     def __init__(
         self,
+        avhubert_config,
         avhubert_ckpt_path,
         avhubert_model_size,
         avhubert_return_res_output,
@@ -82,7 +91,9 @@ class Lip2SP_NAR_AVHubert(nn.Module):
     ):
         super().__init__()
         self.avhubert_return_res_output = avhubert_return_res_output
+        self.which_decoder = which_decoder
         self.avhubert = load_avhubert_torch(
+            cfg=avhubert_config,
             ckpt_path=avhubert_ckpt_path,
             model_size=avhubert_model_size,
             load_pretrained_weight=load_avhubert_pretrained_weight,
@@ -119,21 +130,28 @@ class Lip2SP_NAR_AVHubert(nn.Module):
     def forward(
         self,
         lip,
+        audio,
         lip_len,
         spk_emb,
     ):
         '''
         lip : (B, C, H, W, T)
+        audio : (B, C, T)
         lip_len : (B,)
         spk_emb : (B, C)
         '''
-        lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
-        padding_mask_avhubert = torch.zeros(lip.shape[0], lip.shape[2]).to(device=lip.device, dtype=torch.bool)     # (B, T)
+        if lip is not None:
+            lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+            padding_mask_avhubert = torch.zeros(lip.shape[0], lip.shape[2]).to(device=lip.device, dtype=torch.bool)     # (B, T)
+        elif audio is not None:
+            padding_mask_avhubert = torch.zeros(audio.shape[0], audio.shape[2]).to(device=audio.device, dtype=torch.bool)     # (B, T)
+
         for i, l in enumerate(lip_len):
             padding_mask_avhubert[i, l:] = True
-
+        
         x = self.avhubert(
-            lip, 
+            video=lip,
+            audio=audio, 
             return_res_output=self.avhubert_return_res_output,
             padding_mask=padding_mask_avhubert, 
         )   # (B, T, C)
@@ -149,7 +167,10 @@ class Lip2SP_NAR_AVHubert(nn.Module):
             x = self.spk_emb_layer(x)
             x = x.permute(0, 2, 1)
 
-        x = self.decoder(x, padding_mask=padding_mask_avhubert, layer=None)
+        if self.which_decoder == 'avhubert':
+            x = self.decoder(x, padding_mask=padding_mask_avhubert, layer=None)
+        else:
+            x = self.decoder(x)
         return x, None, None
     
 

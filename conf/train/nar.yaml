@@ -172,8 +172,7 @@ which_scheduler : 'warmup'
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.92
-use_warmup_scheduler : False
+lr_decay_exp : 0.96
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5
 warmup_lr_min : 0
