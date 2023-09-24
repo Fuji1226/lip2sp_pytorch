@@ -314,7 +314,7 @@ def collate_time_adjust_with_external_data(batch, cfg):
             w = w[wav_start_sample:wav_start_sample + wav_input_len]
             l = l[..., lip_start_frame:lip_start_frame + lip_input_len]
             f = f[:, feature_start_frame:feature_start_frame + feat_input_len]
-            f_avhubert = f_avhubert[:, feature_start_frame:feature_start_frame + lip_input_len]
+            f_avhubert = f_avhubert[:, lip_start_frame:lip_start_frame + lip_input_len]
 
         assert w.shape[0] == wav_input_len
         assert l.shape[-1] == lip_input_len
