@@ -187,3 +187,35 @@ def mixing_prob_controller_test10(cfg):
     print(*prob_list)
 
     return prob_list
+
+def mixing_prob_controller_test11(cfg):
+    prob_list = []
+    
+    for i in range(40):
+        tmp = 1.0
+        prob_list.append(tmp)
+
+    for i in range(400):
+        tmp = 0.997 ** i
+        prob_list.append(tmp)
+    
+    print('prob')
+    print(*prob_list)
+
+    return prob_list
+
+def mixing_prob_controller_test12(cfg):
+    prob_list = []
+    
+    for i in range(40):
+        tmp = 1.0
+        prob_list.append(tmp)
+
+    for i in range(400):
+        tmp = 0.9985 ** i
+        prob_list.append(tmp)
+    
+    print('prob')
+    print(*prob_list)
+
+    return prob_list

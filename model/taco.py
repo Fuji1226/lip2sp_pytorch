@@ -315,10 +315,15 @@ class TacotronDecoder(nn.Module):
         # if feature_target is not None:
         #     print(f'featue target: {feature_target.shape}')
         #     print(f'training method: {training_method}')
+        
+        no_att = False
         while True:
             att_c, att_w = self.attention(enc_output, text_len, h_list[0], prev_att_w, mask=mask)
-            #enc_idx = int(t//2)
-            #att_c = enc_output[:, enc_idx, :]
+            
+            if no_att:
+                enc_idx = int(t//2)
+                att_c = enc_output[:, enc_idx, :]
+                
 
             prenet_out = self.prenet(prev_out)      # (B, C)
 
@@ -364,8 +369,9 @@ class TacotronDecoder(nn.Module):
     
             if t > max_decoder_time_step - 1:
                 break
-            if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
-                break
+            # if not no_att:
+            #     if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
+            #         break
         
         output = torch.cat(output_list, dim=1)  # (B, T, C)
         output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)
@@ -379,7 +385,7 @@ class TacotronDecoder(nn.Module):
             return output, logit, att_w, logit_list
 
 
-
+"""
 class TacotronDecoder(nn.Module):
     def __init__(
         self, enc_channels, dec_channels, atten_conv_channels, atten_conv_kernel_size, atten_hidden_channels,
@@ -424,12 +430,6 @@ class TacotronDecoder(nn.Module):
         return init_hs
 
     def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False):
-        """
-        enc_output : (B, T, C)
-        text_len : (B,)
-        feature_target : (B, C, T)
-        spk_emb : (B, C)
-        """
         #print(f'text len: {text_len}')
         if feature_target is not None:
             B, C, T = feature_target.shape
@@ -497,10 +497,6 @@ class TacotronDecoder(nn.Module):
                     prev_out = feature_target[:, t, :]
                     
                 elif training_method == "ss":
-                    """
-                    mixing_prob = 1 : teacher forcing
-                    mixing_prob = 0 : using decoder prediction completely
-                    """
                     judge = torch.bernoulli(torch.tensor(mixing_prob))
                     if judge:
                         prev_out = feature_target[:, t, :]
@@ -527,3 +523,4 @@ class TacotronDecoder(nn.Module):
             return output, logit, att_w #(B, mel, T) (B, T)
         else:
             return output, logit, att_w, logit
+"""

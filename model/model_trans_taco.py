@@ -117,16 +117,16 @@ class Lip2SP(nn.Module):
                 conv_kernel_size=conformer_conv_kernel_size,
                 reduction_factor=reduction_factor,
             )
-        
-        self.encoder = ConvEncoder(
-            #embed_dim=d_model,  # 文字埋め込みの次元数
-            hidden_channels=d_model,  # 隠れ層の次元数
-            conv_n_layers=3,  # 畳み込み層数
-            #conv_channels=d_model,  # 畳み込み層のチャネル数
-            conv_kernel_size=7,  # 畳み込み層のカーネルサイズ
-            rnn_n_layers=1,
-            dropout=0.5,  # Dropout 率
-        )
+        elif self.which_encoder == "convencoder":  
+            self.encoder = ConvEncoder(
+                #embed_dim=d_model,  # 文字埋め込みの次元数
+                hidden_channels=d_model,  # 隠れ層の次元数
+                conv_n_layers=3,  # 畳み込み層数
+                #conv_channels=d_model,  # 畳み込み層のチャネル数
+                conv_kernel_size=7,  # 畳み込み層のカーネルサイズ
+                rnn_n_layers=1,
+                dropout=0.5,  # Dropout 率
+            )
 
         # self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
         # self.spk_emb_layer = nn.Linear(d_model + spk_emb_dim, d_model)

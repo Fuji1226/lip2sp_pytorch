@@ -359,7 +359,7 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test9(cfg)
+        prob_list = mixing_prob_controller_test11(cfg)
 
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
