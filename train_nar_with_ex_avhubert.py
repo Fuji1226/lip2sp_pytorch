@@ -7,7 +7,6 @@ from datetime import datetime
 import numpy as np
 import random
 import torch
-from torch.nn.utils import clip_grad_norm_
 from timm.scheduler import CosineLRScheduler
 
 from utils import (
@@ -178,6 +177,8 @@ def train_one_epoch(model, train_loader, optimizer, scaler, loss_f, device, cfg,
         scaler.scale(loss).backward()
 
         if (iter_cnt + 1) % cfg.train.iters_to_accumulate == 0 or (iter_cnt + 1) % (all_iter - 1) == 0:
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.train.max_norm)
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
@@ -185,13 +186,11 @@ def train_one_epoch(model, train_loader, optimizer, scaler, loss_f, device, cfg,
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
+                check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
+            check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
 
     epoch_loss /= iter_cnt
     epoch_mse_loss /= iter_cnt
@@ -257,17 +256,14 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg, ckpt_time):
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
+                check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
                 break
 
         if all_iter - 1 > 0:
             if iter_cnt % (all_iter - 1) == 0:
-                if cfg.model.name == "mspec80":
-                    check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
-        else:
-            if cfg.model.name == "mspec80":
                 check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
+        else:
+            check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
             
     epoch_loss /= iter_cnt
     epoch_mse_loss /= iter_cnt
