@@ -607,7 +607,7 @@ def generate_for_train_check_nar(cfg, model, test_loader, dataset, device, save_
        
         feature = feature[0].to('cpu').detach().numpy().copy()
         output = output[0].to('cpu').detach().numpy().copy()
-        breakpoint()
+   
         plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
         ax = plt.subplot(2, 1, 1)
         specshow(
