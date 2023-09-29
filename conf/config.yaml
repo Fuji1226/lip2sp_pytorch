@@ -3,5 +3,7 @@ defaults:
   - train: transformer_96_desk
   - test : default
   - wandb_conf : default
-tag: "fujtia"
+tag: "tts_test"
 model_path: None
+stop_weight: 1.0
+

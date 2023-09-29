@@ -75,7 +75,7 @@ def get_path_train(cfg, current_time):
 
     # check point
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
-    breakpoint()
+ 
     if ckpt_time is not None:
         ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
     else:
@@ -107,7 +107,7 @@ def get_path_tts_train(cfg, current_time):
     data_root = Path(data_root).expanduser()
 
     ckpt_time = None
-    ckpt_path = Path('/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts')
+    ckpt_path = Path('~/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts')
     ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
     os.makedirs(ckpt_path, exist_ok=True)
     
@@ -380,11 +380,11 @@ def make_train_val_loader_tts(cfg, data_root):
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     
-    if True:
+    if False:
         data_path = data_path[:100]
     train_size = int(n_samples * 0.95)
     train_data_path = data_path[:train_size]
-    val_data_path = data_path[20:]
+    val_data_path = data_path[train_size:]
     
     train_trans = KablabTTSTransform(cfg, "train")
     val_trans = KablabTTSTransform(cfg, "val")

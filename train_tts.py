@@ -123,8 +123,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
             if cfg.model.name == "mspec80":
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time)
             check_attention_weight(att_w[0], cfg, "att_w_train", current_time)
-            
-        break
 
     epoch_loss /= iter_cnt
     epoch_output_loss /= iter_cnt
@@ -304,8 +302,8 @@ def main(cfg):
         generate_for_tts(
             cfg = cfg,
             model = model,
-            test_loader = val_loader,
-            dataset=val_dataset,
+            test_loader = train_loader,
+            dataset=train_dataset,
             device=device,
             save_path=save_path,
             epoch=epoch

@@ -21,7 +21,7 @@ n_data_used_recorded_and_synth : 20000
 save_path : "~/lip2sp_pytorch_all/lip2sp_920_re/result/tts/train"
 
 # check point path
-ckpt_path : "~/TTS/Trans_TTS/check_point/tts"
+ckpt_path : "~/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -37,7 +37,7 @@ face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 face_pre_loaded_path_train_fujita : "~/dataset/np_files/lip_cropped/train"
 face_pre_loaded_path_val_fujita : "~/dataset/np_files/lip_cropped/train"
 
-tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train/"
+tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
 
 
 # 元データ

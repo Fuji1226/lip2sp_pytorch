@@ -38,7 +38,6 @@ def generate_for_tts(cfg, model, test_loader, dataset, device, save_path, epoch)
 
         _save_path = save_path / 'synthesis' / f'epoch_{epoch}_FR'
         os.makedirs(str(_save_path), exist_ok=True)
-        breakpoint()
         _save_path = _save_path / filename[0]
 
         #_save_path_tf = save_path / label[0]+'_tf'

@@ -28,7 +28,7 @@ delta : False
 frame_period : 10
 
 # acoutic feature frames in training
-length : 400
+length : 40
 
 # phoneme length
 phoneme_length : 30

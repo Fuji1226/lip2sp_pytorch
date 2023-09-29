@@ -22,7 +22,7 @@ def make_pad_mask(lengths, max_len):
     seq_range = torch.arange(0, max_len, dtype=torch.int64)
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
-    mask = seq_range_expand >= seq_length_expand     
+    mask = seq_range_expand >= seq_length_expand
     return mask.unsqueeze(1).to(device=device)  # (B, 1, T)
 
 
@@ -48,7 +48,7 @@ class PrenetForLip2SP(nn.Module):
         self.layer_norm = nn.LayerNorm(out_channels)
 
         self.dropout = dropout
-        
+
 
     def forward(self, x):
         """
@@ -130,18 +130,18 @@ class ConvEncoder(nn.Module):
         x = x.permute(0, 2, 1)      # (B, T, C)
 
         seq_len_orig = x.shape[1]
-        
+
         for i in range(x.shape[0]):
             max_len = x.shape[1]
-            
+
             if tmp_len[i]>max_len:
                 tmp_len[i] = max_len
-            
+
         x = pack_padded_sequence(x, tmp_len.cpu(), batch_first=True, enforce_sorted=False)
         x, _ = self.lstm(x)
         #print(f'after lstm: {x}')
         x = pad_packed_sequence(x, batch_first=True)[0]
-        
+
         # # 複数GPUを使用して最大系列長のデータがバッチ内に含まれない場合などに,系列長が短くなってしまうので再度パディング
         # if x.shape[1] < seq_len_orig:
         #     zero_pad = torch.zeros(x.shape[0], seq_len_orig - x.shape[1], x.shape[2]).to(device=x.device, dtype=x.dtype)
@@ -175,23 +175,23 @@ class Attention(nn.Module):
         test = text_len.clone().detach()
         for i in range(test.shape[-1]):
             if test[i] > enc_output.shape[1]:
-                test[i] = enc_output.shape[1] 
-   
+                test[i] = enc_output.shape[1]
+
+
+        if prev_att_w is None:
+            prev_att_w = 1.0 - make_pad_mask(test, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
+            prev_att_w = prev_att_w / test.unsqueeze(1)
 
         # if prev_att_w is None:
-        #     prev_att_w = 1.0 - make_pad_mask(test, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
-        #     prev_att_w = prev_att_w / test.unsqueeze(1)
-            
-        if prev_att_w is None:
-            prev_att_w = torch.zeros(enc_output.shape[0], enc_output.shape[1]).to(enc_output.device)
-            prev_att_w[:, 0] = 1.0
+        #     prev_att_w = torch.zeros(enc_output.shape[0], enc_output.shape[1]).to(enc_output.device)
+        #     prev_att_w[:, 0] = 1.0
 
         att_conv = self.loc_conv(prev_att_w.unsqueeze(1))     # (B, C, T)
         att_conv = att_conv.permute(0, 2, 1)    # (B, T, C)
         att_conv = self.fc_att(att_conv)    # (B, T, C)
 
         dec_state = self.fc_dec(dec_state).unsqueeze(1)      # (B, 1, C)
-        
+
         att_energy = self.w(torch.tanh(att_conv + self.processed_memory + dec_state))   # (B, T, 1)
         att_energy = att_energy.squeeze(-1)     # (B, T)
 
@@ -200,9 +200,9 @@ class Attention(nn.Module):
 
         att_w = F.softmax(att_energy, dim=1)    # (B, T)
         att_c = torch.sum(enc_output * att_w.unsqueeze(-1), dim=1)  # (B, C)
-  
+
         return att_c, att_w
-    
+
 class ZoneOutCell(nn.Module):
     def __init__(self, cell, zoneout=0.1):
         super().__init__()
@@ -260,14 +260,14 @@ class TacotronDecoder(nn.Module):
                     nn.LSTMCell(
                         enc_channels + prenet_hidden_channels if i == 0 else dec_channels,
                         dec_channels,
-                    ), 
+                    ),
                     zoneout=dropout
                 )
             )
         self.lstm = nn.ModuleList(lstm)
         self.feat_out_layer = nn.Linear(enc_channels + dec_channels, int(out_channels * reduction_factor), bias=False)
         self.prob_out_layer = nn.Linear(enc_channels + dec_channels, reduction_factor)
-        
+
 
     def _zero_state(self, hs, i):
         init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
@@ -288,7 +288,7 @@ class TacotronDecoder(nn.Module):
         else:
             B = enc_output.shape[0]
             C = self.out_channels
-        
+
 
         if feature_target is not None:
             max_decoder_time_step = feature_target.shape[1]
@@ -319,15 +319,15 @@ class TacotronDecoder(nn.Module):
         # if feature_target is not None:
         #     print(f'featue target: {feature_target.shape}')
         #     print(f'training method: {training_method}')
-        
+
         no_att = False
         while True:
             att_c, att_w = self.attention(enc_output, text_len, h_list[0], prev_att_w, mask=mask)
-            
+
             if no_att:
                 enc_idx = int(t//2)
                 att_c = enc_output[:, enc_idx, :]
-                
+
 
             prenet_out = self.prenet(prev_out)      # (B, C)
 
@@ -337,7 +337,7 @@ class TacotronDecoder(nn.Module):
                 h_list[i], c_list[i] = self.lstm[i](
                     h_list[i - 1], (h_list[i], c_list[i])
                 )
-            
+
             hcs = torch.cat([h_list[-1], att_c], dim=1)     # (B, C)
             output = self.feat_out_layer(hcs)   # (B, C)
             logit = self.prob_out_layer(hcs)    # (B, reduction_factor)
@@ -352,7 +352,7 @@ class TacotronDecoder(nn.Module):
             if feature_target is not None:
                 if training_method == "tf":
                     prev_out = feature_target[:, t, :]
-                    
+
                 elif training_method == "ss":
                     """
                     mixing_prob = 1 : teacher forcing
@@ -370,19 +370,19 @@ class TacotronDecoder(nn.Module):
             prev_att_w = att_w if prev_att_w is None else prev_att_w + att_w
 
             t += 1
-    
+
             if t > max_decoder_time_step - 1:
                 break
             # if not no_att:
             #     if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
             #         break
-        
+
         output = torch.cat(output_list, dim=1)  # (B, T, C)
         output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)
         logit = torch.cat(logit_list, dim=-1)   # (B, T)
-        
+
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
-        
+
         if not use_stop_token:
             return output, logit, att_w #(B, mel, T) (B, T)
         else:
@@ -420,14 +420,14 @@ class TacotronDecoder(nn.Module):
                     nn.LSTMCell(
                         enc_channels + prenet_hidden_channels if i == 0 else dec_channels,
                         dec_channels,
-                    ), 
+                    ),
                     zoneout=dropout
                 )
             )
         self.lstm = nn.ModuleList(lstm)
         self.feat_out_layer = nn.Linear(enc_channels + dec_channels, int(out_channels * reduction_factor), bias=False)
         self.prob_out_layer = nn.Linear(enc_channels + dec_channels, reduction_factor)
-        
+
 
     def _zero_state(self, hs, i):
         init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
@@ -442,7 +442,7 @@ class TacotronDecoder(nn.Module):
         else:
             B = enc_output.shape[0]
             C = self.out_channels
-            
+
         if feature_target is not None:
             max_decoder_time_step = feature_target.shape[1]
         else:
@@ -474,8 +474,8 @@ class TacotronDecoder(nn.Module):
             #test attentionベクトルを固定
             # enc_index = int(t//2)
             # att_c = enc_output[:, enc_index, :]
-            
-            
+
+
             prenet_out = self.prenet(prev_out)      # (B, C)
 
             xs = torch.cat([att_c, prenet_out], dim=1)      # (B, C)
@@ -484,7 +484,7 @@ class TacotronDecoder(nn.Module):
                 h_list[i], c_list[i] = self.lstm[i](
                     h_list[i - 1], (h_list[i], c_list[i])
                 )
-            
+
             hcs = torch.cat([h_list[-1], att_c], dim=1)     # (B, C)
             output = self.feat_out_layer(hcs)   # (B, C)
             logit = self.prob_out_layer(hcs)    # (B, reduction_factor)
@@ -499,7 +499,7 @@ class TacotronDecoder(nn.Module):
             if feature_target is not None:
                 if training_method == "tf":
                     prev_out = feature_target[:, t, :]
-                    
+
                 elif training_method == "ss":
                     judge = torch.bernoulli(torch.tensor(mixing_prob))
                     if judge:
@@ -513,16 +513,16 @@ class TacotronDecoder(nn.Module):
             prev_att_w = att_w if prev_att_w is None else prev_att_w + att_w
 
             t += 1
-    
+
             if t > max_decoder_time_step - 1:
                 break
-        
+
         output = torch.cat(output_list, dim=1)  # (B, T, C)
         output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)
         logit = torch.cat(logit_list, dim=-1)   # (B, T)
-        
+
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
-        
+
         if not use_stop_token:
             return output, logit, att_w #(B, mel, T) (B, T)
         else:
