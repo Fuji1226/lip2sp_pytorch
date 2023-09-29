@@ -273,7 +273,7 @@ class TacotronDecoder(nn.Module):
         init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
         return init_hs
 
-    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False):
+    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False, mode='lip'):
         """
         enc_output : (B, T, C)
         text_len : (B,)
@@ -288,11 +288,15 @@ class TacotronDecoder(nn.Module):
         else:
             B = enc_output.shape[0]
             C = self.out_channels
-            
+        
+
         if feature_target is not None:
             max_decoder_time_step = feature_target.shape[1]
         else:
-            max_decoder_time_step = enc_output.shape[1]
+            if mode=='lip':
+                max_decoder_time_step = enc_output.shape[1]
+            else:
+                max_decoder_time_step = 1000
 
         mask = make_pad_mask(text_len, enc_output.shape[1]).squeeze(1)      # (B, T)
 

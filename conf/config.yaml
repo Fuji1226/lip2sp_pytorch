@@ -1,7 +1,7 @@
 defaults:
-  - model: mspec80_trans
-  - train: default
+  - model: mspec80_trans_taco
+  - train: transformer_96_desk
   - test : default
   - wandb_conf : default
-tag: "debug_test"
+tag: "fujtia"
 model_path: None

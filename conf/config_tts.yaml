@@ -1,0 +1,7 @@
+defaults:
+  - model: tts
+  - train: tts
+  - test : default
+  - wandb_conf : default
+tag: "fujtia_last"
+model_path: None

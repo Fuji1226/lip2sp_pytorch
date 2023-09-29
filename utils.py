@@ -16,6 +16,10 @@ import seaborn as sns
 from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust, collate_time_adjust_lipemb
 from dataset.dataset_npz_stop_token import KablabDatasetStopToken, collate_time_adjust_stop_token
 
+from dataset.dataset_tts import KablabTTSDataset, KablabTTSTransform, collate_time_adjust_tts
+
+save_root_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
+
 def prime_factorize(n):
     a = []
     while n % 2 == 0:
@@ -60,6 +64,7 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "lip":
         data_root = cfg.train.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
+                
     data_root = Path(data_root).expanduser()
     mean_std_path = Path(mean_std_path).expanduser()
 
@@ -70,6 +75,7 @@ def get_path_train(cfg, current_time):
 
     # check point
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
+    breakpoint()
     if ckpt_time is not None:
         ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
     else:
@@ -83,7 +89,7 @@ def get_path_train(cfg, current_time):
     else:
         save_path = save_path / cfg.train.face_or_lip / current_time
     os.makedirs(save_path, exist_ok=True)
-
+    
     from omegaconf import DictConfig, OmegaConf
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
@@ -94,7 +100,37 @@ def get_path_train(cfg, current_time):
 
     return data_root, mean_std_path, ckpt_path, save_path, ckpt_time
 
+def get_path_tts_train(cfg, current_time):
+    if cfg.train.face_or_lip == "tts":
+        data_root = cfg.train.tts_pre_loaded_path
+  
+    data_root = Path(data_root).expanduser()
 
+    ckpt_time = None
+    ckpt_path = Path('/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts')
+    ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
+    os.makedirs(ckpt_path, exist_ok=True)
+    
+    # save
+    save_path = Path(cfg.train.save_path).expanduser()
+    
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
+    else:
+        save_path = save_path / cfg.train.face_or_lip / current_time
+    os.makedirs(save_path, exist_ok=True)
+
+    from omegaconf import DictConfig, OmegaConf
+    wandb_cfg = OmegaConf.to_container(
+        cfg, resolve=True, throw_on_missing=True,
+    )
+    save_path_json = os.path.join(save_path, 'config.json')
+    config_save = open(save_path_json, mode='w')
+    json.dump(wandb_cfg, config_save, indent=4)
+    
+    return data_root, save_path, ckpt_path
+        
+        
 def get_path_test_tmp(cfg, current_time):
     # data
     if cfg.train.face_or_lip == "face":
@@ -210,15 +246,6 @@ def save_loss(train_loss_list, val_loss_list, save_path, filename):
     plt.grid()
     plt.savefig(str(loss_save_path))
     plt.close("all")
-    # wandb.log({f"{filename}": plt})
-    # wandb.log({f"Image {filename}": wandb.Image(os.path.join(save_path, f"{filename}.png"))})
-    wandb.log({f"loss {filename}": wandb.plot.line_series(
-        xs=np.arange(len(train_loss_list)), 
-        ys=[train_loss_list, val_loss_list],
-        keys=["train loss", "validation loss"],
-        title=f"{filename}",
-        xname="epoch",
-    )})
 
 def save_loss_test(train_loss_list, save_path, filename):
     loss_save_path = save_path / f"{filename}.png"
@@ -305,6 +332,62 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
+def make_train_val_loader_tts(cfg, data_root):
+    # パスを取得
+    data_path = get_datasets(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    data_path = random.sample(data_path, len(data_path))
+    n_samples = len(data_path)
+    
+    if True:
+        data_path = data_path[:100]
+    train_size = int(n_samples * 0.95)
+    train_data_path = data_path[:train_size]
+    val_data_path = data_path[20:]
+    
+    train_trans = KablabTTSTransform(cfg, "train")
+    val_trans = KablabTTSTransform(cfg, "val")
+    
+    print("\n--- make train dataset ---")
+
+    train_dataset = KablabTTSDataset(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+
+    val_dataset = KablabTTSDataset(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    
+    return train_loader, val_loader, train_dataset, val_dataset
+    
 
 def make_train_val_loader_stop_token(cfg, data_root, mean_std_path):
     # パスを取得
@@ -546,7 +629,6 @@ def check_mel_default(target, output, dec_output, cfg, filename, current_time, c
     print(save_path)
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
-    wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
 
 
 def check_mel_nar(target, output, cfg, filename, current_time, ckpt_time=None):
@@ -595,7 +677,6 @@ def check_mel_nar(target, output, cfg, filename, current_time, ckpt_time=None):
         save_path = save_path / cfg.train.name / current_time
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
-    wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
     
 
 def check_feat_add(target, output, cfg, filename, current_time, ckpt_time=None):
@@ -667,3 +748,44 @@ def check_att(att, cfg, filename, current_time, ckpt_time=None):
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
     
 
+def make_pad_mask_tts(lengths, max_len):
+    """
+    口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+    マスクする場所をTrue
+    """
+    # この後の処理でリストになるので先にdeviceを取得しておく
+    device = lengths.device
+
+    if not isinstance(lengths, list):
+        lengths = lengths.tolist()
+    bs = int(len(lengths))
+    if max_len is None:
+        max_len = int(max(lengths))
+
+    seq_range = torch.arange(0, max_len, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    mask = seq_range_expand >= seq_length_expand     
+    return mask.unsqueeze(1).to(device=device)  # (B, 1, T)
+
+def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
+    """
+    att_w : (T, T)
+    """
+    att_w = att_w.to('cpu').detach().numpy().copy()
+
+    plt.figure()
+    sns.heatmap(att_w, cmap="viridis", cbar=True)
+    plt.title("attention weight")
+    plt.xlabel("text")
+    plt.ylabel("feature")
+
+    save_path = save_root_path
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.name / ckpt_time
+    else:
+        save_path = save_path / cfg.train.name / current_time
+    os.makedirs(save_path, exist_ok=True)
+    plt.savefig(str(save_path / f"{filename}.png"))
+    plt.close()
+    
