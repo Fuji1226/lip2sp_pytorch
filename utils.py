@@ -458,6 +458,7 @@ def make_test_loader(cfg, data_root, mean_std_path):
         data_root=data_root,
         cfg=cfg,
     )
+    print(f'data root fujita {data_root}')
     test_data_path = sorted(test_data_path)
     test_trans = KablabTransform(
         cfg=cfg,

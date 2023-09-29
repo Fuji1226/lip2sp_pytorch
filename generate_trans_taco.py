@@ -411,8 +411,7 @@ def main(cfg):
     print(f"device = {device}")
 
     model = make_model(cfg, device)
-
-    model_path = Path("/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/transfomer_check/mspec80_300.ckpt")
+    #model_path = Path("/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/transfomer_check/mspec80_300.ckpt")
     if cfg.model_path is not None:
         model_path = Path(cfg.model_path)
 
