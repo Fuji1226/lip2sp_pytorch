@@ -373,9 +373,9 @@ class TacotronDecoder(nn.Module):
 
             if t > max_decoder_time_step - 1:
                 break
-            # if not no_att:
-            #     if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
-            #         break
+            if mode=='tts':
+                if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
+                    break
 
         output = torch.cat(output_list, dim=1)  # (B, T, C)
         output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)

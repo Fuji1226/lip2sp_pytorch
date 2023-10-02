@@ -92,7 +92,7 @@ class TTSTacotron(nn.Module):
         feature_target : (B, 80, T)
         """
         enc_output = self.encoder(text, text_len) #(B, len_text, 512)
-        dec_output, logit, att_w = self.decoder(enc_output, text_len, feature_target, training_method='tf')
+        dec_output, logit, att_w = self.decoder(enc_output, text_len, feature_target, training_method='tf', mode='tts')
         output = self.postnet(dec_output)
         
         return dec_output, output, logit, att_w

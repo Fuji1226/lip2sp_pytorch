@@ -112,7 +112,6 @@ def get_path_tts_train(cfg, current_time):
     ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
     os.makedirs(ckpt_path, exist_ok=True)
     
-    breakpoint()
     # save
     save_path = Path(cfg.train.save_path).expanduser()
     
