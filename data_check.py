@@ -541,6 +541,64 @@ def save_data(cfg, save_path, wav, lip, feature, feat_add, output, lip_mean, lip
     plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
     plot_world(cfg, save_path, wav, wav_AbS, wav_gen)
 
+def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std, enhanced_output=None):
+    """
+    出力データの保存
+    """
+    wav = wav.squeeze(0)
+    feature = feature.squeeze(0)
+    output = output.squeeze(0)
+
+    wav = wav.to('cpu').detach().numpy().copy()
+    y = librosa.feature.melspectrogram(
+        y=wav,
+        sr=cfg.model.sampling_rate,
+        n_fft=cfg.model.win_length,
+        hop_length=cfg.model.hop_length,
+        win_length=cfg.model.win_length,
+        window="hann",
+        n_mels=cfg.model.n_mel_channels,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+    )
+    # dBスケールで出力しているので，戻す時に使う
+    ref = np.max(y)
+    
+    # 原音声のwavファイルを保存
+    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)
+
+    # 原音声の音響特徴量から求めた合成音声のwavファイルを保存
+    wav_AbS = save_wav(
+        cfg=cfg,
+        save_path=save_path,
+        file_name="AbS",
+        feature=feature,
+        feat_mean=feat_mean,
+        feat_std=feat_std,
+        ref=ref,
+    )
+    # モデルで推定した音響特徴量から求めた合成音声のwavファイルを保存
+    wav_gen = save_wav(
+        cfg=cfg,
+        save_path=save_path,
+        file_name="generate",
+        feature=output,
+        feat_mean=feat_mean,
+        feat_std=feat_std,
+        ref=ref,
+    )
+
+    # サンプル数を合わせるための微調整
+    n_sample = min(wav.shape[0], wav_AbS.shape[0], wav_gen.shape[0])
+    wav = wav[:n_sample]
+    wav_AbS = wav_AbS[:n_sample]
+    wav_gen = wav_gen[:n_sample]
+    assert wav.shape[0] == wav_AbS.shape[0] == wav_gen.shape[0]
+
+    # 音声波形，音響特徴量のプロット
+    plot_wav(cfg, save_path, wav, wav_AbS, wav_gen)
+    plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
+    plot_world(cfg, save_path, wav, wav_AbS, wav_gen)
     
 def save_data_lipreading(cfg, save_path, wav, lip, lip_mean, lip_std, phoneme_index_output, output, classes_index):
     """

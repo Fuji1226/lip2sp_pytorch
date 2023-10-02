@@ -130,37 +130,6 @@ def get_path_tts_train(cfg, current_time):
     
     return data_root, save_path, ckpt_path
         
-def get_path_tts_test(cfg, current_time):
-    if cfg.train.face_or_lip == "tts":
-        train_data_root = cfg.train.tts_pre_loaded_path
-        test_data_root = cfg.test.face_pre_loaded_path
-        
-    train_data_root = Path(train_data_root).expanduser()
-    test_data_root = Path(test_data_root).expanduser()
-
-    ckpt_time = None
-    ckpt_path = Path('/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts')
-    ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
-    
-    # save
-    save_path = Path(cfg.train.save_path).expanduser()
-    
-    if ckpt_time is not None:
-        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
-    else:
-        save_path = save_path / cfg.train.face_or_lip / current_time
-    os.makedirs(save_path, exist_ok=True)
-
-    from omegaconf import DictConfig, OmegaConf
-    wandb_cfg = OmegaConf.to_container(
-        cfg, resolve=True, throw_on_missing=True,
-    )
-    save_path_json = os.path.join(save_path, 'config.json')
-    config_save = open(save_path_json, mode='w')
-    json.dump(wandb_cfg, config_save, indent=4)
-    
-    return data_root, save_path, ckpt_path
 
 def get_path_test_tmp(cfg, current_time):
     # data
@@ -243,7 +212,31 @@ def get_path_test(cfg, model_path):
         return data_root_list, mean_std_path, save_path_list
     else:
         data_root_list, save_path_list
+        
+def get_path_test_tts(cfg, model_path):
+    if cfg.test.face_or_lip == "tts":
+        train_data_root = cfg.train.tts_pre_loaded_path
+        test_data_root = cfg.test.tts_pre_loaded_path
 
+        #test_data_root = cfg.train.lip_pre_loaded_path
+    
+    train_data_root = Path(train_data_root).expanduser()
+    test_data_root = Path(test_data_root).expanduser()
+    
+    save_path = Path(cfg.test.save_path).expanduser()
+    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+    train_save_path = save_path / "train_data" / "audio"
+    test_save_path = save_path / "test_data" / "audio"
+    os.makedirs(train_save_path, exist_ok=True)
+    os.makedirs(test_save_path, exist_ok=True)
+
+    # data_root_list = [test_data_root, train_data_root]
+    # save_path_list = [test_save_path, train_save_path]
+
+    data_root_list = [test_data_root]
+    save_path_list = [test_save_path]
+
+    return    data_root_list, save_path_list, train_data_root
     
 def get_path_test_vc(cfg, model_path, speaker, reference):
     if cfg.test.face_or_lip == "face":
@@ -575,20 +568,29 @@ def make_test_loader_emb(cfg, data_root, mean_std_path):
     )
     return test_loader, test_dataset
 
-def make_test_loader(cfg, data_root, mean_std_path):
-    test_data_path = get_datasets_test(
+def make_test_loader(cfg, data_root, train_data_root):
+    test_data_path = get_datasets(
         data_root=data_root,
         cfg=cfg,
     )
+    train_data_path = get_datasets(
+        data_root=train_data_root,
+        cfg=cfg,
+    )
+    
     print(f'data root fujita {data_root}')
     test_data_path = sorted(test_data_path)
+    
+    train_trans = KablabTTSTransform(cfg, "train")
+    test_trans = KablabTTSTransform(cfg, "test")
+    
     test_trans = KablabTransform(
         cfg=cfg,
         train_val_test="test",
     )
-    test_dataset = KablabDataset(
+    test_dataset = KablabTTSDataset(
         data_path=test_data_path,
-        mean_std_path = mean_std_path,
+        train_data_path= train_data_path,
         transform=test_trans,
         cfg=cfg,
     )

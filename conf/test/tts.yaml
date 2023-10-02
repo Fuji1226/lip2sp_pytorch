@@ -8,7 +8,7 @@ face_or_lip : "tts"
 check_train_data : False
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch_all/lip2sp_920_re/result/nar/generate"
+save_path : "~/lip2sp_pytorch_all/lip2sp_920_re/result/tts/generate"
 
 # 平均、標準偏差ディレクトリまでのパス
 lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
