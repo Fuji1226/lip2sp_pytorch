@@ -107,10 +107,12 @@ def get_path_tts_train(cfg, current_time):
     data_root = Path(data_root).expanduser()
 
     ckpt_time = None
-    ckpt_path = Path('~/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts')
+    ckpt_path = cfg.train.ckpt_path
+    ckpt_path = Path(ckpt_path).expanduser()
     ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
     os.makedirs(ckpt_path, exist_ok=True)
     
+    breakpoint()
     # save
     save_path = Path(cfg.train.save_path).expanduser()
     
@@ -124,6 +126,7 @@ def get_path_tts_train(cfg, current_time):
     wandb_cfg = OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True,
     )
+    
     save_path_json = os.path.join(save_path, 'config.json')
     config_save = open(save_path_json, mode='w')
     json.dump(wandb_cfg, config_save, indent=4)
@@ -373,11 +376,11 @@ def make_train_val_loader_tts(cfg, data_root):
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     
-    if False:
+    if True:
         data_path = data_path[:100]
     train_size = int(n_samples * 0.95)
     train_data_path = data_path[:train_size]
-    val_data_path = data_path[train_size:]
+    val_data_path = data_path[20:]
     
     train_trans = KablabTTSTransform(cfg, "train")
     val_trans = KablabTTSTransform(cfg, "val")
