@@ -36,7 +36,7 @@ from torch.utils.data import DataLoader
 from dataset.dataset_npz import KablabDataset, KablabTransform, get_datasets
 from data_check import save_data_tts
 from train_tts import make_model
-from calc_accuracy import calc_accuracy
+#from calc_accuracy import calc_accuracy
 from utils import make_test_loader_tts, get_path_test_tts, make_train_val_loader_tts
 
 # 現在時刻を取得
@@ -134,8 +134,8 @@ def main(cfg):
     if cfg.model_path is not None:
         model_path = Path(cfg.model_path)
 
-    path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/tts/2023:09:30_06-22-07_fujtia_last/mspec80_2.ckpt'
-    model_path = Path(path)
+    # path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/tts/2023:09:30_06-22-07_fujtia_last/mspec80_2.ckpt'
+    # model_path = Path(path)
     
     print('model path')
     print(str(model_path))
@@ -173,7 +173,7 @@ def main(cfg):
             )
             
         print("--- calc accuracy ---")
-        calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
+        #calc_accuracy(save_path, save_path.parents[0], cfg, process_times)
 
 if __name__ == "__main__":
     main()

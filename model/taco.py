@@ -297,6 +297,12 @@ class TacotronDecoder(nn.Module):
                 max_decoder_time_step = enc_output.shape[1]
             else:
                 max_decoder_time_step = 1000
+        
+        if feature_target is not None:
+            print(f'max step: {max_decoder_time_step} enc_ouput: {enc_output.shape}, feature:{feature_target.shape} ')
+        else:
+            print(f'max step: {max_decoder_time_step} enc_ouput: {enc_output.shape}, feature: None')
+
 
         mask = make_pad_mask(text_len, enc_output.shape[1]).squeeze(1)      # (B, T)
 
@@ -375,6 +381,7 @@ class TacotronDecoder(nn.Module):
                 break
             if mode=='tts':
                 if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
+                    print('stop for logit')
                     break
 
         output = torch.cat(output_list, dim=1)  # (B, T, C)
