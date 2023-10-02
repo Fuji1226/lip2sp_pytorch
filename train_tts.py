@@ -85,7 +85,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
         wav, feature, text, stop_token, feature_len, text_len, ilename, label = batch
-
+        
         text = text.to(device)
         feature = feature.to(device)
         stop_token = stop_token.to(device)
@@ -218,7 +218,9 @@ def main(cfg):
     print(f"save_path = {save_path}")
     
     train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_tts(cfg, data_root)
-    #test_loader, test_dataset = make_test_loader_tts(cfg, data_root, data_root)
+    
+    test_root = Path(cfg.test.tts_pre_loaded_path)
+    test_loader, test_dataset = make_test_loader_tts(cfg, test_root, data_root)
     loss_f = MaskedLossTTS()    
 
     train_loss_list = []
@@ -303,7 +305,7 @@ def main(cfg):
         generate_for_tts(
             cfg = cfg,
             model = model,
-            test_loader = train_loader,
+            test_loader = test_loader,
             dataset=train_dataset,
             device=device,
             save_path=save_path,

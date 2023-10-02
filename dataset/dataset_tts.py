@@ -46,14 +46,14 @@ class KablabTTSDataset(Dataset):
                 feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
                     landmark_mean_list, landmark_var_list, landmark_len_list = get_stat_load_data(train_data_path)
         
-        lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
+        #lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
 
-        self.lip_mean = torch.from_numpy(lip_mean)
-        self.lip_std = torch.from_numpy(lip_std)
+        # self.lip_mean = torch.from_numpy(lip_mean)
+        # self.lip_std = torch.from_numpy(lip_std)
         self.feat_mean = torch.from_numpy(feat_mean)
         self.feat_std = torch.from_numpy(feat_std)
-        
+     
         self.path_text_label_list = get_utt_label(data_path)
 
         print(f"n = {self.__len__()}")

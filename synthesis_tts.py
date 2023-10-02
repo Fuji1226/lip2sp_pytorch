@@ -10,8 +10,8 @@ from synthesis import save_stop_token, check_attention_weight
 def generate_for_tts(cfg, model, test_loader, dataset, device, save_path, epoch):
     model.eval()
 
-    feat_mean = dataset.feat_mean.to(device)
-    feat_std = dataset.feat_std.to(device)
+    # feat_mean = dataset.feat_mean.to(device)
+    # feat_std = dataset.feat_std.to(device)
 
     process_times = []
 

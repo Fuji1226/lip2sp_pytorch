@@ -75,8 +75,8 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
     print('start genearete')
     model.eval()
 
-    lip_mean = dataset.lip_mean.to(device)
-    lip_std = dataset.lip_std.to(device)
+    # lip_mean = dataset.lip_mean.to(device)
+    # lip_std = dataset.lip_std.to(device)
     feat_mean = dataset.feat_mean.to(device)
     feat_std = dataset.feat_std.to(device)
 
