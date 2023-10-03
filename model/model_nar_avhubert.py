@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from nar_decoder import ResTCDecoder, LinearDecoder
 from rnn import GRUEncoder
 from avhubert import Config, MyAVHubertModel, TransformerEncoder
+from transformer_remake import PositionalEncoding
 
 
 def load_avhubert_torch(
@@ -45,23 +46,34 @@ def load_avhubert_torch(
 class TransformerDecoder(nn.Module):
     def __init__(
         self,
-        transformer_args,
+        d_model,
+        nhead,
+        num_layers,
         out_channels,
+        pos_enc_max_len,
         reduction_factor,
     ):
         super().__init__()
         self.out_channels = out_channels
-        self.transformer = TransformerEncoder(transformer_args)
-        self.fc = nn.Linear(self.transformer.embedding_dim, out_channels * reduction_factor)
+        self.pos_encoder = PositionalEncoding(d_model=d_model, max_len=pos_enc_max_len)
+        enc_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=int(d_model * 4),
+        )
+        self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
+        self.fc = nn.Linear(d_model, out_channels * reduction_factor)
 
-    def forward(self, x, padding_mask, layer=None):
+    def forward(self, x, padding_mask):
         '''
         x : (B, T, C)
         padding_mask : (B, T)
         '''
-        x, _ = self.transformer(x, padding_mask=padding_mask, layer=layer)
+        x = x.permute(1, 0, 2)  # (T, B, C)
+        x = self.pos_encoder(x)
+        x = self.encoder(x, src_key_padding_mask=padding_mask)
         x = self.fc(x)
-        x = x.permute(0, 2, 1)  # (B, C, T)
+        x = x.permute(1, 2, 0)  # (B, C, T)
         x = x.reshape(x.shape[0], self.out_channels, -1)
         return x
 
@@ -88,6 +100,8 @@ class Lip2SP_NAR_AVHubert(nn.Module):
         use_spk_emb,
         spk_emb_dim,
         dec_args,
+        transformer_decoder_num_layers,
+        pos_enc_max_len,
     ):
         super().__init__()
         self.avhubert_return_res_output = avhubert_return_res_output
@@ -120,10 +134,13 @@ class Lip2SP_NAR_AVHubert(nn.Module):
                 out_channels=out_channels,
                 reduction_factor=reduction_factor,
             )
-        elif which_decoder == 'avhubert_transformer':
+        elif which_decoder == 'transformer':
             self.decoder = TransformerDecoder(
-                transformer_args=dec_args,
+                d_model=inner_channels,
+                nhead=inner_channels // 64,
+                num_layers=transformer_decoder_num_layers,
                 out_channels=out_channels,
+                pos_enc_max_len=pos_enc_max_len,
                 reduction_factor=reduction_factor,
             )
 
@@ -146,6 +163,7 @@ class Lip2SP_NAR_AVHubert(nn.Module):
         elif audio is not None:
             padding_mask_avhubert = torch.zeros(audio.shape[0], audio.shape[2]).to(device=audio.device, dtype=torch.bool)     # (B, T)
 
+        # padding部分がTrue
         for i, l in enumerate(lip_len):
             padding_mask_avhubert[i, l:] = True
         
@@ -167,41 +185,8 @@ class Lip2SP_NAR_AVHubert(nn.Module):
             x = self.spk_emb_layer(x)
             x = x.permute(0, 2, 1)
 
-        if self.which_decoder == 'avhubert':
-            x = self.decoder(x, padding_mask=padding_mask_avhubert, layer=None)
+        if self.which_decoder == 'transformer':
+            x = self.decoder(x, padding_mask=padding_mask_avhubert)
         else:
             x = self.decoder(x)
         return x, None, None
-    
-
-
-"""Input shape: Time x Batch x Channel
-
-Args:
-    key_padding_mask (ByteTensor, optional): mask to exclude
-        keys that are pads, of shape `(batch, src_len)`, where
-        padding elements are indicated by 1s.
-    need_weights (bool, optional): return the attention weights,
-        averaged over heads (default: False).
-    attn_mask (ByteTensor, optional): typically used to
-        implement causal attention, where the mask prevents the
-        attention from looking forward in time (default: None).
-    before_softmax (bool, optional): return the raw attention
-        weights and values before the attention softmax.
-    need_head_weights (bool, optional): return the attention
-        weights for each head. Implies *need_weights*. Default:
-        return the average attention weights over all heads.
-# """
-# if __name__ == '__main__':
-#     ckpt_path = Path('~/av_hubert_data/base_vox_iter5_torch.ckpt').expanduser()
-#     model_size = 'base'
-#     avhubert = load_avhubert_torch(ckpt_path, model_size)
-#     B = 4
-#     T = 250
-#     C = 1
-#     features = torch.rand(B, T, C)
-#     padding_mask = torch.zeros(B, T)
-#     data_len_list = [50, 100, 100, 300]
-#     for i, data_len in enumerate(data_len_list):
-#         padding_mask[i, data_len:] = 1
-#     padding_mask = avhubert.forward_padding_mask(features, padding_mask)

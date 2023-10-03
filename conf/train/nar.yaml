@@ -106,7 +106,6 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-# speaker : ["M04_kablab"]
 speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 use_spk_emb : True
 finetuning : False

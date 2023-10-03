@@ -23,6 +23,7 @@ from utils import (
     load_pretrained_model,
     fix_random_seed,
     select_checkpoint,
+    delete_unnecessary_checkpoint
 )
 from calc_accuracy import calc_accuracy, calc_mean
 
@@ -34,7 +35,7 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
     gen.eval()
 
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
 
@@ -65,8 +66,8 @@ def main(cfg):
     model_path = select_checkpoint(cfg)
     gen, disc = make_model(cfg, device)
     gen = load_pretrained_model(model_path, gen, "gen")
-    cfg.train.face_or_lip = model_path.parents[1].name
-    cfg.test.face_or_lip = model_path.parents[1].name
+    cfg.train.face_or_lip = model_path.parents[2].name
+    cfg.test.face_or_lip = model_path.parents[2].name
 
     data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
         
@@ -86,6 +87,11 @@ def main(cfg):
             save_path_pwg_spk = save_path / "pwg" / speaker
             calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
         calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
+    
+    delete_unnecessary_checkpoint(
+        result_dir=save_path.parents[3],
+        checkpoint_dir=model_path.parents[1],
+    )
     
 
 

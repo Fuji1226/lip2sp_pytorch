@@ -166,7 +166,8 @@ class TransformWithExternalData:
         feat_mean = feat_mean.unsqueeze(-1)     # (C, 1)
         feat_std = feat_std.unsqueeze(-1)       # (C, 1)
         lip = (lip - lip_mean) / lip_std
-        feature = (feature - feat_mean) / feat_std
+        if self.cfg.model.feature_normalize == 'all_stat':
+            feature = (feature - feat_mean) / feat_std
         feature_avhubert = F.layer_norm(feature_avhubert, feature_avhubert.shape[1:]).permute(1, 0)     # (C, T)
         return lip, feature, feature_avhubert
 

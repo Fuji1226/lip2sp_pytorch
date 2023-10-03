@@ -611,7 +611,7 @@ def main(cfg):
                     val_epoch_loss_gen_gan_list=val_epoch_loss_gen_gan_list,
                     val_epoch_loss_gen_all_list=val_epoch_loss_gen_all_list,
                     epoch=current_epoch,
-                    ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt"),
+                    ckpt_path=str(ckpt_path / f"{current_epoch}.ckpt")
                 )
 
             save_loss(train_epoch_loss_disc_list, val_epoch_loss_disc_list, save_path, "loss_disc")

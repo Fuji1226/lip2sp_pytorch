@@ -19,7 +19,7 @@ def get_last_checkpoint_path(checkpoint_dir):
     checkpoint_path_list = sorted(
         checkpoint_path_list, 
         reverse=False, 
-        key=lambda x: int(x.stem.split('_')[-1])
+        key=lambda x: int(x.stem)
     )
     checkpoint_path = checkpoint_path_list[-1]
     return checkpoint_path
@@ -28,10 +28,8 @@ def get_last_checkpoint_path(checkpoint_dir):
 def get_best_checkpoint_path(checkpoint_path_last, metric_for_select):
     checkpoint_dict_last = torch.load(str(checkpoint_path_last))
     best_checkpoint = np.argmin(checkpoint_dict_last[metric_for_select]) + 1
-    filename_prev = checkpoint_path_last.stem
-    filename_new = filename_prev.split('_')
-    filename_new[-1] = str(best_checkpoint)
-    filename_new = '_'.join(filename_new)
+    filename_prev = checkpoint_path_last.stem + checkpoint_path_last.suffix
+    filename_new = str(best_checkpoint) + checkpoint_path_last.suffix
     checkpoint_path = Path(str(checkpoint_path_last).replace(filename_prev, filename_new))
     return checkpoint_path
 
@@ -97,7 +95,7 @@ def run_pwg(
         script=[
             'python',
             f'/home/minami/lip2sp_pytorch/parallelwavegan/{run_filename_train}',
-            'model=mspec80',
+            'model=mspec_avhubert',
             'train=default',
             'test=default',
             f'wandb_conf={wandb_conf}',
@@ -118,7 +116,7 @@ def run_pwg(
         script=[
             'python',
             f'/home/minami/lip2sp_pytorch/parallelwavegan/{run_filename_generate}',
-            'model=mspec80',
+            'model=mspec_avhubert',
             'train=default',
             'test=default',
             f'wandb_conf={wandb_conf}',
@@ -145,13 +143,13 @@ def run_pwg(
 
 
 def main():
-    debug = True
+    debug = False
     wandb_conf = 'debug' if debug else 'default'
     subject = 'プログラム経過'
 
     checkpoint_path_best = run_pwg(
-        checkpoint_dir=Path('~/lip2sp_pytorch/parallelwavegan/check_point/default/avhubert_preprocess_fps25_gray').expanduser(), 
-        result_dir=Path('~/lip2sp_pytorch/parallelwavegan/result/default/generate/avhubert_preprocess_fps25_gray').expanduser(), 
+        checkpoint_dir=Path('~/lip2sp_pytorch/parallelwavegan/check_point/default/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(), 
+        result_dir=Path('~/lip2sp_pytorch/parallelwavegan/result/default/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(), 
         run_filename_train='pwg_train.py', 
         run_filename_generate='pwg_generate.py',
         metric_for_select='val_epoch_loss_gen_all_list',
@@ -166,22 +164,22 @@ def main():
         subject=subject,
     )
 
-    run_pwg(
-        checkpoint_dir=Path('~/lip2sp_pytorch/parallelwavegan/check_point/default/avhubert_preprocess_fps25_gray').expanduser(), 
-        result_dir=Path('~/lip2sp_pytorch/parallelwavegan/result/default/generate/avhubert_preprocess_fps25_gray').expanduser(), 
-        run_filename_train='pwg_train.py', 
-        run_filename_generate='pwg_generate.py',
-        metric_for_select='val_epoch_loss_gen_all_list',
-        check_point_start_separate_save_dir=True,
-        start_ckpt_path_separate_save_dir=checkpoint_path_best,
-        lr_gen=1.0e-4,
-        lr_disc=1.0e-4,
-        which_scheduler='warmup',
-        max_epoch=50,
-        debug=debug,
-        wandb_conf=wandb_conf,
-        subject=subject,
-    )
+    # run_pwg(
+    #     checkpoint_dir=Path('~/lip2sp_pytorch/parallelwavegan/check_point/default/avhubert_preprocess_fps25_gray').expanduser(), 
+    #     result_dir=Path('~/lip2sp_pytorch/parallelwavegan/result/default/generate/avhubert_preprocess_fps25_gray').expanduser(), 
+    #     run_filename_train='pwg_train.py', 
+    #     run_filename_generate='pwg_generate.py',
+    #     metric_for_select='val_epoch_loss_gen_all_list',
+    #     check_point_start_separate_save_dir=True,
+    #     start_ckpt_path_separate_save_dir=checkpoint_path_best,
+    #     lr_gen=1.0e-4,
+    #     lr_disc=1.0e-4,
+    #     which_scheduler='warmup',
+    #     max_epoch=50,
+    #     debug=debug,
+    #     wandb_conf=wandb_conf,
+    #     subject=subject,
+    # )
 
 
 

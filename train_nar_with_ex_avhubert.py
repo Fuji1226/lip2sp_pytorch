@@ -79,6 +79,8 @@ def make_model(cfg, device):
             use_spk_emb=cfg.train.use_spk_emb,
             spk_emb_dim=cfg.model.spk_emb_dim,
             dec_args=cfg.model.avhubert_dec_args,
+            transformer_decoder_num_layers=cfg.model.transformer_decoder_num_layers,
+            pos_enc_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
         )
     else:
         model = Lip2SP_NAR(
