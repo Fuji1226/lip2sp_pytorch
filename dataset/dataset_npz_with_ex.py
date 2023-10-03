@@ -53,10 +53,11 @@ class DatasetWithExternalData(Dataset):
                     landmark_mean_list, landmark_var_list, landmark_len_list = get_stat_load_data(train_data_path)
 
         if cfg.model.use_avhubert_encoder:
-            lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
+            lip_mean = np.array([cfg.model.avhubert_lip_mean])
+            lip_std = np.array([cfg.model.avhubert_lip_std])
         else:
-            lip_mean = cfg.model.avhubert_lip_mean
-            lip_std = cfg.model.avhubert_lip_std
+            lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
+        
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
 
         self.lip_mean = torch.from_numpy(lip_mean)
@@ -165,6 +166,8 @@ class TransformWithExternalData:
         lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
         feat_mean = feat_mean.unsqueeze(-1)     # (C, 1)
         feat_std = feat_std.unsqueeze(-1)       # (C, 1)
+        if self.cfg.model.use_avhubert_encoder:
+            lip = lip / 255.0
         lip = (lip - lip_mean) / lip_std
         if self.cfg.model.feature_normalize == 'all_stat':
             feature = (feature - feat_mean) / feat_std

@@ -344,6 +344,7 @@ avhubert_lip_std : 0.165
 use_avhubert_video_modality : True
 use_avhubert_audio_modality : False
 transformer_decoder_num_layers : 6
+avhubert_audio_pretrain : False
 avhubert_config:
   base:
     resnet_relu_type : 'prelu'
