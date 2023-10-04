@@ -92,7 +92,59 @@ class KablabTTSDataset(Dataset):
         return wav, feature, text, stop_token, feature_len, text_len, filename, label
         #return wav, lip, feature, text, stop_token, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label
 
+class HIFIDataset(Dataset):
+    def __init__(self, data_path, train_data_path, transform, cfg):
+        super().__init__()
+        self.data_path = data_path
+        self.transform = transform
+        self.cfg = cfg
+        self.class_to_id, self.id_to_class = classes2index_tts()
 
+        # 統計量から平均と標準偏差を求める
+        feat_mean_list, feat_var_list, feat_len_list = get_stat_load_data_hifi(train_data_path)
+        
+        feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
+
+        self.feat_mean = torch.from_numpy(feat_mean)
+        self.feat_std = torch.from_numpy(feat_std)
+        
+        self.path_text_label_list = get_utt_label_hifi(data_path)
+
+        print(f"n = {self.__len__()}")
+    
+    def __len__(self):
+        return len(self.data_path)
+
+    def __getitem__(self, index):
+        data_path, text = self.path_text_label_list[index]
+        filename = data_path.stem
+        
+        npz_key = np.load(str(data_path))
+        wav = torch.from_numpy(npz_key['wav'])
+        # 保存時のミスに対応 (1, T) -> (T,)
+        if wav.dim() == 2:
+            wav = wav.squeeze(0)
+        feature = torch.from_numpy(npz_key['feature'])
+        
+        #featureの時間スケールを偶数に
+        if feature.shape[0] % 2 != 0:
+            feature = feature[:-1, :]
+
+
+        feature, text = self.transform(
+            feature=feature, 
+            feat_mean=self.feat_mean, 
+            feat_std=self.feat_std, 
+            text=text,
+            class_to_id=self.class_to_id,
+        )
+        
+        feature_len = torch.tensor(feature.shape[-1])
+        text_len = torch.tensor(text.shape[0])
+        stop_token = torch.zeros(feature_len)
+        stop_token[-2:] = 1.0
+        return wav, feature, text, stop_token, feature_len, text_len, filename
+    
 
 
 class KablabTTSTransform:
@@ -151,7 +203,7 @@ class KablabTTSTransform:
         return feature, text
 
 def collate_time_adjust_tts(batch, cfg):
-    wav, feature, text, stop_token, feature_len,  text_len, filename, label = list(zip(*batch))
+    wav, feature, text, stop_token, feature_len,  text_len, filename = list(zip(*batch))
     #wav, lip, feature, text, stop_token, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = list(zip(*batch))
     
     wav = adjust_max_data_len(wav)
@@ -165,5 +217,5 @@ def collate_time_adjust_tts(batch, cfg):
     stop_token = torch.stack(stop_token)
     feature_len = torch.stack(feature_len)
     text_len = torch.stack(text_len)
-    label = torch.stack(label)
-    return wav, feature, text, stop_token, feature_len, text_len, filename, label
+
+    return wav, feature, text, stop_token, feature_len, text_len, filename

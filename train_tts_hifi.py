@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from model.tts_taco import TTSTacotron
 from loss import MaskedLossTTS
 
-from utils import get_path_tts_train, make_train_val_loader_tts, make_pad_mask_tts, check_mel_default, check_attention_weight, save_loss, make_test_loader_tts
+from utils import get_path_tts_train, make_all_loader_tts_hifi, make_pad_mask_tts, check_mel_default, check_attention_weight, save_loss
 from synthesis_tts import generate_for_tts
 
 # 現在時刻を取得
@@ -85,7 +85,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
         wav, feature, text, stop_token, feature_len, text_len, filename = batch
-        
+      
         text = text.to(device)
         feature = feature.to(device)
         stop_token = stop_token.to(device)
@@ -217,10 +217,8 @@ def main(cfg):
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
     
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_tts(cfg, data_root)
+    train_loader, val_loader, train_dataset, val_dataset, test_dataset, test_loader = make_all_loader_tts_hifi(cfg, data_root)
     
-    test_root = Path(cfg.test.tts_pre_loaded_path)
-    test_loader, test_dataset = make_test_loader_tts(cfg, test_root, data_root)
     loss_f = MaskedLossTTS()    
 
     train_loss_list = []

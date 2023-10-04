@@ -16,7 +16,7 @@ import seaborn as sns
 from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust, collate_time_adjust_lipemb
 from dataset.dataset_npz_stop_token import KablabDatasetStopToken, collate_time_adjust_stop_token
 
-from dataset.dataset_tts import KablabTTSDataset, KablabTTSTransform, collate_time_adjust_tts
+from dataset.dataset_tts import KablabTTSDataset, KablabTTSTransform, collate_time_adjust_tts, HIFIDataset
 
 save_root_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
 
@@ -386,7 +386,7 @@ def make_train_val_loader_tts(cfg, data_root):
     
     train_trans = KablabTTSTransform(cfg, "train")
     val_trans = KablabTTSTransform(cfg, "val")
-    
+    breakpoint()
     print("\n--- make train dataset ---")
 
     train_dataset = KablabTTSDataset(
@@ -425,6 +425,84 @@ def make_train_val_loader_tts(cfg, data_root):
     
     return train_loader, val_loader, train_dataset, val_dataset
     
+def make_all_loader_tts_hifi(cfg, data_root):
+    # パスを取得
+    from dataset.dataset_npz import get_dataset_all
+    data_path = get_dataset_all(
+        data_root=data_root,
+    )
+    
+    if True:
+        data_path = data_path[:500]
+
+    data_path = random.sample(data_path, len(data_path))
+    n_samples = len(data_path)
+    
+    train_size = int(n_samples * 0.8)
+    val_size = int(n_samples*0.1)
+    test_size = int(n_samples*0.1)
+    
+    train_data_path = data_path[:train_size]
+    val_data_path = data_path[train_size:train_size+val_size]
+    test_data_path = data_path[train_size+val_size:]
+
+    train_trans = KablabTTSTransform(cfg, "train")
+    val_trans = KablabTTSTransform(cfg, "val")
+    test_trans = KablabTTSTransform(cfg, "val")
+    
+    print("\n--- make train dataset ---")
+
+    train_dataset = HIFIDataset(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+
+    val_dataset = HIFIDataset(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+    test_dataset = HIFIDataset(
+        data_path=test_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None
+    )
+    
+    return train_loader, val_loader, train_dataset, val_dataset, test_dataset, test_loader
 
 def make_train_val_loader_stop_token(cfg, data_root, mean_std_path):
     # パスを取得
@@ -573,6 +651,33 @@ def make_test_loader(cfg, data_root, mean_std_path):
     )
     return test_loader, test_dataset
 
+def make_test_loader_hifi(cfg, data_root, mean_std_path):
+    test_data_path = get_datasets_test(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    test_data_path = sorted(test_data_path)
+    test_trans = KablabTTSTransform(
+        cfg=cfg,
+        train_val_test="test",
+    )
+    test_dataset = HIFIDataset(
+        data_path=test_data_path,
+        mean_std_path = mean_std_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None
+    )
+    return test_loader, test_dataset
+
 def make_test_loader_save(cfg, data_root, train_data_root):
     test_data_path = get_datasets(
         data_root=data_root,
@@ -643,6 +748,36 @@ def make_test_loader_tts(cfg, data_root, train_data_root):
     )
     return test_loader, test_dataset
 
+def make_test_loader_tts(cfg, data_root, train_data_root):
+    print(f'data root: {data_root}')
+    train_data_path = get_datasets(train_data_root, cfg)
+    test_data_path = get_datasets_test(data_root, cfg)
+    test_data_path = sorted(test_data_path)
+    
+    print(f'make loader test: {len(test_data_path)}')
+    if True:
+        train_data_path = train_data_path[:100]
+    if len(test_data_path)>100:
+        test_data_path = test_data_path[:100]
+    
+    test_trans = KablabTTSTransform(cfg, "test")
+    test_dataset = HIFIDataset(
+        data_path=test_data_path,
+        train_data_path=train_data_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None
+        #collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    return test_loader, test_dataset
 
 def check_mel_default(target, output, dec_output, cfg, filename, current_time, ckpt_time=None):
     tag = f'{current_time}_{cfg.tag}'

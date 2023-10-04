@@ -17,7 +17,7 @@ def generate_for_tts(cfg, model, test_loader, dataset, device, save_path, epoch)
 
     iter_cnt = 0
     for batch in test_loader:
-        wav, feature, text, stop_token, feature_len, text_len, filename, label = batch
+        wav, feature, text, stop_token, feature_len, text_len, filename  = batch
 
         text = text.to(device)
         feature = feature.to(device)

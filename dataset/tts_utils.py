@@ -6,6 +6,7 @@ import torch
 import pandas as pd
 
 text_dir = Path("~/dataset/lip/utt").expanduser()
+hifi_dir = Path("/mnt/diskA/naoaki/dataset/hifi/txt/parallel")
 
 def get_stat_load_data(train_data_path):
     print("\nget stat")
@@ -51,7 +52,29 @@ def get_stat_load_data(train_data_path):
             feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
                 landmark_mean_list, landmark_var_list, landmark_len_list
                 
-                
+
+def get_stat_load_data_hifi(train_data_path):
+    print("\nget stat")
+    feat_mean_list = []
+    feat_var_list = []
+    feat_len_list = []
+
+    for path in tqdm(train_data_path):
+        npz_key = np.load(str(path))
+        feature = npz_key['feature']
+        # landmark = npz_key['landmark']
+
+        feat_mean_list.append(np.mean(feature, axis=0))
+        feat_var_list.append(np.var(feature, axis=0))
+        feat_len_list.append(feature.shape[0])
+
+
+        # landmark_mean_list.append(np.mean(landmark, axis=(0, 2)))
+        # landmark_var_list.append(np.var(landmark, axis=(0, 2)))
+        # landmark_len_list.append(landmark.shape[0])
+        
+    return feat_mean_list, feat_var_list, feat_len_list
+     
 def calc_mean_var_std(mean_list, var_list, len_list):
     mean_square_list = list(np.square(mean_list))
 
@@ -81,6 +104,20 @@ def get_utt_label(data_path):
         text = df[0].values[0]
         label = get_recorded_synth_label(path)
         path_text_label_list.append([path, text, label])
+    return path_text_label_list
+
+def get_utt_label_hifi(data_path):
+    print("--- get utterance ---")
+    path_text_label_list = []
+    text_dir = hifi_dir
+
+   
+    for path in tqdm(data_path):
+        text_path = text_dir / f"{path.stem}.txt"
+        df = pd.read_csv(str(text_path), header=None)
+        text = df[0].values[0]
+        path_text_label_list.append([path, text])
+
     return path_text_label_list
 
 def get_recorded_synth_label(path):
