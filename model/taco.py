@@ -326,7 +326,7 @@ class TacotronDecoder(nn.Module):
         #     print(f'featue target: {feature_target.shape}')
         #     print(f'training method: {training_method}')
 
-        no_att = False
+        no_att = True
         while True:
             att_c, att_w = self.attention(enc_output, text_len, h_list[0], prev_att_w, mask=mask)
 

@@ -91,7 +91,39 @@ def make_model(cfg, device):
         print(f"\nusing {torch.cuda.device_count()} GPU")
     return model.to(device)
 
+def load_from_tts(model, ckpt_path):
+    checkpoint = torch.load(str(ckpt_path))['model']
+    
+    save_module = ['decoder']
+    partial_state_dict = {}
+    for key, value in checkpoint.items():
+       for module in save_module:
+           if module in key:
+               key = key.replace(f'{module}.', '')
+               partial_state_dict[key] = value
+               break
+           
+    model.decoder.load_state_dict(partial_state_dict)
 
+    save_module = ['postnet']
+    partial_state_dict = {}
+    for key, value in checkpoint.items():
+       for module in save_module:
+           if module in key:
+               key = key.replace(f'{module}.', '')
+               partial_state_dict[key] = value
+               break
+           
+    model.postnet.load_state_dict(partial_state_dict)
+    
+    #model固定
+    for param in model.decoder.parameters():
+        param.requires_grad = False
+    for param in model.postnet.parameters():
+        param.requires_grad = False
+    return model
+
+    
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
@@ -310,7 +342,9 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
-        
+        if cfg.from_tts is not None:
+            model = load_from_tts(model, cfg.from_tts)
+
         # optimizer
         optimizer = torch.optim.Adam(
             params=model.parameters(),
