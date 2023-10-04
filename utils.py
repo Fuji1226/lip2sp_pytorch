@@ -546,7 +546,7 @@ def make_train_val_loader_lip_emb(cfg, data_root, mean_std_path):
     return train_loader, val_loader, train_dataset, val_dataset
 
 
-def make_test_loader_emb(cfg, data_root, mean_std_path):
+def make_test_loader(cfg, data_root, mean_std_path):
     test_data_path = get_datasets_test(
         data_root=data_root,
         cfg=cfg,
@@ -556,7 +556,7 @@ def make_test_loader_emb(cfg, data_root, mean_std_path):
         cfg=cfg,
         train_val_test="test",
     )
-    test_dataset = KablabDatasetLipEmb(
+    test_dataset = KablabDataset(
         data_path=test_data_path,
         mean_std_path = mean_std_path,
         transform=test_trans,
@@ -573,7 +573,7 @@ def make_test_loader_emb(cfg, data_root, mean_std_path):
     )
     return test_loader, test_dataset
 
-def make_test_loader(cfg, data_root, train_data_root):
+def make_test_loader_save(cfg, data_root, train_data_root):
     test_data_path = get_datasets(
         data_root=data_root,
         cfg=cfg,
@@ -587,14 +587,14 @@ def make_test_loader(cfg, data_root, train_data_root):
     print(f'test_data: {len(test_data_path)}')
     test_data_path = sorted(test_data_path)
     
-    train_trans = KablabTTSTransform(cfg, "train")
-    test_trans = KablabTTSTransform(cfg, "test")
-    
+    train_trans = KablabTransform(cfg, "train")
+    test_trans = KablabTransform(cfg, "test")
+    breakpoint()
     test_trans = KablabTransform(
         cfg=cfg,
         train_val_test="test",
     )
-    test_dataset = KablabTTSDataset(
+    test_dataset = KablabDataset(
         data_path=test_data_path,
         train_data_path= train_data_path,
         transform=test_trans,
@@ -619,10 +619,10 @@ def make_test_loader_tts(cfg, data_root, train_data_root):
     test_data_path = sorted(test_data_path)
     
     print(f'make loader test: {len(test_data_path)}')
-    # if True:
-    #     train_data_path = train_data_path[:100]
-    # if len(test_data_path)>100:
-    #     test_data_path = test_data_path[:100]
+    if True:
+        train_data_path = train_data_path[:100]
+    if len(test_data_path)>100:
+        test_data_path = test_data_path[:100]
     
     test_trans = KablabTTSTransform(cfg, "test")
     test_dataset = KablabTTSDataset(

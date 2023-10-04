@@ -134,23 +134,31 @@ def main(cfg):
     if cfg.model_path is not None:
         model_path = Path(cfg.model_path)
 
-    # path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/tts/2023:09:30_06-22-07_fujtia_last/mspec80_2.ckpt'
-    # model_path = Path(path)
+    path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/test/mspec80_92.ckpt'
+    model_path = Path(path)
     
     print('model path')
     print(str(model_path))
     #breakpoint()
-    if model_path.suffix == ".ckpt":
-        try:
-            model.load_state_dict(torch.load(str(model_path))['model'])
-        except:
-            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
-    elif model_path.suffix == ".pth":
-        try:
-            print('aaa')
-            model.load_state_dict(fix_model_state_dict(torch.load(str(model_path))))
-        except:
-            model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
+    
+    checkpoint = torch.load(str(model_path))['model']
+    for key, value in checkpoint.items():
+        print(key)
+    
+    
+    breakpoint()
+    model.load_state_dict(torch.load(str(model_path))['model'])
+    # if model_path.suffix == ".ckpt":
+    #     try:
+    #         model.load_state_dict(torch.load(str(model_path))['model'])
+    #     except:
+    #         model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu'))['model'])
+    # elif model_path.suffix == ".pth":
+    #     try:
+    #         print('aaa')
+    #         model.load_state_dict(fix_model_state_dict(torch.load(str(model_path))))
+    #     except:
+    #         model.load_state_dict(torch.load(str(model_path), map_location=torch.device('cpu')))
 
 
     data_root_list, save_path_list, train_data_root = get_path_test_tts(cfg, model_path)
