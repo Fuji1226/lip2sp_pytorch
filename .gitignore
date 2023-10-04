@@ -11,3 +11,4 @@ shells/
 wandb/
 lip_check/
 thesis_result/
+.*
