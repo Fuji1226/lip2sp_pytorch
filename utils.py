@@ -237,6 +237,9 @@ def get_path_test_tts(cfg, model_path):
 
     data_root_list = [test_data_root]
     save_path_list = [test_save_path]
+    
+    print(f'data_root: {test_data_root}')
+    print(f'train root: {train_data_root}')
 
     return    data_root_list, save_path_list, train_data_root
     
@@ -581,6 +584,7 @@ def make_test_loader(cfg, data_root, train_data_root):
     )
     
     print(f'data root fujita {data_root}')
+    print(f'test_data: {len(test_data_path)}')
     test_data_path = sorted(test_data_path)
     
     train_trans = KablabTTSTransform(cfg, "train")
@@ -609,14 +613,16 @@ def make_test_loader(cfg, data_root, train_data_root):
 
 
 def make_test_loader_tts(cfg, data_root, train_data_root):
+    print(f'data root: {data_root}')
     train_data_path = get_datasets(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
     
-    if True:
-        train_data_path = train_data_path[:100]
-    if len(test_data_path)>100:
-        test_data_path = test_data_path[:100]
+    print(f'make loader test: {len(test_data_path)}')
+    # if True:
+    #     train_data_path = train_data_path[:100]
+    # if len(test_data_path)>100:
+    #     test_data_path = test_data_path[:100]
     
     test_trans = KablabTTSTransform(cfg, "test")
     test_dataset = KablabTTSDataset(

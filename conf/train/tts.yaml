@@ -37,8 +37,8 @@ face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
 face_pre_loaded_path_train_fujita : "~/dataset/np_files/lip_cropped/train"
 face_pre_loaded_path_val_fujita : "~/dataset/np_files/lip_cropped/train"
 
+tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
 tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"
-
 
 # 元データ
 data_dir : "~/dataset/lip/cropped_fps25"

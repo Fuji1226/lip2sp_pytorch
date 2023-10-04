@@ -382,6 +382,7 @@ class TacotronDecoder(nn.Module):
             if mode=='tts':
                 if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
                     print('stop for logit')
+                    print(f'logit shape: {logit.shape}')
                     break
 
         output = torch.cat(output_list, dim=1)  # (B, T, C)
