@@ -15,16 +15,16 @@ import pickle
 import pandas as pd
 import argparse
 
-from transform import load_data_for_npz
+from transform import load_data_for_npz_new
 
 debug = False
 
 
-def read_csv(csv_path, which_data, data_dir, landmark_dir):
+def read_csv(csv_path, which_data, video_dir, audio_dir):
     df = pd.read_csv(str(csv_path / f'{which_data}.csv'))
     filename_list = df['filename'].to_list()
     data_list = [
-        [data_dir / f'{filename}.mp4', data_dir / f'{filename}.wav', landmark_dir / f'{filename}.csv'] 
+        [video_dir / f'{filename}.mp4', audio_dir / f'{filename}.wav']
         for filename in filename_list
     ]
     return data_list
@@ -38,24 +38,16 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
     print(f"save {which_data}")
     for i in tqdm(range(len)):
         try:
-            video_path, audio_path, landmark_path = data_list[i]
+            video_path, audio_path = data_list[i]
 
             # 話者ラベル(F01_kablabとかです)
             speaker = audio_path.parents[0].name
 
-            wav, lip, feature, feat_add, upsample, data_len, landmark = load_data_for_npz(
+            wav, lip, feature, feat_add, upsample, data_len = load_data_for_npz_new(
                 video_path=video_path,
                 audio_path=audio_path,
-                landmark_path=landmark_path,
                 cfg=cfg,
             )
-
-            if cfg.model.name == "mspec80":
-                assert feature.shape[1] == 80
-            elif cfg.model.name == "world_melfb":
-                assert feature.shape[1] == 32
-            
-            # データの保存
             _data_save_path = data_save_path / speaker / cfg.model.name
             _data_save_path.mkdir(parents=True, exist_ok=True)
             np.savez(
@@ -63,10 +55,6 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
                 wav=wav,
                 lip=lip,
                 feature=feature,
-                feat_add=feat_add,
-                landmark=landmark,
-                upsample=upsample,
-                data_len=data_len,
             )
 
         except:
@@ -84,8 +72,8 @@ def main(cfg):
         gray = True
 
         csv_path = Path(f"~/dataset/lip/data_split_csv_fix").expanduser()
-        data_dir = Path(f"~/dataset/lip/avhubert_preprocess_fps25/{speaker}").expanduser()
-        landmark_dir = Path(f"~/dataset/lip/landmark_avhubert_preprocess_fps25/{speaker}").expanduser()
+        video_dir = Path(f"~/dataset/lip/avhubert_preprocess_fps25/{speaker}").expanduser()
+        audio_dir = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
         dir_name = f"avhubert_preprocess_fps25"
 
         if gray:
@@ -100,9 +88,9 @@ def main(cfg):
         cfg.model.gray = gray
         print(f"speaker = {speaker}, mode = {cfg.model.name}, gray = {cfg.model.gray}")
 
-        train_data_list = read_csv(csv_path, "train", data_dir, landmark_dir)
-        val_data_list = read_csv(csv_path, "val", data_dir, landmark_dir)
-        test_data_list = read_csv(csv_path, "test", data_dir, landmark_dir)
+        train_data_list = read_csv(csv_path, "train", video_dir, audio_dir)
+        val_data_list = read_csv(csv_path, "val", video_dir, audio_dir)
+        test_data_list = read_csv(csv_path, "test", video_dir, audio_dir)
         
         print(f"\nall data ratio")
         print(f"train_data : {len(train_data_list)}, val_data : {len(val_data_list)}, test_data : {len(test_data_list)}")

@@ -3,22 +3,22 @@
 name : "nar"
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 0
+debug_iter : 10
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:08_08-04-48/mspec80_166.ckpt"
-
-# check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
-check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : ~/lip2sp_pytorch/check_point/nar/face_aligned_0_50_gray/2023:04:04_17-15-09/mspec80_400.ckpt
+start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
 module_is_fixed : []
+
+# check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
+check_point_start_separate_save_dir : False
+start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # face or lip
 face_or_lip : "face_cropped_max_size_fps25"
@@ -31,6 +31,8 @@ save_path : "~/lip2sp_pytorch/result/nar/train"
 # check point path
 ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 1
+
+npz_process_speaker_list : []
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
@@ -77,7 +79,6 @@ lrs2_pretrain_npz_path : "~/dataset/lip/np_files/lrs2_pretrain/train"
 
 # lip2wav
 lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
-npz_process_speaker_list : []
 
 # jsut corpus
 use_jsut_corpus : False
@@ -104,7 +105,10 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 50
+max_epoch : 600
+
+# テキスト処理
+for_tts : False
 
 # data augmentationの有無
 # 見た目変換系
@@ -112,8 +116,8 @@ use_color_jitter : False
 use_blur : False
 use_pad : False
 use_rotation : False
-use_horizontal_flip : True
-use_random_crop : True
+use_horizontal_flip : False
+use_random_crop : False
 
 # 空間領域にランダムマスキング
 use_spatial_masking : False
@@ -149,17 +153,17 @@ lm_enc_dropout : 0.1
 # optimizer
 lr : 0.001
 beta_1 : 0.9
-# beta_2 : 0.999
-# weight_decay : 1.0e-6
-beta_2 : 0.98
-weight_decay : 1.0e-2
-which_optim : 'adamw'
+beta_2 : 0.999
+weight_decay : 1.0e-6
+# beta_2 : 0.98
+# weight_decay : 1.0e-2
+which_optim : 'adam'
 which_scheduler : 'exp'
 
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.92
+lr_decay_exp : 0.995
 use_warmup_scheduler : False
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5
@@ -170,9 +174,9 @@ max_norm : 3.0
 
 # lossの重みづけ
 mse_weight : 1.0
-classifier_weight : 0.2
+classifier_weight : 0.05
 use_weighted_mean : False
 loss_disc_weight : 0.01
 
 # gradient accumulation
-iters_to_accumulate : 5
+iters_to_accumulate : 1

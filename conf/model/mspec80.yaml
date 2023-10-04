@@ -69,7 +69,7 @@ use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
-which_res : "default_remake"
+which_res : "resnet18"
 
 # landmark encoder
 use_landmark : False
@@ -130,7 +130,7 @@ which_encoder : "gru"
 which_decoder : "restc"
 
 # audio encoder
-ae_emb_dim : 32
+ae_emb_dim : 16
 vae_emb_dim : 64
 vq_emb_dim : 256
 vq_num_emb : 64
