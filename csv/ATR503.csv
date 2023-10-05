@@ -1,0 +1,504 @@
+﻿index,subset,utt_num,text,pronounce,monophone
+0,a,a01,あらゆる現実を、すべて自分のほうへねじ曲げたのだ。,あらゆるげんじつを、すべてじぶんのほーえねじまげたのだ。,a r a y u r u g e N j i ts u o # s u b e t e j i b u N n o h o: e n e j i m a g e t a n o d a
+1,a,a02,一週間ばかり、ニューヨークを取材した。,いっしゅーかんばかり、にゅーよーくをしゅざいした。,i q sh u: k a N b a k a r i # ny u: y o: k u o sh u z a i sh i t a
+2,a,a03,テレビゲームやパソコンで、ゲームをして遊ぶ。,てれびげーむやぱそこんで、げーむをしてあそぶ。,t e r e b i g e: m u y a p a s o k o N d e # g e: m u o sh i t e a s o b u
+3,a,a04,物価の変動を考慮して、給付水準を決める必要がある。,ぶっかのへんどーをこーりょして、きゅーふすいじゅんをきめるひつよーがある。,b u q k a n o h e N d o: o k o: ry o sh i t e # ky u: f u s u i j u N o k i m e r u h i ts u y o: g a a r u
+4,a,a05,救急車が十分に動けず、救助作業が遅れている。,きゅうきゅうしゃがじゅーぶんにうごけず、きゅーじょさぎょーがおくれている。,ky u u ky u u sh a g a j u: b u N n i u g o k e z u # ky u: j o s a gy o: g a o k u r e t e i r u
+5,a,a06,言論の自由は、一歩譲れば、百歩も千歩も攻め込まれる。,げんろんのじゆーわ、いっぽゆずれば、ひゃっぽもせんぽもせめこまれる。,g e N r o N n o j i y u: w a # i q p o y u z u r e b a # hy a q p o m o s e N p o m o s e m e k o m a r e r u
+6,a,a07,会場の周辺には、原宿駅や、代々木駅もあるし、ちょっと歩けば、新宿御苑駅もある。,かいじょーのしゅーへんにわ、はらじゅくえきや、よよぎえきもあるし、ちょっとあるけば、しんじゅくぎょえんえきもある。,k a i j o: n o sh u: h e N n i w a # h a r a j u k u e k i y a # y o y o g i e k i m o a r u sh i # ch o q t o a r u k e b a # sh i N j u k u gy o e N e k i m o a r u
+7,a,a08,老人ホームの場合は、健康器具や、ひざ掛けだ。,ろーじんほーむのばあいわ、けんこーきぐや、ひざかけだ。,r o: j i N h o: m u n o b a a i w a # k e N k o: k i g u y a # h i z a k a k e d a
+8,a,a09,ちょっと遅い昼食をとるため、ファミリーレストランに入ったのです。,ちょっとおそいちゅーしょくをとるため、ふぁみりーれすとらんにはいったのです。,ch o q t o o s o i ch u: sh o k u o t o r u t a m e # f a m i r i: r e s u t o r a N n i h a i q t a n o d e s u
+9,a,a10,嬉しいはずが、ゆっくり寝てもいられない。,うれしいはずが、ゆっくりねてもいられない。,u r e sh i i h a z u g a # y u q k u r i n e t e m o i r a r e n a i
+10,a,a11,自然の研究者は、自然をねじ伏せようとしてはいけない。,しぜんのけんきゅうしゃわ、しぜんをねじふせようとしてわいけない。,sh i z e N n o k e N ky u u sh a w a # sh i z e N o n e j i f u s e y o u t o sh i t e w a i k e n a i
+11,a,a12,おごりを捨て、謙虚な姿勢を取り戻さねば、冬は過ごせない。,おごりをすて、けんきょなしせいをとりもどさねば、ふゆわすごせない。,o g o r i o s u t e # k e N ky o n a sh i s e i o t o r i m o d o s a n e b a # f u y u w a s u g o s e n a i
+12,a,a13,先だって、ごく短期間だが、久方ぶりに、ヨーロッパへ行った。,せんだって、ごくたんきかんだが、ひさかたぶりに、よーろっぱえいった。,s e N d a q t e # g o k u t a N k i k a N d a g a # h i s a k a t a b u r i n i # y o: r o q p a e i q t a
+13,a,a14,しかし、このプロ野球ブームも、永久に続くとは限らぬ。,しかし、このぷろやきゅーぶーむも、えいきゅーにつずくとわかぎらぬ。,sh i k a sh i # k o n o p u r o y a ky u: b u: m u m o # e i ky u: n i ts u z u k u t o w a k a g i r a n u
+14,a,a15,お客さんは、それじゃあ練習さえすれば、誰にでも出来るんじゃないかなっ、て考え始めるよ。,おきゃくさんわ、それじゃーれんしゅーさえすれば、だれにでもできるんじゃないかなっ、てかんがえはじめるよ。,o ky a k u s a N w a # s o r e j a: r e N sh u: s a e s u r e b a # d a r e n i d e m o d e k i r u N j a n a i k a n a q # t e k a N g a e h a j i m e r u y o
+15,a,a16,アフリカ人は、実に巧みに、ぴゅんとつばを吐く。,あふりかじんわ、じつにたくみに、ぴゅんとつばをはく。,a f u r i k a j i N w a # j i ts u n i t a k u m i n i # py u N t o ts u b a o h a k u
+16,a,a17,前者を、普遍文化と呼び、後者を、個別文化と呼ぶことにする。,ぜんしゃを、ふへんぶんかとよび、こーしゃを、こべつぶんかとよぶことにする。,z e N sh a o # f u h e N b u N k a t o y o b i # k o: sh a o # k o b e ts u b u N k a t o y o b u k o t o n i s u r u
+17,a,a18,叔父さんは、岬の一軒家に独りぼっちで住んでいた。,おじさんわ、みさきのいっけんやにひとりぼっちですんでいた。,o j i s a N w a # m i s a k i n o i q k e N y a n i h i t o r i b o q ch i d e s u N d e i t a
+18,a,a19,立春が過ぎても、厳しい寒さの日々が続く。,りっしゅんがすぎても、きびしいさむさのひびがつずく。,r i q sh u N g a s u g i t e m o # k i b i sh i i s a m u s a n o h i b i g a ts u z u k u
+19,a,a20,大昔のフィリピンには、豊かな土地があった。,おーむかしのふぃりぴんにわ、ゆたかなとちがあった。,o: m u k a sh i n o f i r i p i N n i w a # y u t a k a n a t o ch i g a a q t a
+20,a,a21,旅館やホテルに着くと、非常口を尋ねる。,りょかんやほてるにつくと、ひじょーぐちをたずねる。,ry o k a N y a h o t e r u n i ts u k u t o # h i j o: g u ch i o t a z u n e r u
+21,a,a22,やるべきことはやっており、なんら、落ち度はない。,やるべきことわやっており、なんら、おちどわない。,y a r u b e k i k o t o w a y a q t e o r i # n a N r a # o ch i d o w a n a i
+22,a,a23,私は、上着を脱ぎ、石組みの上に両手をついて、うつ伏せになった。,わたしわ、うわぎをぬぎ、いしぐみのうえにりょーてをついて、うつぶせになった。,w a t a sh i w a # u w a g i o n u g i # i sh i g u m i n o u e n i ry o: t e o ts u i t e # u ts u b u s e n i n a q t a
+23,a,a24,外人サンは、完璧主義である。,がいじんさんわ、かんぺきしゅぎである。,g a i j i N s a N w a # k a N p e k i sh u g i d e a r u
+24,a,a25,人間とは、微妙で、複雑な生き物である。,にんげんとわ、びみょーで、ふくざつないきものである。,n i N g e N t o w a # b i my o: d e # f u k u z a ts u n a i k i m o n o d e a r u
+25,a,a26,ここ一ヶ月は、ほとんど不眠不休の徹夜続きで、目が腫れ上がっている。,ここいっかげつわ、ほとんどふみんふきゅーのてつやつずきで、めがはれあがっている。,k o k o i q k a g e ts u w a # h o t o N d o f u m i N f u ky u: n o t e ts u y a ts u z u k i d e # m e g a h a r e a g a q t e i r u
+26,a,a27,午前八時、健康な捕虜は、作業所へ、トラックで出発する。,ごぜんはちじ、けんこーなほりょわ、さぎょーしょえ、とらっくでしゅっぱつする。,g o z e N h a ch i j i # k e N k o: n a h o ry o w a # s a gy o: sh o e # t o r a q k u d e sh u q p a ts u s u r u
+27,a,a28,見上げるフジもいいが、路地植え、また、鉢植えの花もきれいです。,みあげるふじもいいが、ろじうえ、また、はちうえのはなもきれいです。,m i a g e r u f u j i m o i i g a # r o j i u e # m a t a # h a ch i u e n o h a n a m o k i r e i d e s u
+28,a,a29,母は、脳血栓の後遺症で、老人性痴呆症になり、一年前から入院中です。,ははわ、のーけっせんのこーいしょーで、ろーじんせいちほーしょーになり、いちねんまえからにゅーいんちゅーです。,h a h a w a # n o: k e q s e N n o k o: i sh o: d e # r o: j i N s e i ch i h o: sh o: n i n a r i # i ch i n e N m a e k a r a ny u: i N ch u: d e s u
+29,a,a30,パジャマとティーシャツがめくれて、薄い肋骨の下に、ぺちゃんこの腹が見えた。,ぱじゃまとてぃーしゃつがめくれて、うすいろっこつのしたに、ぺちゃんこのはらがみえた。,p a j a m a t o t i: sh a ts u g a m e k u r e t e # u s u i r o q k o ts u n o sh i t a n i # p e ch a N k o n o h a r a g a m i e t a
+30,a,a31,また、襟や、袖口ポケット口などが、油汚れで変色を起こすこともあります。,また、えりや、そでぐちぽけっとぐちなどが、あぶらよごれでへんしょくをおこすこともあります。,m a t a # e r i y a # s o d e g u ch i p o k e q t o g u ch i n a d o g a # a b u r a y o g o r e d e h e N sh o k u o o k o s u k o t o m o a r i m a s u
+31,a,a32,着用中に、ダウンやフェザーが飛び出す原因ともなります。,ちゃくよーちゅーに、だうんやふぇざーがとびだすげんいんともなります。,ch a k u y o: ch u: n i # d a u N y a f e z a: g a t o b i d a s u g e N i N t o m o n a r i m a s u
+32,a,a33,インタビューは、午後十時から始まり、途中で夕食をはさみ、延々、四時間に及んだ。,いんたびゅーわ、ごごじゅーじからはじまり、とちゅーでゆーしょくをはさみ、えんえん、よじかんにおよんだ。,i N t a by u: w a # g o g o j u: j i k a r a h a j i m a r i # t o ch u: d e y u: sh o k u o h a s a m i # e N e N # y o j i k a N n i o y o N d a
+33,a,a34,効果を急ぐあまりの過度の練習は避け、ウォーミングアップも、念入りにやりましょう。,こーかをいそぐあまりのかどのれんしゅーわさけ、うぉーみんぐあっぷも、ねんいりにやりましょう。,k o: k a o i s o g u a m a r i n o k a d o n o r e N sh u: w a s a k e # w o: m i N g u a q p u m o # n e N i r i n i y a r i m a sh o u
+34,a,a35,弟子に腕を支えられながら、最後まで引き続けた。,でしにうでをささえられながら、さいごまでひきつずけた。,d e sh i n i u d e o s a s a e r a r e n a g a r a # s a i g o m a d e h i k i ts u z u k e t a
+35,a,a36,気管支ぜんそくや鼻炎も広まっている。,きかんしぜんそくやびえんもひろまっている。,k i k a N sh i z e N s o k u y a b i e N m o h i r o m a q t e i r u
+36,a,a37,大ピラミッド近くに、二つの部屋が、埋まっていたのである。,だいぴらみっどちかくに、ふたつのへやが、うまっていたのである。,d a i p i r a m i q d o ch i k a k u n i # f u t a ts u n o h e y a g a # u m a q t e i t a n o d e a r u
+37,a,a38,普通、中距離トラックのドライバーは、中年の人が多い。,ふつー、ちゅーきょりとらっくのどらいばーわ、ちゅーねんのひとがおーい。,f u ts u: # ch u: ky o r i t o r a q k u n o d o r a i b a: w a # ch u: n e N n o h i t o g a o: i
+38,a,a39,自動車や、精密機械などで、技術系の採用を、抑えるところが目立ち、売り手市場の技術系にも、かげりが見え始めた。,じどーしゃや、せいみつきかいなどで、ぎじゅつけいのさいよーを、おさえるところがめだち、うりてしじょーのぎじゅつけいにも、かげりがみえはじめた。,j i d o: sh a y a # s e i m i ts u k i k a i n a d o d e # g i j u ts u k e i n o s a i y o: o # o s a e r u t o k o r o g a m e d a ch i # u r i t e sh i j o: n o g i j u ts u k e i n i m o # k a g e r i g a m i e h a j i m e t a
+39,a,a40,ユーザーにも責任がある、との論理は、暴論と言わざるをえません。,ゆーざーにもせきにんがある、とのろんりわ、ぼーろんといわざるをえません。,y u: z a: n i m o s e k i n i N g a a r u # t o n o r o N r i w a # b o: r o N t o i w a z a r u o e m a s e N
+40,a,a41,本書は、言葉の政治人類学といってもよい。,ほんしょわ、ことばのせいじじんるいがくといってもよい。,h o N sh o w a # k o t o b a n o s e i j i j i N r u i g a k u t o i q t e m o y o i
+41,a,a42,節目にあわせて、本会議場を、半分にちょん切るとするか。,ふしめにあわせて、ほんかいぎじょーを、はんぶんにちょんぎるとするか。,f u sh i m e n i a w a s e t e # h o N k a i g i j o: o # h a N b u N n i ch o N g i r u t o s u r u k a
+42,a,a43,首相自ら、国民一人一人、百ドル、舶来品を買うようにすすめた。,しゅしょーみずから、こくみんひとりひとり、ひゃくどる、はくらいひんをかうよーにすすめた。,sh u sh o: m i z u k a r a # k o k u m i N h i t o r i h i t o r i # hy a k u d o r u # h a k u r a i h i N o k a u y o: n i s u s u m e t a
+43,a,a44,十進法は、両手の十本の指を数えることから起こった。,じゅっしんほーわ、りょーてのじゅっぽんのゆびをかぞえることからおこった。,j u q sh i N h o: w a # ry o: t e n o j u q p o N n o y u b i o k a z o e r u k o t o k a r a o k o q t a
+44,a,a45,ワインと、日本酒とを問わず、原産地、成分表示を急ぐべきではないか。,わいんと、にほんしゅとをとわず、げんさんち、せいぶんひょーじをいそぐべきでわないか。,w a i N t o # n i h o N sh u t o o t o w a z u # g e N s a N ch i # s e i b u N hy o: j i o i s o g u b e k i d e w a n a i k a
+45,a,a46,年齢はまだ十四だが、数えきれぬほど、日本の舞台を踏んだので、日本語はぺらぺらだそうだ。,ねんれいわまだとしだが、かぞえきれぬほど、にっぽんのぶたいをふんだので、にっぽんごわぺらぺらだそーだ。,n e N r e i w a m a d a t o sh i d a g a # k a z o e k i r e n u h o d o # n i q p o N n o b u t a i o f u N d a n o d e # n i q p o N g o w a p e r a p e r a d a s o: d a
+46,a,a47,日本のエスペラントとして、やはり標準語は必要だ。,にっぽんのえすぺらんととして、やはりひょーじゅんごわひつよーだ。,n i q p o N n o e s u p e r a N t o t o sh i t e # y a h a r i hy o: j u N g o w a h i ts u y o: d a
+47,a,a48,翌年、父の選挙を手伝って、遊説行脚のマネージャーを勤めた。,よくねん、ちちのせんきょをてつだって、ゆーぜいあんぎゃのまねーじゃーをつとめた。,y o k u n e N # ch i ch i n o s e N ky o o t e ts u d a q t e # y u: z e i a N gy a n o m a n e: j a: o ts u t o m e t a
+48,a,a49,何もかもがたちまち腐り、指紋でよごれ、ぐにゃぐにゃになってしまうようだ。,なにもかもがたちまちくさり、しもんでよごれ、ぐにゃぐにゃになってしまうよーだ。,n a n i m o k a m o g a t a ch i m a ch i k u s a r i # sh i m o N d e y o g o r e # g u ny a g u ny a n i n a q t e sh i m a u y o: d a
+49,a,a50,逆境に耐えたこのプロデューサーの作品には、ヒューマニズムが、脈々と息ずいている。,ぎゃっきょーにたえたこのぷろでゅーさーのさくひんにわ、ひゅーまにずむが、みゃくみゃくといきずいている。,gy a q ky o: n i t a e t a k o n o p u r o dy u: s a: n o s a k u h i N n i w a # hy u: m a n i z u m u g a # my a k u my a k u t o i k i z u i t e i r u
+50,b,b01,予防や、健康管理、リハビリテーションのための制度を、充実していく必要があろう。,よぼーや、けんこーかんり、りはびりてーしょんのためのせいどを、じゅーじつしていくひつよーがあろう。,y o b o: y a # k e N k o: k a N r i # r i h a b i r i t e: sh o N n o t a m e n o s e i d o o # j u: j i ts u sh i t e i k u h i ts u y o: g a a r o u
+51,b,b02,老若男女が、火を囲んで飲み、手をつないで歌う。,ろーにゃくなんにょが、ひをかこんでのみ、てをつないでうたう。,r o: ny a k u n a N ny o g a # h i o k a k o N d e n o m i # t e o ts u n a i d e u t a u
+52,b,b03,出口のない、飛行中の航空機の異変は、恐怖の極限状況といってよい。,でぐちのない、ひこーちゅーのこーくーきのいへんわ、きょーふのきょくげんじょーきょーといってよい。,d e g u ch i n o n a i # h i k o: ch u: n o k o: k u: k i n o i h e N w a # ky o: f u n o ky o k u g e N j o: ky o: t o i q t e y o i
+53,b,b04,わずかな収入をやりくりして、現金で、サービスを利用している。,わずかなしゅーにゅーをやりくりして、げんきんで、さーびすをりよーしている。,w a z u k a n a sh u: ny u: o y a r i k u r i sh i t e # g e N k i N d e # s a: b i s u o r i y o: sh i t e i r u
+54,b,b05,難しい食事療法から、下痢の世話まで、二十四時間介護の日々が続いた。,むずかしいしょくじりょうほーから、げりのせわまで、にじゅーよんじかんかいごのひびがつずいた。,m u z u k a sh i i sh o k u j i ry o u h o: k a r a # g e r i n o s e w a m a d e # n i j u: y o N j i k a N k a i g o n o h i b i g a ts u z u i t a
+55,b,b06,倒れて道路をふさぐ恐れがある、ブロック塀や、石塀を点検し、改善しておく。,たおれてどーろをふさぐおそれがある、ぶろっくべいや、いしべいをてんけんし、かいぜんしておく。,t a o r e t e d o: r o o f u s a g u o s o r e g a a r u # b u r o q k u b e i y a # i sh i b e i o t e N k e N sh i # k a i z e N sh i t e o k u
+56,b,b07,ついで、財務省が、専門家を集めて、具体案を練った。,ついで、ざいむしょーが、せんもんかをあつめて、ぐたいあんをねった。,ts u i d e # z a i m u sh o: g a # s e N m o N k a o a ts u m e t e # g u t a i a N o n e q t a
+57,b,b08,こういう絵が、やすやすと描けるはずはない。,こーゆうえが、やすやすとかけるはずわない。,k o: y u u e g a # y a s u y a s u t o k a k e r u h a z u w a n a i
+58,b,b09,背の高さは一七〇センチほどで、目が大きく、やや太っている。,せのたかさわひゃくななじゅっせんちほどで、めがおーきく、ややふとっている。,s e n o t a k a s a w a hy a k u n a n a j u q s e N ch i h o d o d e # m e g a o: k i k u # y a y a f u t o q t e i r u
+59,b,b10,なつかしいプロペラ機で、ふわりふわりと、地球を一周したところがすばらしい。,なつかしいぷろぺらきで、ふわりふわりと、ちきゅーをいっしゅーしたところがすばらしい。,n a ts u k a sh i i p u r o p e r a k i d e # f u w a r i f u w a r i t o # ch i ky u: o i q sh u: sh i t a t o k o r o g a s u b a r a sh i i
+60,b,b11,よほど具合が悪くなければ、昼間、横になるなんて夢のまた夢だ。,よほどぐあいがわるくなければ、ひるま、よこになるなんてゆめのまたゆめだ。,y o h o d o g u a i g a w a r u k u n a k e r e b a # h i r u m a # y o k o n i n a r u n a N t e y u m e n o m a t a y u m e d a
+61,b,b12,強風と、冷え込みの強い、神宮のグラウンドである。,きょーふーと、ひえこみのつよい、じんぐーのぐらうんどである。,ky o: f u: t o # h i e k o m i n o ts u y o i # j i N g u: n o g u r a u N d o d e a r u
+62,b,b13,ぶらぶらと、球場まで十分足らずの道を歩いていく。,ぶらぶらと、きゅーじょーまでじゅっぷんたらずのみちをあるいていく。,b u r a b u r a t o # ky u: j o: m a d e j u q p u N t a r a z u n o m i ch i o a r u i t e i k u
+63,b,b14,大声を出しすぎて、かすれ声になってしまう。,おーごえをだしすぎて、かすれごえになってしまう。,o: g o e o d a sh i s u g i t e # k a s u r e g o e n i n a q t e sh i m a u
+64,b,b15,足し算引き算は出来なくても、絵は描ける。,たしざんひきざんわできなくても、えわえがける。,t a sh i z a N h i k i z a N w a d e k i n a k u t e m o # e w a e g a k e r u
+65,b,b16,それをかばおうとして、右ひざと、ふくらはぎをやられた。,それをかばおうとして、みぎひざと、ふくらはぎをやられた。,s o r e o k a b a o u t o sh i t e # m i g i h i z a t o # f u k u r a h a g i o y a r a r e t a
+66,b,b17,現地に着いて、いざというときおぶってくれる、原住民を頼んだが、これがピグミーであった。,げんちについて、いざとゆうときおぶってくれる、げんじゅーみんをたのんだが、これがぴぐみーであった。,g e N ch i n i ts u i t e # i z a t o y u u t o k i o b u q t e k u r e r u # g e N j u: m i N o t a n o N d a g a # k o r e g a p i g u m i: d e a q t a
+67,b,b18,ゆらゆら電球が揺れて、影が、草の上をちらちらした。,ゆらゆらでんきゅーがゆれて、かげが、くさのうえをちらちらした。,y u r a y u r a d e N ky u: g a y u r e t e # k a g e g a # k u s a n o u e o ch i r a ch i r a sh i t a
+68,b,b19,ぼくは、ほとんど夢中で、駅前の人ごみの間をすり抜けた。,ぼくわ、ほとんどむちゅーで、えきまえのひとごみのあいだをすりぬけた。,b o k u w a # h o t o N d o m u ch u: d e # e k i m a e n o h i t o g o m i n o a i d a o s u r i n u k e t a
+69,b,b20,この喜びは、むろん、家へ帰り着いても消えずにつづいた。,このよろこびわ、むろん、いええかえりついてもきえずにつずいた。,k o n o y o r o k o b i w a # m u r o N # i e e k a e r i ts u i t e m o k i e z u n i ts u z u i t a
+70,b,b21,どの部屋の意匠にも、遊び心があふれていて、楽しい。,どのへやのいしょーにも、あそびごころがあふれていて、たのしい。,d o n o h e y a n o i sh o: n i m o # a s o b i g o k o r o g a a f u r e t e i t e # t a n o sh i i
+71,b,b22,飛ぶ自由を得ることは、人類の夢だった。,とぶじゆーをえることわ、じんるいのゆめだった。,t o b u j i y u: o e r u k o t o w a # j i N r u i n o y u m e d a q t a
+72,b,b23,育ちのよい坊ちゃんのよさと、逆境に育った人間の強さ。,そだちのよいぼっちゃんのよさと、ぎゃっきょーにそだったにんげんのつよさ。,s o d a ch i n o y o i b o q ch a N n o y o s a t o # gy a q ky o: n i s o d a q t a n i N g e N n o ts u y o s a
+73,b,b24,初めて、ルーブル美術館へ入ったのは、十四年前のことだ。,はじめて、るーぶるびじゅつかんえはいったのわ、じゅーよんねんまえのことだ。,h a j i m e t e # r u: b u r u b i j u ts u k a N e h a i q t a n o w a # j u: y o N n e N m a e n o k o t o d a
+74,b,b25,自分の実力は、自分が一番よく知っているはずだ。,じぶんのじつりょくわ、じぶんがいちばんよくしっているはずだ。,j i b u N n o j i ts u ry o k u w a # j i b u N g a i ch i b a N y o k u sh i q t e i r u h a z u d a
+75,b,b26,茶色の眼は、柔和なかがやきをおびていた。,ちゃいろのめわ、にゅーわなかがやきをおびていた。,ch a i r o n o m e w a # ny u: w a n a k a g a y a k i o o b i t e i t a
+76,b,b27,今流行の、単身赴任族の淋しさを、ちょっぴり味わわせてもらったのも、有意義な体験だ。,いまりゅーこーの、たんしんふにんぞくのさびしさを、ちょっぴりあじわわせてもらったのも、ゆーいぎなたいけんだ。,i m a ry u: k o: n o # t a N sh i N f u n i N z o k u n o s a b i sh i s a o # ch o q p i r i a j i w a w a s e t e m o r a q t a n o m o # y u: i g i n a t a i k e N d a
+77,b,b28,やはり無表情のまま、何もことばがありません。,やはりむひょーじょーのまま、なにもことばがありません。,y a h a r i m u hy o: j o: n o m a m a # n a n i m o k o t o b a g a a r i m a s e N
+78,b,b29,生きた潤滑油です。,いきたじゅんかつゆです。,i k i t a j u N k a ts u y u d e s u
+79,b,b30,彼の数学の授業は、抜群に面白く、試験前には、月給外補習授業をするほど、熱心である。,かれのすーがくのじゅぎょーわ、ばつぐんにおもしろく、しけんまえにわ、げっきゅーがいほしゅーじゅぎょーをするほど、ねっしんである。,k a r e n o s u: g a k u n o j u gy o: w a # b a ts u g u N n i o m o sh i r o k u # sh i k e N m a e n i w a # g e q ky u: g a i h o sh u: j u gy o: o s u r u h o d o # n e q sh i N d e a r u
+80,b,b31,そうでなくても、寿司屋の職人は、減らず口をききたがる人間が多い。,そーでなくても、すしやのしょくにんわ、へらずぐちをききたがるにんげんがおーい。,s o: d e n a k u t e m o # s u sh i y a n o sh o k u n i N w a # h e r a z u g u ch i o k i k i t a g a r u n i N g e N g a o: i
+81,b,b32,リードが大きければ、牽制球を投げなければならない。,りーどがおーきければ、けんせいきゅーをなげなければならない。,r i: d o g a o: k i k e r e b a # k e N s e i ky u: o n a g e n a k e r e b a n a r a n a i
+82,b,b33,アメリカが風邪をひけば、日本もクシャミをする、といわれる程で、日本経済も不況です。,あめりかがかぜをひけば、にっぽんもくしゃみをする、といわれるほどで、にっぽんけいざいもふきょーです。,a m e r i k a g a k a z e o h i k e b a # n i q p o N m o k u sh a m i o s u r u # t o i w a r e r u h o d o d e # n i q p o N k e i z a i m o f u ky o: d e s u
+83,b,b34,ラッパも鳴らないし、笛も鳴らないが、ぞろぞろと起き出し、洗面所へゆく。,らっぱもならないし、ふえもならないが、ぞろぞろとおきだし、せんめんじょえゆく。,r a q p a m o n a r a n a i sh i # f u e m o n a r a n a i g a # z o r o z o r o t o o k i d a sh i # s e N m e N j o e y u k u
+84,b,b35,主人に甘え、社会に甘え、自分に甘えて、ぬるま湯に、どっぷり浸っている。,しゅじんにあまえ、しゃかいにあまえ、じぶんにあまえて、ぬるまゆに、どっぷりひたっている。,sh u j i N n i a m a e # sh a k a i n i a m a e # j i b u N n i a m a e t e # n u r u m a y u n i # d o q p u r i h i t a q t e i r u
+85,b,b36,船は、ひそかに揺れつつ、錨をひきずって流れつづけた。,ふねわ、ひそかにゆれつつ、いかりをひきずってながれつずけた。,f u n e w a # h i s o k a n i y u r e ts u ts u # i k a r i o h i k i z u q t e n a g a r e ts u z u k e t a
+86,b,b37,これまで、少年野球、ママさんバレーなど、地域スポーツを支え、市民に密着してきたのは、無数のボランティアだった。,これまで、しょーねんやきゅー、ままさんばれーなど、ちいきすぽーつをささえ、しみんにみっちゃくしてきたのわ、むすーのぼらんてぃあだった。,k o r e m a d e # sh o: n e N y a ky u: # m a m a s a N b a r e: n a d o # ch i i k i s u p o: ts u o s a s a e # sh i m i N n i m i q ch a k u sh i t e k i t a n o w a # m u s u: n o b o r a N t i a d a q t a
+87,b,b38,もちろん調査後は、元通り密閉する。,もちろんちょーさごわ、もとどーりみっぺいする。,m o ch i r o N ch o: s a g o w a # m o t o d o: r i m i q p e i s u r u
+88,b,b39,冷房では、冷え過ぎが、問題になる。,れいぼーでわ、ひえすぎが、もんだいになる。,r e i b o: d e w a # h i e s u g i g a # m o N d a i n i n a r u
+89,b,b40,いずれは、ハワイやカリフォルニアなど、日本人が多く住む、暑い土地で育ててみたい。,いずれわ、はわいやかりふぉるにあなど、にっぽんじんがおーくすむ、あついとちでそだててみたい。,i z u r e w a # h a w a i y a k a r i f o r u n i a n a d o # n i q p o N j i N g a o: k u s u m u # a ts u i t o ch i d e s o d a t e t e m i t a i
+90,b,b41,最近の不調を理由に、ソウル五輪候補選手から外すことを発表した。,さいきんのふちょーをりゆーに、そーるごりんこーほせんしゅからはずすことをはっぴょーした。,s a i k i N n o f u ch o: o r i y u: n i # s o: r u g o r i N k o: h o s e N sh u k a r a h a z u s u k o t o o h a q py o: sh i t a
+91,b,b42,事故の直接原因となった、圧力隔壁のずさんな修理、そのずさんさを見落とした、チェックシステムなどがそうだ。,じこのちょくせつげんいんとなった、あつりょくかくへきのずさんなしゅーり、そのずさんさをみおとした、ちぇっくしすてむなどがそーだ。,j i k o n o ch o k u s e ts u g e N i N t o n a q t a # a ts u ry o k u k a k u h e k i n o z u s a N n a sh u: r i # s o n o z u s a N s a o m i o t o sh i t a # ch e q k u sh i s u t e m u n a d o g a s o: d a
+92,b,b43,女性とは逆で、何とか常識を破って、めだってやろうと、意気込む人がほとんどだ。,じょせいとわぎゃくで、なんとかじょーしきをやぶって、めだってやろーと、いきごみむひとがほとんどだ。,j o s e i t o w a gy a k u d e # n a N t o k a j o: sh i k i o y a b u q t e # m e d a q t e y a r o: t o # i k i g o m i m u h i t o g a h o t o N d o d a
+93,b,b44,もっと広い議場をという声もあったが、チャーチル首相が抑えた。,もっとひろいぎじょーをとゆうこえもあったが、ちゃーちるしゅしょーがおさえた。,m o q t o h i r o i g i j o: o t o y u u k o e m o a q t a g a # ch a: ch i r u sh u sh o: g a o s a e t a
+94,b,b45,ギンザケの卵を輸入して、ふ化させ、海中で育てる養殖も始まっている。,ぎんざけのたまごをゆにゅーして、ふかさせ、かいちゅーでそだてるよーしょくもはじまっている。,g i N z a k e n o t a m a g o o y u ny u: sh i t e # f u k a s a s e # k a i ch u: d e s o d a t e r u y o: sh o k u m o h a j i m a q t e i r u
+95,b,b46,文書は年々増えていく。,ぶんしょわねんねんふえていく。,b u N sh o w a n e N n e N f u e t e i k u
+96,b,b47,おしゃれとは縁がなく、ジーパンにティーシャツ、ジャンパーといった格好で、駅まで自転車を走らせる。,おしゃれとわえんがなく、じーぱんにてぃーしゃつ、じゃんぱーといったかっこーで、えきまでじてんしゃをはしらせる。,o sh a r e t o w a e N g a n a k u # j i: p a N n i t i: sh a ts u # j a N p a: t o i q t a k a q k o: d e # e k i m a d e j i t e N sh a o h a sh i r a s e r u
+97,b,b48,熱でうるんだ青い空に、積乱雲がある。,ねつでうるんだあおいそらに、せきらんうんがある。,n e ts u d e u r u N d a a o i s o r a n i # s e k i r a N u N g a a r u
+98,b,b49,富者は、貧者と同じ栄養状態に落ち込み、貧者は、餓死まで、後一歩という状態へ落ち込んでいく。,ふしゃわ、ひんじゃとおなじえいよーじょーたいにおちこみ、ひんじゃわ、がしまで、あといっぽいとゆうじょーたいえおちこんでいく。,f u sh a w a # h i N j a t o o n a j i e i y o: j o: t a i n i o ch i k o m i # h i N j a w a # g a sh i m a d e # a t o i q p o i t o y u u j o: t a i e o ch i k o N d e i k u
+99,b,b50,販売関係の企業の代表者は、セミナー終了後、会議室に集まれ。,はんばいかんけいのきぎょーのだいひょーしゃわ、せみなーしゅーりょーご、かいぎしつにあつまれ。,h a N b a i k a N k e i n o k i gy o: n o d a i hy o: sh a w a # s e m i n a: sh u: ry o: g o # k a i g i sh i ts u n i a ts u m a r e
+100,c,c01,六百人のお客さんの人いきれに、むし暑くて、扇子を使わずにいられない。,ろっぴゃくにんのおきゃくさんのひといきれに、むしあつくて、せんすをつかわずにいられない。,r o q py a k u n i N n o o ky a k u s a N n o h i t o i k i r e n i # m u sh i a ts u k u t e # s e N s u o ts u k a w a z u n i i r a r e n a i
+101,c,c02,やがて、証拠の書類や、物品が押収され、諸君は、取調べのため、国税局へ連行される。,やがて、しょーこのしょるいや、ぶっぴんがおーしゅーされ、しょくんわ、とりしらべのため、こくぜいきょくえれんこーされる。,y a g a t e # sh o: k o n o sh o r u i y a # b u q p i N g a o: sh u: s a r e # sh o k u N w a # t o r i sh i r a b e n o t a m e # k o k u z e i ky o k u e r e N k o: s a r e r u
+102,c,c03,最初、速いテンポで巻きこんでおいて、中盤じっくり見せる。,さいしょ、はやいてんぽでまきこんでおいて、ちゅーばんじっくりみせる。,s a i sh o # h a y a i t e N p o d e m a k i k o N d e o i t e # ch u: b a N j i q k u r i m i s e r u
+103,c,c04,文芸編集者としては、作家たちに、最も信頼されている、名編集者だ。,ぶんげいへんしゅーしゃとしてわ、さっかたちに、もっともしんらいされている、めいへんしゅーしゃだ。,b u N g e i h e N sh u: sh a t o sh i t e w a # s a q k a t a ch i n i # m o q t o m o sh i N r a i s a r e t e i r u # m e i h e N sh u: sh a d a
+104,c,c05,あの坂をのぼれば、海が見える。,あのさかをのぼれば、うみがみえる。,a n o s a k a o n o b o r e b a # u m i g a m i e r u
+105,c,c06,エネルギーを節約するための技術を開発することも大切である。,えねるぎーをせつやくするためのぎじゅつをかいはつすることもたいせつである。,e n e r u g i: o s e ts u y a k u s u r u t a m e n o g i j u ts u o k a i h a ts u s u r u k o t o m o t a i s e ts u d e a r u
+106,c,c07,生活扶助、医療扶助、住宅扶助などによって、貧困に陥った人々を、援助している。,せいかつふじょ、いりょーふじょ、じゅーたくふじょなどによって、ひんこんにおちいったひとびとを、えんじょしている。,s e i k a ts u f u j o # i ry o: f u j o # j u: t a k u f u j o n a d o n i y o q t e # h i N k o N n i o ch i i q t a h i t o b i t o o # e N j o sh i t e i r u
+107,c,c08,開放は進むが、そのことで、日本の輸入が急増し、貿易黒字が急減するとは思えない。,かいほーわすすむが、そのことで、にっぽんのゆにゅーがきゅーぞーし、ぼーえきくろじがきゅーげんするとわおもえない。,k a i h o: w a s u s u m u g a # s o n o k o t o d e # n i q p o N n o y u ny u: g a ky u: z o: sh i # b o: e k i k u r o j i g a ky u: g e N s u r u t o w a o m o e n a i
+108,c,c09,手抜きがあれば、いい布は、生まれない。,てぬきがあれば、いいぬのわ、うまれない。,t e n u k i g a a r e b a # i i n u n o w a # u m a r e n a i
+109,c,c10,農業をやめざるをえない人があり、関連企業も、この不況にひきずられているという。,のーぎょーをやめざるをえないひとがあり、かんれんきぎょーも、このふきょーにひきずられているという。,n o: gy o: o y a m e z a r u o e n a i h i t o g a a r i # k a N r e N k i gy o: m o # k o n o f u ky o: n i h i k i z u r a r e t e i r u t o i u
+110,c,c11,生みの親は、サンフランシスコに住む日系人たちだった。,うみのおやわ、さんふらんしすこにすむにっけいじんたちだった。,u m i n o o y a w a # s a N f u r a N sh i s u k o n i s u m u n i q k e i j i N t a ch i d a q t a
+111,c,c12,現地の発音を重んじて、そう呼ぶようになった。,げんちのはつおんをおもんじて、そーよぶよーになった。,g e N ch i n o h a ts u o N o o m o N j i t e # s o: y o b u y o: n i n a q t a
+112,c,c13,その列車が、大口を開けて、国家秘密法をちらつかせている。,そのれっしゃが、おーぐちをあけて、こっかひみつほーをちらつかせている。,s o n o r e q sh a g a # o: g u ch i o a k e t e # k o q k a h i m i ts u h o: o ch i r a ts u k a s e t e i r u
+113,c,c14,十年前、日本の一人当たりのＧＤＰは、世界で、十六位程度だった。,じゅーねんまえ、にっぽんのひとりあたりのじーでぃーぴーわ、せかいで、じゅーろくいていどだった。,j u: n e N m a e # n i q p o N n o h i t o r i a t a r i n o j i: d i: p i: w a # s e k a i d e # j u: r o k u i t e i d o d a q t a
+114,c,c15,もう夢中になって、玉ねぎ、じゃがいも、あらゆる野菜を買い込む。,もーむちゅーになって、たまねぎ、じゃがいも、あらゆるやさいをかいこむ。,m o: m u ch u: n i n a q t e # t a m a n e g i # j a g a i m o # a r a y u r u y a s a i o k a i k o m u
+115,c,c16,ぐずぐず考えていたら、三十分も、フトンから出られなかった。,ぐずぐずかんがえていたら、さんじゅっぷんも、ふとんからでられなかった。,g u z u g u z u k a N g a e t e i t a r a # s a N j u q p u N m o # f u t o N k a r a d e r a r e n a k a q t a
+116,c,c17,一年ほど前からひそかに茶を習い始めている。,いちねんほどまえからひそかにちゃをならいはじめている。,i ch i n e N h o d o m a e k a r a h i s o k a n i ch a o n a r a i h a j i m e t e i r u
+117,c,c18,水が上がってきたら、あとはゆっくりと、上下させればよい。,みずがあがってきたら、あとわゆっくりと、じょーげさせればよい。,m i z u g a a g a q t e k i t a r a # a t o w a y u q k u r i t o # j o: g e s a s e r e b a y o i
+118,c,c19,広い構内に、レストランや、列車食堂などを配し、札幌ビール園に似た雰囲気だ。,ひろいこーないに、れすとらんや、れっしゃしょくどーなどをはいし、さっぽろびーるえんににたふんいきだ。,h i r o i k o: n a i n i # r e s u t o r a N y a # r e q sh a sh o k u d o: n a d o o h a i sh i # s a q p o r o b i: r u e N n i n i t a f u N i k i d a
+119,c,c20,近くの原野で、乗馬、射撃、狩猟などを楽しむことができる。,ちかくのげんやで、じょーば、しゃげき、しゅりょーなどをたのしむことができる。,ch i k a k u n o g e N y a d e # j o: b a # sh a g e k i # sh u ry o: n a d o o t a n o sh i m u k o t o g a d e k i r u
+120,c,c21,日本人の美意識を決定づけたのが、茶の湯だが、茶室の標準は、四畳半、なかには一畳あまりというミニもある。,にっぽんじんのびいしきをけっていずけたのが、ちゃのゆだが、ちゃしつのひょーじゅんわ、よじょーはん、なかにわいちじょーあまりとゆうみにもある。,n i q p o N j i N n o b i i sh i k i o k e q t e i z u k e t a n o g a # ch a n o y u d a g a # ch a sh i ts u n o hy o: j u N w a # y o j o: h a N # n a k a n i w a i ch i j o: a m a r i t o y u u m i n i m o a r u
+121,c,c22,しかし、そうなるとかえって眠れず寝酒の量もふえてゆく。,しかし、そーなるとかえってねむれずねざけのりょーもふえてゆく。,sh i k a sh i # s o: n a r u t o k a e q t e n e m u r e z u n e z a k e n o ry o: m o f u e t e y u k u
+122,c,c23,ずっしりと手応えのある体験を積む青年が増えてほしい。,ずっしりとてごたえのあるたいけんをつむせいねんがふえてほしい。,z u q sh i r i t o t e g o t a e n o a r u t a i k e N o ts u m u s e i n e N g a f u e t e h o sh i i
+123,c,c24,いつごろ将棋を覚えたか、はっきりしない。,いつごろしょーぎをおぼえたか、はっきりしない。,i ts u g o r o sh o: g i o o b o e t a k a # h a q k i r i sh i n a i
+124,c,c25,夫人名義になっている住宅の半分を、わざわざ除いて公表する。,ふじんめいぎになっているじゅーたくのはんぶんを、わざわざのぞいてこーひょーする。,f u j i N m e i g i n i n a q t e i r u j u: t a k u n o h a N b u N o # w a z a w a z a n o z o i t e k o: hy o: s u r u
+125,c,c26,ちゃんとした文章をしゃべらず、単語で間に合わせる。,ちゃんとしたぶんしょーをしゃべらず、たんごでまにあわせる。,ch a N t o sh i t a b u N sh o: o sh a b e r a z u # t a N g o d e m a n i a w a s e r u
+126,c,c27,わたしは、安心とあせりがごちゃまぜの、複雑な心境だ。,わたしわ、あんしんとあせりがごちゃまぜの、ふくざつなしんきょーだ。,w a t a sh i w a # a N sh i N t o a s e r i g a g o ch a m a z e n o # f u k u z a ts u n a sh i N ky o: d a
+127,c,c28,包丁の手を止めて、流れる涙をエプロンでぬぐったのは、タマネギのせいだけではない。,ほーちょーのてをとめて、ながれるなみだをえぷろんでぬぐったのわ、たまねぎのせいだけでわない。,h o: ch o: n o t e o t o m e t e # n a g a r e r u n a m i d a o e p u r o N d e n u g u q t a n o w a # t a m a n e g i n o s e i d a k e d e w a n a i
+128,c,c29,わたしには、約束時間ぎりぎりに、家を出るという、悪い癖がある。,わたしにわ、やくそくじかんぎりぎりに、いえをでるとゆう、わるいくせがある。,w a t a sh i n i w a # y a k u s o k u j i k a N g i r i g i r i n i # i e o d e r u t o y u u # w a r u i k u s e g a a r u
+129,c,c30,初めは喜んだ見舞い客を、いやがるようになった。,はじめわよろこんだみまいきゃくを、いやがるよーになった。,h a j i m e w a y o r o k o N d a m i m a i ky a k u o # i y a g a r u y o: n i n a q t a
+130,c,c31,救急車で病院に運ばれる途中に、息を引き取ったのだという。,きゅうきゅうしゃでびょーいんにはこばれるとちゅーに、いきをひきとったのだという。,ky u u ky u u sh a d e by o: i N n i h a k o b a r e r u t o ch u: n i # i k i o h i k i t o q t a n o d a t o i u
+131,c,c32,冬が長くて辛ければ、それだけ、歓びも大きいのだ。,ふゆがながくてつらければ、それだけ、よろこびもおーきいのだ。,f u y u g a n a g a k u t e ts u r a k e r e b a # s o r e d a k e # y o r o k o b i m o o: k i i n o d a
+132,c,c33,女の子は、以前は、パンより御飯が好きで、喜んでお代わりをした。,おんなのこわ、いぜんわ、ぱんよりごはんがすきで、よろこんでおかわりをした。,o N n a n o k o w a # i z e N w a # p a N y o r i g o h a N g a s u k i d e # y o r o k o N d e o k a w a r i o sh i t a
+133,c,c34,これは、私よりよほど重症である。,これわ、わたしよりよほどじゅーしょーである。,k o r e w a # w a t a sh i y o r i y o h o d o j u: sh o: d e a r u
+134,c,c35,細長い指先で、激しく鍵を叩く。,ほそながいゆびさきで、はげしくけんをたたく。,h o s o n a g a i y u b i s a k i d e # h a g e sh i k u k e N o t a t a k u
+135,c,c36,幼児は、しばしば、フィクションと現実とを、混同する。,よーじわ、しばしば、ふぃくしょんとげんじつとを、こんどーする。,y o: j i w a # sh i b a sh i b a # f i k u sh o N t o g e N j i ts u t o o # k o N d o: s u r u
+136,c,c37,新聞、週刊誌、雑誌にかぎらず、ほとんどすべての取材記者は、自分の予定原稿を持って、やってくるのだ。,しんぶん、しゅーかんし、ざっしにかぎらず、ほとんどすべてのしゅざいきしゃわ、じぶんのよていげんこーをもって、やってくるのだ。,sh i N b u N # sh u: k a N sh i # z a q sh i n i k a g i r a z u # h o t o N d o s u b e t e n o sh u z a i k i sh a w a # j i b u N n o y o t e i g e N k o: o m o q t e # y a q t e k u r u n o d a
+137,c,c38,世間体を繕い、他人の、自分への評価や印象を、いつも気づかう人が多いのも、事実であろう。,せけんていをつくろい、たにんの、じぶんえのひょーかやいんしょーを、いつもきずかうひとがおーいのも、じじつであろう。,s e k e N t e i o ts u k u r o i # t a n i N n o # j i b u N e n o hy o: k a y a i N sh o: o # i ts u m o k i z u k a u h i t o g a o: i n o m o # j i j i ts u d e a r o u
+138,c,c39,汚染は、もはや地球規模であり、人類は、その、種の存続さえ、危うくされているのだ。,おせんわ、もはやちきゅーきぼであり、じんるいわ、その、しゅのそんぞくさえ、あやうくされているのだ。,o s e N w a # m o h a y a ch i ky u: k i b o d e a r i # j i N r u i w a # s o n o # sh u n o s o N z o k u s a e # a y a u k u s a r e t e i r u n o d a
+139,c,c40,自分を守ってくれる人が欲しくて、必死だった。,じぶんをまもってくれるひとがほしくて、ひっしだった。,j i b u N o m a m o q t e k u r e r u h i t o g a h o sh i k u t e # h i q sh i d a q t a
+140,c,c41,収入とは無関係のボランティアではあっても、続けると決意した以上、踏み出さねばならない。,しゅーにゅーとわむかんけいのぼらんてぃあでわあっても、つずけるとけついしたいじょー、ふみださねばならない。,sh u: ny u: t o w a m u k a N k e i n o b o r a N t i a d e w a a q t e m o # ts u z u k e r u t o k e ts u i sh i t a i j o: # f u m i d a s a n e b a n a r a n a i
+141,c,c42,午後四時の電車で帰りますから、牛乳をあたためて、水筒に入れ、乳母車に積んで、迎えに行きます。,ごごよじのでんしゃでかえりますから、ぎゅーにゅーをあたためて、すいとーにいれ、うばぐるまにつんで、むかえにいきます。,g o g o y o j i n o d e N sh a d e k a e r i m a s u k a r a # gy u: ny u: o a t a t a m e t e # s u i t o: n i i r e # u b a g u r u m a n i ts u N d e # m u k a e n i i k i m a s u
+142,c,c43,主人の仕事は、建築業で、作業服を着て、出勤します。,しゅじんのしごとわ、けんちくぎょーで、さぎょーふくをきて、しゅっきんします。,sh u j i N n o sh i g o t o w a # k e N ch i k u gy o: d e # s a gy o: f u k u o k i t e # sh u q k i N sh i m a s u
+143,c,c44,これでは、母親が嘆くのも、無理はありません。,これでわ、ははおやがなげくのも、むりわありません。,k o r e d e w a # h a h a o y a g a n a g e k u n o m o # m u r i w a a r i m a s e N
+144,c,c45,ブラッシングすると毛羽立ちやすいので、注意が必要です。,ぶらっしんぐするとけばだちやすいので、ちゅーいがひつよーです。,b u r a q sh i N g u s u r u t o k e b a d a ch i y a s u i n o d e # ch u: i g a h i ts u y o: d e s u
+145,c,c46,疲労回復には、十分な睡眠が必要だ。,ひろーかいふくにわ、じゅーぶんなすいみんがひつよーだ。,h i r o: k a i f u k u n i w a # j u: b u N n a s u i m i N g a h i ts u y o: d a
+146,c,c47,プレー中絶えず笑いを浮かべる彼女の強さばかりが目立った。,ぷれーちゅーたえずわらいをうかべるかのじょのつよさばかりがめだった。,p u r e: ch u: t a e z u w a r a i o u k a b e r u k a n o j o n o ts u y o s a b a k a r i g a m e d a q t a
+147,c,c48,日本でも、半導体価格が上昇し始め、不況に、出口が見え始めた。,にっぽんでも、はんどーたいかかくがじょーしょーしはじめ、ふきょーに、でぐちがみえはじめた。,n i q p o N d e m o # h a N d o: t a i k a k a k u g a j o: sh o: sh i h a j i m e # f u ky o: n i # d e g u ch i g a m i e h a j i m e t a
+148,c,c49,反政府デモへの、一般学生、一般市民の合流を、過大評価することは、適切ではあるまい。,はんせいふでもえの、いっぱんがくせい、いっぱんしみんのごーりゅーを、かだいひょーかすることわ、てきせつでわあるまい。,h a N s e i f u d e m o e n o # i q p a N g a k u s e i # i q p a N sh i m i N n o g o: ry u: o # k a d a i hy o: k a s u r u k o t o w a # t e k i s e ts u d e w a a r u m a i
+149,c,c50,セミしぐれの中を、東京、千鳥ケ淵、戦没者墓苑を訪れた。,せみしぐれのなかを、とーきょー、ちどりがふち、せんぼつしゃぼえんをおとずれた。,s e m i sh i g u r e n o n a k a o # t o: ky o: # ch i d o r i g a f u ch i # s e N b o ts u sh a b o e N o o t o z u r e t a
+150,d,d01,十分間の休憩を与えられ、乱れた髪を結い直し、肩の汗をぬぐって、支度部屋で呼吸を整える。,じゅっぷんのきゅーけいをあたえられ、みだれたかみをゆいなおし、かたのあせをぬぐって、したくべやでこきゅーをととのえる。,j u q p u N n o ky u: k e i o a t a e r a r e # m i d a r e t a k a m i o y u i n a o sh i # k a t a n o a s e o n u g u q t e # sh i t a k u b e y a d e k o ky u: o t o t o n o e r u
+151,d,d02,つぎの瞬間、万歳、万歳の声が聞こえていた。,つぎのしゅんかん、ばんざい、ばんざいのこえがきこえていた。,ts u g i n o sh u N k a N # b a N z a i # b a N z a i n o k o e g a k i k o e t e i t a
+152,d,d03,スピーチが下手なのだから、原稿を、用意したほうがいい。,すぴーちがへたなのだから、げんこーを、よーいしたほーがいい。,s u p i: ch i g a h e t a n a n o d a k a r a # g e N k o: o # y o: i sh i t a h o: g a i i
+153,d,d04,ふりあおぐと、すぐ頭上を、光が走った。,ふりあおぐと、すぐずじょーを、ひかりがはしった。,f u r i a o g u t o # s u g u z u j o: o # h i k a r i g a h a sh i q t a
+154,d,d05,労働力の、需要と供給の出会う場が、労働市場である。,ろーどーりょくの、じゅよーときょうきゅーのであうばが、ろーどーしじょーである。,r o: d o: ry o k u n o # j u y o: t o ky o u ky u: n o d e a u b a g a # r o: d o: sh i j o: d e a r u
+155,d,d06,日本が輸入する、食品や石油を、守るためのものなのか。,にっぽんがゆにゅーする、しょくひんやせきゆを、まもるためのものなのか。,n i q p o N g a y u ny u: s u r u # sh o k u h i N y a s e k i y u o # m a m o r u t a m e n o m o n o n a n o k a
+156,d,d07,みんな、服やネクタイの色は、よく覚えている。,みんな、ふくやねくたいのいろわ、よくおぼえている。,m i N n a # f u k u y a n e k u t a i n o i r o w a # y o k u o b o e t e i r u
+157,d,d08,無事、脱出はできても、いつ島に戻れるのか、という不安は続く。,ぶじ、だっしゅつわできても、いつしまにもどれるのか、とゆうふあんわつずく。,b u j i # d a q sh u ts u w a d e k i t e m o # i ts u sh i m a n i m o d o r e r u n o k a # t o y u u f u a N w a ts u z u k u
+158,d,d09,昭和十二年ごろと比べ、最近の公務員の初任給は、千六百倍になっている。,しょーわじゅーにねんごろとくらべ、さいきんのこーむいんのしょにんきゅーわ、せんろっぴゃくばいになっている。,sh o: w a j u: n i n e N g o r o t o k u r a b e # s a i k i N n o k o: m u i N n o sh o n i N ky u: w a # s e N r o q py a k u b a i n i n a q t e i r u
+159,d,d10,留守中の郵便物を処理するだけで、優に半日はかかる。,るすちゅーのゆーびんぶつをしょりするだけで、ゆーにはんにちわかかる。,r u s u ch u: n o y u: b i N b u ts u o sh o r i s u r u d a k e d e # y u: n i h a N n i ch i w a k a k a r u
+160,d,d11,羊は、慌てて、列に戻り、再び、群れと一緒に進んでいく。,ひつじわ、あわてて、れつにもどり、ふたたび、むれといっしょにすすんでいく。,h i ts u j i w a # a w a t e t e # r e ts u n i m o d o r i # f u t a t a b i # m u r e t o i q sh o n i s u s u N d e i k u
+161,d,d12,やっぱり、一生懸命やれば、自然と結果はついてくる。,やっぱり、いっしょーけんめいやれば、しぜんとけっかわついてくる。,y a q p a r i # i q sh o: k e N m e i y a r e b a # sh i z e N t o k e q k a w a ts u i t e k u r u
+162,d,d13,四畳半のアパートの我が家には、三人ものお客さまがみえた。,よじょーはんのあぱーとのわがやにわ、さんにんものおきゃくさまがみえた。,y o j o: h a N n o a p a: t o n o w a g a y a n i w a # s a N n i N m o n o o ky a k u s a m a g a m i e t a
+163,d,d14,不満や、いらだちは、もっぱら、受験や、身のまわりに向けられている。,ふまんや、いらだちわ、もっぱら、じゅけんや、みのまわりにむけられている。,f u m a N y a # i r a d a ch i w a # m o q p a r a # j u k e N y a # m i n o m a w a r i n i m u k e r a r e t e i r u
+164,d,d15,竹の皮に、麦飯のおにぎりを包んで持参し、昼食は、これに、番茶だ。,たけのかわに、むぎめしのおにぎりをつつんでじさんし、ちゅーしょくわ、これに、ばんちゃだ。,t a k e n o k a w a n i # m u g i m e sh i n o o n i g i r i o ts u ts u N d e j i s a N sh i # ch u: sh o k u w a # k o r e n i # b a N ch a d a
+165,d,d16,午後は出勤して、航空問題や、漁業問題の仕事に取り組む。,ごごわしゅっきんして、こーくーもんだいや、ぎょぎょーもんだいのしごとにとりくむ。,g o g o w a sh u q k i N sh i t e # k o: k u: m o N d a i y a # gy o gy o: m o N d a i n o sh i g o t o n i t o r i k u m u
+166,d,d17,早めに朝食を済ませ、十時から、館員と夫人が集合し、記念撮影を行う。,はやめにちょーしょくをすませ、じゅーじから、かんいんとふじんがしゅーごーし、きねんさつえいをおこなう。,h a y a m e n i ch o: sh o k u o s u m a s e # j u: j i k a r a # k a N i N t o f u j i N g a sh u: g o: sh i # k i n e N s a ts u e i o o k o n a u
+167,d,d18,ぼくたちが泊まる、獅子口小屋へ着いたのは、二時半ごろだった。,ぼくたちがとまる、ししぐちごやえついたのわ、にじはんごろだった。,b o k u t a ch i g a t o m a r u # sh i sh i g u ch i g o y a e ts u i t a n o w a # n i j i h a N g o r o d a q t a
+168,d,d19,怒れば怒るほど、火に油を注ぐようなものだった。,おこればおこるほど、ひにあぶらおそそぐよーなものだった。,o k o r e b a o k o r u h o d o # h i n i a b u r a o s o s o g u y o: n a m o n o d a q t a
+169,d,d20,大半は、大手の流通業者をへて、書店へ流れるが、たちまち、返本となって姿を消す本が少なくない。,たいはんわ、おーてのりゅーつーぎょーしゃをへて、しょてんえながれるが、たちまち、へんぽんとなってすがたをけすほんがすくなくない。,t a i h a N w a # o: t e n o ry u: ts u: gy o: sh a o h e t e # sh o t e N e n a g a r e r u g a # t a ch i m a ch i # h e N p o N t o n a q t e s u g a t a o k e s u h o N g a s u k u n a k u n a i
+170,d,d21,人々は非難し、悩みながら、歩み寄っていく。,ひとびとわひなんし、なやみながら、あゆみよっていく。,h i t o b i t o w a h i n a N sh i # n a y a m i n a g a r a # a y u m i y o q t e i k u
+171,d,d22,十四年前、アル中患者になりすまして、ある精神病院に入院した、本社の記者は書いている。,じゅーよねんまえ、あるちゅーかんじゃになりすまして、あるせいしんびょーいんににゅーいんした、ほんしゃのきしゃわかいている。,j u: y o n e N m a e # a r u ch u: k a N j a n i n a r i s u m a sh i t e # a r u s e i sh i N by o: i N n i ny u: i N sh i t a # h o N sh a n o k i sh a w a k a i t e i r u
+172,d,d23,おかげで、目標は、依然遠いままだ。,おかげで、もくひょーわ、いぜんとーいままだ。,o k a g e d e # m o k u hy o: w a # i z e N t o: i m a m a d a
+173,d,d24,うれしそうに、自分でパンツをはいている。,うれしそーに、じぶんでぱんつをはいている。,u r e sh i s o: n i # j i b u N d e p a N ts u o h a i t e i r u
+174,d,d25,先日、久しぶりで、郷里へ帰ってきた。,せんじつ、ひさしぶりで、きょーりえかえってきた。,s e N j i ts u # h i s a sh i b u r i d e # ky o: r i e k a e q t e k i t a
+175,d,d26,この日一日で、日焼けをした腕などが、ひりひりする。,このひいちにちで、ひやけをしたうでなどが、ひりひりする。,k o n o h i i ch i n i ch i d e # h i y a k e o sh i t a u d e n a d o g a # h i r i h i r i s u r u
+176,d,d27,医院を出たあと、気づいて腕時計を見ると、ちょうど、五時半であった。,いいんをでたあと、きずいてうでどけいをみると、ちょーど、ごじはんであった。,i i N o d e t a a t o # k i z u i t e u d e d o k e i o m i r u t o # ch o: d o # g o j i h a N d e a q t a
+177,d,d28,こうした川の恵みを存分に受けながら、人類は、繁栄への道を、歩み始めたのだといっていい。,こーしたかわのめぐみをぞんぶんにうけながら、じんるいわ、はんえいえのみちを、あゆみはじめたのだといっていい。,k o: sh i t a k a w a n o m e g u m i o z o N b u N n i u k e n a g a r a # j i N r u i w a # h a N e i e n o m i ch i o # a y u m i h a j i m e t a n o d a t o i q t e i i
+178,d,d29,虚偽、不条理を許さないという勇気によってしか、我々は、人間らしい心を保持することができないのです。,きょぎ、ふじょーりをゆるさないとゆうゆーきによってしか、われわれわ、にんげんらしいこころをほじすることができないのです。,ky o g i # f u j o: r i o y u r u s a n a i t o y u u y u: k i n i y o q t e sh i k a # w a r e w a r e w a # n i N g e N r a sh i i k o k o r o o h o j i s u r u k o t o g a d e k i n a i n o d e s u
+179,d,d30,不思議そうな表情が、一瞬、疲れが抜けたような、柔らかい表情に変わった。,ふしぎそーなひょーじょーが、いっしゅん、つかれがぬけたよーな、やわらかいひょーじょーにかわった。,f u sh i g i s o: n a hy o: j o: g a # i q sh u N # ts u k a r e g a n u k e t a y o: n a # y a w a r a k a i hy o: j o: n i k a w a q t a
+180,d,d31,まるで、大空に両手を広げ、バンザイしたように伸びた枝が、ドームのように、上水路をおおっています。,まるで、おーぞらにりょーてをひろげ、ばんざいしたよーにのびたえだが、どーむのよーに、じょーすいろをおおっています。,m a r u d e # o: z o r a n i ry o: t e o h i r o g e # b a N z a i sh i t a y o: n i n o b i t a e d a g a # d o: m u n o y o: n i # j o: s u i r o o o o q t e i m a s u
+181,d,d32,われわれ、技術者は、最高の技術、最善の手を追求して、明け暮れしてきた。,われわれ、ぎじゅつしゃわ、さいこーのぎじゅつ、さいぜんのてをついきゅーして、あけくれしてきた。,w a r e w a r e # g i j u ts u sh a w a # s a i k o: n o g i j u ts u # s a i z e N n o t e o ts u i ky u: sh i t e # a k e k u r e sh i t e k i t a
+182,d,d33,管理され、保護されて、無駄を知らずに育った人間は、弱い。,かんりされ、ほごされて、むだをしらずにそだったにんげんわ、よわい。,k a N r i s a r e # h o g o s a r e t e # m u d a o sh i r a z u n i s o d a q t a n i N g e N w a # y o w a i
+183,d,d34,板敷きの上にひざまづいて、自分は、不浄な人間だと、懺悔するのです。,いたじきのうえにひざまずいて、じぶんわ、ふじょーなにんげんだと、ざんげするのです。,i t a j i k i n o u e n i h i z a m a z u i t e # j i b u N w a # f u j o: n a n i N g e N d a t o # z a N g e s u r u n o d e s u
+184,d,d35,横目でちらっと見れば、主人の立ち上がる気配がする。,よこめでちらっとみれば、しゅじんのたちあがるけはいがする。,y o k o m e d e ch i r a q t o m i r e b a # sh u j i N n o t a ch i a g a r u k e h a i g a s u r u
+185,d,d36,私たち夫婦は、軍の依頼で、中国人運転手の通訳をしながら、上海まで、逃避行の同伴をした。,わたしたちふーふわ、ぐんのいらいで、ちゅーごくじんうんてんしゅのつーやくをしながら、しゃんはいまで、とーひこーのどーはんをした。,w a t a sh i t a ch i f u: f u w a # g u N n o i r a i d e # ch u: g o k u j i N u N t e N sh u n o ts u: y a k u o sh i n a g a r a # sh a N h a i m a d e # t o: h i k o: n o d o: h a N o sh i t a
+186,d,d37,シャツもなく、ズボンもなく、もちろん古新聞もなければ、古雑誌もない。,しゃつもなく、ずぼんもなく、もちろんふるしんぶんもなければ、ふるざっしもない。,sh a ts u m o n a k u # z u b o N m o n a k u # m o ch i r o N f u r u sh i N b u N m o n a k e r e b a # f u r u z a q sh i m o n a i
+187,d,d38,遊びも、勉強も、マイペースで、帰るべき時間にはきちんと帰るという几帳面さもある。,あそびも、べんきょーも、まいぺーすで、かえるべきじかんにわきちんとかえるとゆうきちょーめんさもある。,a s o b i m o # b e N ky o: m o # m a i p e: s u d e # k a e r u b e k i j i k a N n i w a k i ch i N t o k a e r u t o y u u k i ch o: m e N s a m o a r u
+188,d,d39,時々、狭い敷地の罅の入った直線コースで、子供が、キャッチボールをやっている。,ときどき、せまいしきちのひびのはいったちょくせんこーすで、こどもが、きゃっちぼーるをやっている。,t o k i d o k i # s e m a i sh i k i ch i n o h i b i n o h a i q t a ch o k u s e N k o: s u d e # k o d o m o g a # ky a q ch i b o: r u o y a q t e i r u
+189,d,d40,首相になってからのほうが、ずっと、表情が柔和だった。,しゅしょーになってからのほーが、ずっと、ひょーじょーがにゅーわだった。,sh u sh o: n i n a q t e k a r a n o h o: g a # z u q t o # hy o: j o: g a ny u: w a d a q t a
+190,d,d41,俺は、コツコツとシングルを狙うよと言うが、もちろん本音ではなく、持ち前のパワーを発揮し始めてきた。,おれわ、こつこつとしんぐるをねらうよというが、もちろんほんねでわなく、もちまえのぱわーをはっきしはじめてきた。,o r e w a # k o ts u k o ts u t o sh i N g u r u o n e r a u y o t o i u g a # m o ch i r o N h o N n e d e w a n a k u # m o ch i m a e n o p a w a: o h a q k i sh i h a j i m e t e k i t a
+191,d,d42,予想外の事態に、電力会社も、ちょっぴり困惑気味だ。,よそーがいのじたいに、でんりょくがいしゃも、ちょっぴりこんわくぎみだ。,y o s o: g a i n o j i t a i n i # d e N ry o k u g a i sh a m o # ch o q p i r i k o N w a k u g i m i d a
+192,d,d43,レーザー光線を、レンズで拡散させ、撮影したい物体に当て、その反射光を、半透明なフィルムで受ける。,れーざーこーせんを、れんずでかくさんさせ、さつえいしたいぶったいにあて、そのはんしゃこーを、はんとーめいなふぃるむでうける。,r e: z a: k o: s e N o # r e N z u d e k a k u s a N s a s e # s a ts u e i sh i t a i b u q t a i n i a t e # s o n o h a N sh a k o: o # h a N t o: m e i n a f i r u m u d e u k e r u
+193,d,d44,中年以上は、おふくろの味を求め、若い人は、袋の味を求める。,ちゅーねんいじょーわ、おふくろのあじをもとめ、わかいひとわ、ふくろのあじをもとめる。,ch u: n e N i j o: w a # o f u k u r o n o a j i o m o t o m e # w a k a i h i t o w a # f u k u r o n o a j i o m o t o m e r u
+194,d,d45,ガラス扉を押して入ると、一瞬、首や肘から、汗の膜が剥ぎとられる。,がらすとびらをおしてはいると、いっしゅん、くびやひじから、あせのまくがはぎとられる。,g a r a s u t o b i r a o o sh i t e h a i r u t o # i q sh u N # k u b i y a h i j i k a r a # a s e n o m a k u g a h a g i t o r a r e r u
+195,d,d46,少年は、指をズボンでふくと、素直に、いそいそと立ち上がった。,しょーねんわ、ゆびをずぼんでふくと、すなおに、いそいそとたちあがった。,sh o: n e N w a # y u b i o z u b o N d e f u k u t o # s u n a o n i # i s o i s o t o t a ch i a g a q t a
+196,d,d47,頭上には、たえまなくヘリコプターの爆音が聞こえる。,ずじょーにわ、たえまなくへりこぷたーのばくおんがきこえる。,z u j o: n i w a # t a e m a n a k u h e r i k o p u t a: n o b a k u o N g a k i k o e r u
+197,d,d48,司祭が踏み絵をするということは、どんな拷問よりも辛い。,しさいがふみえをするとゆうことわ、どんなごーもんよりもつらい。,sh i s a i g a f u m i e o s u r u t o y u u k o t o w a # d o N n a g o: m o N y o r i m o ts u r a i
+198,d,d49,八王子地方と、文化人とを結びつけ、読みごたえのあるものを、十年余りも続けた。,はちおーじちほーと、ぶんかじんとをむすびつけ、よみごたえのあるものを、じゅーねんあまりもつずけた。,h a ch i o: j i ch i h o: t o # b u N k a j i N t o o m u s u b i ts u k e # y o m i g o t a e n o a r u m o n o o # j u: n e N a m a r i m o ts u z u k e t a
+199,d,d50,何気なく空を見上げていた青空に、ポッカリと、入道雲が、あちこちに浮かんで、見おろしていた。,なにげなくそらをみあげていたあおぞらに、ぽっかりと、にゅーどーぐもが、あちこちにうかんで、みおろしていた。,n a n i g e n a k u s o r a o m i a g e t e i t a a o z o r a n i # p o q k a r i t o # ny u: d o: g u m o g a # a ch i k o ch i n i u k a N d e # m i o r o sh i t e i t a
+200,e,e01,家に来た年賀状は、三百枚ほどで、丁度、出した分と同じぐらいだ。,いえにきたねんがじょーわ、さんびゃくまいほどで、ちょーど、だしたぶんとおなじぐらいだ。,i e n i k i t a n e N g a j o: w a # s a N by a k u m a i h o d o d e # ch o: d o # d a sh i t a b u N t o o n a j i g u r a i d a
+201,e,e02,苗木への愛情は、かえって深まっていくようだった。,なえぎえのあいじょーわ、かえってふかまっていくよーだった。,n a e g i e n o a i j o: w a # k a e q t e f u k a m a q t e i k u y o: d a q t a
+202,e,e03,秀麗な富士山も、一歩足を踏み入れれば、岩石の露出した、あらあらしい姿を現す。,しゅーれいなふじさんも、いっぽあしをふみいれれば、がんせきのろしゅつした、あらあらしいすがたをあらわす。,sh u: r e i n a f u j i s a N m o # i q p o a sh i o f u m i i r e r e b a # g a N s e k i n o r o sh u ts u sh i t a # a r a a r a sh i i s u g a t a o a r a w a s u
+203,e,e04,山の裾に休息している、憐れな漁村の屋根を見た。,やまのすそにきゅーそくしている、あわれなぎょそんのやねをみた。,y a m a n o s u s o n i ky u: s o k u sh i t e i r u # a w a r e n a gy o s o N n o y a n e o m i t a
+204,e,e05,あらゆる暴力手段を使って、相手に恐怖感を与える。,あらゆるぼーりょくしゅだんをつかって、あいてにきょーふかんをあたえる。,a r a y u r u b o: ry o k u sh u d a N o ts u k a q t e # a i t e n i ky o: f u k a N o a t a e r u
+205,e,e06,日本の女性を含め、彼女たちは、軍需物資なみに扱われた。,にっぽんのじょせいをふくめ、かのじょたちわ、ぐんじゅぶっしなみにあつかわれた。,n i q p o N n o j o s e i o f u k u m e # k a n o j o t a ch i w a # g u N j u b u q sh i n a m i n i a ts u k a w a r e t a
+206,e,e07,事故原因の究明は、急いでもらいたい。,じこげんいんのきゅーめいわ、いそいでもらいたい。,j i k o g e N i N n o ky u: m e i w a # i s o i d e m o r a i t a i
+207,e,e08,日本人は、引き揚げの苦しさばかり言い、中国人の傷を考えない。,にっぽんじんわ、ひきあげのくるしさばかりいい、ちゅーごくじんのきずをかんがえない。,n i q p o N j i N w a # h i k i a g e n o k u r u sh i s a b a k a r i i i # ch u: g o k u j i N n o k i z u o k a N g a e n a i
+208,e,e09,中国近代史をいろどった、英雄の時代が過ぎてゆく。,ちゅーごくきんだいしをいろどった、えいゆーのじだいがすぎてゆく。,ch u: g o k u k i N d a i sh i o i r o d o q t a # e i y u: n o j i d a i g a s u g i t e y u k u
+209,e,e10,これほど、躍動感がなくて、静かで、沈痛な胴上げというのも珍しい。,これほど、やくどーかんがなくて、しずかで、ちんつーなどーあげとゆうのもめずらしい。,k o r e h o d o # y a k u d o: k a N g a n a k u t e # sh i z u k a d e # ch i N ts u: n a d o: a g e t o y u u n o m o m e z u r a sh i i
+210,e,e11,われら凡人は、スキャンダルが嫌いではない。,われらぼんじんわ、すきゃんだるがきらいでわない。,w a r e r a b o N j i N w a # s u ky a N d a r u g a k i r a i d e w a n a i
+211,e,e12,まさに、かわら版的政治寸評である。,まさに、かわらばんてきせいじすんぴょーである。,m a s a n i # k a w a r a b a N t e k i s e i j i s u N py o: d e a r u
+212,e,e13,多様な青春模様が、見事に表現されている。,たよーなせいしゅんもよーが、みごとにひょーげんされている。,t a y o: n a s e i sh u N m o y o: g a # m i g o t o n i hy o: g e N s a r e t e i r u
+213,e,e14,父の腕は、ただ彼をぐんぐん引っ張っていくだけだった。,ちちのうでわ、ただかれをぐんぐんひっぱっていくだけだった。,ch i ch i n o u d e w a # t a d a k a r e o g u N g u N h i q p a q t e i k u d a k e d a q t a
+214,e,e15,うれしくて、夕食時に一人で、ワインで乾杯する。,うれしくて、ゆーしょくじにひとりで、わいんでかんぱいする。,u r e sh i k u t e # y u: sh o k u j i n i h i t o r i d e # w a i N d e k a N p a i s u r u
+215,e,e16,ジャムをたくさん入れた、ロシア紅茶がおいしかった。,じゃむをたくさんいれた、ろしあこーちゃがおいしかった。,j a m u o t a k u s a N i r e t a # r o sh i a k o: ch a g a o i sh i k a q t a
+216,e,e17,我慢しきれず、大声で怒鳴りつけ、その日の撮影は中止になってしまう。,がまんしきれず、おーごえでどなりつけ、そのひのさつえいわちゅーしになってしまう。,g a m a N sh i k i r e z u # o: g o e d e d o n a r i ts u k e # s o n o h i n o s a ts u e i w a ch u: sh i n i n a q t e sh i m a u
+217,e,e18,午後は、溜った書類に目を通して返す。,ごごわ、たまったしょるいにめをとーしてかえす。,g o g o w a # t a m a q t a sh o r u i n i m e o t o: sh i t e k a e s u
+218,e,e19,墓地とはまた別種の、神秘性が潜んでいるように思われた。,ぼちとわまたべっしゅの、しんぴせいがひそんでいるよーにおもわれた。,b o ch i t o w a m a t a b e q sh u n o # sh i N p i s e i g a h i s o N d e i r u y o: n i o m o w a r e t a
+219,e,e20,母の旅行好きは、近ごろ有名だが、その唯一の欠点は、船に弱いということであった。,ははのりょこーずきわ、ちかごろゆーめいだが、そのゆいいつのけってんわ、ふねによわいとゆうことであった。,h a h a n o ry o k o: z u k i w a # ch i k a g o r o y u: m e i d a g a # s o n o y u i i ts u n o k e q t e N w a # f u n e n i y o w a i t o y u u k o t o d e a q t a
+220,e,e21,すぐそばで、はあはあ弾ませている呼吸だけが聞こえてきた。,すぐそばで、はーはーはずませているこきゅーだけがきこえてきた。,s u g u s o b a d e # h a: h a: h a z u m a s e t e i r u k o ky u: d a k e g a k i k o e t e k i t a
+221,e,e22,露と霧で、ぐっしょり砂がぬれて、足跡がくっきりついている。,つゆときりで、ぐっしょりすながぬれて、あしあとがくっきりついている。,ts u y u t o k i r i d e # g u q sh o r i s u n a g a n u r e t e # a sh i a t o g a k u q k i r i ts u i t e i r u
+222,e,e23,今後、ほぼ全面的に、行政が怠慢になる恐れがある。,こんご、ほぼぜんめんてきに、ぎょーせいがたいまんになるおそれがある。,k o N g o # h o b o z e N m e N t e k i n i # gy o: s e i g a t a i m a N n i n a r u o s o r e g a a r u
+223,e,e24,細長いから、電気冷蔵庫で冷やすのにも、便利という。,ほそながいから、でんきれいぞーこでひやすのにも、べんりという。,h o s o n a g a i k a r a # d e N k i r e i z o: k o d e h i y a s u n o n i m o # b e N r i t o i u
+224,e,e25,自分の好きなジャズピアニストの演奏への、震えるような感動を綴る人もいた。,じぶんのすきなじゃずぴあにすとのえんそーえの、ふるえるよーなかんどーをつずるひともいた。,j i b u N n o s u k i n a j a z u p i a n i s u t o n o e N s o: e n o # f u r u e r u y o: n a k a N d o: o ts u z u r u h i t o m o i t a
+225,e,e26,暖房は、暑過ぎるくらいで、部屋を出るときに、毛布を掛けてやればいいと思った。,だんぼーわ、あつすぎるくらいで、へやをでるときに、もーふをかけてやればいいとおもった。,d a N b o: w a # a ts u s u g i r u k u r a i d e # h e y a o d e r u t o k i n i # m o: f u o k a k e t e y a r e b a i i t o o m o q t a
+226,e,e27,不思議なことに、自分の目の部分だけには寄せつけません。,ふしぎなことに、じぶんのめのぶぶんだけにわよせつけません。,f u sh i g i n a k o t o n i # j i b u N n o m e n o b u b u N d a k e n i w a y o s e ts u k e m a s e N
+227,e,e28,自己を顧みる、人間らしい態度である。,じこをかえりみる、にんげんらしいたいどである。,j i k o o k a e r i m i r u # n i N g e N r a sh i i t a i d o d e a r u
+228,e,e29,私は、編集員を、四年くらいはやったと思う。,わたしわ、へんしゅーいんを、よんねんくらいはやったとおもう。,w a t a sh i w a # h e N sh u: i N o # y o N n e N k u r a i h a y a q t a t o o m o u
+229,e,e30,むろんこれは、偶然の一致ということが大いにあろう。,むろんこれわ、ぐーぜんのいっちとゆうことがおーいにあろう。,m u r o N k o r e w a # g u: z e N n o i q ch i t o y u u k o t o g a o: i n i a r o u
+230,e,e31,ずいぶんの情熱と、エネルギーをもって勉強され、研究された。,ずいぶんのじょーねつと、えねるぎーをもってべんきょーされ、けんきゅーされた。,z u i b u N n o j o: n e ts u t o # e n e r u g i: o m o q t e b e N ky o: s a r e # k e N ky u: s a r e t a
+231,e,e32,制度が動かぬとなれば、やはり、不都合が出てくる。,せいどがうごかぬとなれば、やはり、ふつごーがでてくる。,s e i d o g a u g o k a n u t o n a r e b a # y a h a r i # f u ts u g o: g a d e t e k u r u
+232,e,e33,そっくりショーというテレビ番組を見たことがある。,そっくりしょーとゆうてれびばんぐみをみたことがある。,s o q k u r i sh o: t o y u u t e r e b i b a N g u m i o m i t a k o t o g a a r u
+233,e,e34,山の診療所で、最も注意しなければならぬのは、小児の病気であった。,やまのしんりょーじょで、もっともちゅーいしなければならぬのわ、しょーにのびょーきであった。,y a m a n o sh i N ry o: j o d e # m o q t o m o ch u: i sh i n a k e r e b a n a r a n u n o w a # sh o: n i n o by o: k i d e a q t a
+234,e,e35,一つは、教育というものの、重要さと、難しさです。,ひとつわ、きょーいくというものの、じゅーよーさと、むずかしさです。,h i t o ts u w a # ky o: i k u t o i u m o n o n o # j u: y o: s a t o # m u z u k a sh i s a d e s u
+235,e,e36,一つの技術を身につけるだけでも、大変な忍耐と、努力が必要です。,ひとつのぎじゅつをみにつけるだけでも、たいへんなにんたいと、どりょくがひつよーです。,h i t o ts u n o g i j u ts u o m i n i ts u k e r u d a k e d e m o # t a i h e N n a n i N t a i t o # d o ry o k u g a h i ts u y o: d e s u
+236,e,e37,その間、息子はというと、足を怪我し、夏休みを待って、手術を受け、ずっと入院中だった。,そのあいだ、むすこわというと、あしをけがし、なつやすみをまって、しゅじゅつをうけ、ずっとにゅーいんちゅーだった。,s o n o a i d a # m u s u k o w a t o i u t o # a sh i o k e g a sh i # n a ts u y a s u m i o m a q t e # sh u j u ts u o u k e # z u q t o ny u: i N ch u: d a q t a
+237,e,e38,こちらの準備もございますので、早急の御返事を、お待ちいたしております。,こちらのじゅんびもございますので、そーきゅーのおへんじを、おまちいたしております。,k o ch i r a n o j u N b i m o g o z a i m a s u n o d e # s o: ky u: n o o h e N j i o # o m a ch i i t a sh i t e o r i m a s u
+238,e,e39,夜は眠れないぐらい、かゆくて苦しい。,よるわねむれないぐらい、かゆくてくるしい。,y o r u w a n e m u r e n a i g u r a i # k a y u k u t e k u r u sh i i
+239,e,e40,フィリピンで、日本人の血を引き継ぐものは、学校でも、職場でも、不利になることが多かった。,ふぃりぴんで、にっぽんじんのちをひきつぐものわ、がっこーでも、しょくばでも、ふりになることがおーかった。,f i r i p i N d e # n i q p o N j i N n o ch i o h i k i ts u g u m o n o w a # g a q k o: d e m o # sh o k u b a d e m o # f u r i n i n a r u k o t o g a o: k a q t a
+240,e,e41,海山の、往復割引きっぷの大半は、夏休みに向けて、売り出される。,うみやまの、おーふくわりびききっぷのたいはんわ、なつやすみにむけて、うりだされる。,u m i y a m a n o # o: f u k u w a r i b i k i k i q p u n o t a i h a N w a # n a ts u y a s u m i n i m u k e t e # u r i d a s a r e r u
+241,e,e42,半分近い、六業者が、密輸品とみられる、鯨肉の売買を持ちかけられた。,はんぶんちかい、ろくぎょーしゃが、みつゆひんとみられる、げいにくのばいばいをもちかけられた。,h a N b u N ch i k a i # r o k u gy o: sh a g a # m i ts u y u h i N t o m i r a r e r u # g e i n i k u n o b a i b a i o m o ch i k a k e r a r e t a
+242,e,e43,飲み屋のおやじ、旅館の主人、医者をはじめ、交際のある人にきいてまわったら、みんな、私より収入が多いはずなのに、税金は安い。,のみやのおやじ、りょかんのしゅじん、いしゃをはじめ、こーさいのあるひとにきいてまわったら、みんな、わたしよりしゅーにゅーがおーいはずなのに、ぜいきんわやすい。,n o m i y a n o o y a j i # ry o k a N n o sh u j i N # i sh a o h a j i m e # k o: s a i n o a r u h i t o n i k i i t e m a w a q t a r a # m i N n a # w a t a sh i y o r i sh u: ny u: g a o: i h a z u n a n o n i # z e i k i N w a y a s u i
+243,e,e44,母は、怒って、豆を地べたに投げつけた。,ははわ、おこって、まめをじべたになげつけた。,h a h a w a # o k o q t e # m a m e o j i b e t a n i n a g e ts u k e t a
+244,e,e45,今でも、横笛はもちろん、尺八のような縦笛も、竹がほとんどだ。,いまでも、よこぶえわもちろん、しゃくはちのよーなたてぶえも、たけがほとんどだ。,i m a d e m o # y o k o b u e w a m o ch i r o N # sh a k u h a ch i n o y o: n a t a t e b u e m o # t a k e g a h o t o N d o d a
+245,e,e46,祖母は、おおむね機嫌よく、サイコロをころがしている。,そぼわ、おーむねきげんよく、さいころをころがしている。,s o b o w a # o: m u n e k i g e N y o k u # s a i k o r o o k o r o g a sh i t e i r u
+246,e,e47,非行をはたらく少年少女がどんどん増えていますが、ちっとも、不思議ではありません。,ひこーをはたらくしょーねんしょーじょがどんどんふえていますが、ちっとも、ふしぎでわありません。,h i k o: o h a t a r a k u sh o: n e N sh o: j o g a d o N d o N f u e t e i m a s u g a # ch i q t o m o # f u sh i g i d e w a a r i m a s e N
+247,e,e48,汚職事件、全て、四十二三歳から、四十六七歳まで、課長補佐、課長、部次長といったあたりが、間違いをおこす。,おしょくじけん、すべて、よんじゅーにさんさいから、よんじゅーろくしちさいまで、かちょーほさ、かちょー、ぶじちょーといったあたりが、まちがいをおこす。,o sh o k u j i k e N # s u b e t e # y o N j u: n i s a N s a i k a r a # y o N j u: r o k u sh i ch i s a i m a d e # k a ch o: h o s a # k a ch o: # b u j i ch o: t o i q t a a t a r i g a # m a ch i g a i o o k o s u
+248,e,e49,あんな物は、新聞や雑誌の白いスペースを埋めるための砂利だ。,あんなものわ、しんぶんやざっしのしろいすぺーすをうめるためのじゃりだ。,a N n a m o n o w a # sh i N b u N y a z a q sh i n o sh i r o i s u p e: s u o u m e r u t a m e n o j a r i d a
+249,e,e50,夜空を、赤い灯が点滅しながら旋回し、十分おきに、照明弾がゆっくりと落ちてくる。,よぞらを、あかいあかりがてんめつしながらせんかいし、じゅっぷんおきに、しょーめいだんがゆっくりとおちてくる。,y o z o r a o # a k a i a k a r i g a t e N m e ts u sh i n a g a r a s e N k a i sh i # j u q p u N o k i n i # sh o: m e i d a N g a y u q k u r i t o o ch i t e k u r u
+250,f,f01,ウィンドサーフィンに興じる若者達を眺めて、砂浜に寝ころがっていた。,うぃんどさーふぃんにきょーじるわかものたちをながめて、すなはまにねころがっていた。,w i N d o s a: f i N n i ky o: j i r u w a k a m o n o t a ch i o n a g a m e t e # s u n a h a m a n i n e k o r o g a q t e i t a
+251,f,f02,夕食は、一行がそろって、刺身と、牛肉の鉄板焼きをつつく。,ゆーしょくわ、いっこーがそろって、さしみと、ぎゅーにくのてっぱんやきをつつく。,y u: sh o k u w a # i q k o: g a s o r o q t e # s a sh i m i t o # gy u: n i k u n o t e q p a N y a k i o ts u ts u k u
+252,f,f03,お偉方がぞくぞくと登場し、恐縮する。,おえらがたがぞくぞくととーじょーし、きょーしゅくする。,o e r a g a t a g a z o k u z o k u t o t o: j o: sh i # ky o: sh u k u s u r u
+253,f,f04,歴史家は、まるで、純情無垢な調子で、物語を始める。,れきしかわ、まるで、じゅんじょーむくなちょーしで、ものがたりをはじめる。,r e k i sh i k a w a # m a r u d e # j u N j o: m u k u n a ch o: sh i d e # m o n o g a t a r i o h a j i m e r u
+254,f,f05,心身障害者の保護と、回復訓練のための、援護施設を増設する。,しんしんしょーがいしゃのほごと、かいふくくんれんのための、えんごしせつをぞーせつする。,sh i N sh i N sh o: g a i sh a n o h o g o t o # k a i f u k u k u N r e N n o t a m e n o # e N g o sh i s e ts u o z o: s e ts u s u r u
+255,f,f06,舗装という文明の象徴は、しばしば、逆流現象を起こして、人間に害をもたらす。,ほそーとゆうぶんめいのしょーちょーわ、しばしば、ぎゃくりゅーげんしょーをおこして、にんげんにがいをもたらす。,h o s o: t o y u u b u N m e i n o sh o: ch o: w a # sh i b a sh i b a # gy a k u ry u: g e N sh o: o o k o sh i t e # n i N g e N n i g a i o m o t a r a s u
+256,f,f07,人間の心の弱さを利用し、都合のいい証拠を、次々につくりあげてゆく。,にんげんのこころのよわさをりよーし、つごーのいいしょーこを、つぎつぎにつくりあげてゆく。,n i N g e N n o k o k o r o n o y o w a s a o r i y o: sh i # ts u g o: n o i i sh o: k o o # ts u g i ts u g i n i ts u k u r i a g e t e y u k u
+257,f,f08,初めからそうだったわけではなく、手術当時は、落ち込み、おびえて、眠れぬ夜もあった。,はじめからそーだったわけでわなく、しゅじゅつとーじわ、おちこみ、おびえて、ねむれぬよるもあった。,h a j i m e k a r a s o: d a q t a w a k e d e w a n a k u # sh u j u ts u t o: j i w a # o ch i k o m i # o b i e t e # n e m u r e n u y o r u m o a q t a
+258,f,f09,日本の球場では、よく、口汚いののしり声が、耳に入る。,にっぽんのきゅーじょーでわ、よく、くちぎたないののしりごえが、みみにはいる。,n i q p o N n o ky u: j o: d e w a # y o k u # k u ch i g i t a n a i n o n o sh i r i g o e g a # m i m i n i h a i r u
+259,f,f10,小さい雪は早く、大きい雪は、ふわふわと落ちてくる。,ちーさいゆきわはやく、おーきいゆきわ、ふわふわとおちてくる。,ch i: s a i y u k i w a h a y a k u # o: k i i y u k i w a # f u w a f u w a t o o ch i t e k u r u
+260,f,f11,暖房器具の時期に、冷房器具を並べるようなデパートは、たちまちつぶれる。,だんぼーきぐのじきに、れいぼーきぐをならべるよーなでぱーとわ、たちまちつぶれる。,d a N b o: k i g u n o j i k i n i # r e i b o: k i g u o n a r a b e r u y o: n a d e p a: t o w a # t a ch i m a ch i ts u b u r e r u
+261,f,f12,相手チームもスマートだし、何よりも、球場の雰囲気が抜群である。,あいてちーむもすまーとだし、なによりも、きゅーじょーのふんいきがばつぐんである。,a i t e ch i: m u m o s u m a: t o d a sh i # n a n i y o r i m o # ky u: j o: n o f u N i k i g a b a ts u g u N d e a r u
+262,f,f13,奈良の平城宮跡から、十数年前、大量の木片が、発掘された。,ならのへいじょうきょうあとから、じゅーすーねんまえ、たいりょーのもくへんが、はっくつされた。,n a r a n o h e i j o u ky o u a t o k a r a # j u: s u: n e N m a e # t a i ry o: n o m o k u h e N g a # h a q k u ts u s a r e t a
+263,f,f14,気象庁がこの呼称を発表したのは、地震発生後、四時間あまりたってからだった。,きしょーちょーがこのこしょーをはっぴょーしたのわ、じしんはっせいご、よんじかんあまりたってからだった。,k i sh o: ch o: g a k o n o k o sh o: o h a q py o: sh i t a n o w a # j i sh i N h a q s e i g o # y o N j i k a N a m a r i t a q t e k a r a d a q t a
+264,f,f15,スクールで得たのは、一生ぬぐえない恐怖感と、人への不信感だけだ。,すくーるでえたのわ、いっしょーぬぐえないきょーふかんと、ひとえのふしんかんだけだ。,s u k u: r u d e e t a n o w a # i q sh o: n u g u e n a i ky o: f u k a N t o # h i t o e n o f u sh i N k a N d a k e d a
+265,f,f16,かん詰めは、やや細めの二本のまきを使って引きあげた。,かんずめわ、ややほそめのにほんのまきをつかってひきあげた。,k a N z u m e w a # y a y a h o s o m e n o n i h o N n o m a k i o ts u k a q t e h i k i a g e t a
+266,f,f17,真っ昼間なのに、キャンプの外れの電柱に、電球がともっていた。,まっぴるまなのに、きゃんぷのはずれのでんちゅーに、でんきゅーがともっていた。,m a q p i r u m a n a n o n i # ky a N p u n o h a z u r e n o d e N ch u: n i # d e N ky u: g a t o m o q t e i t a
+267,f,f18,この意見に、宇宙人たちは、パチパチと、それぞれすべての手で拍手して賛成した。,このいけんに、うちゅーじんたちわ、ぱちぱちと、それぞれすべてのてではくしゅしてさんせいした。,k o n o i k e N n i # u ch u: j i N t a ch i w a # p a ch i p a ch i t o # s o r e z o r e s u b e t e n o t e d e h a k u sh u sh i t e s a N s e i sh i t a
+268,f,f19,横浜市は、最近、電気自動車で、ごみを収集するテストを始めた。,よこはましわ、さいきん、でんきじどーしゃで、ごみをしゅーしゅーするてすとをはじめた。,y o k o h a m a sh i w a # s a i k i N # d e N k i j i d o: sh a d e # g o m i o sh u: sh u: s u r u t e s u t o o h a j i m e t a
+269,f,f20,人工衛星から見れば、湖や沼も、こぼれた水だ。,じんこーえいせいからみれば、みずうみやぬまも、こぼれたみずだ。,j i N k o: e i s e i k a r a m i r e b a # m i z u u m i y a n u m a m o # k o b o r e t a m i z u d a
+270,f,f21,今では、赤子のように、無欲で、愛らしい表情をする父に、胸ふさがる思いがする。,いまでわ、あかごのよーに、むよくで、あいらしいひょーじょーをするちちに、むねふさがるおもいがする。,i m a d e w a # a k a g o n o y o: n i # m u y o k u d e # a i r a sh i i hy o: j o: o s u r u ch i ch i n i # m u n e f u s a g a r u o m o i g a s u r u
+271,f,f22,娘は、妙な関心のつぶやきを残し、部屋へ入っていった。,むすめわ、みょーなかんしんのつぶやきをのこし、へやえはいっていった。,m u s u m e w a # my o: n a k a N sh i N n o ts u b u y a k i o n o k o sh i # h e y a e h a i q t e i q t a
+272,f,f23,昼から夜まで、およそ子供の考えつく、ありとあらゆる遊びをやった。,ひるからよるまで、およそこどものかんがえつく、ありとあらゆるあそびをやった。,h i r u k a r a y o r u m a d e # o y o s o k o d o m o n o k a N g a e ts u k u # a r i t o a r a y u r u a s o b i o y a q t a
+273,f,f24,わずかの間だが、ズボンの裾をまくって、浅い波打ち際の水中を歩く。,わずかのあいだだが、ずぼんのすそをまくって、あさいなみうちぎわのすいちゅーをあるく。,w a z u k a n o a i d a d a g a # z u b o N n o s u s o o m a k u q t e # a s a i n a m i u ch i g i w a n o s u i ch u: o a r u k u
+274,f,f25,無邪気な老夫人というのが、いい感じだった。,むじゃきなろーふじんとゆうのが、いいかんじだった。,m u j a k i n a r o: f u j i N t o y u u n o g a # i i k a N j i d a q t a
+275,f,f26,それから何ヶ月もたいへんな日々が続いた。,それからなんかげつもたいへんなひびがつずいた。,s o r e k a r a n a N k a g e ts u m o t a i h e N n a h i b i g a ts u z u i t a
+276,f,f27,幼児とおばあさんの面影がだぶって、ゆらゆらと遠ざかっていく。,よーじとおばーさんのおもかげがだぶって、ゆらゆらととーざかっていく。,y o: j i t o o b a: s a N n o o m o k a g e g a d a b u q t e # y u r a y u r a t o t o: z a k a q t e i k u
+277,f,f28,人間の心底に潜む、自分本位の醜さを、遠慮なくさらけ出します。,にんげんのしんていにひそむ、じぶんほんいのみにくさを、えんりょなくさらけだします。,n i N g e N n o sh i N t e i n i h i s o m u # j i b u N h o N i n o m i n i k u s a o # e N ry o n a k u s a r a k e d a sh i m a s u
+278,f,f29,それで窓をあけると、火傷をしそうな熱風が吹きこんでくる。,それでまどをあけると、やけどをしそーなねっぷーがふきこんでくる。,s o r e d e m a d o o a k e r u t o # y a k e d o o sh i s o: n a n e q p u: g a f u k i k o N d e k u r u
+279,f,f30,色白で、透けるような肌で、やや薄い色の瞳であった。,いろじろで、すけるよーなはだで、ややうすいいろのひとみであった。,i r o j i r o d e # s u k e r u y o: n a h a d a d e # y a y a u s u i i r o n o h i t o m i d e a q t a
+280,f,f31,野球の後のビールぐらい、うまいものはない。,やきゅーのあとのびーるぐらい、うまいものわない。,y a ky u: n o a t o n o b i: r u g u r a i # u m a i m o n o w a n a i
+281,f,f32,無論、神話は神話でよいのであって、それを排撃したりする必要はない。,むろん、しんわわしんわでよいのであって、それをはいげきしたりするひつよーわない。,m u r o N # sh i N w a w a sh i N w a d e y o i n o d e a q t e # s o r e o h a i g e k i sh i t a r i s u r u h i ts u y o: w a n a i
+282,f,f33,私が一番古い友達というので、碑文に、一筆すすめられた。,わたしがいちばんふるいともだちというので、ひぶんに、いっぴつすすめられた。,w a t a sh i g a i ch i b a N f u r u i t o m o d a ch i t o i u n o d e # h i b u N n i # i q p i ts u s u s u m e r a r e t a
+283,f,f34,どこへ行っても、彼の周囲には、自然にファンが生まれた。,どこえいっても、かれのしゅーいにわ、しぜんにふぁんがうまれた。,d o k o e i q t e m o # k a r e n o sh u: i n i w a # sh i z e N n i f a N g a u m a r e t a
+284,f,f35,いま人間に必要なのは、自分さえよければいい、という、欲望や、狭い心ではありません。,いまにんげんにひつよーなのわ、じぶんさえよければいい、とゆう、よくぼーや、せまいこころでわありません。,i m a n i N g e N n i h i ts u y o: n a n o w a # j i b u N s a e y o k e r e b a i i # t o y u u # y o k u b o: y a # s e m a i k o k o r o d e w a a r i m a s e N
+285,f,f36,主人は、それを黙って受け取って、出勤して行った。,しゅじんわ、それをだまってうけとって、しゅっきんしていった。,sh u j i N w a # s o r e o d a m a q t e u k e t o q t e # sh u q k i N sh i t e i q t a
+286,f,f37,結婚以来三年半ぶりの東京も、旧友とのお酒も、夜行列車も、駅で寝て、朝を待つのも久しぶりだ。,けっこんいらいさんねんはんぶりのとーきょーも、きゅーゆーとのおさけも、やこーれっしゃも、えきでねて、あさをまつのもひさしぶりだ。,k e q k o N i r a i s a N n e N h a N b u r i n o t o: ky o: m o # ky u: y u: t o n o o s a k e m o # y a k o: r e q sh a m o # e k i d e n e t e # a s a o m a ts u n o m o h i s a sh i b u r i d a
+287,f,f38,うちの中学は弁当制で、持って行けない場合は、五十円の学校販売のパンを買う。,うちのちゅーがくわべんとーせいで、もっていけないばあいわ、ごじゅーえんのがっこーはんばいのぱんをかう。,u ch i n o ch u: g a k u w a b e N t o: s e i d e # m o q t e i k e n a i b a a i w a # g o j u: e N n o g a q k o: h a N b a i n o p a N o k a u
+288,f,f39,不況で、中小企業がどんどん倒れるので、競争相手が多くなった。,ふきょーで、ちゅーしょーきぎょーがどんどんたおれるので、きょーそーあいてがおーくなった。,f u ky o: d e # ch u: sh o: k i gy o: g a d o N d o N t a o r e r u n o d e # ky o: s o: a i t e g a o: k u n a q t a
+289,f,f40,このプロジェクトの入札者の中では、弊社が最もふさわしい資格を有していると、自負いたしております。,このぷろじぇくとのにゅーさつしゃのなかでわ、へいしゃがもっともふさわしいしかくをゆーしていると、じふいたしております。,k o n o p u r o j e k u t o n o ny u: s a ts u sh a n o n a k a d e w a # h e i sh a g a m o q t o m o f u s a w a sh i i sh i k a k u o y u: sh i t e i r u t o # j i f u i t a sh i t e o r i m a s u
+290,f,f41,御存知の通り、不良クラッチに関する補償は、製造側に原因がある場合のみに限られています。,ごぞんじのとーり、ふりょーくらっちにかんするほしょーわ、せいぞーがわにげんいんがあるばあいのみにかぎられています。,g o z o N j i n o t o: r i # f u ry o: k u r a q ch i n i k a N s u r u h o sh o: w a # s e i z o: g a w a n i g e N i N g a a r u b a a i n o m i n i k a g i r a r e t e i m a s u
+291,f,f42,固定型は、今後、金利が引き上げられても、現行水準のままというメリットがある。,こていがたわ、こんご、きんりがひきあげられても、げんこーすいじゅんのままとゆうめりっとがある。,k o t e i g a t a w a # k o N g o # k i N r i g a h i k i a g e r a r e t e m o # g e N k o: s u i j u N n o m a m a t o y u u m e r i q t o g a a r u
+292,f,f43,円高ショックを少しでも和らげようと、自動車、電機などの機械産業全般に広がった。,えんだかしょっくをすこしでもやわらげようと、じどーしゃ、でんきなどのきかいさんぎょーぜんぱんにひろがった。,e N d a k a sh o q k u o s u k o sh i d e m o y a w a r a g e y o u t o # j i d o: sh a # d e N k i n a d o n o k i k a i s a N gy o: z e N p a N n i h i r o g a q t a
+293,f,f44,一方で、日本と米国の金融機関のシティ進出は目ざましい。,いっぽーで、にっぽんとべいこくのきんゆーきかんのしてぃしんしゅつわめざましい。,i q p o: d e # n i q p o N t o b e i k o k u n o k i N y u: k i k a N n o sh i t i sh i N sh u ts u w a m e z a m a sh i i
+294,f,f45,航空事故を、限りなくゼロに近づけるには、それほど、なり振りかまわぬ努力がいる。,こーくーじこを、かぎりなくぜろにちかずけるにわ、それほど、なりふりかまわぬどりょくがいる。,k o: k u: j i k o o # k a g i r i n a k u z e r o n i ch i k a z u k e r u n i w a # s o r e h o d o # n a r i f u r i k a m a w a n u d o ry o k u g a i r u
+295,f,f46,水夫たちが大声でわめくと、原住民は、互いに顔を見合わせ、手を振って答えた。,すいふたちがおーごえでわめくと、げんじゅーみんわ、たがいにかおをみあわせ、てをふってこたえた。,s u i f u t a ch i g a o: g o e d e w a m e k u t o # g e N j u: m i N w a # t a g a i n i k a o o m i a w a s e # t e o f u q t e k o t a e t a
+296,f,f47,お化けはお化けでも、目もなければ鼻もない、ノッペラボウの一種である。,おばけわおばけでも、めもなければはなもない、のっぺらぼーのいっしゅである。,o b a k e w a o b a k e d e m o # m e m o n a k e r e b a h a n a m o n a i # n o q p e r a b o: n o i q sh u d e a r u
+297,f,f48,たたんである半纏を広げれば、あちこちにつぎはぎがあり、肩口にできたほころびなんか、去年のままになっている。,たたんであるはんてんをひろげれば、あちこちにつぎはぎがあり、かたぐちにできたほころびなんか、きょねんのままになっている。,t a t a N d e a r u h a N t e N o h i r o g e r e b a # a ch i k o ch i n i ts u g i h a g i g a a r i # k a t a g u ch i n i d e k i t a h o k o r o b i n a N k a # ky o n e N n o m a m a n i n a q t e i r u
+298,f,f49,さすが横着な私も、我慢しきれず、胃腸の専門病院へ入院した。,さすがおーちゃくなわたしも、がまんしきれず、いちょーのせんもんびょーいんえにゅーいんした。,s a s u g a o: ch a k u n a w a t a sh i m o # g a m a N sh i k i r e z u # i ch o: n o s e N m o N by o: i N e ny u: i N sh i t a
+299,f,f50,長雨がようやく晴れ上がると、山の襞の一つ一つが、鮮やかに見えるほど、間近に、山が見える。,ながあめがよーやくはれあがると、やまのひだのひとつひとつが、あざやかにみえるほど、まじかに、やまがみえる。,n a g a a m e g a y o: y a k u h a r e a g a r u t o # y a m a n o h i d a n o h i t o ts u h i t o ts u g a # a z a y a k a n i m i e r u h o d o # m a j i k a n i # y a m a g a m i e r u
+300,g,g01,朝の光線を逆行気味に受けて、ススキが、美しく光る。,あさのこーせんをぎゃっこーぎみにうけて、すすきが、うつくしくひかる。,a s a n o k o: s e N o gy a q k o: g i m i n i u k e t e # s u s u k i g a # u ts u k u sh i k u h i k a r u
+301,g,g02,私がふとつぶやくと、父は、大きく首をふった。,わたしがふとつぶやくと、ちちわ、おーきくくびをふった。,w a t a sh i g a f u t o ts u b u y a k u t o # ch i ch i w a # o: k i k u k u b i o f u q t a
+302,g,g03,お金を入れ、ボタンを押すと、切符が出てくる。,おかねをいれ、ぼたんをおすと、きっぷがでてくる。,o k a n e o i r e # b o t a N o o s u t o # k i q p u g a d e t e k u r u
+303,g,g04,一般論でいえば、援助する側は、援助される側の屈折した心理を見落としがちである。,いっぱんろんでいえば、えんじょするがわわ、えんじょされるがわのくっせつしたしんりをみおとしがちである。,i q p a N r o N d e i e b a # e N j o s u r u g a w a w a # e N j o s a r e r u g a w a n o k u q s e ts u sh i t a sh i N r i o m i o t o sh i g a ch i d e a r u
+304,g,g05,手帳に走り書きした家族への遺書は、読む者の心を、深く揺り動かす。,てちょーにはしりがきしたかぞくえのいしょわ、よむもののこころを、ふかくゆりうごかす。,t e ch o: n i h a sh i r i g a k i sh i t a k a z o k u e n o i sh o w a # y o m u m o n o n o k o k o r o o # f u k a k u y u r i u g o k a s u
+305,g,g06,その結果、雨が降れば、大量の表土、赤土、化学肥料、農薬が、海に流れだす。,そのけっか、あめがふれば、たいりょーのひょーど、あかつち、かがくひりょー、のーやくが、うみにながれだす。,s o n o k e q k a # a m e g a f u r e b a # t a i ry o: n o hy o: d o # a k a ts u ch i # k a g a k u h i ry o: # n o: y a k u g a # u m i n i n a g a r e d a s u
+306,g,g07,筆者の知人に、サンタのおじさんがいる。,ひっしゃのちじんに、さんたのおじさんがいる。,h i q sh a n o ch i j i N n i # s a N t a n o o j i s a N g a i r u
+307,g,g08,降るような星空で、その星空を流れるように行く雲が美しい。,ふるよーなほしぞらで、そのほしぞらをながれるよーにいくくもがうつくしい。,f u r u y o: n a h o sh i z o r a d e # s o n o h o sh i z o r a o n a g a r e r u y o: n i i k u k u m o g a u ts u k u sh i i
+308,g,g09,傷の上を、手ぬぐいで冷やされると、ずいぶんしみたけれども、周作は我慢をした。,きずのうえを、てぬぐいでひやされると、ずいぶんしみたけれども、しゅーさくわがまんをした。,k i z u n o u e o # t e n u g u i d e h i y a s a r e r u t o # z u i b u N sh i m i t a k e r e d o m o # sh u: s a k u w a g a m a N o sh i t a
+309,g,g10,取っ組み合いは、夕方まで続いた。,とっくみあいわ、ゆーがたまでつずいた。,t o q k u m i a i w a # y u: g a t a m a d e ts u z u i t a
+310,g,g11,汚れた窓から、雨にぬれた街が見える。,よごれたまどから、あめにぬれたまちがみえる。,y o g o r e t a m a d o k a r a # a m e n i n u r e t a m a ch i g a m i e r u
+311,g,g12,駐車違反が減少し、交通事故が減少すれば、一気に吹きとぶことだろう。,ちゅーしゃいはんがげんしょーし、こーつーじこがげんしょーすれば、いっきにふきとぶことだろう。,ch u: sh a i h a N g a g e N sh o: sh i # k o: ts u: j i k o g a g e N sh o: s u r e b a # i q k i n i f u k i t o b u k o t o d a r o u
+312,g,g13,テニスをする元気のある人が、ちょっぴり妬ましい。,てにすをするげんきのあるひとが、ちょっぴりねたましい。,t e n i s u o s u r u g e N k i n o a r u h i t o g a # ch o q p i r i n e t a m a sh i i
+313,g,g14,今日も勝ってやるぞという気合が、徐々に入っていった。,きょーもかってやるぞとゆうきあいが、じょじょにはいっていった。,ky o: m o k a q t e y a r u z o t o y u u k i a i g a # j o j o n i h a i q t e i q t a
+314,g,g15,半年、一年とつづくと、自分から願い出て、病院を移ることがあるという。,はんとし、いちねんとつずくと、じぶんからねがいでて、びょーいんをうつることがあるという。,h a N t o sh i # i ch i n e N t o ts u z u k u t o # j i b u N k a r a n e g a i d e t e # by o: i N o u ts u r u k o t o g a a r u t o i u
+315,g,g16,裏返せば、それだけ、事件を重大視している証拠である。,うらがえせば、それだけ、じけんをじゅーだいししているしょーこである。,u r a g a e s e b a # s o r e d a k e # j i k e N o j u: d a i sh i sh i t e i r u sh o: k o d e a r u
+316,g,g17,セルフサービスの夕食と、余興もあって、賑やかに談笑し、解散は、夜更けとなった。,せるふさーびすのゆーしょくと、よきょーもあって、にぎやかにだんしょーし、かいさんわ、よふけとなった。,s e r u f u s a: b i s u n o y u: sh o k u t o # y o ky o: m o a q t e # n i g i y a k a n i d a N sh o: sh i # k a i s a N w a # y o f u k e t o n a q t a
+317,g,g18,日本人は、決して、ユーモアと無縁な人種ではなかった。,にっぽんじんわ、けっして、ゆーもあとむえんなじんしゅでわなかった。,n i q p o N j i N w a # k e q sh i t e # y u: m o a t o m u e N n a j i N sh u d e w a n a k a q t a
+318,g,g19,おやじは頑固だけれども、そんなえこひいきはせぬ男だ。,おやじわがんこだけれども、そんなえこひーきわせぬおとこだ。,o y a j i w a g a N k o d a k e r e d o m o # s o N n a e k o h i: k i w a s e n u o t o k o d a
+319,g,g20,少年はしゃべり終わると、まゆをしかめて口をつぐんでしまった。,しょーねんわしゃべりおわると、まゆをしかめてくちをつぐんでしまった。,sh o: n e N w a sh a b e r i o w a r u t o # m a y u o sh i k a m e t e k u ch i o ts u g u N d e sh i m a q t a
+320,g,g21,私は、いろいろの弁護を、自分の胸でこしらえてみました。,わたしわ、いろいろのべんごを、じぶんのむねでこしらえてみました。,w a t a sh i w a # i r o i r o n o b e N g o o # j i b u N n o m u n e d e k o sh i r a e t e m i m a sh i t a
+321,g,g22,私の指には、宝石の指輪は、もうはめられません。,わたしのゆびにわ、ほーせきのゆびわわ、もーはめられません。,w a t a sh i n o y u b i n i w a # h o: s e k i n o y u b i w a w a # m o: h a m e r a r e m a s e N
+322,g,g23,賢明な為政者は、わざわざ紛糾のタネはつくらないものだ。,けんめいないせいしゃわ、わざわざふんきゅーのたねわつくらないものだ。,k e N m e i n a i s e i sh a w a # w a z a w a z a f u N ky u: n o t a n e w a ts u k u r a n a i m o n o d a
+323,g,g24,涙をポロポロ流して辞表を書いたが、慰留された。,なみだをぽろぽろながしてじひょーをかいたが、いりゅーされた。,n a m i d a o p o r o p o r o n a g a sh i t e j i hy o: o k a i t a g a # i ry u: s a r e t a
+324,g,g25,保育所へ、末っ子を迎えにいった帰り、病院へも寄ったので、すっかり遅くなってしまった。,ほいくしょえ、すえっこをむかえにいったかえり、びょーいんえもよったので、すっかりおそくなってしまった。,h o i k u sh o e # s u e q k o o m u k a e n i i q t a k a e r i # by o: i N e m o y o q t a n o d e # s u q k a r i o s o k u n a q t e sh i m a q t a
+325,g,g26,普段は、泥にまみれたもんぺ姿の母が、薄化粧して、水色のワンピースを着て来た。,ふだんわ、どろにまみれたもんぺすがたのははが、うすげしょーして、みずいろのわんぴーすをきてきた。,f u d a N w a # d o r o n i m a m i r e t a m o N p e s u g a t a n o h a h a g a # u s u g e sh o: sh i t e # m i z u i r o n o w a N p i: s u o k i t e k i t a
+326,g,g27,喜びばかりが続くとは限らないのだ。,よろこびばかりがつずくとわかぎらないのだ。,y o r o k o b i b a k a r i g a ts u z u k u t o w a k a g i r a n a i n o d a
+327,g,g28,それからプッツリやめたのが、失敗の始まりである。,それからぷっつりやめたのが、しっぱいのはじまりである。,s o r e k a r a p u q ts u r i y a m e t a n o g a # sh i q p a i n o h a j i m a r i d e a r u
+328,g,g29,娘は、ベッドの端で、きちんと膝頭をそろえて、じっと、電話のベルを待つのです。,むすめわ、べっどのはしで、きちんとひざがしらをそろえて、じっと、でんわのべるをまつのです。,m u s u m e w a # b e q d o n o h a sh i d e # k i ch i N t o h i z a g a sh i r a o s o r o e t e # j i q t o # d e N w a n o b e r u o m a ts u n o d e s u
+329,g,g30,護送車は、歌声を残して、骨まで凍りそうに冷たい氷雨が降っていた闇に消えた。,ごそーしゃわ、うたごえをのこして、ほねまでこーりそーにつめたいひさめがふっていたやみにきえた。,g o s o: sh a w a # u t a g o e o n o k o sh i t e # h o n e m a d e k o: r i s o: n i ts u m e t a i h i s a m e g a f u q t e i t a y a m i n i k i e t a
+330,g,g31,持ち物は、食器着替えの下着、タオル、洗面用具などだ。,もちものわ、しょっききがえのしたぎ、たおる、せんめんよーぐなどだ。,m o ch i m o n o w a # sh o q k i k i g a e n o sh i t a g i # t a o r u # s e N m e N y o: g u n a d o d a
+331,g,g32,デパートへ行って、エレベーターで最上階にあがり、まず、お好み食堂へ入った。,でぱーとえいって、えれべーたーでさいじょーかいにあがり、まず、おこのみしょくどーえはいった。,d e p a: t o e i q t e # e r e b e: t a: d e s a i j o: k a i n i a g a r i # m a z u # o k o n o m i sh o k u d o: e h a i q t a
+332,g,g33,人間故に要求される倫理が、人間の不幸をも生むということになるかもしれない。,にんげんゆえによーきゅーされるりんりが、にんげんのふこーをもうむとゆうことになるかもしれない。,n i N g e N y u e n i y o: ky u: s a r e r u r i N r i g a # n i N g e N n o f u k o: o m o u m u t o y u u k o t o n i n a r u k a m o sh i r e n a i
+333,g,g34,十歳年上のご主人が、お元気で、家事一切をなさっていました。,じゅっさいとしうえのごしゅじんが、おげんきで、かじいっさいをなさっていました。,j u q s a i t o sh i u e n o g o sh u j i N g a # o g e N k i d e # k a j i i q s a i o n a s a q t e i m a sh i t a
+334,g,g35,いつまでも東京あたりでぐずぐずしていれば、いずれは、焼け出されるのではないかという不安はつねにあった。,いつまでもとーきょーあたりでぐずぐずしていれば、いずれわ、やけだされるのでわないかとゆうふあんわつねにあった。,i ts u m a d e m o t o: ky o: a t a r i d e g u z u g u z u sh i t e i r e b a # i z u r e w a # y a k e d a s a r e r u n o d e w a n a i k a t o y u u f u a N w a ts u n e n i a q t a
+335,g,g36,彼が、この出張中に、訪問希望の部署、及び、調査希望の部門は、以下の通りです。,かれが、このしゅっちょーちゅーに、ほーもんきぼーのぶしょ、および、ちょーさきぼーのぶもんわ、いかのとーりです。,k a r e g a # k o n o sh u q ch o: ch u: n i # h o: m o N k i b o: n o b u sh o # o y o b i # ch o: s a k i b o: n o b u m o N w a # i k a n o t o: r i d e s u
+336,g,g37,友情、思いやり、協力の心は、将来の社会生活に、強い影響を、及ぼします。,ゆーじょー、おもいやり、きょーりょくのこころわ、しょーらいのしゃかいせいかつに、つよいえいきょーを、およぼします。,y u: j o: # o m o i y a r i # ky o: ry o k u n o k o k o r o w a # sh o: r a i n o sh a k a i s e i k a ts u n i # ts u y o i e i ky o: o # o y o b o sh i m a s u
+337,g,g38,ランドセルをそっと玄関に放りこんで、母親に見つからぬように、外に出ていく。,らんどせるをそっとげんかんにほーりこんで、ははおやにみつからぬよーに、そとにでていく。,r a N d o s e r u o s o q t o g e N k a N n i h o: r i k o N d e # h a h a o y a n i m i ts u k a r a n u y o: n i # s o t o n i d e t e i k u
+338,g,g39,現在の入試にまつわる混乱は、選抜方法の改善で収まるものではない。,げんざいのにゅーしにまつわるこんらんわ、せんばつほーほーのかいぜんでおさまるものでわない。,g e N z a i n o ny u: sh i n i m a ts u w a r u k o N r a N w a # s e N b a ts u h o: h o: n o k a i z e N d e o s a m a r u m o n o d e w a n a i
+339,g,g40,それらは、むろん、原作そのものではないし、その忠実な翻訳でもない。,それらわ、むろん、げんさくそのものでわないし、そのちゅーじつなほんやくでもない。,s o r e r a w a # m u r o N # g e N s a k u s o n o m o n o d e w a n a i sh i # s o n o ch u: j i ts u n a h o N y a k u d e m o n a i
+340,g,g41,屋根には、気密式の電動ドリルで穴を開け、生じる粉塵は、どんどん吸引する。,やねにわ、きみつしきのでんどーどりるであなをあけ、しょーじるふんじんわ、どんどんきゅーいんする。,y a n e n i w a # k i m i ts u sh i k i n o d e N d o: d o r i r u d e a n a o a k e # sh o: j i r u f u N j i N w a # d o N d o N ky u: i N s u r u
+341,g,g42,晩餐の料理とサービスは、大手四ホテルが、輪番制で受け持っているが、メニューは、常にフランス料理と決まっている。,ばんさんのりょーりとさーびすわ、おーてよんほてるが、りんばんせいでうけもっているが、めにゅーわ、つねにふらんすりょーりときまっている。,b a N s a N n o ry o: r i t o s a: b i s u w a # o: t e y o N h o t e r u g a # r i N b a N s e i d e u k e m o q t e i r u g a # m e ny u: w a # ts u n e n i f u r a N s u ry o: r i t o k i m a q t e i r u
+342,g,g43,各校の、主将や、マネージャーが、緊張した面持ちで、クジを引く。,かくこーの、しゅしょーや、まねーじゃーが、きんちょーしたおももちで、くじをひく。,k a k u k o: n o # sh u sh o: y a # m a n e: j a: g a # k i N ch o: sh i t a o m o m o ch i d e # k u j i o h i k u
+343,g,g44,世論に押されて、通産省も、五十二年から併用を認めた。,せろんにおされて、つーさんしょーも、ごじゅーにねんからへいよーをみとめた。,s e r o N n i o s a r e t e # ts u: s a N sh o: m o # g o j u: n i n e N k a r a h e i y o: o m i t o m e t a
+344,g,g45,地球表層を覆う、地殻プレートの運動を探るのが、この実験の眼目だ。,ちきゅーひょーそーをおおう、ちかくぷれーとのうんどーをさぐるのが、このじっけんのがんもくだ。,ch i ky u: hy o: s o: o o o u # ch i k a k u p u r e: t o n o u N d o: o s a g u r u n o g a # k o n o j i q k e N n o g a N m o k u d a
+345,g,g46,ヒンズー教、チベット仏教にとって、ここは、宇宙の中心、神聖侵すべからざる聖域である。,ひんずーきょー、ちべっとぶっきょーにとって、ここわ、うちゅーのちゅーしん、しんせいおかすべからざるせいいきである。,h i N z u: ky o: # ch i b e q t o b u q ky o: n i t o q t e # k o k o w a # u ch u: n o ch u: sh i N # sh i N s e i o k a s u b e k a r a z a r u s e i i k i d e a r u
+346,g,g47,整理券を手に入れるのに、五時間以上行列した人もいる。,せいりけんをてにいれるのに、ごじかんいじょーぎょーれつしたひともいる。,s e i r i k e N o t e n i i r e r u n o n i # g o j i k a N i j o: gy o: r e ts u sh i t a h i t o m o i r u
+347,g,g48,保守主義と毒づかれて、よりによって、最先端の前衛作家を選んだのだから、王立アカデミーも人が悪い。,ほしゅしゅぎとどくずかれて、よりによって、さいせんたんのぜんえいさっかをえらんだのだから、おーりつあかでみーもひとがわるい。,h o sh u sh u g i t o d o k u z u k a r e t e # y o r i n i y o q t e # s a i s e N t a N n o z e N e i s a q k a o e r a N d a n o d a k a r a # o: r i ts u a k a d e m i: m o h i t o g a w a r u i
+348,g,g49,事実とすれば、よほど頭の回転の速い人だろう。,じじつとすれば、よほどあたまのかいてんのはやいひとだろう。,j i j i ts u t o s u r e b a # y o h o d o a t a m a n o k a i t e N n o h a y a i h i t o d a r o u
+349,g,g50,理由は非常に明白であって、私は講演が下手だからである。,りゆーわひじょーにめいはくであって、わたしわこーえんがへただからである。,r i y u: w a h i j o: n i m e i h a k u d e a q t e # w a t a sh i w a k o: e N g a h e t a d a k a r a d e a r u
+350,h,h01,世界が黄色く見えるという表現は、リアリズムだったのだ。,せかいがきいろくみえるとゆうひょーげんわ、りありずむだったのだ。,s e k a i g a k i i r o k u m i e r u t o y u u hy o: g e N w a # r i a r i z u m u d a q t a n o d a
+351,h,h02,当時、日本一の長距離バスである。,とーじ、にっぽんいちのちょーきょりばすである。,t o: j i # n i q p o N i ch i n o ch o: ky o r i b a s u d e a r u
+352,h,h03,虫、自動車の排気ガス、台風など、苗木を害するものは多い。,むし、じどーしゃのはいきがす、たいふーなど、なえぎをがいするものわおーい。,m u sh i # j i d o: sh a n o h a i k i g a s u # t a i f u: n a d o # n a e g i o g a i s u r u m o n o w a o: i
+353,h,h04,今度は逆に、黒い部分に注目してみる。,こんどわぎゃくに、くろいぶぶんにちゅーもくしてみる。,k o N d o w a gy a k u n i # k u r o i b u b u N n i ch u: m o k u sh i t e m i r u
+354,h,h05,やっと乗った電車の中では、あっちこっちへと押されて、へとへとになる。,やっとのったでんしゃのなかでわ、あっちこっちえとおされて、へとへとになる。,y a q t o n o q t a d e N sh a n o n a k a d e w a # a q ch i k o q ch i e t o o s a r e t e # h e t o h e t o n i n a r u
+355,h,h06,わたしたちの社会は、言葉によるコミュニケーションによって、支えられている。,わたしたちのしゃかいわ、ことばによるこみゅにけーしょんによって、ささえられている。,w a t a sh i t a ch i n o sh a k a i w a # k o t o b a n i y o r u k o my u n i k e: sh o N n i y o q t e # s a s a e r a r e t e i r u
+356,h,h07,何故か、不意に、自分の少年時代を思い浮かべた。,なぜか、ふいに、じぶんのしょーねんじだいをおもいうかべた。,n a z e k a # f u i n i # j i b u N n o sh o: n e N j i d a i o o m o i u k a b e t a
+357,h,h08,ある社長は、若い間はおおいに遊べという。,あるしゃちょーわ、わかいあいだわおーいにあそべという。,a r u sh a ch o: w a # w a k a i a i d a w a o: i n i a s o b e t o i u
+358,h,h09,うろたえずに、輸出依存の体質を徐々に見直していく作業が大切になる。,うろたえずに、ゆしゅついぞんのたいしつをじょじょにみなおしていくさぎょーがたいせつになる。,u r o t a e z u n i # y u sh u ts u i z o N n o t a i sh i ts u o j o j o n i m i n a o sh i t e i k u s a gy o: g a t a i s e ts u n i n a r u
+359,h,h10,三十日間を超える、綿密なインタビューの成果だろう。,さんじゅーにちかんをこえる、めんみつないんたびゅーのせいかだろう。,s a N j u: n i ch i k a N o k o e r u # m e N m i ts u n a i N t a by u: n o s e i k a d a r o u
+360,h,h11,国産品のように見えて、実は外国産という食品が、氾濫している。,こくさんひんのよーにみえて、じつわがいこくさんとゆうしょくひんが、はんらんしている。,k o k u s a N h i N n o y o: n i m i e t e # j i ts u w a g a i k o k u s a N t o y u u sh o k u h i N g a # h a N r a N sh i t e i r u
+361,h,h12,建設省や国土庁は、土地ころがしを防ぐための規制を、ゆるめようとしている。,けんせつしょーやこくどちょーわ、とちころがしをふせぐためのきせいを、ゆるめよーとしている。,k e N s e ts u sh o: y a k o k u d o ch o: w a # t o ch i k o r o g a sh i o f u s e g u t a m e n o k i s e i o # y u r u m e y o: t o sh i t e i r u
+362,h,h13,人は、手や指先の繊細な動きや、目の表情がすばらしいという。,ひとわ、てやゆびさきのせんさいなうごきや、めのひょーじょーがすばらしいという。,h i t o w a # t e y a y u b i s a k i n o s e N s a i n a u g o k i y a # m e n o hy o: j o: g a s u b a r a sh i i t o i u
+363,h,h14,ユーモアとは、高慢このうえない解毒剤だ。,ゆーもあとわ、こーまんこのうえないげどくざいだ。,y u: m o a t o w a # k o: m a N k o n o u e n a i g e d o k u z a i d a
+364,h,h15,戦争末期、ソ連軍と戦って、捕虜になった体験を持つ人だ。,せんそーまっき、それんぐんとたたかって、ほりょになったたいけんをもつひとだ。,s e N s o: m a q k i # s o r e N g u N t o t a t a k a q t e # h o ry o n i n a q t a t a i k e N o m o ts u h i t o d a
+365,h,h16,だまされるほうの、知識水準に問題があるのでございます。,だまされるほーの、ちしきすいじゅんにもんだいがあるのでございます。,d a m a s a r e r u h o: n o # ch i sh i k i s u i j u N n i m o N d a i g a a r u n o d e g o z a i m a s u
+366,h,h17,限られた予算で仕事をする、美術スタッフの気持ちを、おしはかって我慢する。,かぎられたよさんでしごとをする、びじゅつすたっふのきもちを、おしはかってがまんする。,k a g i r a r e t a y o s a N d e sh i g o t o o s u r u # b i j u ts u s u t a q f u n o k i m o ch i o # o sh i h a k a q t e g a m a N s u r u
+367,h,h18,十二月八日の開戦をスクープした夜、主筆として、眠れぬ夜を過ごした。,じゅーにがつようかのかいせんをすくーぷしたよる、しゅひつとして、ねむれぬよるをすごした。,j u: n i g a ts u y o u k a n o k a i s e N o s u k u: p u sh i t a y o r u # sh u h i ts u t o sh i t e # n e m u r e n u y o r u o s u g o sh i t a
+368,h,h19,一年中、擦り切れた、小倉の詰めえり服、一着でとおす。,いちねんじゅー、すりきれた、こくらのつめえりふく、いっちゃくでとーす。,i ch i n e N j u: # s u r i k i r e t a # k o k u r a n o ts u m e e r i f u k u # i q ch a k u d e t o: s u
+369,h,h20,そのあと、数名で、六本木のスシ屋に行った。,そのあと、すーめいで、ろっぽんぎのすしやにいった。,s o n o a t o # s u: m e i d e # r o q p o N g i n o s u sh i y a n i i q t a
+370,h,h21,洋服屋さんは、妻と私に半々に言った。,よーふくやさんわ、つまとわたしにはんはんにいった。,y o: f u k u y a s a N w a # ts u m a t o w a t a sh i n i h a N h a N n i i q t a
+371,h,h22,がらがらと響く音のほうが大きくて、演説はそれきりで終わった。,がらがらとひびくおとのほーがおーきくて、えんぜつわそれきりでおわった。,g a r a g a r a t o h i b i k u o t o n o h o: g a o: k i k u t e # e N z e ts u w a s o r e k i r i d e o w a q t a
+372,h,h23,人々は、花の苗や種を、焼却し畑の花を全部抜きとってしまう。,ひとびとわ、はなのなえやたねを、しょーきゃくしはたけのはなをぜんぶぬきとってしまう。,h i t o b i t o w a # h a n a n o n a e y a t a n e o # sh o: ky a k u sh i h a t a k e n o h a n a o z e N b u n u k i t o q t e sh i m a u
+373,h,h24,己を超えなければ、勝利の女神はほほえんでくれないらしい。,おのれをこえなければ、しょーりのめがみわほほえんでくれないらしい。,o n o r e o k o e n a k e r e b a # sh o: r i n o m e g a m i w a h o h o e N d e k u r e n a i r a sh i i
+374,h,h25,週休二日制になっていて、土曜日は休みだった。,しゅーきゅーふつかせいになっていて、どよーびわやすみだった。,sh u: ky u: f u ts u k a s e i n i n a q t e i t e # d o y o: b i w a y a s u m i d a q t a
+375,h,h26,みると、妻は一心不乱に眠っている。,みると、つまわいっしんふらんにねむっている。,m i r u t o # ts u m a w a i q sh i N f u r a N n i n e m u q t e i r u
+376,h,h27,そのあとを、老人は雨にぬれながら、大声で泣きわめいて追ってゆく。,そのあとを、ろーじんわあめにぬれながら、おーごえでなきわめいておってゆく。,s o n o a t o o # r o: j i N w a a m e n i n u r e n a g a r a # o: g o e d e n a k i w a m e i t e o q t e y u k u
+377,h,h28,もう、夕暮れのようである。,もー、ゆーぐれのよーである。,m o: # y u: g u r e n o y o: d e a r u
+378,h,h29,このタイプの人間が、一番多量の仕事をする。,このたいぷのにんげんが、いちばんたりょーのしごとをする。,k o n o t a i p u n o n i N g e N g a # i ch i b a N t a ry o: n o sh i g o t o o s u r u
+379,h,h30,日本へ戻ってから、それぞれ、出世をしている様子であった。,にっぽんえもどってから、それぞれ、しゅっせをしているよーすであった。,n i q p o N e m o d o q t e k a r a # s o r e z o r e # sh u q s e o sh i t e i r u y o: s u d e a q t a
+380,h,h31,大雨が降って、水かさが増せば、流域いっぱいに広がって流れることもあった。,おーあめがふって、みずかさがませば、りゅーいきいっぱいにひろがってながれることもあった。,o: a m e g a f u q t e # m i z u k a s a g a m a s e b a # ry u: i k i i q p a i n i h i r o g a q t e n a g a r e r u k o t o m o a q t a
+381,h,h32,婚家は、実家のすぐ近くで、ハイヤーを使う程の距離ではなかった。,こんかわ、じっかのすぐちかくで、はいやーをつかうほどのきょりでわなかった。,k o N k a w a # j i q k a n o s u g u ch i k a k u d e # h a i y a: o ts u k a u h o d o n o ky o r i d e w a n a k a q t a
+382,h,h33,帽子も、ベレー帽とか、いろいろあるが、ぼくはもっぱら、野球帽を愛用している。,ぼーしも、べれーぼーとか、いろいろあるが、ぼくわもっぱら、やきゅーぼーをあいよーしている。,b o: sh i m o # b e r e: b o: t o k a # i r o i r o a r u g a # b o k u w a m o q p a r a # y a ky u: b o: o a i y o: sh i t e i r u
+383,h,h34,ドラマは、あくまでもドラマであり、虚構であって、現実ではない。,どらまわ、あくまでもどらまであり、きょこーであって、げんじつでわない。,d o r a m a w a # a k u m a d e m o d o r a m a d e a r i # ky o k o: d e a q t e # g e N j i ts u d e w a n a i
+384,h,h35,結婚も離婚も、他人からは、有無を言わさず、自分から決定した。,けっこんもりこんも、たにんからわ、うむをいわさず、じぶんからけっていした。,k e q k o N m o r i k o N m o # t a n i N k a r a w a # u m u o i w a s a z u # j i b u N k a r a k e q t e i sh i t a
+385,h,h36,小さな家に引越し、はや九ヶ月が過ぎさりました。,ちーさないえにひっこし、はやきゅーかげつがすぎさりました。,ch i: s a n a i e n i h i q k o sh i # h a y a ky u: k a g e ts u g a s u g i s a r i m a sh i t a
+386,h,h37,きょろきょろとあたりを見回すと、突然彼は声をひそめ、とっておきの秘密をうちあける顔つきになった。,きょろきょろとあたりをみまわすと、とつぜんかれわこえをひそめ、とっておきのひみつをうちあけるかおつきになった。,ky o r o ky o r o t o a t a r i o m i m a w a s u t o # t o ts u z e N k a r e w a k o e o h i s o m e # t o q t e o k i n o h i m i ts u o u ch i a k e r u k a o ts u k i n i n a q t a
+387,h,h38,たばこの焼け焦げは、見苦しいものです。,たばこのやけこげわ、みぐるしいものです。,t a b a k o n o y a k e k o g e w a # m i g u r u sh i i m o n o d e s u
+388,h,h39,長期保管には、防虫剤を使用します。,ちょーきほかんにわ、ぼーちゅーざいをしよーします。,ch o: k i h o k a N n i w a # b o: ch u: z a i o sh i y o: sh i m a s u
+389,h,h40,チリダニは、人のフケや、アカを好む。,ちりだにわ、ひとのふけや、あかをこのむ。,ch i r i d a n i w a # h i t o n o f u k e y a # a k a o k o n o m u
+390,h,h41,大衆を扇動すれば、軍隊の介入を招くだけだ。,たいしゅーをせんどーすれば、ぐんたいのかいにゅーをまねくだけだ。,t a i sh u: o s e N d o: s u r e b a # g u N t a i n o k a i ny u: o m a n e k u d a k e d a
+391,h,h42,頭上には、右上方へと、急角度でのぼる線が、くっきりと描かれている。,ずじょーにわ、みぎじょーほーえと、きゅーかくどでのぼるせんが、くっきりとえがかれている。,z u j o: n i w a # m i g i j o: h o: e t o # ky u: k a k u d o d e n o b o r u s e N g a # k u q k i r i t o e g a k a r e t e i r u
+392,h,h43,安心して舟をこぐこともできれば、やじもとばせる。,あんしんしてふねをこぐこともできれば、やじもとばせる。,a N sh i N sh i t e f u n e o k o g u k o t o m o d e k i r e b a # y a j i m o t o b a s e r u
+393,h,h44,閉会式で泣き出したコンパニオンも、夜のディスコパーティーでは、激しく踊りまくった。,へいかいしきでなきだしたこんぱにおんも、よるのでぃすこぱーてぃーでわ、はげしくおどりまくった。,h e i k a i sh i k i d e n a k i d a sh i t a k o N p a n i o N m o # y o r u n o d i s u k o p a: t i: d e w a # h a g e sh i k u o d o r i m a k u q t a
+394,h,h45,この一週間、午後の時間を全部、庭で火を燃やしながら過ごした。,このいっしゅーかん、ごごのじかんをぜんぶ、にわでひをもやしながらすごした。,k o n o i q sh u: k a N # g o g o n o j i k a N o z e N b u # n i w a d e h i o m o y a sh i n a g a r a s u g o sh i t a
+395,h,h46,母親のうれしそうな表情が、脳裏によみがえった。,ははおやのうれしそーなひょーじょーが、のーりによみがえった。,h a h a o y a n o u r e sh i s o: n a hy o: j o: g a # n o: r i n i y o m i g a e q t a
+396,h,h47,ピラミッドを築くだけの苦労が、そこにそそがれたはずであった。,ぴらみっどをきずくだけのくろーが、そこにそそがれたはずであった。,p i r a m i q d o o k i z u k u d a k e n o k u r o: g a # s o k o n i s o s o g a r e t a h a z u d e a q t a
+397,h,h48,実際、そうでもなければ、五年間も、ここの個室で、入院生活を続けられるはずはない。,じっさい、そーでもなければ、ごねんかんも、ここのこしつで、にゅーいんせいかつをつずけられるはずわない。,j i q s a i # s o: d e m o n a k e r e b a # g o n e N k a N m o # k o k o n o k o sh i ts u d e # ny u: i N s e i k a ts u o ts u z u k e r a r e r u h a z u w a n a i
+398,h,h49,老人は、漁夫として、すばらしい人間だと思う。,ろーじんわ、ぎょふとして、すばらしいにんげんだとおもう。,r o: j i N w a # gy o f u t o sh i t e # s u b a r a sh i i n i N g e N d a t o o m o u
+399,h,h50,実習中は、雪が降っていたけれど、ほっぺの痛さも、もう、味わえなくなるかと思うと、全然、平気だった。,じっしゅーちゅーわ、ゆきがふっていたけれど、ほっぺのいたさも、もー、あじわえなくなるかとおもうと、ぜんぜん、へいきだった。,j i q sh u: ch u: w a # y u k i g a f u q t e i t a k e r e d o # h o q p e n o i t a s a m o # m o: # a j i w a e n a k u n a r u k a t o o m o u t o # z e N z e N # h e i k i d a q t a
+400,i,i01,五十五歳だって、うれしいときはうれしいのだ。,ごじゅーごさいだって、うれしいときわうれしいのだ。,g o j u: g o s a i d a q t e # u r e sh i i t o k i w a u r e sh i i n o d a
+401,i,i02,自然の知恵でよく知っている。,しぜんのちえでよくしっている。,sh i z e N n o ch i e d e y o k u sh i q t e i r u
+402,i,i03,心と心の通い合う、豊かなコミュニケーションを回復させる道ではなかろうか。,こころとこころのかよいあう、ゆたかなこみゅにけーしょんをかいふくさせるみちでわなかろうか。,k o k o r o t o k o k o r o n o k a y o i a u # y u t a k a n a k o my u n i k e: sh o N o k a i f u k u s a s e r u m i ch i d e w a n a k a r o u k a
+403,i,i04,円形の軌道に沿って、地球をめぐっている。,えんけいのきどーにそって、ちきゅーをめぐっている。,e N k e i n o k i d o: n i s o q t e # ch i ky u: o m e g u q t e i r u
+404,i,i05,天然記念物級の規模という学者の発言もあった。,てんねんきねんぶつきゅーのきぼとゆうがくしゃのはつげんもあった。,t e N n e N k i n e N b u ts u ky u: n o k i b o t o y u u g a k u sh a n o h a ts u g e N m o a q t a
+405,i,i06,セミが鳴き、夕日をあびた絹雲が、淡いさんご色に染まっていた。,せみがなき、ゆーひをあびたけんうんが、あわいさんごいろにそまっていた。,s e m i g a n a k i # y u: h i o a b i t a k e N u N g a # a w a i s a N g o i r o n i s o m a q t e i t a
+406,i,i07,おそらく、ほかにも、遺書を書いた人はいるはずだ。,おそらく、ほかにも、いしょをかいたひとわいるはずだ。,o s o r a k u # h o k a n i m o # i sh o o k a i t a h i t o w a i r u h a z u d a
+407,i,i08,秋雨前線とのおつき合いでは、一雨ごとに、紅葉が濃くなってゆく。,あきさめぜんせんとのおつきあいでわ、ひとあめごとに、こーよーがこくなってゆく。,a k i s a m e z e N s e N t o n o o ts u k i a i d e w a # h i t o a m e g o t o n i # k o: y o: g a k o k u n a q t e y u k u
+408,i,i09,群衆行動で恐ろしいのは、どさくさまぎれの心理だ。,ぐんしゅーこーどーでおそろしいのわ、どさくさまぎれのしんりだ。,g u N sh u: k o: d o: d e o s o r o sh i i n o w a # d o s a k u s a m a g i r e n o sh i N r i d a
+409,i,i10,病床の母親が、だれかに手紙の代筆を頼む。,びょーしょーのははおやが、だれかにてがみのだいひつをたのむ。,by o: sh o: n o h a h a o y a g a # d a r e k a n i t e g a m i n o d a i h i ts u o t a n o m u
+410,i,i11,早くも、意志薄弱ぶりを発揮した。,はやくも、いしはくじゃくぶりをはっきした。,h a y a k u m o # i sh i h a k u j a k u b u r i o h a q k i sh i t a
+411,i,i12,眼の前だけをにらみ、一歩一歩登るしかない。,めのまえだけをにらみ、いっぽいっぽのぼるしかない。,m e n o m a e d a k e o n i r a m i # i q p o i q p o n o b o r u sh i k a n a i
+412,i,i13,俺のプライベート時間を、俺がどう過ごそうと、全て俺の責任なのだ。,おれのぷらいべーとじかんを、おれがどーすごそうと、すべておれのせきにんなのだ。,o r e n o p u r a i b e: t o j i k a N o # o r e g a d o: s u g o s o u t o # s u b e t e o r e n o s e k i n i N n a n o d a
+413,i,i14,勝てる試合に、なぜ勝てそうなピッチャーを先発させないのだろうか。,かてるしあいに、なぜかてそーなぴっちゃーをせんぱつさせないのだろうか。,k a t e r u sh i a i n i # n a z e k a t e s o: n a p i q ch a: o s e N p a ts u s a s e n a i n o d a r o u k a
+414,i,i15,昼前に、合宿所の電話が鳴った。,ひるまえに、がっしゅくじょのでんわがなった。,h i r u m a e n i # g a q sh u k u j o n o d e N w a g a n a q t a
+415,i,i16,テロがあるからやめろと、さんざん、いわれた。,てろがあるからやめろと、さんざん、いわれた。,t e r o g a a r u k a r a y a m e r o t o # s a N z a N # i w a r e t a
+416,i,i17,しかし、その応援ぶりは、ヤケ気味に、かえって激しくなった。,しかし、そのおーえんぶりわ、やけぎみに、かえってはげしくなった。,sh i k a sh i # s o n o o: e N b u r i w a # y a k e g i m i n i # k a e q t e h a g e sh i k u n a q t a
+417,i,i18,今も、改めて、このしんと沈んだ抒情に感服する。,いまも、あらためて、このしんとしずんだじょじょーにかんぷくする。,i m a m o # a r a t a m e t e # k o n o sh i N t o sh i z u N d a j o j o: n i k a N p u k u s u r u
+418,i,i19,乱暴で乱暴で、ゆく先が案じられると、母がいった。,らんぼーでらんぼーで、ゆくさきがあんじられると、ははがいった。,r a N b o: d e r a N b o: d e # y u k u s a k i g a a N j i r a r e r u t o # h a h a g a i q t a
+419,i,i20,これは、漁民たちの日常経験である。,これわ、ぎょみんたちのにちじょーけいけんである。,k o r e w a # gy o m i N t a ch i n o n i ch i j o: k e i k e N d e a r u
+420,i,i21,窒素や燐は、むろん、天然にも、河川などを通じて、海に流れこむ。,ちっそやりんわ、むろん、てんねんにも、かせんなどをつーじて、うみにながれこむ。,ch i q s o y a r i N w a # m u r o N # t e N n e N n i m o # k a s e N n a d o o ts u: j i t e # u m i n i n a g a r e k o m u
+421,i,i22,父はたばこを吸い、母はぼんやりしていた。,ちちわたばこをすい、ははわぼんやりしていた。,ch i ch i w a t a b a k o o s u i # h a h a w a b o N y a r i sh i t e i t a
+422,i,i23,検札に来た車掌も、見て見ぬふりである。,けんさつにきたしゃしょーも、みてみぬふりである。,k e N s a ts u n i k i t a sh a sh o: m o # m i t e m i n u f u r i d e a r u
+423,i,i24,このおおらかさが、結局は分裂を救う。,このおーらかさが、けっきょくわぶんれつをすくう。,k o n o o: r a k a s a g a # k e q ky o k u w a b u N r e ts u o s u k u u
+424,i,i25,その水源の湖沼は痛めつけられ、悲鳴を上げる元気も無い。,そのすいげんのこしょーわいためつけられ、ひめいをあげるげんきもない。,s o n o s u i g e N n o k o sh o: w a i t a m e ts u k e r a r e # h i m e i o a g e r u g e N k i m o n a i
+425,i,i26,笑い方に注意すべきである。,わらいかたにちゅーいすべきである。,w a r a i k a t a n i ch u: i s u b e k i d e a r u
+426,i,i27,職員室でも、枠を取り払って、何でもしゃべりあう。,しょくいんしつでも、わくをとりはらって、なんでもしゃべりあう。,sh o k u i N sh i ts u d e m o # w a k u o t o r i h a r a q t e # n a N d e m o sh a b e r i a u
+427,i,i28,こんなに騒がせて、ホームランの一本も打たなきゃ、承知しない。,こんなにさわがせて、ほーむらんのいっぽんもうたなきゃ、しょーちしない。,k o N n a n i s a w a g a s e t e # h o: m u r a N n o i q p o N m o u t a n a ky a # sh o: ch i sh i n a i
+428,i,i29,今日は、熊の縫いぐるみで、何やら遊びが始まった。,きょーわ、くまのぬいぐるみで、なにやらあそびがはじまった。,ky o: w a # k u m a n o n u i g u r u m i d e # n a n i y a r a a s o b i g a h a j i m a q t a
+429,i,i30,最後まで、どうも不思議なほどおいしいなと思い続けた。,さいごまで、どーもふしぎなほどおいしいなとおもいつずけた。,s a i g o m a d e # d o: m o f u sh i g i n a h o d o o i sh i i n a t o o m o i ts u z u k e t a
+430,i,i31,人間が、同じ人間を助けられないわけがありません。,にんげんが、おなじにんげんをたすけられないわけがありません。,n i N g e N g a # o n a j i n i N g e N o t a s u k e r a r e n a i w a k e g a a r i m a s e N
+431,i,i32,入試前の夏休みだというのに、本ばかり読みふけっていた。,にゅーしまえのなつやすみだというのに、ほんばかりよみふけっていた。,ny u: sh i m a e n o n a ts u y a s u m i d a t o i u n o n i # h o N b a k a r i y o m i f u k e q t e i t a
+432,i,i33,山村では、若い力が減り、悩んでいる。,さんそんでわ、わかいちからがへり、なやんでいる。,s a N s o N d e w a # w a k a i ch i k a r a g a h e r i # n a y a N d e i r u
+433,i,i34,五分ほど洗面所に行って戻ってみると、ベッドの上に置いてあった、肩かけ鞄が無い。,ごふんほどせんめんじょにいってもどってみると、べっどのうえにおいてあった、かたかけかばんがない。,g o f u N h o d o s e N m e N j o n i i q t e m o d o q t e m i r u t o # b e q d o n o u e n i o i t e a q t a # k a t a k a k e k a b a N g a n a i
+434,i,i35,もっとも、編集会議には、そのほうが都合がよい。,もっとも、へんしゅーかいぎにわ、そのほーがつごーがよい。,m o q t o m o # h e N sh u: k a i g i n i w a # s o n o h o: g a ts u g o: g a y o i
+435,i,i36,鉛筆だと、力をいれて、書くのでスピードが鈍るのである。,えんぴつだと、ちからをいれて、かくのですぴーどがにぶるのである。,e N p i ts u d a t o # ch i k a r a o i r e t e # k a k u n o d e s u p i: d o g a n i b u r u n o d e a r u
+436,i,i37,自分のような死をなし遂げる人間が、再び、生み出されぬことを願ったはずだ。,じぶんのよーなしをなしとげるにんげんが、ふたたび、うみだされぬことをねがったはずだ。,j i b u N n o y o: n a sh i o n a sh i t o g e r u n i N g e N g a # f u t a t a b i # u m i d a s a r e n u k o t o o n e g a q t a h a z u d a
+437,i,i38,不思議な感銘と、不意をつかれる脅威を覚える時、感情移入せずにはいられなかった。,ふしぎなかんめいと、ふいをつかれるきょーいをおぼえるとき、かんじょーいにゅーせずにわいられなかった。,f u sh i g i n a k a N m e i t o # f u i o ts u k a r e r u ky o: i o o b o e r u t o k i # k a N j o: i ny u: s e z u n i w a i r a r e n a k a q t a
+438,i,i39,お寺まで、一人ずつ手を引いて連れて行ったのを覚えています。,おてらまで、ひとりずつてをひいてつれていったのをおぼえています。,o t e r a m a d e # h i t o r i z u ts u t e o h i i t e ts u r e t e i q t a n o o o b o e t e i m a s u
+439,i,i40,みんなは、それから、彼が入院中、人づきあいが悪く、どうも苦手だったという評をし始めた。,みんなわ、それから、かれがにゅーいんちゅー、ひとずきあいがわるく、どーもにがてだったとゆうひょーをしはじめた。,m i N n a w a # s o r e k a r a # k a r e g a ny u: i N ch u: # h i t o z u k i a i g a w a r u k u # d o: m o n i g a t e d a q t a t o y u u hy o: o sh i h a j i m e t a
+440,i,i41,また、御都合がよろしければ、その晩、夕食に御招待したいと存じます。,また、ごつごーがよろしければ、そのばん、ゆーしょくにごしょーたいしたいとぞんじます。,m a t a # g o ts u g o: g a y o r o sh i k e r e b a # s o n o b a N # y u: sh o k u n i g o sh o: t a i sh i t a i t o z o N j i m a s u
+441,i,i42,超満員の観客席のファンは、圧倒的に彼女びいきだ。,ちょーまんいんのかんきゃくせきのふぁんわ、あっとーてきにかのじょびいきだ。,ch o: m a N i N n o k a N ky a k u s e k i n o f a N w a # a q t o: t e k i n i k a n o j o b i i k i d a
+442,i,i43,欧米では、沈みゆくベネチアの町を救う運動が広がっている。,おーべいでわ、しずみゆくべねちあのまちをすくううんどーがひろがっている。,o: b e i d e w a # sh i z u m i y u k u b e n e ch i a n o m a ch i o s u k u u u N d o: g a h i r o g a q t e i r u
+443,i,i44,古くなって、雨漏りがすれば、ふき替えればいい。,ふるくなって、あまもりがすれば、ふきかえればいい。,f u r u k u n a q t e # a m a m o r i g a s u r e b a # f u k i k a e r e b a i i
+444,i,i45,平和を望み、握手しあい、兄弟のような気持ちで、別れを告げる。,へいわをのぞみ、あくしゅしあい、きょーだいのよーなきもちで、わかれをつげる。,h e i w a o n o z o m i # a k u sh u sh i a i # ky o: d a i n o y o: n a k i m o ch i d e # w a k a r e o ts u g e r u
+445,i,i46,いい職人は、仕事というものは、覚えれば覚えるほど、難しくなるといいます。,いいしょくにんわ、しごととゆうものわ、おぼえればおぼえるほど、むずかしくなるといいます。,i i sh o k u n i N w a # sh i g o t o t o y u u m o n o w a # o b o e r e b a o b o e r u h o d o # m u z u k a sh i k u n a r u t o i i m a s u
+446,i,i47,むしろ、規則正しさで、安らぎを、感じさせてくれた。,むしろ、きそくただしさで、やすらぎを、かんじさせてくれた。,m u sh i r o # k i s o k u t a d a sh i s a d e # y a s u r a g i o # k a N j i s a s e t e k u r e t a
+447,i,i48,明朝それが届いたら、腕におぼえのある連中を組んで、上陸用船艇で、あちら岸へ渡る。,みょーちょーそれがとどいたら、うでにおぼえのあるれんちゅーをくんで、じょーりくよーせんていで、あちらがんえわたる。,my o: ch o: s o r e g a t o d o i t a r a # u d e n i o b o e n o a r u r e N ch u: o k u N d e # j o: r i k u y o: s e N t e i d e # a ch i r a g a N e w a t a r u
+448,i,i49,初めて、沈黙を破って、キリストがささやいた。,はじめて、ちんもくをやぶって、きりすとがささやいた。,h a j i m e t e # ch i N m o k u o y a b u q t e # k i r i s u t o g a s a s a y a i t a
+449,i,i50,残酷な事実、現実に目を覆って通り過ぎることの方が、より、恐ろしい。,ざんこくなじじつ、げんじつにめをおおってとーりすぎることのほーが、より、おそろしい。,z a N k o k u n a j i j i ts u # g e N j i ts u n i m e o o o q t e t o: r i s u g i r u k o t o n o h o: g a # y o r i # o s o r o sh i i
+450,j,j01,小さな鰻屋に、熱気のようなものがみなぎる。,ちーさなうなぎやに、ねっきのよーなものがみなぎる。,ch i: s a n a u n a g i y a n i # n e q k i n o y o: n a m o n o g a m i n a g i r u
+451,j,j02,どろぼうでも入ったかと、一瞬僕は思った。,どろぼーでもはいったかと、いっしゅんぼくわおもった。,d o r o b o: d e m o h a i q t a k a t o # i q sh u N b o k u w a o m o q t a
+452,j,j03,学生は、レポートを置くと、ちょっと頭を下げて出て行った。,がくせいわ、れぽーとをおくと、ちょっとあたまをさげてでていった。,g a k u s e i w a # r e p o: t o o o k u t o # ch o q t o a t a m a o s a g e t e d e t e i q t a
+453,j,j04,切符を買うのは、自動販売機からである。,きっぷをかうのわ、じどーはんばいきからである。,k i q p u o k a u n o w a # j i d o: h a N b a i k i k a r a d e a r u
+454,j,j05,都会では、出会う人のほとんどが、見知らぬ人である。,とかいでわ、であうひとのほとんどが、みしらぬひとである。,t o k a i d e w a # d e a u h i t o n o h o t o N d o g a # m i sh i r a n u h i t o d e a r u
+455,j,j06,表現する能力を身につけることである。,ひょーげんするのーりょくをみにつけることである。,hy o: g e N s u r u n o: ry o k u o m i n i ts u k e r u k o t o d e a r u
+456,j,j07,企業規模別の賃金格差も、少しずつ縮まってきた。,きぎょーきぼべつのちんぎんかくさも、すこしずつちじまってきた。,k i gy o: k i b o b e ts u n o ch i N g i N k a k u s a m o # s u k o sh i z u ts u ch i j i m a q t e k i t a
+457,j,j08,一票の格差は、さらに拡がるだろう。,いっぴょうのかくさわ、さらにひろがるだろう。,i q py o u n o k a k u s a w a # s a r a n i h i r o g a r u d a r o u
+458,j,j09,これが、広い意味での、金属疲労による破壊である。,これが、ひろいいみでの、きんぞくひろーによるはかいである。,k o r e g a # h i r o i i m i d e n o # k i N z o k u h i r o: n i y o r u h a k a i d e a r u
+459,j,j10,いい味のワインを売る店なら、客があふれる。,いいあじのわいんをうるみせなら、きゃくがあふれる。,i i a j i n o w a i N o u r u m i s e n a r a # ky a k u g a a f u r e r u
+460,j,j11,平均倍率を下げた形跡がある。,へいきんばいりつをさげたけいせきがある。,h e i k i N b a i r i ts u o s a g e t a k e i s e k i g a a r u
+461,j,j12,人物の独白があれば、空から見おろすような描写がある。,じんぶつのどくはくがあれば、そらからみおろすよーなびょーしゃがある。,j i N b u ts u n o d o k u h a k u g a a r e b a # s o r a k a r a m i o r o s u y o: n a by o: sh a g a a r u
+462,j,j13,文明を支える土台が崩れてしまう。,ぶんめいをささえるどだいがくずれてしまう。,b u N m e i o s a s a e r u d o d a i g a k u z u r e t e sh i m a u
+463,j,j14,人々が自由に出入りできる。,ひとびとがじゆーにでいりできる。,h i t o b i t o g a j i y u: n i d e i r i d e k i r u
+464,j,j15,だんだん自分が恐ろしくなって、家に逃げ帰った。,だんだんじぶんがおそろしくなって、いえににげかえった。,d a N d a N j i b u N g a o s o r o sh i k u n a q t e # i e n i n i g e k a e q t a
+465,j,j16,午前中で終わる練習を、ネット裏からかい間見た。,ごぜんちゅーでおわるれんしゅーを、ねっとうらからかいまみた。,g o z e N ch u: d e o w a r u r e N sh u: o # n e q t o u r a k a r a k a i m a m i t a
+466,j,j17,いつもの休日のパターンを過ごして、日が暮れる。,いつものきゅーじつのぱたーんをすごして、ひがくれる。,i ts u m o n o ky u: j i ts u n o p a t a: N o s u g o sh i t e # h i g a k u r e r u
+467,j,j18,音楽の好きな俺のために、わざわざ、ロックミュージックを用意してきてあった。,おんがくのすきなおれのために、わざわざ、ろっくみゅーじっくをよーいしてきてあった。,o N g a k u n o s u k i n a o r e n o t a m e n i # w a z a w a z a # r o q k u my u: j i q k u o y o: i sh i t e k i t e a q t a
+468,j,j19,不思議なくらい、美しく彩られた道を行く。,ふしぎなくらい、うつくしくいろどられたみちをいく。,f u sh i g i n a k u r a i # u ts u k u sh i k u i r o d o r a r e t a m i ch i o i k u
+469,j,j20,真っ白な歯が、白いテープとともにゆれた。,まっしろなはが、しろいてーぷとともにゆれた。,m a q sh i r o n a h a g a # sh i r o i t e: p u t o t o m o n i y u r e t a
+470,j,j21,入学試験を受けるときより、必死の思いである。,にゅーがくしけんをうけるときより、ひっしのおもいである。,ny u: g a k u sh i k e N o u k e r u t o k i y o r i # h i q sh i n o o m o i d e a r u
+471,j,j22,こちらも、きゃっとわめいて、とび上った。,こちらも、きゃっとわめいて、とびあがった。,k o ch i r a m o # ky a q t o w a m e i t e # t o b i a g a q t a
+472,j,j23,両手の指は変形し、関節の辺りが、こぶ状に盛り上がっていた。,りょーてのゆびわへんけいし、かんせつのあたりが、こぶじょーにもりあがっていた。,ry o: t e n o y u b i w a h e N k e i sh i # k a N s e ts u n o a t a r i g a # k o b u j o: n i m o r i a g a q t e i t a
+473,j,j24,問題は、投票、開票の不正である。,もんだいわ、とーひょー、かいひょーのふせいである。,m o N d a i w a # t o: hy o: # k a i hy o: n o f u s e i d e a r u
+474,j,j25,変わりびなは世相をつづる。,かわりびなわせそーをつずる。,k a w a r i b i n a w a s e s o: o ts u z u r u
+475,j,j26,良い医師は、患者の話を良く聞く。,よいいしわ、かんじゃのはなしをよくきく。,y o i i sh i w a # k a N j a n o h a n a sh i o y o k u k i k u
+476,j,j27,後手にまわって負けた警察が奮起する番だ。,ごてにまわってまけたけいさつがふんきするばんだ。,g o t e n i m a w a q t e m a k e t a k e i s a ts u g a f u N k i s u r u b a N d a
+477,j,j28,天衣無縫、おおらかなものだ。,てんいむほー、おーらかなものだ。,t e N i m u h o: # o: r a k a n a m o n o d a
+478,j,j29,今度は、河豚の季節に行ってみたい。,こんどわ、ふぐのきせつにいってみたい。,k o N d o w a # f u g u n o k i s e ts u n i i q t e m i t a i
+479,j,j30,運転免許を取って三年目になります。,うんてんめんきょをとってさんねんめになります。,u N t e N m e N ky o o t o q t e s a N n e N m e n i n a r i m a s u
+480,j,j31,なぜ自分ばかりこんな目にあうのだろう。,なぜじぶんばかりこんなめにあうのだろう。,n a z e j i b u N b a k a r i k o N n a m e n i a u n o d a r o u
+481,j,j32,娘のフィアンセで、こいつだけにはどうしても負けられない。,むすめのふぃあんせで、こいつだけにわどーしてもまけられない。,m u s u m e n o f i a N s e d e # k o i ts u d a k e n i w a d o: sh i t e m o m a k e r a r e n a i
+482,j,j33,それは、たいてい一時間にも及ぶ。,それわ、たいていいちじかんにもおよぶ。,s o r e w a # t a i t e i i ch i j i k a N n i m o o y o b u
+483,j,j34,自分より大きく感じられるものは、すべて怖い。,じぶんよりおーきくかんじられるものわ、すべてこわい。,j i b u N y o r i o: k i k u k a N j i r a r e r u m o n o w a # s u b e t e k o w a i
+484,j,j35,その夫人は、眼をこっちに向けてはいるが、見てはいない。,そのふじんわ、めをこっちにむけてはいるが、みてわいない。,s o n o f u j i N w a # m e o k o q ch i n i m u k e t e h a i r u g a # m i t e w a i n a i
+485,j,j36,私は、それを旅館に持って帰った。,わたしわ、それをりょかんにもってかえった。,w a t a sh i w a # s o r e o ry o k a N n i m o q t e k a e q t a
+486,j,j37,品の良い横顔が、さみしそうだった。,ひんのよいよこがおが、さみしそーだった。,h i N n o y o i y o k o g a o g a # s a m i sh i s o: d a q t a
+487,j,j38,願望さえ強ければ、時間は向こうからやってくる。,がんぼーさえつよければ、じかんわむこーからやってくる。,g a N b o: s a e ts u y o k e r e b a # j i k a N w a m u k o: k a r a y a q t e k u r u
+488,j,j39,それは、泥沼のような逆境からぬけだしたいという、切ないほどの願望だろうか。,それわ、どろぬまのよーなぎゃっきょーからぬけだしたいとゆう、せつないほどのがんぼーだろうか。,s o r e w a # d o r o n u m a n o y o: n a gy a q ky o: k a r a n u k e d a sh i t a i t o y u u # s e ts u n a i h o d o n o g a N b o: d a r o u k a
+489,j,j40,毎日病院まで通った、母の愛の深さ、強さである。,まいにちびょーいんまでかよった、ははのあいのふかさ、つよさである。,m a i n i ch i by o: i N m a d e k a y o q t a # h a h a n o a i n o f u k a s a # ts u y o s a d e a r u
+490,j,j41,久し振りに、懐かしい人間味に触れて、心和んだ夜だった。,ひさしぶりに、なつかしいにんげんみにふれて、こころなごんだよるだった。,h i s a sh i b u r i n i # n a ts u k a sh i i n i N g e N m i n i f u r e t e # k o k o r o n a g o N d a y o r u d a q t a
+491,j,j42,遺留品といっては、糸一本も落ちていなかった。,いりゅーひんといってわ、いといっぽんもおちていなかった。,i ry u: h i N t o i q t e w a # i t o i q p o N m o o ch i t e i n a k a q t a
+492,j,j43,むずかしいときこそ、プロの腕の見せ所です。,むずかしいときこそ、ぷろのうでのみせどころです。,m u z u k a sh i i t o k i k o s o # p u r o n o u d e n o m i s e d o k o r o d e s u
+493,j,j44,彼も、初球を本塁打して、劇的なサヨナラ勝ちを収めた。,かれも、しょきゅーをほんるいだして、げきてきなさよならがちをおさめた。,k a r e m o # sh o ky u: o h o N r u i d a sh i t e # g e k i t e k i n a s a y o n a r a g a ch i o o s a m e t a
+494,j,j45,イランに、天気予報は無い。,いらんに、てんきよほーわない。,i r a N n i # t e N k i y o h o: w a n a i
+495,j,j46,不公平の存在は否認しなかった。,ふこーへいのそんざいわひにんしなかった。,f u k o: h e i n o s o N z a i w a h i n i N sh i n a k a q t a
+496,j,j47,生まれて間もない子猫が一匹、家に紛れ込んできた。,うまれてまもないこねこがいっぴき、いえにまぎれこんできた。,u m a r e t e m a m o n a i k o n e k o g a i q p i k i # i e n i m a g i r e k o N d e k i t a
+497,j,j48,私たちは、静かに歩み寄り、頭をさげた。,わたしたちわ、しずかにあゆみより、あたまをさげた。,w a t a sh i t a ch i w a # sh i z u k a n i a y u m i y o r i # a t a m a o s a g e t a
+498,j,j49,雨のためか、野鳥が群がって奇声をあげていた。,あめのためか、やちょーがむらがってきせいをあげていた。,a m e n o t a m e k a # y a ch o: g a m u r a g a q t e k i s e i o a g e t e i t a
+499,j,j50,部屋いっぱいにタバコの濃霧がたちこめ、ゆるやかに動いている。,へやいっぱいにたばこののーむがたちこめ、ゆるやかにうごいている。,h e y a i q p a i n i t a b a k o n o n o: m u g a t a ch i k o m e # y u r u y a k a n i u g o i t e i r u
+500,j,j51,畑は干上がり、土は割れる。,はたけわひあがり、つちわわれる。,h a t a k e w a h i a g a r i # ts u ch i w a w a r e r u
+501,j,j52,青い青い海は、女性の美しさをもっている。,あおいあおいうみわ、じょせいのうつくしさをもっている。,a o i a o i u m i w a # j o s e i n o u ts u k u sh i s a o m o q t e i r u
+502,j,j53,回りの美しい雪景色を見る余裕も出た。,まわりのうつくしいゆきげしきをみるよゆーもでた。,m a w a r i n o u ts u k u sh i i y u k i g e sh i k i o m i r u y o y u: m o d e t a

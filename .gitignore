@@ -3,7 +3,6 @@
 *.pyc
 check/
 check_point/
-csv/
 data_check/
 outputs/
 result/
