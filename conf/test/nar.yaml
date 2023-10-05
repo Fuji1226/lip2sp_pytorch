@@ -7,6 +7,12 @@ debug_data_len : 1
 # face or lip
 face_or_lip : "face"
 
+# 合成するチェックポイントについて、一番最後のパス
+model_path : '~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2023:10:05_04-23-44/2.ckpt'
+
+# モデルパスを検証データの結果から選択するための指標
+metric_for_select : 'val_loss_list'
+
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/generate"
 
@@ -20,5 +26,4 @@ face_cropped_max_size_fps25_test : "~/dataset/lip/np_files/face_cropped_max_size
 
 test_df_path : "~/dataset/lip/data_split_csv/test.csv"
 
-speaker : ["M04_kablab"]
-# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+speaker : ["F01_kablab"]

@@ -1,10 +1,8 @@
 import os
 from pathlib import Path
 import hydra
-
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
-import torchaudio
 import matplotlib.pyplot as plt
 import numpy as np
 import librosa
@@ -18,6 +16,9 @@ from jiwer import wer, cer
 import MeCab
 import pyopenjtalk
 import pandas as pd
+from collections import defaultdict
+import re
+import torch
 
 
 debug = False
@@ -51,16 +52,19 @@ def load_utt():
 
 
 def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
+    speaker = data_dir.stem
     wav2flac(data_dir)
     df = load_utt()
 
     wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
-    stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, False)
+    stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
+    estoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=True)
     r = sr.Recognizer()
     mecab = MeCab.Tagger('-Owakati')
 
     pesq_list = []
     stoi_list = []
+    estoi_list = []
     duration = []
     rmse_power_list = []
     rmse_f0_list_librosa = []
@@ -80,25 +84,27 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                 if abs_or_gen in Path(file).stem:
                     iter_cnt += 1
                     print(f"\niter_cnt : {iter_cnt}")
-                    wav_gen, fs = torchaudio.load(os.path.join(curdir, file))
-                    wav_in, fs = torchaudio.load(os.path.join(curdir, "input.wav"))
-
-                    wav_gen = wav_gen.squeeze(0)
-                    wav_in = wav_in.squeeze(0)
+                    wav_gen, fs = librosa.load(os.path.join(curdir, file), sr=cfg.model.sampling_rate)
+                    wav_in, fs = librosa.load(os.path.join(curdir, "input.wav"), sr=cfg.model.sampling_rate)
+                    wav_gen = torch.from_numpy(wav_gen)
+                    wav_in = torch.from_numpy(wav_in)
 
                     shorter_n_frame = int(min(wav_gen.shape[0], wav_in.shape[0]))
                     wav_gen = wav_gen[:shorter_n_frame]
                     wav_in = wav_in[:shorter_n_frame]
                     assert wav_gen.shape[0] == wav_in.shape[0]
 
-                    # pesq, stoi
+                    # pesq, stoi, estoi
                     p = wb_pesq(wav_gen, wav_in)
                     s = stoi(wav_gen, wav_in)
+                    es = estoi(wav_gen, wav_in)
                     pesq_list.append(p)
                     stoi_list.append(s)
+                    estoi_list.append(es)
                     duration.append(shorter_n_frame / cfg.model.sampling_rate)
                     print(f"PESQ = {p}")
                     print(f"STOI = {s}")
+                    print(f"ESTOI = {es}")
 
                     wav_gen = wav_gen.to("cpu").numpy()
                     wav_in = wav_in.to("cpu").numpy()
@@ -243,33 +249,27 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                         print(f"per_ref = {error_in:f}, per_gen = {error_gen:f}")
                         per_target_list.append(error_in)
                         per_gen_list.append(error_gen)
+                    else:
+                        result_in_w = mecab.parse(result_in)
+                        utt_w = mecab.parse(utt)
+                        error_in = wer(utt_w, result_in_w)
+                        wer_target_list.append(error_in)
+                        wer_gen_list.append(1)
 
-        if debug:
-            if iter_cnt > 0:
+                        result_in_p = pyopenjtalk.g2p(result_in)
+                        utt_p = pyopenjtalk.g2p(utt)
+                        error_in = wer(utt_p, result_in_p)
+                        per_target_list.append(error_in)
+                        per_gen_list.append(1)
+
+        if cfg.test.debug:
+            if iter_cnt > 2:
                 break
 
     if debug == False:
-        plt.figure()
-        ax = plt.subplot(2, 1, 1)
-        ax.scatter(duration, pesq_list)
-        plt.xlabel("duration[s]")
-        plt.ylabel("PESQ")
-        plt.title("relationships between duration and PESQ")
-        plt.grid()
-
-        ax = plt.subplot(2, 1, 2)
-        ax.scatter(duration, stoi_list)
-        plt.xlabel("duration[s]")
-        plt.ylabel("STOI")
-        plt.title("relationships between duration and STOI")
-        plt.grid()
-
-        img_save_path = save_path / "check_PESQ_STOI.png"
-        plt.tight_layout()
-        plt.savefig(img_save_path)
-
         pesq = sum(pesq_list) / len(pesq_list)
         stoi = sum(stoi_list) / len(stoi_list)
+        estoi = sum(estoi_list) / len(estoi_list)
         rmse_power = sum(rmse_power_list) / len(rmse_power_list)
         rmse_f0_librosa = sum(rmse_f0_list_librosa) / len(rmse_f0_list_librosa)
         vuv_acc_librosa = sum(vuv_acc_list_librosa) / len(vuv_acc_list_librosa)
@@ -284,8 +284,10 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
         file_name = save_path / f"{filename}.txt"
         with open(str(file_name), "a") as f:
             f.write("--- Objective Evaluation Metrics ---\n")
+            f.write(f'speaker = {speaker}\n')
             f.write(f"PESQ = {pesq:f}\n")
             f.write(f"STOI = {stoi:f}\n")
+            f.write(f"ESTOI = {estoi:f}\n")
             f.write(f"rmse power = {rmse_power:f}dB\n")
             f.write(f"rmsef0 librosa = {rmse_f0_librosa:f}\n")
             f.write(f"vuv accuracy librosa = {vuv_acc_librosa:f}%\n")
@@ -297,45 +299,33 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
             f.write(f"phoneme error rate target = {per_target * 100:f}%\n")
             f.write(f"phoneme error rate gen = {per_gen * 100:f}%\n")
 
-
             if process_times is not None:
                 f.write("\n--- Duration and Process Time ---\n")
                 f.write(f"duration_mean = {sum(duration) / len(duration):f}, process_time_mean = {sum(process_times) / len(process_times):f}\n")
                 for dur, time in zip(duration, process_times):
                     f.write(f"duration = {dur:f}, process_time = {time:f}\n")
-                    
 
-def calc_accuracy_vc(cfg, data_root_same, data_root_mix):
-    data_path_same = list(sorted(data_root_same.glob("*/*generate.wav")))
-    data_path_mix = list(sorted(data_root_mix.glob("*/*generate.wav")))
+            f.write('\n')
 
-    fft_size = 512
-    mcep_size = 34
-    alpha = 0.65
 
-    mcd_list = []
-    iter_cnt = 0
+def calc_mean(result_file_path):
+    with open(str(result_file_path), 'r') as f:
+        content = f.readlines()
 
-    for p_s, p_m in zip(data_path_same, data_path_mix):
-        iter_cnt += 1
-        print(f"iter_cnt : {iter_cnt}")
-        wav_same, fs = librosa.load(str(p_s), sr=cfg.model.sampling_rate, mono=True)
-        wav_mix, fs = librosa.load(str(p_m), sr=cfg.model.sampling_rate, mono=True)
+    result_dict = defaultdict(float)
+    cnt = 0
+    for line in content:
+        key = line.strip().split('=')[0][:-1]
+        if key == 'speaker':
+            cnt += 1
+        value = re.findall(r'\d+\.\d+', line)
+        if value:
+            value = [float(v) for v in value][0]
+            result_dict[key] += value
 
-        _, sp_same, _ = pyworld.wav2world(wav_same.astype(np.double), fs=cfg.model.sampling_rate, frame_period=cfg.model.frame_period, fft_size=fft_size)
-        mgc_same = pysptk.sptk.mcep(sp_same, order=mcep_size, alpha=alpha, maxiter=0, etype=1, eps=1.0E-8, min_det=0.0, itype=3)    # (T, C)
-        _, sp_mix, _ = pyworld.wav2world(wav_mix.astype(np.double), fs=cfg.model.sampling_rate,frame_period=cfg.model.frame_period, fft_size=fft_size)
-        mgc_mix = pysptk.sptk.mcep(sp_mix, order=mcep_size, alpha=alpha, maxiter=0, etype=1, eps=1.0E-8, min_det=0.0, itype=3)
-
-        ref_frame_no = len(mgc_same)
-        min_cost, wp = librosa.sequence.dtw(mgc_same[:, 1:].T, mgc_mix[:, 1:].T)
-        mcd = melcd(mgc_same[wp[:,0]], mgc_mix[wp[:,1]] , lengths=None)
-        mcd_list.append(mcd)
-        print(f"mcd = {mcd}")
-
-    mcd = sum(mcd_list) / len(mcd_list)
-
-    save_path = data_root_same.parents[2] / "accuracy.txt"
-    with open(str(save_path), "a") as f:
-        f.write(f"{data_root_same.parents[1].name}\n")
-        f.write(f"mcd = {mcd:f}dB\n")
+    result_dict = {key: value / cnt for key, value in result_dict.items()}
+    with open(str(result_file_path), 'a') as f:
+        f.write('--- mean ---\n')
+        for key, value in result_dict.items():
+            f.write(f'{key} = {value}\n')
+        f.write('\n')

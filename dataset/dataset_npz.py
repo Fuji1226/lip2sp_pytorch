@@ -15,7 +15,14 @@ import torch.nn.functional as F
 from torchvision import transforms as T
 from torch.utils.data import Dataset
 
-from dataset.utils import get_speaker_idx, get_stat_load_data, calc_mean_var_std, get_spk_emb, get_utt_label, adjust_max_data_len
+from dataset.utils import (
+    get_speaker_idx,
+    get_stat_load_data,
+    calc_mean_var_std,
+    get_spk_emb,
+    get_utt,
+    adjust_max_data_len,
+)
 from data_process.phoneme_encode import classes2index_tts, pp_symbols
 
 
@@ -28,15 +35,15 @@ class KablabDataset(Dataset):
         self.class_to_id, self.id_to_class = classes2index_tts()
         
         self.speaker_idx = get_speaker_idx(data_path)
-
-        # 話者embedding
         self.embs = get_spk_emb(cfg)
-
-        # 統計量から平均と標準偏差を求める
-        lip_mean_list, lip_var_list, lip_len_list, \
-            feat_mean_list, feat_var_list, feat_len_list, \
-                feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
-                    landmark_mean_list, landmark_var_list, landmark_len_list = get_stat_load_data(train_data_path)
+        (
+            lip_mean_list,
+            lip_var_list,
+            lip_len_list,
+            feat_mean_list,
+            feat_var_list,
+            feat_len_list,
+        ) = get_stat_load_data(train_data_path)
 
         lip_mean, _, lip_std = calc_mean_var_std(lip_mean_list, lip_var_list, lip_len_list)
         feat_mean, _, feat_std = calc_mean_var_std(feat_mean_list, feat_var_list, feat_len_list)
@@ -46,18 +53,17 @@ class KablabDataset(Dataset):
         self.feat_mean = torch.from_numpy(feat_mean)
         self.feat_std = torch.from_numpy(feat_std)
         
-        self.path_text_label_list = get_utt_label(data_path)
+        self.path_text_list = get_utt(data_path)
         print(f"n = {self.__len__()}")
     
     def __len__(self):
         return len(self.data_path)
 
     def __getitem__(self, index):
-        data_path, text, label = self.path_text_label_list[index]
+        data_path, text = self.path_text_list[index]
         speaker = data_path.parents[1].name
         speaker_idx = torch.tensor(self.speaker_idx[speaker])
         spk_emb = torch.from_numpy(self.embs[speaker])
-        label = torch.tensor([label]).to(torch.float)
         filename = data_path.stem
 
         npz_key = np.load(str(data_path))
@@ -84,7 +90,7 @@ class KablabDataset(Dataset):
         text_len = torch.tensor(text.shape[0])
         stop_token = torch.zeros(feature_len)
         stop_token[-2:] = 1.0
-        return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label
+        return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename
 
 
 class KablabTransform:
@@ -375,7 +381,7 @@ class KablabTransform:
 
 
 def collate_time_adjust(batch, cfg):
-    wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = list(zip(*batch))
+    wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename = list(zip(*batch))
 
     wav_adjusted = []
     lip_adjusted = []
@@ -436,28 +442,4 @@ def collate_time_adjust(batch, cfg):
     lip_len = torch.stack(lip_len)
     text_len = torch.stack(text_len)
     speaker_idx = torch.stack(speaker_idx)
-    label = torch.stack(label)
-    return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label
-
-
-def collate_time_adjust_tts(batch, cfg):
-    wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label = list(zip(*batch))
-    
-    wav = adjust_max_data_len(wav)
-    lip = adjust_max_data_len(lip)
-    feature = adjust_max_data_len(feature)
-    text = adjust_max_data_len(text)
-    stop_token = adjust_max_data_len(stop_token)
-    
-    wav = torch.stack(wav)
-    lip = torch.stack(lip)
-    feature = torch.stack(feature)
-    text = torch.stack(text)
-    stop_token = torch.stack(stop_token)
-    spk_emb = torch.stack(spk_emb)
-    feature_len = torch.stack(feature_len)
-    lip_len = torch.stack(lip_len)
-    text_len = torch.stack(text_len)
-    speaker_idx = torch.stack(speaker_idx)
-    label = torch.stack(label)
-    return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label
+    return wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename

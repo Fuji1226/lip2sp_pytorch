@@ -2,11 +2,11 @@
 
 name : "nar"
 
+random_seed : 42
+
 # デバッグ
-debug : False
-debug_data_len : 1000
-debug_max_epoch : 200
-debug_iter : 10
+debug : True
+debug_iter : 3
 
 # checkpointから再開する場合
 check_point_start : False
@@ -89,23 +89,21 @@ use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
-# corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : ["ATR"]
+corpus : ["ATR", "BASIC5000", "balanced"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
 ]
 
 # 使用する話者
-# speaker : ["M04_kablab"]
-speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+speaker : ["F01_kablab"]
 use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 600
+max_epoch : 2
 
 # テキスト処理
 for_tts : False
@@ -141,8 +139,8 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 16
-num_workers : 16
+batch_size : 2
+num_workers : 1
 
 # dropout
 dec_dropout : 0.1

@@ -40,7 +40,7 @@ feature_type : "mspec"
 comp_mode : 'default'
 
 # 学習に使用する口唇動画の秒数
-input_lip_sec : 10
+input_lip_sec : 3
 
 # 動画
 mov_preprocess_method : "bbox_crop"

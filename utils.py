@@ -12,70 +12,48 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from jiwer import wer
 import seaborn as sns
-from torch.utils.data.distributed import DistributedSampler
 from collections import OrderedDict
 import pandas as pd
+import psutil
+from collections import defaultdict
 
-from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust, collate_time_adjust_tts
-from dataset.dataset_npz_f0 import KablabDatasetWithF0, KablabTransformWithF0, collate_time_adjust_withf0
-from dataset.dataset_npz_lip_face import KablabDatasetLipFaceF0, KablabTransformLipFaceF0, collate_time_adjust_lip_face_f0
-from dataset.dataset_lrs2 import LRS2Dataset, LRS2Transform, collate_time_adjust_lrs2
-from dataset.dataset_npz_with_ex import DatasetWithExternalData, TransformWithExternalData, collate_time_adjust_with_external_data
+from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
 
 
+def fix_random_seed(seed):
+    """
+    乱数固定
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms = True
+
+
 def get_padding(kernel_size, dilation=1):
+    """
+    畳み込みおいてkernel_sizeにあったpaddingの値を計算
+    """
     return (kernel_size*dilation - dilation) // 2
 
 
-def set_config(cfg):
-    if cfg.train.debug:
-        cfg.train.batch_size = 4
-        cfg.train.num_workers = 1
-        cfg.train.corpus = ["ATR"]
-
-    if cfg.model.fps == 25:
-        cfg.model.reduction_factor = 4
-    elif cfg.model.fps == 50:
-        cfg.model.reduction_factor = 2
-
-    if cfg.model.imsize_cropped == 96:
-        cfg.model.is_large = True
-    elif cfg.model.imsize_cropped == 48:
-        cfg.model.is_large = False
-
-
 def get_path_train(cfg, current_time):
+    """
+    学習時のパス取得
+    """
     # data
-    if cfg.train.face_or_lip == "lip_cropped_0.3_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_03_50_gray
-        val_data_root = cfg.train.lip_pre_loaded_path_val_03_50_gray
-    elif cfg.train.face_or_lip == "lip_cropped_0.8_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_08_50_gray
-        val_data_root = cfg.train.lip_pre_loaded_path_val_08_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50_gray":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50_gray
-        val_data_root = cfg.train.face_pre_loaded_path_val_0_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50
-        val_data_root = cfg.train.face_pre_loaded_path_val_0_50
-    elif cfg.train.face_or_lip == "tts_vae_tf_sample":
-        train_data_root = cfg.train.tts_vae_tf_sample_path_train
-        val_data_root = cfg.train.tts_vae_tf_sample_path_val
-    elif cfg.train.face_or_lip == "lip_and_face":
-        train_data_root = cfg.train.lip_face_path_train
-        val_data_root = cfg.train.lip_face_path_val
-    elif cfg.train.face_or_lip == "face_cropped_max_size":
-        train_data_root = cfg.train.face_cropped_max_size_train
-        val_data_root = cfg.train.face_cropped_max_size_val
-    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
+    if cfg.train.face_or_lip == "face_cropped_max_size_fps25":
         train_data_root = cfg.train.face_cropped_max_size_fps25_train
         val_data_root = cfg.train.face_cropped_max_size_fps25_val
 
     train_data_root = Path(train_data_root).expanduser()
     val_data_root = Path(val_data_root).expanduser()
 
+    # 以前のcheckpointから開始する場合、そのディレクトリに追加で保存されるようにckpt_timeを取得
     ckpt_time = None
     if cfg.train.check_point_start:
         checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
@@ -84,107 +62,27 @@ def get_path_train(cfg, current_time):
     # check point
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
     if ckpt_time is not None:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
     else:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
+        ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / current_time
+    ckpt_path.mkdir(parents=True, exist_ok=True)
 
-    # save
+    # save result
     save_path = Path(cfg.train.save_path).expanduser()
     if ckpt_time is not None:
-        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
+        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time    
     else:
-        save_path = save_path / cfg.train.face_or_lip / current_time
-    os.makedirs(save_path, exist_ok=True)
+        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / current_time
+    save_path.mkdir(parents=True, exist_ok=True)
 
     return train_data_root, val_data_root, ckpt_path, save_path, ckpt_time
 
 
-def get_path_train_raw(cfg, current_time):
-    data_dir = Path(cfg.train.data_dir).expanduser()
-    bbox_dir = Path(cfg.train.bbox_dir).expanduser()
-    landmark_dir = Path(cfg.train.landmark_dir).expanduser()
-    train_df_path = Path(cfg.train.train_df_path).expanduser()
-    val_df_path = Path(cfg.train.val_df_path).expanduser()
-    train_df = pd.read_csv(str(train_df_path), header=None)
-    val_df = pd.read_csv(str(val_df_path), header=None)
-
-    ckpt_time = None
-    if cfg.train.check_point_start:
-        checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
-        ckpt_time = checkpoint_path.parents[0].name
-
-    ckpt_path = Path(cfg.train.ckpt_path).expanduser()
-    if ckpt_time is not None:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
-    else:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
-
-    save_path = Path(cfg.train.save_path).expanduser()
-    if ckpt_time is not None:
-        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
-    else:
-        save_path = save_path / cfg.train.face_or_lip / current_time
-    os.makedirs(save_path, exist_ok=True)
-    return data_dir, bbox_dir, landmark_dir, train_df, val_df, ckpt_path, save_path, ckpt_time
-
-
-def get_path_train_lrs2(cfg, current_time):
-    train_data_root = Path(cfg.train.lrs2_train_data_root).expanduser()
-    val_data_root = Path(cfg.train.lrs2_val_data_root).expanduser()
-    train_data_bbox_root = Path(cfg.train.lrs2_train_data_bbox_root).expanduser()
-    val_data_bbox_root = Path(cfg.train.lrs2_val_data_bbox_root).expanduser()
-    train_data_landmark_root = Path(cfg.train.lrs2_train_data_landmark_root).expanduser()
-    val_data_landmark_root = Path(cfg.train.lrs2_val_data_landmark_root).expanduser()
-    train_df_path = Path(cfg.train.lrs2_train_df_path).expanduser()
-    val_df_path = Path(cfg.train.lrs2_val_df_path).expanduser()
-
-    train_data_df = pd.read_csv(str(train_df_path), header=None)
-    val_data_df = pd.read_csv(str(val_df_path), header=None)
-
-    ckpt_time = None
-    if cfg.train.check_point_start:
-        checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
-        ckpt_time = checkpoint_path.parents[0].name
-
-    ckpt_path = Path(cfg.train.ckpt_path).expanduser()
-    if ckpt_time is not None:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / ckpt_time
-    else:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
-
-    save_path = Path(cfg.train.save_path).expanduser()
-    if ckpt_time is not None:
-        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
-    else:
-        save_path = save_path / cfg.train.face_or_lip / current_time
-    os.makedirs(save_path, exist_ok=True)
-    return train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, \
-        val_data_root, val_data_bbox_root, val_data_landmark_root, val_data_df, ckpt_path, save_path, ckpt_time
-
-
 def get_path_test(cfg, model_path):
-    if cfg.train.face_or_lip == "lip_cropped_0.3_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_03_50_gray
-        test_data_root = cfg.test.lip_pre_loaded_path_03_50_gray
-    elif cfg.train.face_or_lip == "lip_cropped_0.8_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_08_50_gray
-        test_data_root = cfg.test.lip_pre_loaded_path_08_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50_gray":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50_gray
-        test_data_root = cfg.test.face_pre_loaded_path_0_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50
-        test_data_root = cfg.test.face_pre_loaded_path_0_50
-    elif cfg.train.face_or_lip == "lip_and_face":
-        train_data_root = cfg.train.lip_face_path_train
-        test_data_root = cfg.test.lip_face_path_test
-    elif cfg.train.face_or_lip == "face_cropped_max_size":
-        train_data_root = cfg.train.face_cropped_max_size_train
-        test_data_root = cfg.test.face_cropped_max_size_test
-    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
+    """
+    テスト時のパス取得
+    """
+    if cfg.train.face_or_lip == "face_cropped_max_size_fps25":
         train_data_root = cfg.train.face_cropped_max_size_fps25_train
         test_data_root = cfg.test.face_cropped_max_size_fps25_test
     
@@ -192,12 +90,12 @@ def get_path_test(cfg, model_path):
     test_data_root = Path(test_data_root).expanduser()
 
     save_path = Path(cfg.test.save_path).expanduser()
-    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
+    save_path = save_path / cfg.test.face_or_lip / cfg.model.name / model_path.parents[0].name / model_path.stem
 
     train_save_path = save_path / "train_data" / "audio"
     test_save_path = save_path / "test_data" / "audio"
-    os.makedirs(train_save_path, exist_ok=True)
-    os.makedirs(test_save_path, exist_ok=True)
+    train_save_path.mkdir(parents=True, exist_ok=True)
+    test_save_path.mkdir(parents=True, exist_ok=True)
 
     data_root_list = [test_data_root]
     save_path_list = [test_save_path]
@@ -207,29 +105,24 @@ def get_path_test(cfg, model_path):
     return data_root_list, save_path_list, train_data_root
 
 
-def get_path_test_raw(cfg, model_path):
-    data_dir = Path(cfg.train.data_dir).expanduser()
-    bbox_dir = Path(cfg.train.bbox_dir).expanduser()
-    landmark_dir = Path(cfg.train.landmark_dir).expanduser()
-    train_df_path = Path(cfg.train.train_df_path).expanduser()
-    test_df_path = Path(cfg.test.test_df_path).expanduser()
-    train_df = pd.read_csv(str(train_df_path), header=None)
-    test_df = pd.read_csv(str(test_df_path), header=None)
-
-    save_path = Path(cfg.test.save_path).expanduser()
-    save_path = save_path / cfg.test.face_or_lip / model_path.parents[0].name / model_path.stem
-
-    train_save_path = save_path / "train_data" / "audio"
-    test_save_path = save_path / "test_data" / "audio"
-    os.makedirs(train_save_path, exist_ok=True)
-    os.makedirs(test_save_path, exist_ok=True)
-
-    df_list = [test_df]
-    save_path_list = [test_save_path]
-    return data_dir, bbox_dir, landmark_dir, df_list, save_path_list, train_df
+def exclude_unreadable_files(data_path_list):
+    """
+    読み込めないファイルがあれば除外
+    """
+    unreadable_data_path_list = []
+    for data_path in data_path_list:
+        try:
+            npz_key = np.load(str(data_path))
+        except:
+            unreadable_data_path_list.append(data_path)
+    data_path_list = list(set(data_path_list) - set(unreadable_data_path_list))
+    return data_path_list
 
 
 def get_datasets(data_root, cfg):
+    """
+    学習時にディレクトリからファイルのパス一覧を取得
+    """
     print("\n--- get datasets ---")
     items = []
     for speaker in cfg.train.speaker:
@@ -243,34 +136,14 @@ def get_datasets(data_root, cfg):
                 print(f"load {corpus}")
             spk_path_list += spk_path_co
         items += random.sample(spk_path_list, len(spk_path_list))
-    return items
-
-
-def get_datasets_synth(data_root, cfg):
-    print(f"\n--- get datasets synth ---")
-    items = []
-    for speaker in cfg.train.speaker:
-        print(f"{speaker}")
-        spk_path_list = []
-        spk_path = data_root / speaker / cfg.model.name
-
-        for corpus in cfg.train.corpus_synth:
-            spk_path_co = [p for p in spk_path.glob("*.npz") if re.search(f"{corpus}", str(p))]
-            if len(spk_path_co) > 1:
-                print(f"load {corpus}")
-            spk_path_list += spk_path_co
-        items += random.sample(spk_path_list, len(spk_path_list))
-        
-    if len(items) > cfg.train.n_data_used_recorded_and_synth:
-        print(f"downsampling data")
-        n_data_all = len(items)
-        items = random.sample(items, cfg.train.n_data_used_recorded_and_synth)
-        n_data_used = len(items)
-        print(f"n_data = {n_data_used} / {n_data_all}")
+    items = exclude_unreadable_files(items)
     return items
 
 
 def get_datasets_test(data_root, cfg):
+    """
+    テスト時にディレクトリからファイルのパス一覧を取得
+    """
     print("\n--- get datasets ---")
     items = []
     for speaker in cfg.test.speaker:
@@ -278,49 +151,20 @@ def get_datasets_test(data_root, cfg):
         spk_path = data_root / speaker / cfg.model.name
         spk_path = list(spk_path.glob("*.npz"))
         items += spk_path
-    return items
-
-
-def get_datasets_external_data(cfg):
-    items = []
-    if cfg.train.which_external_data == "lrs2_main":
-        print(f"\n--- get datasets lrs2_main ---")
-        data_dir = Path(cfg.train.lrs2_npz_path).expanduser()
-        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-    if cfg.train.which_external_data == "lrs2_pretrain":
-        print(f"\n--- get datasets lrs2_pretrain ---")
-        data_dir = Path(cfg.train.lrs2_pretrain_npz_path).expanduser()
-        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-    if cfg.train.which_external_data == "lip2wav":
-        print(f"\n--- get datasets lip2wav ---")
-        data_dir = Path(cfg.train.lip2wav_npz_path).expanduser()
-        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-    if cfg.train.use_jsut_corpus:
-        print(f"\n--- get datasets jsut ---")
-        data_dir = Path(cfg.train.jsut_path_train).expanduser()
-        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-    if cfg.train.use_jvs_corpus:
-        print(f"\n--- get datasets jvs ---")
-        data_dir = Path(cfg.train.jvs_path_train).expanduser()
-        items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-        
+    items = exclude_unreadable_files(items)
     return items
 
 
 def make_train_val_loader(cfg, train_data_root, val_data_root):
+    """
+    学習用、検証用のDataLoaderを作成
+    """
     # パスを取得
     train_data_path = get_datasets(train_data_root, cfg)
     val_data_path = get_datasets(val_data_root, cfg)
-    
-    if cfg.train.use_synth_corpus:
-        synth_data_root = Path(cfg.train.synth_path_train).expanduser()
-        synth_data_path = get_datasets_synth(synth_data_root, cfg)
-    if cfg.train.use_jsut_corpus:
-        jsut_data_root = Path(cfg.train.jsut_path_train).expanduser()
-        jsut_data_path = list(jsut_data_root.glob("*/*/*.npz"))
-    if cfg.train.use_jvs_corpus:
-        jvs_data_root = Path(cfg.train.jvs_path_train).expanduser()
-        jvs_data_path = list(jvs_data_root.glob("*/*/*.npz"))
+    if cfg.train.debug:
+        train_data_path = train_data_path[:100]
+        val_data_path = val_data_path[:100]
 
     # 学習用，検証用それぞれに対してtransformを作成
     train_trans = KablabTransform(cfg, "train")
@@ -328,20 +172,12 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
 
     # dataset作成
     print("\n--- make train dataset ---")
-    data_path = train_data_path
-    if cfg.train.use_synth_corpus:
-        data_path += synth_data_path
-    if cfg.train.use_jsut_corpus:
-        data_path += jsut_data_path
-    if cfg.train.use_jvs_corpus:
-        data_path += jvs_data_path
     train_dataset = KablabDataset(
-        data_path=data_path,
+        data_path=train_data_path,
         train_data_path=train_data_path,
         transform=train_trans,
         cfg=cfg,
     )
-    
     print("\n--- make validation dataset ---")
     val_dataset = KablabDataset(
         data_path=val_data_path,
@@ -350,7 +186,7 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
         cfg=cfg,
     )
 
-    # それぞれのdata loaderを作成
+    # dataloader作成
     train_loader = DataLoader(
         dataset=train_dataset,
         batch_size=cfg.train.batch_size,   
@@ -364,267 +200,33 @@ def make_train_val_loader(cfg, train_data_root, val_data_root):
         dataset=val_dataset,
         batch_size=cfg.train.batch_size,   
         shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
+        num_workers=0,      # 0じゃないとitoでバグることがあります
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_tts(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-    
-    if cfg.train.use_synth_corpus:
-        synth_data_root = Path(cfg.train.synth_path_train).expanduser()
-        synth_data_path = get_datasets_synth(synth_data_root, cfg)    
-
-    train_trans = KablabTransform(cfg, "train")
-    val_trans = KablabTransform(cfg, "val")
-
-    print("\n--- make train dataset ---")
-    if cfg.train.use_synth_corpus:
-        train_data_path_synth = train_data_path + synth_data_path
-        train_dataset = KablabDataset(
-            data_path=train_data_path_synth,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-    else:
-        train_dataset = KablabDataset(
-            data_path=train_data_path,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-    print("\n--- make validation dataset ---")
-    val_dataset = KablabDataset(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_withf0(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-    
-    train_trans = KablabTransformWithF0(cfg, "train")
-    val_trans = KablabTransformWithF0(cfg, "val")
-
-    print("\n--- make train dataset ---")
-    train_dataset = KablabDatasetWithF0(
-        data_path=train_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    print("\n--- make validation dataset ---")
-    val_dataset = KablabDatasetWithF0(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_withf0, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_withf0, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_lip_face(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-    
-    train_trans = KablabTransformLipFaceF0(cfg, "train")
-    val_trans = KablabTransformLipFaceF0(cfg, "val")
-
-    print("\n--- make train dataset ---")
-    train_dataset = KablabDatasetLipFaceF0(
-        data_path=train_data_path,
-        train_data_path=train_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    print("\n--- make validation dataset ---")
-    val_dataset = KablabDatasetLipFaceF0(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lip_face_f0, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lip_face_f0, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_lrs2(
-    cfg, train_data_root, train_data_bbox_root, train_data_landmark_root, train_data_df, 
-    val_data_root, val_data_bbox_root, val_data_landmark_root, val_data_df):
-    train_trans = LRS2Transform(cfg, "train")
-    val_trans = LRS2Transform(cfg, "val")
-    
-    print("\n--- make train dataset ---")
-    train_dataset = LRS2Dataset(
-        data_root=train_data_root,
-        data_bbox_root=train_data_bbox_root,
-        data_landmark_root=train_data_landmark_root,
-        data_df=train_data_df,
-        train_data_root=train_data_root,
-        train_data_bbox_root=train_data_bbox_root,
-        train_data_landmark_root=train_data_landmark_root,
-        train_data_df=train_data_df,
-        transform=train_trans,
-        cfg=cfg,
-        which_data="train",
-    )
-    print("\n--- make validation dataset ---")
-    val_dataset = LRS2Dataset(
-        data_root=val_data_root,
-        data_bbox_root=val_data_bbox_root,
-        data_landmark_root=val_data_landmark_root,
-        data_df=val_data_df,
-        train_data_root=train_data_root,
-        train_data_bbox_root=train_data_bbox_root,
-        train_data_landmark_root=train_data_landmark_root,
-        train_data_df=train_data_df,
-        transform=val_trans,
-        cfg=cfg,
-        which_data="val",
-    )
-    
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lrs2, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_lrs2, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-    external_data_path = get_datasets_external_data(cfg)
-        
-    train_trans = TransformWithExternalData(cfg, "train")
-    val_trans = TransformWithExternalData(cfg, "val")
-    
-    if cfg.train.fine_tuning_pretrained_model_by_external_data:
-        print('fine tuning pretrained model by external data')
-        train_dataset = DatasetWithExternalData(
-            data_path=train_data_path,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-    else:
-        train_dataset = DatasetWithExternalData(
-            data_path=train_data_path + external_data_path,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-    val_dataset = DatasetWithExternalData(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-    
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=0,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
 
 def make_test_loader(cfg, data_root, train_data_root):
+    """
+    テスト用のDataLoaderを作成
+    """
     train_data_path = get_datasets(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
+
+    if cfg.test.debug:
+        train_data_path = train_data_path[:100]
+        test_data_path_for_debug = []
+        n_data_per_speaker =  defaultdict(int)
+        for data_path in test_data_path:
+            speaker = data_path.parents[1].name
+            if n_data_per_speaker[speaker] >= 1:
+                continue
+            test_data_path_for_debug.append(data_path)
+            n_data_per_speaker[speaker] += 1
+        test_data_path = test_data_path_for_debug
 
     test_trans = KablabTransform(cfg, "test")
     test_dataset = KablabDataset(
@@ -643,100 +245,11 @@ def make_test_loader(cfg, data_root, train_data_root):
         collate_fn=None,
     )
     return test_loader, test_dataset
-
-
-def make_test_loader_withf0(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-
-    test_trans = KablabTransformWithF0(cfg, "test")
-    test_dataset = KablabDatasetWithF0(
-        data_path=test_data_path,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_lip_face(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-
-    test_trans = KablabTransformLipFaceF0(cfg, "test")
-    test_dataset = KablabDatasetLipFaceF0(
-        data_path=test_data_path,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_face_gen(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-    data_path_for_first_frame = get_datasets_test(train_data_root, cfg)
-
-    test_trans = KablabTransform(cfg, "test")
-    dataset_for_first_frame = KablabDataset(
-        data_path=data_path_for_first_frame,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_dataset = KablabDataset(
-        data_path=test_data_path,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-
-    loader_for_first_frame = DataLoader(
-        dataset=dataset_for_first_frame,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset, dataset_for_first_frame, loader_for_first_frame
 
 
 def count_params(module, attr):
     """
-    モデルパラメータを計算
+    モデルパラメータ数のカウント
     """
     params = 0
     for p in module.parameters():
@@ -746,12 +259,18 @@ def count_params(module, attr):
 
 
 def requires_grad_change(net, val):
+    """
+    requires_gradの変更
+    """
     for param in net.parameters():
         param.requires_grad = val
     return net
 
 
 def save_loss(train_loss_list, val_loss_list, save_path, filename):
+    """
+    学習時の損失の保存
+    """
     loss_save_path = save_path / f"{filename}.png"
     
     plt.figure()
@@ -1134,7 +653,6 @@ def fix_model_state_dict(state_dict):
 def load_pretrained_model(model_path, model, model_name):
     """
     学習したモデルの読み込み
-    現在のモデルと事前学習済みのモデルで一致した部分だけを読み込むので,モデルが変わっていても以前のパラメータを読み込むことが可能
     """
     model_dict = model.state_dict()
 
@@ -1197,3 +715,47 @@ def gen_data_concat(data, shift_frame, n_last_frame):
 
     data = torch.cat(data_list, dim=-1).unsqueeze(0)     # (1, C, T)
     return data
+
+
+def check_memory_status():
+    memory_info = psutil.virtual_memory()
+    total_memory = memory_info.total
+    used_memory = memory_info.used
+    available_memory = memory_info.available
+    memory_percent = memory_info.percent
+    print(f"Total Memory: {total_memory} bytes")
+    print(f"Used Memory: {used_memory} bytes")
+    print(f"Available Memory: {available_memory} bytes")
+    print(f"Memory Usage Percentage: {memory_percent}%")
+
+
+def select_checkpoint(cfg):
+    '''
+    checkpointの中から最も検証データに対しての損失が小さいものを選ぶ
+    '''
+    checkpoint_path_last = Path(cfg.test.model_path).expanduser()
+    checkpoint_dict_last = torch.load(str(checkpoint_path_last))
+    best_checkpoint = np.argmin(checkpoint_dict_last[cfg.test.metric_for_select]) + 1
+    filename_prev = checkpoint_path_last.stem + checkpoint_path_last.suffix
+    filename_new = str(best_checkpoint) + checkpoint_path_last.suffix
+    checkpoint_path = Path(str(checkpoint_path_last).replace(filename_prev, filename_new))
+    return checkpoint_path
+
+
+def delete_unnecessary_checkpoint(result_dir, checkpoint_dir):
+    """
+    検証データに対しての最も小さくなったチェックポイント以外を削除
+    （モデルの大きさによっては結構容量を取られるので）
+    """
+    checkpoint_dir_list = list(checkpoint_dir.glob('*'))
+    for ckpt_dir in checkpoint_dir_list:
+        ckpt_path_list = list(ckpt_dir.glob('*'))
+        result_path = result_dir / ckpt_dir.stem
+        if not result_path.exists():
+            continue
+        result_path = list(result_path.glob('*'))[0]
+        required_ckpt_filename = result_path.stem
+        for ckpt_path in ckpt_path_list:
+            if ckpt_path.stem == required_ckpt_filename:
+                continue
+            os.remove(str(ckpt_path))

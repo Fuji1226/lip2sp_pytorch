@@ -26,93 +26,24 @@ from data_process.phoneme_encode import get_keys_from_value
 
 def save_lip_video(cfg, save_path, lip, lip_mean, lip_std):
     """
-    口唇動画と動的特徴量の保存
-    動的特徴量は無理やり可視化してるので適切かは分かりません…
     lip : (C, H, W, T)
-    lip_mean, lip_std : (C, H, W) or (C,)
+    lip_mean, lip_std : (C,)
     """
-    if cfg.model.delta:
-        # gray scale
-        if lip.shape[0] == 3:
-            lip_orig = lip[:1, ...]    
-            lip_delta = lip[-2, ...].unsqueeze(0)
-            lip_deltadelta = lip[-1, ...].unsqueeze(0)
-        # rgb
-        elif lip.shape[0] == 9:
-            lip_orig = lip[:3, ...]
-            lip_delta = lip[3:6, ...]
-            lip_deltadelta = lip[6:, ...]
-    
-        # 標準化したので元のスケールに直す
-        if lip_std.dim() == 1:
-            lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
-            lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
-            lip_orig = (lip_orig * lip_std) + lip_mean
-            lip_delta = (lip_delta * lip_std) + lip_mean
-            lip_deltadelta = (lip_deltadelta * lip_std) + lip_mean
-        elif lip_std.dim() == 3:
-            lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
-            lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
-            lip_orig = torch.mul(lip_orig, lip_std)
-            lip_orig = torch.add(lip_orig, lip_mean)
-            lip_delta = torch.mul(lip_delta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-            lip_delta = torch.add(lip_delta, torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-            lip_deltadelta = torch.mul(lip_deltadelta, torch.mean(lip_std, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-            lip_deltadelta = torch.add(lip_deltadelta, torch.mean(lip_mean, dim=(1, 2)).unsqueeze(1).unsqueeze(1))
-        
-        lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-        lip_delta = lip_delta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-        lip_deltadelta = lip_deltadelta.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-        lip_orig = lip_orig.to('cpu')
-        lip_delta = lip_delta.to('cpu')
-        lip_deltadelta = lip_deltadelta.to('cpu')
+    lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
+    lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
+    lip = torch.mul(lip, lip_std)
+    lip = torch.add(lip, lip_mean)
+    lip = lip.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
+    lip = lip.to('cpu')
 
-        if cfg.model.gray:
-            lip_orig = lip_orig.expand(-1, -1, -1, 3)
-            lip_delta = lip_delta.expand(-1, -1, -1, 3)
-            lip_deltadelta = lip_deltadelta.expand(-1, -1, -1, 3)
+    if cfg.model.gray:
+        lip = lip.expand(-1, -1, -1, 3)
 
-        torchvision.io.write_video(
-            filename=str(save_path / "lip.mp4"),
-            video_array=lip_orig,
-            fps=cfg.model.fps
-        )
-        torchvision.io.write_video(
-            filename=str(save_path / "lip_d.mp4"),
-            video_array=lip_delta,
-            fps=cfg.model.fps
-        )
-        torchvision.io.write_video(
-            filename=str(save_path / "lip_dd.mp4"),
-            video_array=lip_deltadelta,
-            fps=cfg.model.fps
-        )
-    else:
-        lip_orig = lip
-
-        # 標準化したので元のスケールに直す
-        if lip_std.dim() == 1:
-            lip_std = lip_std.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)     # (C, 1, 1, 1)
-            lip_mean = lip_mean.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)   # (C, 1, 1, 1)
-            lip_orig = torch.mul(lip_orig, lip_std)
-            lip_orig = torch.add(lip_orig, lip_mean)
-        elif lip_std.dim() == 3:
-            lip_std = lip_std.unsqueeze(-1)     # (C, H, W, 1)
-            lip_mean = lip_mean.unsqueeze(-1)   # (C, H, W, 1)
-            lip_orig = torch.mul(lip_orig, lip_std)
-            lip_orig = torch.add(lip_orig, lip_mean)
-        
-        lip_orig = lip_orig.permute(-1, 1, 2, 0).to(torch.uint8)  # (T, W, H, C)
-        lip_orig = lip_orig.to('cpu')
-
-        if cfg.model.gray:
-            lip_orig = lip_orig.expand(-1, -1, -1, 3)
-
-        torchvision.io.write_video(
-            filename=str(save_path / "lip.mp4"),
-            video_array=lip_orig,
-            fps=cfg.model.fps
-        )
+    torchvision.io.write_video(
+        filename=str(save_path / "lip.mp4"),
+        video_array=lip,
+        fps=cfg.model.fps
+    )
 
 
 def save_lip_video_face_gen(cfg, save_path, lip, lip_mean, lip_std, filename):
@@ -156,56 +87,17 @@ def save_landmark_video(landmark, save_dir):
 
 def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
     """
-    音響特徴量から音声波形を生成し、wavファイルを保存
-    sharpを使用するとちょっと合成音声が綺麗になります
+    griffinlimアルゴリズムによる音声波形への変換
     feature : (C, T)
     feat_mean, feat_std : (C,)
     """
-    # world特徴量
-    if cfg.model.feature_type == "world":
-        feature = feature.to('cpu').numpy()
-        feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
-        feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
-        
-        # 標準化したので元のスケールに直す
-        feature *= feat_std
-        feature += feat_mean
-
-        feature = feature.T
-        mcep = feature[:, :26]
-        clf0 = feature[:, 26]
-        vuv = feature[:, 27]
-        cap = feature[:, 28:]
-
-        wav = world2wav(
-            sp=mcep,
-            clf0=clf0,
-            vuv=vuv,
-            cap=cap,
-            fs=cfg.model.sampling_rate,
-            fbin=513,
-            frame_period=cfg.model.frame_period,
-            mcep_postfilter=True,
-            cfg=cfg,
-        )
-        # 正規化
-        wav /= np.max(np.abs(wav))
-
-    # メルスペクトログラム
-    if cfg.model.feature_type == "mspec":
-        feature = feature.to('cpu').numpy()
-        feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
-        feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
-
-        # 標準化したので元のスケールに直す
-        feature *= feat_std
-        feature += feat_mean
-
-        wav = mel2wav(feature, cfg)
-
-        # 正規化
-        wav /= np.max(np.abs(wav))
-
+    feature = feature.to('cpu').numpy()
+    feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
+    feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
+    feature *= feat_std
+    feature += feat_mean
+    wav = mel2wav(feature, cfg)
+    wav /= np.max(np.abs(wav))
     return wav
 
 
@@ -450,28 +342,6 @@ def plot_f0(cfg, save_path, f0_input, f0_AbS, f0_gen):
     plt.title("f0")
     plt.grid()
 
-    # ax = plt.subplot(3, 1, 1)
-    # ax.plot(time, f0_input)
-    # plt.xlabel("Time[s]")
-    # plt.ylabel("f0[hz]")
-    # plt.title("Input")
-    # plt.grid()
-
-    # ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
-    # ax.plot(time, f0_AbS)
-    # plt.xlabel("Time[s]")
-    # plt.ylabel("f0[hz]")
-    # plt.title("Analysis by Synthesis")
-    # plt.grid()
-
-    # ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
-    # ax.plot(time, f0_gen)
-    # plt.xlabel("Time[s]")
-    # plt.ylabel("f0[hz]")
-    # plt.title("Synthesis")
-    # plt.grid()
-
-    # plt.tight_layout()
     plt.savefig(str(save_path / "f0.png"))
 
 

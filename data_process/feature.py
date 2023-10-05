@@ -148,10 +148,6 @@ def mel2wav(mel, cfg):
         fmax=cfg.model.f_max,
     )
 
-    # ちょっと音声が強調される。田口さんからの継承。
-    if cfg.model.sharp:
-        spec **= np.sqrt(1.4)
-
     wav = librosa.griffinlim(
         S=spec,
         n_iter=100,
