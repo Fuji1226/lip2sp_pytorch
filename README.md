@@ -81,11 +81,19 @@ https://tech.nri-net.com/entry/using_docker_containers_with_vscode
 
 
 ## ITOからデータのダウンロード
-`/data_process/download_from_ito.py`を実行していただくと、ITOからデータをダウンロードできます。
+まず、itoの日高さんに作っていただいたスクリプトを停止します。
+scrapboxの手順に従った場合、itoでgpuの確認などができるシェルスクリプトが自動的に実行されると思います。
+しかし、自動で実行されるとダウンロードの時にバグるので、一旦実行されないように設定を変えます。
 
-ファイル内で設定を変更する必要があるので、変更してから実行をお願いします。
+`vim ~/.bashrc`とターミナルで打つことでvimエディタで`.bashrc`ファイルをいじれる状態になります。
+おそらく`source ~/ito_shared/main.sh minami`という行があると思うので、`# source ~/ito_shared/main.sh minami`のように頭に`#`をつけて、コメントアウトしてください。
 
-`from_folder_list`と`num_files_to_download`を変更していただければ大丈夫です。
+これにより、シェルが立ち上がった時に自動で実行されなくなります。
+
+次に、`/data_process/download_from_ito.py`を実行します。
+変更しなければいけない箇所があるので、コードを確認してください。
+
+ダウンロードが終わったら、コメントアウトしたところを戻しておきましょう。
 
 
 ## コードの実行
