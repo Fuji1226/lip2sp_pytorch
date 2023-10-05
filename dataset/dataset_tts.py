@@ -95,6 +95,7 @@ class KablabTTSDataset(Dataset):
 class HIFIDataset(Dataset):
     def __init__(self, data_path, train_data_path, transform, cfg):
         super().__init__()
+        
         self.data_path = data_path
         self.transform = transform
         self.cfg = cfg
@@ -108,10 +109,8 @@ class HIFIDataset(Dataset):
         self.feat_mean = torch.from_numpy(feat_mean)
         self.feat_std = torch.from_numpy(feat_std)
         
-        self.path_text_label_list = get_utt_label_hifi(data_path)
-
+        self.path_text_label_list = get_utt_label_hifi(data_path, cfg)
         print(f"n = {self.__len__()}")
-        print('test')
     
     def __len__(self):
         return len(self.data_path)

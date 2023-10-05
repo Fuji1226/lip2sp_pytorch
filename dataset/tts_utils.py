@@ -5,8 +5,10 @@ from tqdm import tqdm
 import torch
 import pandas as pd
 
-text_dir = Path("~/dataset/lip/utt").expanduser()
-hifi_dir = Path("~/dataset/hifi/txt/parallel").expanduser()
+# text_dir = Path("~/dataset/lip/utt").expanduser()
+# hifi_dir = Path("~/dataset/hifi/txt/parallel").expanduser()
+# hifi_dir = Path("/mnt/diskA/naoaki/dataset/hifi/txt/parallel").expanduser()
+
 
 def get_stat_load_data(train_data_path):
     print("\nget stat")
@@ -106,12 +108,11 @@ def get_utt_label(data_path):
         path_text_label_list.append([path, text, label])
     return path_text_label_list
 
-def get_utt_label_hifi(data_path):
+def get_utt_label_hifi(data_path, cfg):
     print("--- get utterance ---")
     path_text_label_list = []
-    text_dir = hifi_dir
 
-   
+    text_dir = Path(cfg.train.text_dir).expanduser()
     for path in tqdm(data_path):
         text_path = text_dir / f"{path.stem}.txt"
         df = pd.read_csv(str(text_path), header=None)

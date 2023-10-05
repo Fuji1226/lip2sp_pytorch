@@ -386,7 +386,7 @@ def make_train_val_loader_tts(cfg, data_root):
     
     train_trans = KablabTTSTransform(cfg, "train")
     val_trans = KablabTTSTransform(cfg, "val")
-    breakpoint()
+
     print("\n--- make train dataset ---")
 
     train_dataset = KablabTTSDataset(

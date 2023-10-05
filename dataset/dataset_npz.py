@@ -37,9 +37,13 @@ def get_datasets(data_root, cfg):
     return items
 
 def get_dataset_all(data_root):
+    flg =  'JSUT' in str(data_root)
     target_extension = '.npz'
-    folder_paths = [p for p in data_root.rglob('*') if p.is_dir()]
-    file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
+    
+    if flg: #JSUT
+        file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension and 'BASIC' in str(p)]
+    else:
+        file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
     return file_paths
 
 def get_datasets_test(data_root, cfg):
