@@ -182,9 +182,9 @@ class Attention(nn.Module):
             prev_att_w = 1.0 - make_pad_mask(test, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
             prev_att_w = prev_att_w / test.unsqueeze(1)
 
-        # if prev_att_w is None:
-        #     prev_att_w = torch.zeros(enc_output.shape[0], enc_output.shape[1]).to(enc_output.device)
-        #     prev_att_w[:, 0] = 1.0
+        if prev_att_w is None:
+            prev_att_w = torch.zeros(enc_output.shape[0], enc_output.shape[1]).to(enc_output.device)
+            prev_att_w[:, 0] = 1.0
 
         att_conv = self.loc_conv(prev_att_w.unsqueeze(1))     # (B, C, T)
         att_conv = att_conv.permute(0, 2, 1)    # (B, T, C)

@@ -89,7 +89,7 @@ class KablabTTSDataset(Dataset):
         text_len = torch.tensor(text.shape[0])
         stop_token = torch.zeros(feature_len)
         stop_token[-2:] = 1.0
-        return wav, feature, text, stop_token, feature_len, text_len, filename, label
+        return wav, feature, text, stop_token, feature_len, text_len, filename
         #return wav, lip, feature, text, stop_token, feature_len, lip_len, text_len, speaker, speaker_idx, filename, label
 
 class HIFIDataset(Dataset):
@@ -111,6 +111,7 @@ class HIFIDataset(Dataset):
         self.path_text_label_list = get_utt_label_hifi(data_path)
 
         print(f"n = {self.__len__()}")
+        print('test')
     
     def __len__(self):
         return len(self.data_path)

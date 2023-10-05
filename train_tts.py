@@ -219,7 +219,7 @@ def main(cfg):
     
     train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_tts(cfg, data_root)
     
-    test_root = Path(cfg.test.tts_pre_loaded_path)
+    test_root = Path(cfg.test.tts_pre_loaded_path).expanduser()
     test_loader, test_dataset = make_test_loader_tts(cfg, test_root, data_root)
     loss_f = MaskedLossTTS()    
 

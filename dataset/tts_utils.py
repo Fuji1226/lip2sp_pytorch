@@ -6,7 +6,7 @@ import torch
 import pandas as pd
 
 text_dir = Path("~/dataset/lip/utt").expanduser()
-hifi_dir = Path("/mnt/diskA/naoaki/dataset/hifi/txt/parallel")
+hifi_dir = Path("~/dataset/hifi/txt/parallel").expanduser()
 
 def get_stat_load_data(train_data_path):
     print("\nget stat")
