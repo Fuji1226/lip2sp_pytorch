@@ -121,7 +121,7 @@ def main():
         )
 
     download_utt_files(
-        from_folder=Path(f"{ito_usr_path}/dataset/lip/utt_small"),
+        from_folder=Path(f"{ito_usr_path}/dataset/lip/utt"),
         hostname=hostname,
         local_data_dir=Path("~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray").expanduser(),
     )

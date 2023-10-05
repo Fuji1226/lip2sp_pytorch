@@ -83,13 +83,7 @@ def main(cfg):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
-
-    model = make_model(cfg, device)
-    model_path = Path(f"~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2023:10:05_04-23-44/2.ckpt").expanduser()
-    model = load_pretrained_model(model_path, model, "model")
-    cfg.train.face_or_lip = model_path.parents[2].name
-    cfg.test.face_or_lip = model_path.parents[2].name
-
+    
     model_path = select_checkpoint(cfg)
     model = make_model(cfg, device)
     model = load_pretrained_model(model_path, model, "model")

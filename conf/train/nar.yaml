@@ -6,24 +6,18 @@ random_seed : 42
 
 # デバッグ
 debug : True
-debug_iter : 3
+debug_iter : 1
 
 # checkpointから再開する場合
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
-# 複数言語で事前学習したモデルをfine tuningするかどうか
-fine_tuning_pretrained_model_by_external_data : False
-module_is_fixed : []
-
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
 start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
-# face or lip
+# 使用するデータの種類の指定
 face_or_lip : "face_cropped_max_size_fps25"
-use_synth_corpus : False
-n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/nar/train"
@@ -32,81 +26,24 @@ save_path : "~/lip2sp_pytorch/result/nar/train"
 ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 1
 
+# npzファイルを生成する際の話者リスト
 npz_process_speaker_list : []
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
-lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
-lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
-lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
-face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
-face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
-face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
-face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
-synth_path_train : "~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train"
-recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
-recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
-face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/train"
-face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
 face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
 face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
 
-# 元データ
-data_dir : "~/dataset/lip/cropped"
-bbox_dir : "~/dataset/lip/bbox"
-landmark_dir : "~/dataset/lip/landmark"
-# data_dir : "~/dataset/lip/cropped_fps25"
-# bbox_dir : "~/dataset/lip/bbox_fps25"
-# landmark_dir : "~/dataset/lip/landmark_fps25"
-train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
-val_df_path : "~/dataset/lip/data_split_csv/val.csv"
-
-# 外部データの指定
-which_external_data : "lip2wav"
-
-# lrs2
-lrs2_train_data_root : "~/lrs2/mvlrs_v1/main"
-lrs2_val_data_root : "~/lrs2/mvlrs_v1/main"
-lrs2_train_data_bbox_root : "~/lrs2/bbox/main"
-lrs2_val_data_bbox_root : "~/lrs2/bbox/main"
-lrs2_train_data_landmark_root : "~/lrs2/landmark/main"
-lrs2_val_data_landmark_root : "~/lrs2/landmark/main"
-lrs2_train_df_path : "~/lrs2/train.txt"
-lrs2_val_df_path : "~/lrs2/val.txt"
-lrs2_n_train_speaker_used : 200
-lrs2_main_npz_path : "~/dataset/lip/np_files/lrs2_main/train"
-lrs2_pretrain_npz_path : "~/dataset/lip/np_files/lrs2_pretrain/train"
-
-# lip2wav
-lip2wav_npz_path : "~/dataset/lip/np_files/lip2wav/train"
-
-# jsut corpus
-use_jsut_corpus : False
-jsut_path_train : "~/dataset/lip/np_files/jsut/train"
-
-# jvs corpus
-use_jvs_corpus : False
-jvs_path_train : "~/dataset/lip/np_files/jvs/train"
-
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
-corpus_synth : [
-  "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
-  "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
-]
 
 # 使用する話者
 speaker : ["F01_kablab"]
 use_spk_emb : True
-finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
 max_epoch : 2
-
-# テキスト処理
-for_tts : False
 
 # data augmentationの有無
 # 見た目変換系
