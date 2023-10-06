@@ -40,9 +40,14 @@ face_pre_loaded_path_val_fujita : "~/dataset/np_files/lip_cropped/train"
 #tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
 #tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"
 #tts_pre_loaded_path : "~/dataset/hifi"
-tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/JSUT/mspec"
 
-text_dir : "/mnt/diskA/naoaki/dataset/JSUT/utt"
+#for ito
+tts_pre_loaded_path : "~/dataset/JSUT/mspec"
+text_dir : "~/dataset/JSUT/utt"
+
+#for desk
+# tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/JSUT/mspec"
+# text_dir : "/mnt/diskA/naoaki/dataset/JSUT/utt"
 
 
 # 元データ
@@ -114,7 +119,7 @@ weight_decay : 1.0e-6
 # scheduler
 lr_decay_rate : 0.5
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.99995
+lr_decay_exp : 0.995
 
 # gradient clipping
 max_norm : 3.0

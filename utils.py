@@ -427,12 +427,22 @@ def make_train_val_loader_tts(cfg, data_root):
     
 def make_all_loader_tts_hifi(cfg, data_root):
     # パスを取得
-    from dataset.dataset_npz import get_dataset_all
+    def get_dataset_all(data_root):
+        flg =  'JSUT' in str(data_root)
+        target_extension = '.npz'
+        
+        if flg: #JSUT
+            file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension and 'BASIC' in str(p)]
+            #file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
+        else:
+            file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
+        return file_paths
+    
     data_path = get_dataset_all(
         data_root=data_root,
     )
     
-    if True:
+    if False:
         data_path = data_path[:500]
 
     data_path = random.sample(data_path, len(data_path))
