@@ -312,16 +312,26 @@ def save_GAN_prob(correct_list, wrong_list, save_path, filename):
 
 def make_train_val_loader(cfg, data_root, mean_std_path):
     # パスを取得
-    data_path = get_datasets(
-        data_root=data_root,
-        cfg=cfg,
-    )
-    data_path = random.sample(data_path, len(data_path))
-    n_samples = len(data_path)
-    train_size = int(n_samples * 0.95)
-    train_data_path = data_path[:train_size]
-    val_data_path = data_path[train_size:]
-
+    
+    if cfg.train.corpus is None:
+        data_path = get_datasets(
+            data_root=data_root,
+            cfg=cfg,
+        )
+        data_path = random.sample(data_path, len(data_path))
+        n_samples = len(data_path)
+        train_size = int(n_samples * 0.95)
+        train_data_path = data_path[:train_size]
+        val_data_path = data_path[train_size:]
+    else:
+        data_path = get_datasets(
+            data_root=data_root,
+            cfg=cfg,
+        )
+        train_size = int(len(data_path)//2)
+        train_data_path = data_path[:train_size]
+        val_data_path = data_path[train_size:]
+        
     # 学習用，検証用それぞれに対してtransformを作成
     train_trans = KablabTransform(
         cfg=cfg,
@@ -520,6 +530,7 @@ def make_train_val_loader_stop_token(cfg, data_root, mean_std_path):
         data_root=data_root,
         cfg=cfg,
     )
+    
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     train_size = int(n_samples * 0.95)

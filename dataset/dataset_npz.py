@@ -29,11 +29,25 @@ def get_datasets(data_root, cfg):
     """
     print("\n--- get datasets ---")
     items = []
+    target_extension = '.npz'
+    
     for speaker in cfg.train.speaker:
         print(f"load {speaker}")
         spk_path = data_root / speaker
-        spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
-        items += spk_path
+        
+        if cfg.train.corpus is not None:
+            if cfg.train.corpus=='ATR':
+                file_paths = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension and 'ATR' in str(p)]
+                n_ATR = len(file_paths)
+                val_tmp = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension and 'ATR' not in str(p)]
+                file_paths += val_tmp[:n_ATR]
+            else:
+                file_paths = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension]
+        else:
+            file_paths = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension]
+    
+        items += file_paths
+    
     return items
 
 def get_dataset_all(data_root):
