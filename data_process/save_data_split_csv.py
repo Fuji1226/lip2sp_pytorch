@@ -1,0 +1,127 @@
+from pathlib import Path
+import shutil
+from tqdm import tqdm
+import pandas as pd
+import random
+random.seed(42)
+
+
+def data_split_kablab():
+    audio_dir = Path('~/dataset/lip/wav').expanduser()
+    speaker_list = list(audio_dir.glob('*'))
+    speaker_list = [s.stem for s in speaker_list]
+    train_ratio = 0.95
+    df_list = []
+
+    for speaker in speaker_list:
+        audio_path_list = list((audio_dir / speaker).glob('*.wav'))
+        filename_list = [f.stem for f in audio_path_list]
+        
+        filename_list_atr = []
+        filename_list_basic = []
+        filename_list_balanced = []
+        for filename in filename_list:
+            if 'ATR503' in filename:
+                filename_list_atr.append(filename)
+            elif 'BASIC5000' in filename:
+                filename_list_basic.append(filename)
+            elif 'balanced' in filename:
+                filename_list_balanced.append(filename)
+
+        filename_list_train = []
+        filename_list_val = []
+        filename_list_test = []
+        for filename in filename_list_atr:
+            if 'i' in filename:
+                filename_list_val.append(filename)
+            elif 'j' in filename:
+                filename_list_test.append(filename)
+            else:
+                filename_list_train.append(filename)
+
+        filename_list_basic = random.sample(filename_list_basic, len(filename_list_basic))
+        filename_list_balanced = random.sample(filename_list_balanced, len(filename_list_balanced))
+        filename_list_train += filename_list_basic[:int(len(filename_list_basic) * train_ratio)]
+        filename_list_val += filename_list_basic[int(len(filename_list_basic) * train_ratio):]
+        filename_list_train += filename_list_balanced[:int(len(filename_list_balanced) * train_ratio)]
+        filename_list_val += filename_list_balanced[int(len(filename_list_balanced) * train_ratio):]
+
+        train_df = pd.DataFrame({'filename': filename_list_train, 'data_split': 'train'})
+        val_df = pd.DataFrame({'filename': filename_list_val, 'data_split': 'val'})
+        test_df = pd.DataFrame({'filename': filename_list_test, 'data_split': 'test'})
+        df = pd.concat([train_df, val_df, test_df])
+        df['speaker'] = speaker
+        df.loc[df['filename'].str.contains('ATR'), 'corpus'] = 'ATR'
+        df.loc[df['filename'].str.contains('BASIC5000'), 'corpus'] = 'BASIC5000'
+        df.loc[df['filename'].str.contains('balanced'), 'corpus'] = 'balanced'
+        df_list.append(df)
+
+    df = pd.concat(df_list)
+    return df
+
+
+def data_split_hifi_captain():
+    data_dir = Path('~/dataset/hi-fi-captain/ja-JP').expanduser()
+    speaker_list = ['female', 'male']
+    data_list = ['train_parallel', 'train_non_parallel', 'dev', 'eval']
+    df_list = []
+
+    for speaker in speaker_list:
+        for data in data_list:
+            data_dir_spk = data_dir / speaker / 'wav' / data
+            data_path_list = data_dir_spk.glob('*.wav')
+            filename_list = [f.stem for f in data_path_list]
+            df = pd.DataFrame({"filename": filename_list})
+            if data == 'train_parallel' or data == 'train_non_parallel':
+                df['data_split'] = 'train'
+            elif data == 'dev':
+                df['data_split'] = 'val'
+            elif data == 'eval':
+                df['data_split'] = 'train'
+            df['speaker'] = speaker
+            df['parent_dir'] = data
+            df_list.append(df)
+
+    df = pd.concat(df_list)
+    return df
+
+
+def data_split_jsut():
+    data_dir = Path('~/dataset/jsut_ver1.1').expanduser()
+    data_list = data_dir.glob('*')
+    df_list = []
+
+    for data in data_list:
+        if not data.is_dir():
+            continue
+        data_path_list = data.glob('**/*.wav')
+        filename_list = [f.stem for f in data_path_list]
+        filename_list = random.sample(filename_list, len(filename_list))
+        total_length = len(filename_list)
+        train_length = int(total_length * 0.9)
+        val_length = int(total_length * 0.05)
+        filename_list_train = filename_list[:train_length]
+        filename_list_val = filename_list[train_length:train_length + val_length]
+        filename_list_test = filename_list[train_length + val_length:]
+        train_df = pd.DataFrame({"filename": filename_list_train, 'data_split': 'train'})
+        val_df = pd.DataFrame({"filename": filename_list_val, 'data_split': 'val'})
+        test_df = pd.DataFrame({"filename": filename_list_test, 'data_split': 'test'})
+        df = pd.concat([train_df, val_df, test_df])
+        df_list.append(df)
+    
+    df = pd.concat(df_list)
+    return df
+
+
+def main():
+    save_dir = Path('~/dataset/lip/data_split_csv').expanduser()
+    df = data_split_kablab()
+    df.to_csv(str(save_dir / 'kablab.csv'), index=False)
+    df = data_split_hifi_captain()
+    df.to_csv(str(save_dir / 'hifi_captain.csv'), index=False)
+    df = data_split_jsut()
+    df.to_csv(str(save_dir / 'jsut.csv'), index=False)
+
+
+if __name__ == '__main__':
+    main()

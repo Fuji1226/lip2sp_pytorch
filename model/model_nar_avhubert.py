@@ -49,12 +49,9 @@ class TransformerDecoder(nn.Module):
         d_model,
         nhead,
         num_layers,
-        out_channels,
         pos_enc_max_len,
-        reduction_factor,
     ):
         super().__init__()
-        self.out_channels = out_channels
         self.pos_encoder = PositionalEncoding(d_model=d_model, max_len=pos_enc_max_len)
         enc_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
@@ -62,7 +59,6 @@ class TransformerDecoder(nn.Module):
             dim_feedforward=int(d_model * 4),
         )
         self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
-        self.fc = nn.Linear(d_model, out_channels * reduction_factor)
 
     def forward(self, x, padding_mask):
         '''
@@ -72,9 +68,7 @@ class TransformerDecoder(nn.Module):
         x = x.permute(1, 0, 2)  # (T, B, C)
         x = self.pos_encoder(x)
         x = self.encoder(x, src_key_padding_mask=padding_mask)
-        x = self.fc(x)
-        x = x.permute(1, 2, 0)  # (B, C, T)
-        x = x.reshape(x.shape[0], self.out_channels, -1)
+        x = x.permute(1, 0, 2)  # (B, T, C)
         return x
 
 
@@ -139,8 +133,32 @@ class Lip2SP_NAR_AVHubert(nn.Module):
                 d_model=inner_channels,
                 nhead=inner_channels // 64,
                 num_layers=transformer_decoder_num_layers,
-                out_channels=out_channels,
                 pos_enc_max_len=pos_enc_max_len,
+            )
+            self.decoder_conv = ResTCDecoder(
+                cond_channels=inner_channels,
+                out_channels=out_channels,
+                inner_channels=inner_channels,
+                n_layers=dec_n_layers,
+                kernel_size=dec_kernel_size,
+                dropout=dec_dropout,
+                reduction_factor=reduction_factor,
+            )
+        elif which_decoder == 'gru':
+            self.decoder = GRUEncoder(
+                hidden_channels=inner_channels,
+                n_layers=rnn_n_layers,
+                dropout=rnn_dropout,
+                reduction_factor=reduction_factor,
+                which_norm=rnn_which_norm,
+            )
+            self.decoder_conv = ResTCDecoder(
+                cond_channels=inner_channels,
+                out_channels=out_channels,
+                inner_channels=inner_channels,
+                n_layers=dec_n_layers,
+                kernel_size=dec_kernel_size,
+                dropout=dec_dropout,
                 reduction_factor=reduction_factor,
             )
 
@@ -186,7 +204,12 @@ class Lip2SP_NAR_AVHubert(nn.Module):
             x = x.permute(0, 2, 1)
 
         if self.which_decoder == 'transformer':
-            x = self.decoder(x, padding_mask=padding_mask_avhubert)
+            x = self.decoder(x, padding_mask=padding_mask_avhubert)     # (B, T, C)
+            x = self.decoder_conv(x)
+        elif self.which_decoder == 'gru':
+            x = x.permute(0, 2, 1)  # (B, C, T)
+            x = self.decoder(x, lip_len)    # (B, T, C)
+            x = self.decoder_conv(x)
         else:
             x = self.decoder(x)
         return x, None, None

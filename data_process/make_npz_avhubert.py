@@ -29,7 +29,6 @@ def main(cfg):
             feature = pad(feature, data_len)
         if feature_avhubert.shape[-1] != data_len:
             feature_avhubert = pad(feature_avhubert, data_len)
-        
         assert feature.shape[-1] == data_len
         assert feature_avhubert.shape[-1] == data_len
         

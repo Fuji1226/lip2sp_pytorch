@@ -12,8 +12,8 @@ from data_check import save_data, save_data_pwg
 from train_nar_with_ex_avhubert import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import (
-    make_test_loader_with_external_data,
-    get_path_test,
+    make_test_loader_with_external_data_raw,
+    get_path_test_raw,
     load_pretrained_model,
     gen_data_separate,
     gen_data_concat,
@@ -123,27 +123,25 @@ def main(cfg):
     cfg.train.face_or_lip = model_path.parents[2].name
     cfg.test.face_or_lip = model_path.parents[2].name    
 
-    data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
+    video_dir, audio_dir, save_path = get_path_test_raw(cfg, model_path)
+    test_loader, test_dataset = make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir)
     
-    for data_root, save_path in zip(data_root_list, save_path_list):
-        test_loader, test_dataset = make_test_loader_with_external_data(cfg, data_root, train_data_root)
-        generate(
-            cfg=cfg,
-            model=model,
-            pwg=pwg,
-            test_loader=test_loader,
-            dataset=test_dataset,
-            device=device,
-            save_path=save_path,
-        )
-
-    for data_root, save_path in zip(data_root_list, save_path_list):
-        for speaker in cfg.test.speaker:
-            save_path_spk = save_path / "griffinlim" / speaker
-            # save_path_pwg_spk = save_path / "pwg" / speaker
-            calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
-            # calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
-        calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
+    generate(
+        cfg=cfg,
+        model=model,
+        pwg=pwg,
+        test_loader=test_loader,
+        dataset=test_dataset,
+        device=device,
+        save_path=save_path,
+    )
+    
+    for speaker in cfg.test.speaker:
+        save_path_spk = save_path / "griffinlim" / speaker
+        # save_path_pwg_spk = save_path / "pwg" / speaker
+        calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
+        # calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+    calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
         
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],

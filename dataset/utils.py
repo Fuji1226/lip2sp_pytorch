@@ -11,7 +11,7 @@ from functools import partial
 import torch
 import pickle
 
-from data_process.transform import load_data_lrs2, load_data
+from data_process.transform import load_data
 
 text_dir = Path("~/dataset/lip/utt").expanduser()
 emb_dir = Path("~/dataset/lip/emb").expanduser()
@@ -160,20 +160,11 @@ def get_stat_load_data(train_data_path):
     feat_mean_list = []
     feat_var_list = []
     feat_len_list = []
-    feat_add_mean_list = []
-    feat_add_var_list = []
-    feat_add_len_list = []
-    landmark_mean_list = []
-    landmark_var_list = []
-    landmark_len_list = []
 
     for path in tqdm(train_data_path):
         npz_key = np.load(str(path))
-
         lip = npz_key['lip']
         feature = npz_key['feature']
-        # feat_add = npz_key['feat_add']
-        # landmark = npz_key['landmark']
 
         lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
         lip_var_list.append(np.var(lip, axis=(1, 2, 3)))
@@ -182,115 +173,29 @@ def get_stat_load_data(train_data_path):
         feat_mean_list.append(np.mean(feature, axis=0))
         feat_var_list.append(np.var(feature, axis=0))
         feat_len_list.append(feature.shape[0])
-
-        # feat_add_mean_list.append(np.mean(feat_add, axis=0))
-        # feat_add_var_list.append(np.var(feat_add, axis=0))
-        # feat_add_len_list.append(feat_add.shape[0])
-
-        # landmark_mean_list.append(np.mean(landmark, axis=(0, 2)))
-        # landmark_var_list.append(np.var(landmark, axis=(0, 2)))
-        # landmark_len_list.append(landmark.shape[0])
         
-    return lip_mean_list, lip_var_list, lip_len_list, \
-        feat_mean_list, feat_var_list, feat_len_list, \
-            feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
-                landmark_mean_list, landmark_var_list, landmark_len_list
-                
-                
-def get_stat_load_data_lip_face(train_data_path):
-    print("\nget stat")
-    lip_mean_list = []
-    lip_var_list = []
-    lip_len_list = []
-    face_mean_list = []
-    face_var_list = []
-    face_len_list = []
-    feat_mean_list = []
-    feat_var_list = []
-    feat_len_list = []
-    feat_add_mean_list = []
-    feat_add_var_list = []
-    feat_add_len_list = []
-
-    for path in tqdm(train_data_path):
-        npz_key = np.load(str(path))
-
-        lip = npz_key['lip']
-        face = npz_key['face']
-        feature = npz_key['feature']
-        feat_add = npz_key['feat_add']
-
-        lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
-        lip_var_list.append(np.var(lip, axis=(1, 2, 3)))
-        lip_len_list.append(lip.shape[-1])
-        
-        face_mean_list.append(np.mean(face, axis=(1, 2, 3)))
-        face_var_list.append(np.var(face, axis=(1, 2, 3)))
-        face_len_list.append(face.shape[-1])
-
-        feat_mean_list.append(np.mean(feature, axis=0))
-        feat_var_list.append(np.var(feature, axis=0))
-        feat_len_list.append(feature.shape[0])
-
-        feat_add_mean_list.append(np.mean(feat_add, axis=0))
-        feat_add_var_list.append(np.var(feat_add, axis=0))
-        feat_add_len_list.append(feat_add.shape[0])
-        
-    return lip_mean_list, lip_var_list, lip_len_list, \
-        face_mean_list, face_var_list, face_len_list, \
-            feat_mean_list, feat_var_list, feat_len_list, \
-                feat_add_mean_list, feat_add_var_list, feat_add_len_list
-
-
-def load_and_calc_mean_var(video_path, audio_path, bbox_path, landmark_path, text_path, cfg, aligner):
-    wav, lip, feature, data_len, text = load_data(video_path, audio_path, bbox_path, landmark_path, text_path, cfg, aligner)
-    lip_mean = np.mean(lip, axis=(1, 2, 3))
-    lip_var = np.var(lip, axis=(1, 2, 3))
-    feat_mean = np.mean(feature, axis=0)
-    feat_var = np.var(feature, axis=0)
-    lip_len = lip.shape[-1]
-    feat_len = feature.shape[0]
-    return lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len
-
-
-def get_stat_load_data_raw(data_path_list, cfg, aligner):
-    print(f"\nget stat")
-    lip_mean_list = []
-    lip_var_list = []
-    lip_len_list = []
-    feat_mean_list = []
-    feat_var_list = []
-    feat_len_list = []
-
-    print("multi processing")
-    res = joblib.Parallel(n_jobs=-1)(
-        joblib.delayed(partial(load_and_calc_mean_var, cfg=cfg, aligner=aligner))(
-            video_path, audio_path, bbox_path, landmark_path, text_path
-        ) for video_path, audio_path, bbox_path, landmark_path, text_path in tqdm(data_path_list)
+    return (
+        lip_mean_list,
+        lip_var_list,
+        lip_len_list,
+        feat_mean_list,
+        feat_var_list,
+        feat_len_list,
     )
-    for lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len in res:
-        lip_mean_list.append(lip_mean)
-        lip_var_list.append(lip_var)
-        lip_len_list.append(lip_len)
-        feat_mean_list.append(feat_mean)
-        feat_var_list.append(feat_var)
-        feat_len_list.append(feat_len)
-
-    return lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list
 
 
-def load_and_calc_mean_var_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
-    wav, lip, feature, data_len = load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner)
-    lip_mean = np.mean(lip, axis=(1, 2, 3))
-    lip_var = np.var(lip, axis=(1, 2, 3))
-    feat_mean = np.mean(feature, axis=0)
-    feat_var = np.var(feature, axis=0)
-    lip_len = lip.shape[-1]
-    feat_len = feature.shape[0]
+def load_and_calc_mean_var(audio_path, video_path, cfg):
+    wav, feature, feature_avhubert, lip = load_data(audio_path, video_path, cfg)
+    lip_mean = np.mean(lip, axis=(0, 2, 3))
+    lip_var = np.var(lip, axis=(0, 2, 3))
+    feat_mean = np.mean(feature, axis=1)
+    feat_var = np.var(feature, axis=1)
+    lip_len = lip.shape[0]
+    feat_len = feature.shape[1]
     return lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len
 
 
-def get_stat_load_data_lrs2(data_path_list, cfg, aligner):
+def get_stat_load_data_raw(data_path_list, cfg):
     print(f"\nget stat")
     lip_mean_list = []
     lip_var_list = []
@@ -301,9 +206,9 @@ def get_stat_load_data_lrs2(data_path_list, cfg, aligner):
 
     print("multi processing")
     res = joblib.Parallel(n_jobs=-1)(
-        joblib.delayed(partial(load_and_calc_mean_var_lrs2, cfg=cfg, aligner=aligner))(
-            video_path, bbox_path, landmark_path
-        ) for video_path, bbox_path, landmark_path in tqdm(data_path_list)
+        joblib.delayed(partial(load_and_calc_mean_var, cfg=cfg))(
+            data_path['audio_path'], data_path['video_path']
+        ) for data_path in tqdm(data_path_list)
     )
     for lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len in res:
         lip_mean_list.append(lip_mean)
@@ -389,6 +294,17 @@ def get_spk_emb(cfg):
     spk_emb_dict = {}
     for speaker in cfg.train.speaker:
         data_path = emb_dir / speaker / "emb.npy"
+        emb = np.load(str(data_path))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker] = emb
+    return spk_emb_dict
+
+
+def get_spk_emb_hifi_captain():
+    spk_emb_dict = {}
+    data_dir = Path('~/dataset/hi-fi-captain/ja-JP').expanduser()
+    for speaker in ['female', 'male']:
+        data_path = data_dir / speaker /'emb.npy'
         emb = np.load(str(data_path))
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker] = emb

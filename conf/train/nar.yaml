@@ -3,7 +3,7 @@
 name : "nar"
 
 # 乱数固定
-random_seed : 777
+random_seed : 42
 
 # デバッグ
 debug : True
@@ -56,15 +56,13 @@ face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_
 avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
 avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
 
-# 元データ
-data_dir : "~/dataset/lip/cropped"
-bbox_dir : "~/dataset/lip/bbox"
-landmark_dir : "~/dataset/lip/landmark"
-# data_dir : "~/dataset/lip/cropped_fps25"
-# bbox_dir : "~/dataset/lip/bbox_fps25"
-# landmark_dir : "~/dataset/lip/landmark_fps25"
-train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
-val_df_path : "~/dataset/lip/data_split_csv/val.csv"
+# 
+audio_dir : '~/dataset/lip/wav'
+avhubert_preprocess_fps25_video_dir : '~/dataset/lip/avhubert_preprocess_fps25'
+kablab_df_path : '~/dataset/lip/data_split_csv/kablab.csv'
+hifi_captain_df_path : '~/dataset/lip/data_split_csv/hifi_captain.csv'
+hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
+hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
 
 # 外部データの指定
 which_external_data : ""
@@ -96,8 +94,8 @@ use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
-# corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : ["ATR"]
+corpus : ["ATR", "BASIC5000", "balanced"]
+# corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
@@ -187,4 +185,4 @@ use_weighted_mean : False
 loss_disc_weight : 0.01
 
 # gradient accumulation
-iters_to_accumulate : 2
+iters_to_accumulate : 4

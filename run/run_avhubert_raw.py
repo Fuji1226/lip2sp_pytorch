@@ -227,7 +227,7 @@ def run_nar(
 
 
 def main():
-    debug = False
+    debug = True
     wandb_conf = 'debug' if debug else 'nar'
     subject = 'プログラム経過'
 
@@ -266,8 +266,8 @@ def main():
                 run_nar(
                     checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
                     result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    run_filename_train='train_nar_with_ex_avhubert.py',
-                    run_filename_generate='generate_nar_with_ex.py',
+                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                    run_filename_generate='generate_nar_with_ex_raw.py',
                     metric_for_select='val_loss_list',
                     use_spatial_aug=True,
                     use_time_masking=True,
@@ -304,8 +304,8 @@ def main():
                 run_nar(
                     checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
                     result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    run_filename_train='train_nar_with_ex_avhubert.py',
-                    run_filename_generate='generate_nar_with_ex.py',
+                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                    run_filename_generate='generate_nar_with_ex_raw.py',
                     metric_for_select='val_loss_list',
                     use_spatial_aug=True,
                     use_time_masking=True,
@@ -350,8 +350,8 @@ def main():
                     run_nar(
                         checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
                         result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                        run_filename_train='train_nar_with_ex_avhubert.py',
-                        run_filename_generate='generate_nar_with_ex.py',
+                        run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                        run_filename_generate='generate_nar_with_ex_raw.py',
                         metric_for_select='val_loss_list',
                         use_spatial_aug=True,
                         use_time_masking=True,
@@ -388,8 +388,8 @@ def main():
                 checkpoint_path_best = run_nar(
                     checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
                     result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    run_filename_train='train_nar_with_ex_avhubert.py',
-                    run_filename_generate='generate_nar_with_ex.py',
+                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                    run_filename_generate='generate_nar_with_ex_raw.py',
                     metric_for_select='val_loss_list',
                     use_spatial_aug=False,
                     use_time_masking=False,
@@ -426,8 +426,8 @@ def main():
                 run_nar(
                     checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
                     result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    run_filename_train='train_nar_with_ex_avhubert.py',
-                    run_filename_generate='generate_nar_with_ex.py',
+                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                    run_filename_generate='generate_nar_with_ex_raw.py',
                     metric_for_select='val_loss_list',
                     use_spatial_aug=True,
                     use_time_masking=True,

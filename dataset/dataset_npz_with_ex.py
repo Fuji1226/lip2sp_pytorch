@@ -47,10 +47,14 @@ class DatasetWithExternalData(Dataset):
             self.speaker_idx.update(get_speaker_idx_jvs())
             self.embs.update(get_spk_emb_jvs())
         
-        lip_mean_list, lip_var_list, lip_len_list, \
-            feat_mean_list, feat_var_list, feat_len_list, \
-                feat_add_mean_list, feat_add_var_list, feat_add_len_list, \
-                    landmark_mean_list, landmark_var_list, landmark_len_list = get_stat_load_data(train_data_path)
+        (
+            lip_mean_list,
+            lip_var_list,
+            lip_len_list,
+            feat_mean_list,
+            feat_var_list,
+            feat_len_list,
+        ) = get_stat_load_data(train_data_path)
 
         if cfg.model.use_avhubert_encoder:
             lip_mean = np.array([cfg.model.avhubert_lip_mean])

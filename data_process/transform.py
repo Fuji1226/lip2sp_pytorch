@@ -17,7 +17,7 @@ import pandas as pd
 import pydub
 import torch
 
-from data_process.feature import wav2mel, wav2world
+from data_process.feature import wav2mel, wav2world, wav2mel_avhubert
 from data_process.face_crop import get_crop_info
 from data_process.face_crop_align import FaceAligner, get_landmark
 
@@ -225,70 +225,43 @@ def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
     return lip_processed
 
 
-def load_data(video_path, audio_path, bbox_path, landmark_path, text_path, cfg, aligner):
-    # 動画から検出済みのbouding boxを利用して顔領域を切り取り
-    lip = preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner)
-
-    # グレースケール化 & リサイズ
-    if cfg.model.gray:
-        lip = torchvision.transforms.functional.rgb_to_grayscale(lip)   # (T, C, H, W)
-    lip = torchvision.transforms.functional.resize(lip, [cfg.model.imsize, cfg.model.imsize])   # (T, C, W, H)
-
-    wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
-    wav = wav / np.max(np.abs(wav), axis=0)
-    feature = wav2mel(wav, cfg, ref_max=False)  # (C, T)
-
-    # 系列長の調整
+def load_data(audio_path, video_path, cfg):
+    wav, _ = librosa.load(str(audio_path), sr=cfg.model.sampling_rate)
+    wav = wav / np.max(np.abs(wav))     # (T,)
+    feature = wav2mel(wav, cfg, ref_max=False)     # (C, T)
+    feature_avhubert = wav2mel_avhubert(wav, cfg)  # (C, T)
     upsample = get_upsample(cfg)
-    data_len = min(int(feature.shape[1] // upsample * upsample), int(lip.shape[0] * upsample))
-    lip = lip[:data_len // upsample,  ...]
-    feature = feature[:, :data_len]
-    n_wav_sample_per_frame = cfg.model.sampling_rate * cfg.model.frame_period // 1000
-    wav = wav[:int(n_wav_sample_per_frame * data_len)]
-    wav_padded = np.zeros(int(n_wav_sample_per_frame * data_len))
+
+    if video_path is not None:
+        lip, _, _ = torchvision.io.read_video(str(video_path), pts_unit="sec", output_format='TCHW')    # (T, C, H, W)
+        lip = torchvision.transforms.functional.rgb_to_grayscale(lip)
+    else:
+        lip = torch.rand(int(feature.shape[1] * upsample), 1, 96, 96)
+    lip = lip.numpy()
+
+    data_len = min(
+        int(feature.shape[1] // upsample * upsample), 
+        int(feature_avhubert.shape[1] // upsample * upsample), 
+        int(lip.shape[0] * upsample),
+    )
+
+    wav = wav[:int(cfg.model.hop_length * data_len)]
+    wav_padded = np.zeros((int(cfg.model.hop_length * data_len)))
     wav_padded[:wav.shape[0]] = wav
     wav = wav_padded
 
-    df = pd.read_csv(str(text_path))
-    text = df.pronounce.values[0]
-
-    assert feature.shape[1] == int(lip.shape[0] * upsample)
-    lip = lip.permute(1, 2, 3, 0).numpy()   # (C, H, W, T)
-    feature = feature.T     # (T, C)
-    return wav, lip, feature, data_len, text
-
-
-def load_data_lrs2(video_path, bbox_path, landmark_path, cfg, aligner):
-    """
-    wav : (T,)
-    lip : (C, H, W, T)
-    feature : (T, C)
-    """
-    # 動画から検出済みのbouding boxを利用して顔領域を切り取り
-    lip = preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner)
-
-    # グレースケール化 & リサイズ
-    if cfg.model.gray:
-        lip = torchvision.transforms.functional.rgb_to_grayscale(lip)   # (T, C, H, W)
-    lip = torchvision.transforms.functional.resize(lip, [cfg.model.imsize, cfg.model.imsize])   # (T, C, W, H)
-
-    # mp4から音声を読み込み
-    wav, fs = librosa.load(str(video_path), sr=cfg.model.sampling_rate, mono=None)
-    wav = wav / np.max(np.abs(wav), axis=0)
-    feature = wav2mel(wav, cfg, ref_max=False)  # (C, T)
-
-    # 系列長の調整
-    upsample = get_upsample(cfg)
-    data_len = min(feature.shape[1] // 4 * 4, int(lip.shape[0] * upsample))
-    lip = lip[:data_len // upsample,  ...]
     feature = feature[:, :data_len]
-    n_wav_sample_per_frame = cfg.model.sampling_rate * cfg.model.frame_period // 1000
-    wav = wav[:int(n_wav_sample_per_frame * data_len)]
-    wav_padded = np.zeros(int(n_wav_sample_per_frame * data_len))
-    wav_padded[:wav.shape[0]] = wav
-    wav = wav_padded
+    feature_padded = np.zeros((feature.shape[0], data_len))
+    feature_padded[:, :feature.shape[1]] = feature
+    feature = feature_padded
 
-    assert feature.shape[1] == int(lip.shape[0] * upsample)
-    lip = lip.permute(1, 2, 3, 0).numpy()   # (C, H, W, T)
-    feature = feature.T     # (T, C)
-    return wav, lip, feature, data_len
+    feature_avhubert = feature_avhubert[:, :data_len]
+    feature_avhubert_padded = np.zeros((feature_avhubert.shape[0], data_len))
+    feature_avhubert_padded[:, :feature_avhubert.shape[1]] = feature_avhubert
+    feature_avhubert = feature_avhubert_padded
+
+    lip = lip[:data_len // upsample]
+    lip_padded = np.zeros((data_len // upsample, 1, 96, 96))
+    lip_padded[:lip.shape[0]] = lip
+    lip = lip_padded
+    return wav, feature, feature_avhubert, lip
