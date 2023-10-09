@@ -178,9 +178,9 @@ class Attention(nn.Module):
                 test[i] = enc_output.shape[1]
 
 
-        if prev_att_w is None:
-            prev_att_w = 1.0 - make_pad_mask(test, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
-            prev_att_w = prev_att_w / test.unsqueeze(1)
+        # if prev_att_w is None:
+        #     prev_att_w = 1.0 - make_pad_mask(test, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
+        #     prev_att_w = prev_att_w / test.unsqueeze(1)
 
         if prev_att_w is None:
             prev_att_w = torch.zeros(enc_output.shape[0], enc_output.shape[1]).to(enc_output.device)

@@ -279,21 +279,23 @@ def main(cfg):
 
         scheduler.step()
 
-        save_checkpoint(
-            model=model,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            train_loss_list=train_loss_list,
-            train_output_loss_list=train_output_loss_list,
-            train_dec_output_loss_list=train_dec_output_loss_list,
-            train_stop_token_loss_list=train_stop_token_loss_list,
-            val_loss_list=val_loss_list,
-            val_output_loss_list=val_output_loss_list,
-            val_dec_output_loss_list=val_dec_output_loss_list,
-            val_stop_token_loss_list=val_stop_token_loss_list,
-            epoch=current_epoch,
-            ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
-        )
+
+        if current_epoch % cfg.train.ckpt_step == 0:
+            save_checkpoint(
+                model=model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                train_loss_list=train_loss_list,
+                train_output_loss_list=train_output_loss_list,
+                train_dec_output_loss_list=train_dec_output_loss_list,
+                train_stop_token_loss_list=train_stop_token_loss_list,
+                val_loss_list=val_loss_list,
+                val_output_loss_list=val_output_loss_list,
+                val_dec_output_loss_list=val_dec_output_loss_list,
+                val_stop_token_loss_list=val_stop_token_loss_list,
+                epoch=current_epoch,
+                ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
+            )
         
         save_loss(train_loss_list, val_loss_list, save_path, "total_loss")
         save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")

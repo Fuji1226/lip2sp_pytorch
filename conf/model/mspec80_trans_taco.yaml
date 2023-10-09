@@ -82,7 +82,7 @@ tc_n_head : 2
 conformer_conv_kernel_size : 31   # 7, 15 or 31
 
 # 使用するencoder（"transformer" or "conformer"）
-which_encoder : "transformer"
+which_encoder : "convencoder"
 
 # 使用するdecoder
 # 自己回帰 : "transformer" or "glu"

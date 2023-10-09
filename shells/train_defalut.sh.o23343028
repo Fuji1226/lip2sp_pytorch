@@ -1,89 +1,0 @@
-
-  - 現在の研究室のGPU使用状況は，
-    「onsei_check_gpus」というコマンドで確認できます。
-  - 自分が確保したいGPUの枚数は，
-    「onsei_register_desired_gpus」というコマンドで登録できます。
-    - GPUを当分使う予定がない場合の例（期限を9999年12月31日に設定）
-      onsei_register_desired_gpus 0 9999/12/31
-    - 8枚確保したい場合の例（期限を2022年10月13日に設定し，コメントを付ける）
-      onsei_register_desired_gpus 8 2022/10/13 '研究締切のためすみません'
-    - 最低2枚確保し，研究室全体で余ったGPUも使いたい場合の例
-      onsei_register_desired_gpus 2 2022/10/13 '余剰GPUを使わせていただきます'
-
-USER      RUNNING DESIRED     TO DATE  COMMENT
-============================================================================
-hidaka          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
-minami          0       0  9999/12/31  自動コメント：2022/09/30に期限切れ
-takehisa        0       2  2022/10/31  (仮)
-fujita          9       5  2022/10/31  使います
-============================================================================
-Remaining       7
-
-wandb: Currently logged in as: naoaki. Use `wandb login --relogin` to force relogin
-/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'config': Defaults list is missing `_self_`. See https://hydra.cc/docs/upgrades/1.0_to_1.1/default_composition_order for more information
-  warnings.warn(msg, UserWarning)
-tag: spec_augument
-device = cuda
-cpu_num = 36
-gpu_num = 1
-
---- data directory check ---
-data_root = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/train
-mean_std_path = /home/usr1/q70261a/dataset/lip/np_files/lip_cropped/mean_std
-ckpt_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/spec_augument
-save_path = /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/result/default/train/lip/spec_augument
-
---- get datasets ---
-load F01_kablab
-
---- make train dataset ---
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 3639
-
---- make validation dataset ---
-
-get speaker idx
-speaker_idx = {'F01_kablab': 0}
-
-load mean std
-load F01_kablab
-n = 192
-wandb: wandb version 0.13.4 is available!  To upgrade, please run:
-wandb:  $ pip install wandb --upgrade
-wandb: Tracking run with wandb version 0.12.21
-wandb: Run data is saved locally in /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/outputs/2022-10-06/16-11-53/wandb/run-20221006_161153-w3cv156w
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run spec_augument_mspec80
-wandb: ⭐️ View project at https://wandb.ai/naoaki/lip2sp_default
-wandb: 🚀 View run at https://wandb.ai/naoaki/lip2sp_default/runs/w3cv156w
-##### 1 #####
-training_method : ss
-mixing_prob = 0.5
-learning_rate = 0.001
-iter start
-iter 0/454
-wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
-wandb: - 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.001 MB uploaded (0.000 MB deduped)wandb: | 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.001 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb:                                                                                
-wandb: Synced spec_augument_mspec80: https://wandb.ai/naoaki/lip2sp_default/runs/w3cv156w
-wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
-wandb: Find logs at: ./wandb/run-20221006_161153-w3cv156w/logs
-Error executing job with overrides: ['train.debug=False', 'tag=spec_augument']
-Traceback (most recent call last):
-  File "train_default.py", line 351, in main
-    train_epoch_loss_output, train_epoch_loss_dec_output, train_epoch_loss_feat_add = train_one_epoch(
-  File "train_default.py", line 107, in train_one_epoch
-    output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-  File "/home/usr1/q70261a/.pyenv/versions/3.8.10/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1128, in _call_impl
-    result = forward_call(*input, **kwargs)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/model_default.py", line 208, in forward
-    mixed_prev = spec_augment(mixed_prev)
-  File "/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/model/model_default.py", line 42, in spec_augment
-    x = y.clone().detach().numpy()
-TypeError: can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory first.
-
-Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

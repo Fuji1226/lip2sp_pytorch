@@ -1,0 +1,125 @@
+---
+
+name : mspec80
+
+#################################
+# data_info
+#################################
+# video parameter
+fps : 50
+video_channels : 3
+
+# audio parameter
+sampling_rate : 16000
+n_fft : 640
+hop_length : 160
+win_length : 640
+f_min : 0
+f_max : 8000
+n_mel_channels : 80
+
+# input grayscale（グレースケールかRGBか）
+gray : True
+
+# input first and second derivative.（動的特徴量を使うかどうか）
+delta : False
+
+# frame period
+frame_period : 10
+
+# acoutic feature frames in training
+length : 40
+
+# phoneme length
+phoneme_length : 30
+
+# reduction factor
+reduction_factor : 2
+
+# "world" or "mspec"（音響特徴量の選択）
+feature_type : "mspec"
+
+# 学習に使用する口唇動画のフレーム数
+lip_min_frame : 200
+lip_max_frame : 201
+
+#################################
+# model_info
+#################################
+# in_channels
+in_channels : 3
+
+# ResNet3D parameter
+res_layers : 3
+res_inner_channels : 128
+norm_type_lip : "bn"
+
+# glu parameter
+glu_layers : 4    # 4 or 6
+glu_kernel_size : 5   # 5 or 9
+glu_inner_channels : 128
+
+# transformer parameter
+n_layers : 1    # 1, 2 or 4
+d_model : 256   # 128 or 256
+n_head : 4    # 2 or 4
+dec_n_layers : 1
+dec_d_model : 256
+dec_n_head : 4
+diag_mask : False
+
+# transposed convolution parameter
+tc_n_layers : 3   # 1層あたり2層の畳み込みを含みます
+tc_inner_channels : 128
+tc_kernel_size : 5
+tc_feat_add_channels : 1
+tc_feat_add_layers : 2
+tc_d_model : 128
+tc_n_attn_layer : 1
+tc_n_head : 2
+
+# conformer parameter
+conformer_conv_kernel_size : 31   # 7, 15 or 31
+
+# 使用するencoder（"transformer" or "conformer"）
+which_encoder : "convencoder"
+
+# 使用するdecoder
+# 自己回帰 : "transformer" or "glu"
+# 非自己回帰 : "simple_tc", "gated_tc" or "res_tc"
+which_decoder : "transformer"
+
+# audio encoder
+ae_emb_dim : 2
+vae_emb_dim : 64
+vq_emb_dim : 64
+vq_num_emb : 256    
+spk_emb_dim : 256
+norm_type_audio : "in"
+content_d_model : 256
+content_n_attn_layer : 1
+content_n_head : 4
+which_spk_enc : "rnn"
+
+# mutual information
+mi_hidden_channels : 256
+
+# discriminator
+which_d :
+
+# out_channels
+out_channels : 80  # 音響特徴量から計算します
+
+# lipreading classes(43 + α)
+n_classes : 44
+
+# Prenet & Postnet parameter
+pre_in_channels : 160  # 音響特徴量から計算します
+pre_inner_channels : 32
+post_inner_channels : 512
+post_n_layers : 5
+
+# enhancer parameter
+which_enhancer : "2D"   # 2D or 1D
+lstm_layers : 1
+bidirectional : True

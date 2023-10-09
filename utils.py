@@ -442,8 +442,8 @@ def make_all_loader_tts_hifi(cfg, data_root):
         target_extension = '.npz'
         
         if flg: #JSUT
-            file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension and 'BASIC' in str(p)]
-            #file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
+            #file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension and 'BASIC' in str(p)]
+            file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
         else:
             file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
         return file_paths
