@@ -96,10 +96,11 @@ def calc_mean_var_std(mean_list, var_list, len_list):
     std = np.sqrt(var)
     return mean, var, std
 
-def get_utt_label(data_path):
+def get_utt_label(data_path, cfg):
     print("--- get utterance ---")
     path_text_label_list = []
 
+    text_dir = Path(cfg.train.text_dir).expanduser()
     for path in tqdm(data_path):
         text_path = text_dir / f"{path.stem}.txt"
         df = pd.read_csv(str(text_path), header=None)

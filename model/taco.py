@@ -273,7 +273,7 @@ class TacotronDecoder(nn.Module):
         init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
         return init_hs
 
-    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False, mode='lip'):
+    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False, mode='lip', vq=None):
         """
         enc_output : (B, T, C)
         text_len : (B,)
@@ -325,6 +325,10 @@ class TacotronDecoder(nn.Module):
         # if feature_target is not None:
         #     print(f'featue target: {feature_target.shape}')
         #     print(f'training method: {training_method}')
+        
+        if vq is not None:
+            step_vq_loss = 0
+            step_perplexity = 0
 
         no_att = False
         
@@ -332,6 +336,11 @@ class TacotronDecoder(nn.Module):
             no_att = False
         while True:
             att_c, att_w = self.attention(enc_output, text_len, h_list[0], prev_att_w, mask=mask)
+            
+            if vq is not None:
+                vq_loss, att_c, perplexity, _ = vq(att_c)
+                step_vq_loss += vq_loss
+                step_perplexity += perplexity
 
             if no_att:
                 enc_idx = int(t//2)
@@ -395,7 +404,10 @@ class TacotronDecoder(nn.Module):
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
 
         if not use_stop_token:
-            return output, logit, att_w #(B, mel, T) (B, T)
+            if vq is None:
+                return output, logit, att_w #(B, mel, T) (B, T)
+            else:
+                return output, logit, att_w, step_vq_loss, step_perplexity 
         else:
             return output, logit, att_w, logit_list
 

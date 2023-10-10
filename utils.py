@@ -385,14 +385,17 @@ def make_train_val_loader_tts(cfg, data_root):
         data_root=data_root,
         cfg=cfg,
     )
+
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     
-    if False:
-        data_path = data_path[:100]
     train_size = int(n_samples * 0.95)
     train_data_path = data_path[:train_size]
     val_data_path = data_path[train_size:]
+    
+    if False:
+        train_data_path = train_data_path[:100]
+        val_data_path = train_data_path
     
     train_trans = KablabTTSTransform(cfg, "train")
     val_trans = KablabTTSTransform(cfg, "val")
