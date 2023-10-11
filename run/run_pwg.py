@@ -86,6 +86,7 @@ def run_pwg(
     lr_gen,
     lr_disc,
     which_scheduler,
+    lr_decay_exp,
     max_epoch,
     debug,
     wandb_conf,
@@ -96,8 +97,8 @@ def run_pwg(
             'python',
             f'/home/minami/lip2sp_pytorch/parallelwavegan/{run_filename_train}',
             'model=mspec_avhubert',
-            'train=default',
-            'test=default',
+            'train=pwg',
+            'test=pwg',
             f'wandb_conf={wandb_conf}',
             f'train.debug={debug}',
             'train.use_jsut_corpus=True',
@@ -107,7 +108,9 @@ def run_pwg(
             f'train.lr_gen={lr_gen}',
             f'train.lr_disc={lr_disc}',
             f'train.which_scheduler={which_scheduler}',
+            f'train.lr_decay_exp={lr_decay_exp}',
             f'train.max_epoch={max_epoch}',
+            'model.input_lip_sec=1',
         ],
         subject=subject,
         body=f'finish {run_filename_train}'
@@ -117,8 +120,8 @@ def run_pwg(
             'python',
             f'/home/minami/lip2sp_pytorch/parallelwavegan/{run_filename_generate}',
             'model=mspec_avhubert',
-            'train=default',
-            'test=default',
+            'train=pwg',
+            'test=pwg',
             f'wandb_conf={wandb_conf}',
             f'train.debug={debug}',
             'train.use_jsut_corpus=True',
@@ -128,7 +131,9 @@ def run_pwg(
             f'train.lr_gen={lr_gen}',
             f'train.lr_disc={lr_disc}',
             f'train.which_scheduler={which_scheduler}',
+            f'train.lr_decay_exp={lr_decay_exp}',
             f'train.max_epoch={max_epoch}',
+            'model.input_lip_sec=1',
             f'test.model_path={get_last_checkpoint_path(checkpoint_dir)}',
             f'test.metric_for_select={metric_for_select}',
             f'test.debug={debug}',
@@ -143,13 +148,13 @@ def run_pwg(
 
 
 def main():
-    debug = False
-    wandb_conf = 'debug' if debug else 'default'
+    debug = True
+    wandb_conf = 'debug' if debug else 'pwg'
     subject = 'プログラム経過'
 
     checkpoint_path_best = run_pwg(
-        checkpoint_dir=Path('~/lip2sp_pytorch/parallelwavegan/check_point/default/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(), 
-        result_dir=Path('~/lip2sp_pytorch/parallelwavegan/result/default/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(), 
+        checkpoint_dir=Path('~/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(), 
+        result_dir=Path('~/lip2sp_pytorch/result/pwg/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(), 
         run_filename_train='pwg_train.py', 
         run_filename_generate='pwg_generate.py',
         metric_for_select='val_epoch_loss_gen_all_list',
@@ -158,29 +163,12 @@ def main():
         lr_gen=1.0e-3,
         lr_disc=1.0e-3,
         which_scheduler='exp',
-        max_epoch=100,
+        max_epoch=30,
+        lr_decay_exp=0.9,
         debug=debug,
         wandb_conf=wandb_conf,
         subject=subject,
     )
-
-    # run_pwg(
-    #     checkpoint_dir=Path('~/lip2sp_pytorch/parallelwavegan/check_point/default/avhubert_preprocess_fps25_gray').expanduser(), 
-    #     result_dir=Path('~/lip2sp_pytorch/parallelwavegan/result/default/generate/avhubert_preprocess_fps25_gray').expanduser(), 
-    #     run_filename_train='pwg_train.py', 
-    #     run_filename_generate='pwg_generate.py',
-    #     metric_for_select='val_epoch_loss_gen_all_list',
-    #     check_point_start_separate_save_dir=True,
-    #     start_ckpt_path_separate_save_dir=checkpoint_path_best,
-    #     lr_gen=1.0e-4,
-    #     lr_disc=1.0e-4,
-    #     which_scheduler='warmup',
-    #     max_epoch=50,
-    #     debug=debug,
-    #     wandb_conf=wandb_conf,
-    #     subject=subject,
-    # )
-
 
 
 if __name__ == '__main__':

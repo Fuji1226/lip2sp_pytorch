@@ -267,6 +267,7 @@ def get_datasets_test(data_root, cfg):
 def get_datasets_test_raw(cfg, video_dir, audio_dir):
     df = pd.read_csv(str(Path(cfg.train.kablab_df_path).expanduser()))
     df = df.loc[df['data_split'] == 'test']
+    df = df.loc[df['speaker'].isin(cfg.test.speaker)]
     data_path_list = []
     for i in range(df.shape[0]):
         row = df.iloc[i]
@@ -479,43 +480,25 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         train_external_data_path_list = train_external_data_path_list[:100]
         val_external_data_path_list = val_external_data_path_list[:100]
 
-    if cfg.model.avhubert_audio_pretrain:
-        if len(val_data_path_list) == 0:
-            train_dataset = DatasetWithExternalDataRaw(
-                data_path=train_external_data_path_list,
-                train_data_path=train_external_data_path_list,
-                transform=train_trans,
-                cfg=cfg,
-            )
-            val_dataset = DatasetWithExternalDataRaw(
-                data_path=val_external_data_path_list,
-                train_data_path=train_external_data_path_list,
-                transform=val_trans,
-                cfg=cfg,
-            )
-        else:
-            train_dataset = DatasetWithExternalDataRaw(
-                data_path=train_data_path_list,
-                train_data_path=train_external_data_path_list,
-                transform=train_trans,
-                cfg=cfg,
-            )
-            val_dataset = DatasetWithExternalDataRaw(
-                data_path=val_data_path_list,
-                train_data_path=train_external_data_path_list,
-                transform=val_trans,
-                cfg=cfg,
-            )
+    if cfg.model.avhubert_audio_pretrain or cfg.train.name == 'pwg':
+        train_dataset = DatasetWithExternalDataRaw(
+            data_path=train_external_data_path_list,
+            transform=train_trans,
+            cfg=cfg,
+        )
+        val_dataset = DatasetWithExternalDataRaw(
+            data_path=val_external_data_path_list,
+            transform=val_trans,
+            cfg=cfg,
+        )
     else:
         train_dataset = DatasetWithExternalDataRaw(
             data_path=train_data_path_list,
-            train_data_path=train_data_path_list,
             transform=train_trans,
             cfg=cfg,
         )
         val_dataset = DatasetWithExternalDataRaw(
             data_path=val_data_path_list,
-            train_data_path=train_data_path_list,
             transform=val_trans,
             cfg=cfg,
         )
@@ -531,60 +514,9 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     )
     val_loader = DataLoader(
         dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
+        batch_size=cfg.train.batch_size,
         shuffle=True,
         num_workers=cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_pwg(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-    external_data_path = get_datasets_external_data(cfg)
-    train_trans = TransformWithExternalData(cfg, "train")
-    val_trans = TransformWithExternalData(cfg, "val")
-
-    if cfg.train.pwg_pretraining:
-        train_data_dir = Path(cfg.train.jsut_path_train).expanduser()
-        train_data_path = list(train_data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-        val_data_dir = Path(cfg.train.jsut_path_val).expanduser()
-        val_data_path = list(val_data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-    
-    if cfg.train.debug:
-        train_data_path = train_data_path[:100]
-        val_data_path = val_data_path[:100]
-        external_data_path = external_data_path[:100]
-
-    train_dataset = DatasetWithExternalData(
-        data_path=train_data_path,
-        train_data_path=external_data_path,
-        transform=train_trans,
-        cfg=cfg,
-    )
-    val_dataset = DatasetWithExternalData(
-        data_path=val_data_path,
-        train_data_path=external_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      # 0じゃないとバグることがあります
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
@@ -697,59 +629,8 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         train_external_data_path_list = train_external_data_path_list[:100]
     
     test_trans = TransformWithExternalData(cfg, 'test')
-
-    if cfg.model.avhubert_audio_pretrain:
-        test_dataset = DatasetWithExternalDataRaw(
-            data_path=test_data_path_list,
-            train_data_path=train_external_data_path_list,
-            transform=test_trans,
-            cfg=cfg,
-        )
-    else:
-        test_dataset = DatasetWithExternalDataRaw(
-            data_path=test_data_path_list,
-            train_data_path=train_data_path_list,
-            transform=test_trans,
-            cfg=cfg,
-        )
-
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_pwg(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    external_data_path = get_datasets_external_data(cfg)
-    test_data_path = sorted(test_data_path)
-
-    if cfg.test.debug:
-        train_data_path = train_data_path[:100]
-        external_data_path = external_data_path[:100]
-
-        test_data_path_for_debug = []
-        n_data_per_speaker =  defaultdict(int)
-        for data_path in test_data_path:
-            speaker = data_path.parents[1].name
-            if n_data_per_speaker[speaker] >= 1:
-                continue
-            test_data_path_for_debug.append(data_path)
-            n_data_per_speaker[speaker] += 1
-
-        test_data_path = test_data_path_for_debug
-
-    test_trans = TransformWithExternalData(cfg, 'test')
-    test_dataset = DatasetWithExternalData(
-        data_path=test_data_path,
-        train_data_path=external_data_path,
+    test_dataset = DatasetWithExternalDataRaw(
+        data_path=test_data_path_list,
         transform=test_trans,
         cfg=cfg,
     )

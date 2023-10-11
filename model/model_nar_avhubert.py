@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from nar_decoder import ResTCDecoder, LinearDecoder
 from rnn import GRUEncoder
-from avhubert import Config, MyAVHubertModel, TransformerEncoder
+from avhubert import MyAVHubertModel, ResEncoder
 from transformer_remake import PositionalEncoding
 
 
@@ -213,3 +213,99 @@ class Lip2SP_NAR_AVHubert(nn.Module):
         else:
             x = self.decoder(x)
         return x, None, None
+    
+
+class Lip2SP_NAR_Lightweight(nn.Module):
+    def __init__(
+        self,
+        avhubert_config,
+        rnn_n_layers,
+        rnn_dropout,
+        reduction_factor,
+        rnn_which_norm,
+        out_channels,
+        dec_n_layers,
+        dec_kernel_size,
+        dec_dropout,
+        use_spk_emb,
+        spk_emb_dim,
+    ):
+        super().__init__()
+        self.resnet = ResEncoder(
+            relu_type=avhubert_config.base.resnet_relu_type,
+            weights=avhubert_config.base.resnet_weights
+        )
+        inner_channels = self.resnet.backend_out
+
+        if use_spk_emb:
+            self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
+
+        self.encoder = GRUEncoder(
+            hidden_channels=inner_channels,
+            n_layers=rnn_n_layers,
+            dropout=rnn_dropout,
+            reduction_factor=reduction_factor,
+            which_norm=rnn_which_norm,
+        )
+
+        self.decoder = ResTCDecoder(
+            cond_channels=inner_channels,
+            out_channels=out_channels,
+            inner_channels=inner_channels,
+            n_layers=dec_n_layers,
+            kernel_size=dec_kernel_size,
+            dropout=dec_dropout,
+            reduction_factor=reduction_factor,
+        )
+
+    def forward(
+        self,
+        lip,
+        audio,
+        lip_len,
+        spk_emb,
+    ):
+        '''
+        lip : (B, C, H, W, T)
+        audio : (B, C, T)
+        lip_len : (B,)
+        spk_emb : (B, C)
+        '''
+        lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+        x = self.resnet(lip)    # (B, C, T)
+        x = self.encoder(x, lip_len)    # (B, T, C)
+        if hasattr(self, 'spk_emb_layer'):
+            x = x.permute(0, 2, 1)
+            spk_emb = spk_emb.unsqueeze(-1).expand(x.shape[0], -1, x.shape[-1])
+            x = torch.cat([x, spk_emb], dim=1)
+            x = self.spk_emb_layer(x)
+            x = x.permute(0, 2, 1)
+        x = self.decoder(x)
+        return x, None, None
+    
+
+# import hydra
+# @hydra.main(version_base=None, config_name="config", config_path="../conf")
+# def main(cfg):
+#     model = Lip2SP_NAR_Lightweight(
+#         avhubert_config=cfg.model.avhubert_config,
+#         rnn_n_layers=cfg.model.rnn_n_layers,
+#         rnn_dropout=cfg.train.rnn_dropout,
+#         reduction_factor=cfg.model.reduction_factor,
+#         rnn_which_norm=cfg.model.rnn_which_norm,
+#         out_channels=cfg.model.out_channels,
+#         dec_n_layers=cfg.model.tc_n_layers,
+#         dec_kernel_size=cfg.model.tc_kernel_size,
+#         dec_dropout=cfg.train.dec_dropout,
+#         use_spk_emb=cfg.train.use_spk_emb,
+#         spk_emb_dim=cfg.model.spk_emb_dim,
+#     )
+#     lip = torch.rand(1, 1, 88, 88, 250)
+#     audio = None
+#     lip_len = torch.randint(100, 250, (lip.shape[0],))
+#     spk_emb = torch.rand(lip.shape[0], 256)
+#     model(lip, audio, lip_len, spk_emb)
+    
+
+# if __name__ == '__main__':
+#     main()

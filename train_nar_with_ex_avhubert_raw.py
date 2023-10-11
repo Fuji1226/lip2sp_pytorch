@@ -21,7 +21,7 @@ from utils import (
     make_train_val_loader_with_external_data_raw,
 )
 from model.model_nar import Lip2SP_NAR
-from model.model_nar_avhubert import Lip2SP_NAR_AVHubert
+from model.model_nar_avhubert import Lip2SP_NAR_AVHubert, Lip2SP_NAR_Lightweight
 from loss import MaskedLoss
 
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
@@ -83,33 +83,18 @@ def make_model(cfg, device):
             pos_enc_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
         )
     else:
-        model = Lip2SP_NAR(
-            in_channels=cfg.model.in_channels,
-            out_channels=cfg.model.out_channels,
-            res_inner_channels=cfg.model.res_inner_channels,
-            which_res=cfg.model.which_res,
+        model = Lip2SP_NAR_Lightweight(
+            avhubert_config=cfg.model.avhubert_config,
             rnn_n_layers=cfg.model.rnn_n_layers,
+            rnn_dropout=cfg.train.rnn_dropout,
+            reduction_factor=cfg.model.reduction_factor,
             rnn_which_norm=cfg.model.rnn_which_norm,
-            trans_n_layers=cfg.model.trans_enc_n_layers,
-            trans_n_head=cfg.model.trans_enc_n_head,
-            trans_pos_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
-            conf_n_layers=cfg.model.conf_n_layers,
-            conf_n_head=cfg.model.conf_n_head,
-            conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
+            out_channels=cfg.model.out_channels,
             dec_n_layers=cfg.model.tc_n_layers,
             dec_kernel_size=cfg.model.tc_kernel_size,
-            n_speaker=len(cfg.train.speaker),
-            spk_emb_dim=cfg.model.spk_emb_dim,
-            which_encoder=cfg.model.which_encoder,
-            which_decoder=cfg.model.which_decoder,
-            where_spk_emb=cfg.train.where_spk_emb,
-            use_spk_emb=cfg.train.use_spk_emb,
             dec_dropout=cfg.train.dec_dropout,
-            res_dropout=cfg.train.res_dropout,
-            rnn_dropout=cfg.train.rnn_dropout,
-            is_large=cfg.model.is_large,
-            adversarial_learning=cfg.train.adversarial_learning,
-            reduction_factor=cfg.model.reduction_factor,
+            use_spk_emb=cfg.train.use_spk_emb,
+            spk_emb_dim=cfg.model.spk_emb_dim,
         )
 
     count_params(model, "model")

@@ -9,7 +9,7 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data, save_data_pwg
-from train_nar_with_ex_avhubert import make_model
+from train_nar_with_ex_avhubert_raw import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import (
     make_test_loader_with_external_data_raw,

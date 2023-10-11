@@ -22,7 +22,6 @@ class DatasetWithExternalDataRaw(Dataset):
     def __init__(
         self,
         data_path,
-        train_data_path,
         transform,
         cfg,
     ):

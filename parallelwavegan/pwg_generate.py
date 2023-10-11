@@ -18,16 +18,15 @@ import torch
 from parallelwavegan.pwg_train import make_model
 from data_check import save_data_pwg
 from utils import (
-    make_test_loader_pwg,
-    get_path_test,
+    make_test_loader_with_external_data_raw,
+    get_path_test_raw,
     load_pretrained_model,
     fix_random_seed,
     select_checkpoint,
-    delete_unnecessary_checkpoint
+    delete_unnecessary_checkpoint,
 )
 from calc_accuracy import calc_accuracy, calc_mean
 
-# 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
 
@@ -55,7 +54,7 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
         )
 
 
-@hydra.main(config_name="config", config_path="conf")
+@hydra.main(config_name="config", config_path="../conf")
 def main(cfg):
     fix_random_seed(cfg.train.random_seed)
 
@@ -64,34 +63,31 @@ def main(cfg):
 
     gen, disc = make_model(cfg, device)
     model_path = select_checkpoint(cfg)
-    gen, disc = make_model(cfg, device)
     gen = load_pretrained_model(model_path, gen, "gen")
     cfg.train.face_or_lip = model_path.parents[2].name
     cfg.test.face_or_lip = model_path.parents[2].name
 
-    data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
+    video_dir, audio_dir, save_path = get_path_test_raw(cfg, model_path)
+    test_loader, test_dataset = make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir)
         
-    for data_root, save_path in zip(data_root_list, save_path_list):
-        test_loader, test_dataset = make_test_loader_pwg(cfg, data_root, train_data_root)
-        generate(
-            cfg=cfg,
-            gen=gen,
-            test_loader=test_loader,
-            dataset=test_dataset,
-            device=device,
-            save_path=save_path,
-        )
-
-    for data_root, save_path in zip(data_root_list, save_path_list):
-        for speaker in cfg.test.speaker:
-            save_path_pwg_spk = save_path / "pwg" / speaker
-            calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
-        calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
-    
-    delete_unnecessary_checkpoint(
-        result_dir=save_path.parents[3],
-        checkpoint_dir=model_path.parents[1],
+    generate(
+        cfg=cfg,
+        gen=gen,
+        test_loader=test_loader,
+        dataset=test_dataset,
+        device=device,
+        save_path=save_path,
     )
+
+    for speaker in cfg.test.speaker:
+        save_path_pwg_spk = save_path / "pwg" / speaker
+        calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+    calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
+    
+    # delete_unnecessary_checkpoint(
+    #     result_dir=save_path.parents[3],
+    #     checkpoint_dir=model_path.parents[1],
+    # )
     
 
 

@@ -292,7 +292,9 @@ def get_utt_wiki(data_path, cfg):
 
 def get_spk_emb(cfg):
     spk_emb_dict = {}
-    for speaker in cfg.train.speaker:
+    data_path_list = emb_dir.glob('**/*.npy')
+    for data_path in data_path_list:
+        speaker = data_path.parents[0].name
         data_path = emb_dir / speaker / "emb.npy"
         emb = np.load(str(data_path))
         emb = emb / np.linalg.norm(emb)

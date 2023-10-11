@@ -214,6 +214,7 @@ def run_nar(
             f'model.avhubert_audio_pretrain={avhubert_audio_pretrain}',
             f'test.model_path={get_last_checkpoint_path(checkpoint_dir)}',
             f'test.metric_for_select={metric_for_select}',
+            f'test.speaker={speaker}',
             f'test.debug={debug}',
         ],
         subject=subject,
@@ -226,8 +227,8 @@ def run_nar(
     return checkpoint_path_best
 
 
-def main():
-    debug = True
+def experiments_including_audio_pretraining():
+    debug = False
     wandb_conf = 'debug' if debug else 'nar'
     subject = 'プログラム経過'
 
@@ -459,6 +460,200 @@ def main():
                     subject=subject,
                     message='finetuning audio pretrained model.'
                 )
+
+
+def experiments():
+    debug = True
+    wandb_conf = 'debug' if debug else 'nar'
+    subject = 'プログラム経過'
+
+    training_param_list = [
+        {
+            'which_scheduler': 'warmup',
+            'lr_decay_exp': 0.98,
+            'max_epoch': 30,
+        },
+    ]
+    avhubert_layer_loaded_list = ['all']
+    data_list = [
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+        },
+    ]
+    which_decoder_list = [
+        'restc',
+    ]
+    for training_param in training_param_list:
+        for data in data_list:
+            for which_decoder in which_decoder_list:
+                # randomly initialized lightweight model
+                run_nar(
+                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                    run_filename_generate='generate_nar_with_ex_raw.py',
+                    metric_for_select='val_loss_list',
+                    use_spatial_aug=True,
+                    use_time_masking=True,
+                    module_is_fixed=[],
+                    use_jsut_corpus=False,
+                    use_jvs_corpus=False,
+                    lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                    corpus=data['corpus'],
+                    speaker=data['speaker'],
+                    which_decoder=which_decoder,
+                    which_scheduler=training_param['which_scheduler'],
+                    lr_decay_exp=training_param['lr_decay_exp'],
+                    max_epoch=training_param['max_epoch'],
+                    avhubert_return_res_output=False,
+                    load_avhubert_pretrained_weight=False,
+                    avhubert_layer_loaded='',
+                    use_avhubert_video_modality=True,
+                    use_avhubert_audio_modality=False,
+                    use_avhubert_encoder=False,
+                    check_point_start_separate_save_dir=False,
+                    start_ckpt_path_separate_save_dir='',
+                    avhubert_encoder_embed_dim=768,
+                    avhubert_encoder_layers=12,
+                    avhubert_encoder_ffn_embed_dim=3072,
+                    avhubert_encoder_attention_heads=12,
+                    avhubert_audio_pretrain=False,
+                    debug=debug,
+                    wandb_conf=wandb_conf,
+                    subject=subject,
+                    message='randomly initialized lightweight model.'
+                )
+                
+                # randomly initialized base model
+                run_nar(
+                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                    run_filename_generate='generate_nar_with_ex_raw.py',
+                    metric_for_select='val_loss_list',
+                    use_spatial_aug=True,
+                    use_time_masking=True,
+                    module_is_fixed=[],
+                    use_jsut_corpus=False,
+                    use_jvs_corpus=False,
+                    lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                    corpus=data['corpus'],
+                    speaker=data['speaker'],
+                    which_decoder=which_decoder,
+                    which_scheduler=training_param['which_scheduler'],
+                    lr_decay_exp=training_param['lr_decay_exp'],
+                    max_epoch=training_param['max_epoch'],
+                    avhubert_return_res_output=False,
+                    load_avhubert_pretrained_weight=False,
+                    avhubert_layer_loaded='',
+                    use_avhubert_video_modality=True,
+                    use_avhubert_audio_modality=False,
+                    use_avhubert_encoder=True,
+                    check_point_start_separate_save_dir=False,
+                    start_ckpt_path_separate_save_dir='',
+                    avhubert_encoder_embed_dim=768,
+                    avhubert_encoder_layers=12,
+                    avhubert_encoder_ffn_embed_dim=3072,
+                    avhubert_encoder_attention_heads=12,
+                    avhubert_audio_pretrain=False,
+                    debug=debug,
+                    wandb_conf=wandb_conf,
+                    subject=subject,
+                    message='randomly initialzed base model.'
+                )
+
+                for avhubert_layer_loaded in avhubert_layer_loaded_list:
+                    if avhubert_layer_loaded == 'resnet':
+                        module_is_fixed = ['avhubert_resnet']
+                    elif avhubert_layer_loaded == 'transformer':
+                        module_is_fixed = ['avhubert_transformer']
+                    elif avhubert_layer_loaded == 'all':
+                        module_is_fixed = ['avhubert']
+
+                    # load pretrained avhubert. training only decoder.
+                    run_nar(
+                        checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                        result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                        run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                        run_filename_generate='generate_nar_with_ex_raw.py',
+                        metric_for_select='val_loss_list',
+                        use_spatial_aug=True,
+                        use_time_masking=True,
+                        module_is_fixed=module_is_fixed,
+                        use_jsut_corpus=False,
+                        use_jvs_corpus=False,
+                        lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                        corpus=data['corpus'],
+                        speaker=data['speaker'],
+                        which_decoder=which_decoder,
+                        which_scheduler=training_param['which_scheduler'],
+                        lr_decay_exp=training_param['lr_decay_exp'],
+                        max_epoch=training_param['max_epoch'],
+                        avhubert_return_res_output=False,
+                        load_avhubert_pretrained_weight=True,
+                        avhubert_layer_loaded=avhubert_layer_loaded,
+                        use_avhubert_video_modality=True,
+                        use_avhubert_audio_modality=False,
+                        use_avhubert_encoder=True,
+                        check_point_start_separate_save_dir=False,
+                        start_ckpt_path_separate_save_dir='',
+                        avhubert_encoder_embed_dim=768,
+                        avhubert_encoder_layers=12,
+                        avhubert_encoder_ffn_embed_dim=3072,
+                        avhubert_encoder_attention_heads=12,
+                        avhubert_audio_pretrain=False,
+                        debug=debug,
+                        wandb_conf=wandb_conf,
+                        subject=subject,
+                        message='load pretrained avhubert. training only decoder.'
+                    )
+
+                    # load pretrained avhubert. finetuning all layers.
+                    run_nar(
+                        checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                        result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                        run_filename_train='train_nar_with_ex_avhubert_raw.py',
+                        run_filename_generate='generate_nar_with_ex_raw.py',
+                        metric_for_select='val_loss_list',
+                        use_spatial_aug=True,
+                        use_time_masking=True,
+                        module_is_fixed=[],
+                        use_jsut_corpus=False,
+                        use_jvs_corpus=False,
+                        lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                        corpus=data['corpus'],
+                        speaker=data['speaker'],
+                        which_decoder=which_decoder,
+                        which_scheduler=training_param['which_scheduler'],
+                        lr_decay_exp=training_param['lr_decay_exp'],
+                        max_epoch=training_param['max_epoch'],
+                        avhubert_return_res_output=False,
+                        load_avhubert_pretrained_weight=True,
+                        avhubert_layer_loaded=avhubert_layer_loaded,
+                        use_avhubert_video_modality=True,
+                        use_avhubert_audio_modality=False,
+                        use_avhubert_encoder=True,
+                        check_point_start_separate_save_dir=False,
+                        start_ckpt_path_separate_save_dir='',
+                        avhubert_encoder_embed_dim=768,
+                        avhubert_encoder_layers=12,
+                        avhubert_encoder_ffn_embed_dim=3072,
+                        avhubert_encoder_attention_heads=12,
+                        avhubert_audio_pretrain=False,
+                        debug=debug,
+                        wandb_conf=wandb_conf,
+                        subject=subject,
+                        message='load pretrained avhubert, finetuning all layers.'
+                    )
+
+
+def main():
+    experiments()
 
 
 if __name__ == '__main__':

@@ -17,10 +17,9 @@ from timm.scheduler import CosineLRScheduler
 
 from utils import (
     count_params,
-    get_path_train,
+    get_path_train_raw,
     save_loss,
-    make_train_val_loader_with_external_data,
-    make_train_val_loader_pwg,
+    make_train_val_loader_with_external_data_raw,
     set_config,
     check_wav,
     requires_grad_change,
@@ -254,7 +253,7 @@ def train_one_epoch_gan(
         ### discriminator ###
         disc = requires_grad_change(disc, True)
         with torch.autocast(device_type='cuda', dtype=torch.float16):
-            out_real = disc(wav)
+            out_real = disc(wav.to(torch.float16))
             out_pred = disc(wav_pred.detach())
             loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
             epoch_loss_disc += loss_disc.item()
@@ -332,7 +331,7 @@ def val_one_epoch_gan(
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
                 wav_pred = gen(noise, feature)
-                out_real = disc(wav)
+                out_real = disc(wav.to(torch.float16))
                 out_pred = disc(wav_pred)
 
                 loss_disc = torch.mean((out_real - 1) ** 2) + torch.mean(out_pred ** 2)
@@ -368,7 +367,7 @@ def val_one_epoch_gan(
     return epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all
 
 
-@hydra.main(version_base=None, config_name="config", config_path="conf")
+@hydra.main(version_base=None, config_name="config", config_path="../conf")
 def main(cfg):
     set_config(cfg)
     fix_random_seed(cfg.train.random_seed)
@@ -377,25 +376,13 @@ def main(cfg):
         cfg, resolve=True, throw_on_missing=True,
     )
 
-    # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
-
     print(f"cpu_num = {os.cpu_count()}")
     print(f"gpu_num = {torch.cuda.device_count()}")
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = True
 
-    # path
-    train_data_root, val_data_root, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
-    print("\n--- data directory check ---")
-    print(f"train_data_root = {train_data_root}")
-    print(f"val_data_root = {val_data_root}")
-    print(f"ckpt_path = {ckpt_path}")
-    print(f"save_path = {save_path}")
-    
-    # train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root)
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_pwg(cfg, train_data_root, val_data_root)
+    video_dir, audio_dir, ckpt_path, save_path, ckpt_time= get_path_train_raw(cfg, current_time)
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir)
 
     loss_f = MultiResolutionSTFTLoss(
         n_fft_list=cfg.train.n_fft_list,

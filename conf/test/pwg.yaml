@@ -5,10 +5,16 @@ debug : False
 debug_data_len : 1
 
 # face or lip
-face_or_lip : "face"
+face_or_lip : "avhubert_preprocess_fps25_gray"
+
+# 合成するモデルのパス
+model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:14_16-21-15/mspec80_600.ckpt'
+
+# モデルパスを検証データの結果から選択するための指標
+metric_for_select : ''
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/audio_vqvae/generate"
+save_path : "~/lip2sp_pytorch/result/pwg/generate"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/test"
@@ -17,6 +23,7 @@ face_pre_loaded_path_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/
 face_pre_loaded_path_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/test"
 face_cropped_max_size_test : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/test"
 face_cropped_max_size_fps25_test : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/test"
+avhubert_preprocess_fps25_test : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/test"
 
 test_df_path : "~/dataset/lip/data_split_csv/test.csv"
 

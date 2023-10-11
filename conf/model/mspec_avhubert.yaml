@@ -335,7 +335,7 @@ asr_out_channels : 47
 # avhubert
 avhubert_ckpt_path : '~/av_hubert_data/base_vox_iter5_torch.ckpt'
 avhubert_model_size : 'base'
-use_avhubert_encoder : True
+use_avhubert_encoder : False
 load_avhubert_pretrained_weight : True
 avhubert_return_res_output : False
 avhubert_layer_loaded : 'all'
