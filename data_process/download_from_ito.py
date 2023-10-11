@@ -37,6 +37,8 @@ def download(
             hostname=config['hostname'],
             username=config['user'],
             key_filename=config['identityfile'],
+            password='[Alexandros]9512',
+            timeout=900  # タイムアウト値を増やす（秒単位）
         )
 
         with ssh.open_sftp() as sftp:
@@ -78,6 +80,8 @@ def download_utt_files(
             hostname=config['hostname'],
             username=config['user'],
             key_filename=config['identityfile'],
+             password='[Alexandros]9512',
+            timeout=900  # タイムアウト値を増やす（秒単位）
         )
 
         with ssh.open_sftp() as sftp:
@@ -110,8 +114,8 @@ def main():
         Path(f"{ito_usr_path}/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train/F01_kablab/mspec80"),
         Path(f"{ito_usr_path}/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val/F01_kablab/mspec80"),
         Path(f"{ito_usr_path}/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/test/F01_kablab/mspec80"),
-        Path(f"{ito_usr_path}/dataset/lip/emb/F01_kablab"),
-        Path(f"{ito_usr_path}/lip2sp_pytorch/csv"),
+        #Path(f"{ito_usr_path}/dataset/lip/emb/F01_kablab"),
+        #Path(f"{ito_usr_path}/lip2sp_pytorch/csv"),
     ]
     for from_folder in from_folder_list:
         download(

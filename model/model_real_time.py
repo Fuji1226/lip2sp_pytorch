@@ -74,4 +74,4 @@ class Lip2SPRealTime(nn.Module):
             output_list.append(output)
             
         output = torch.cat(output_list, dim=-1)     # (B, C, T)
-        return output
+        return output,classifier_out, fmaps

@@ -1,4 +1,5 @@
 from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf
 import hydra
 import wandb
 from pathlib import Path
@@ -19,7 +20,7 @@ from utils import (
     count_params,
     fix_random_seed,
 )
-from model.model_nar import Lip2SP_NAR
+from model.model_real_time import ZoneOutCellGRU,Lip2SPRealTime
 from loss import MaskedLoss
 
 # wandbへのログイン
@@ -64,32 +65,13 @@ def save_checkpoint(
 
 
 def make_model(cfg, device):
-    model = Lip2SP_NAR(
+    model = Lip2SPRealTime(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
         res_inner_channels=cfg.model.res_inner_channels,
-        which_res=cfg.model.which_res,
-        rnn_n_layers=cfg.model.rnn_n_layers,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        trans_n_layers=cfg.model.trans_enc_n_layers,
-        trans_n_head=cfg.model.trans_enc_n_head,
-        trans_pos_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
-        conf_n_layers=cfg.model.conf_n_layers,
-        conf_n_head=cfg.model.conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
-        dec_n_layers=cfg.model.tc_n_layers,
-        dec_kernel_size=cfg.model.tc_kernel_size,
-        n_speaker=len(cfg.train.speaker),
-        spk_emb_dim=cfg.model.spk_emb_dim,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        where_spk_emb=cfg.train.where_spk_emb,
-        use_spk_emb=cfg.train.use_spk_emb,
-        dec_dropout=cfg.train.dec_dropout,
+        n_gru_layers=cfg.model.n_gru_layers,
         res_dropout=cfg.train.res_dropout,
-        rnn_dropout=cfg.train.rnn_dropout,
-        is_large=cfg.model.is_large,
-        adversarial_learning=cfg.train.adversarial_learning,
+        zoneout=cfg.model.zoneout,
         reduction_factor=cfg.model.reduction_factor,
     )
 
@@ -128,7 +110,7 @@ def train_one_epoch(
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
 
-        output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
+        output, classifier_out, fmaps = model(lip, spk_emb)
 
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
