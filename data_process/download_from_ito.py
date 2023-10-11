@@ -105,7 +105,7 @@ def main():
     # ito上のダウンロードしたいファイル（ディレクトリ）までの絶対パスを指定。
     # 何もない状態からの場合、一旦ここのリストに入れているものを全てダウンロードしてください。
     # ito_usr_pathは人によって異なるので、変更お願いします。
-    ito_usr_path = "/home/usr4/r70264c"
+    ito_usr_path = "/home/usr3/a72243a"
     from_folder_list = [
         Path(f"{ito_usr_path}/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train/F01_kablab/mspec80"),
         Path(f"{ito_usr_path}/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val/F01_kablab/mspec80"),
