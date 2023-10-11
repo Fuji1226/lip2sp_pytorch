@@ -104,7 +104,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
         stop_token = torch.masked_select(stop_token, logit_mask)
         stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
 
-        total_loss = dec_output_loss + output_loss + stop_token_loss + vq_loss
+        total_loss = dec_output_loss + output_loss + stop_token_loss + 100 * vq_loss
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -201,7 +201,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg):
 
 
 
-@hydra.main(config_name="config_tts_desk", config_path="conf")
+@hydra.main(config_name="config_tts", config_path="conf")
 def main(cfg):
     print(f'tag: {cfg.tag}')
     #breakpoint()

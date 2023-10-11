@@ -41,6 +41,9 @@ tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
 #tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"
 #tts_pre_loaded_path : "~/dataset/hifi"
 
+text_dir : "/home/usr1/q70261a/dataset/lip/utt"
+
+
 # 元データ
 data_dir : "~/dataset/lip/cropped_fps25"
 bbox_dir : "~/dataset/lip/bbox_fps25"

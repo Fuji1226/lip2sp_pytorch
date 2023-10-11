@@ -330,7 +330,7 @@ class TacotronDecoder(nn.Module):
             step_vq_loss = 0
             step_perplexity = 0
 
-        no_att = False
+        no_att = True
         
         if mode=='tts':
             no_att = False

@@ -359,7 +359,7 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test11(cfg)
+        prob_list = mixing_prob_controller_test14(cfg)
 
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
@@ -371,6 +371,8 @@ def main(cfg):
                 training_method = "tf"  # teacher forcing
             else:
                 training_method = "ss"  # scheduled sampling
+                
+            training_method = cfg.method
 
             # mixing_probの変更
             if cfg.train.change_mixing_prob:

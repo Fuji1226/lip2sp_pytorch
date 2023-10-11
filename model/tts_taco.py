@@ -134,7 +134,7 @@ class TTSTacotronVq(nn.Module):
             out_channels=80
         )
         
-        self._vq_vae = VectorQuantizer(num_embeddings=256, embedding_dim=256,
+        self._vq_vae = VectorQuantizer(num_embeddings=10, embedding_dim=256,
                                         commitment_cost=0.25)
         
     def forward(self, text, text_len, feature_target=None):

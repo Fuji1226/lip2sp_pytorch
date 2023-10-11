@@ -18,7 +18,7 @@ face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/test"
 face_pre_loaded_path : "~/dataset/lip/np_files/face/test"
 
-#tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/test/"
-tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/test/"
+tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/test/"
+#tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/test/"
 
 speaker : ["F01_kabulab"]

@@ -361,9 +361,9 @@ def main(cfg):
 
         #lr_scheduler = optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=100000)
 
-        num_warmup_steps = 455 * 3
+        num_warmup_steps = 55 * 5
 
-        num_training_steps = 455 * 300
+        num_training_steps = 55 * 300
 
         scheduler = get_cosine_schedule_with_warmup(optimizer, 
             num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
@@ -393,7 +393,7 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test11(cfg)
+        prob_list = mixing_prob_controller_test14(cfg)
 
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
@@ -404,7 +404,7 @@ def main(cfg):
             if current_epoch < cfg.train.tm_change_step:
                 training_method = "tf"  # teacher forcing
             else:
-                training_method = "ss"  # scheduled sampling
+                training_method = "ss"  # scheduled samplin
 
             # mixing_probの変更
             if cfg.train.change_mixing_prob:
