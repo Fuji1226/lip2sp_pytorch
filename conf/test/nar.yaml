@@ -29,3 +29,6 @@ test_df_path : "~/dataset/lip/data_split_csv/test.csv"
 
 # speaker : ["F01_kablab"]
 speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+
+# parallelwavegan
+pwg_path : '~/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:11_19-07-51/2.ckpt'

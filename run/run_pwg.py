@@ -148,7 +148,7 @@ def run_pwg(
 
 
 def main():
-    debug = True
+    debug = False
     wandb_conf = 'debug' if debug else 'pwg'
     subject = 'プログラム経過'
 
@@ -163,8 +163,8 @@ def main():
         lr_gen=1.0e-3,
         lr_disc=1.0e-3,
         which_scheduler='exp',
-        max_epoch=30,
-        lr_decay_exp=0.9,
+        max_epoch=15,
+        lr_decay_exp=0.8,
         debug=debug,
         wandb_conf=wandb_conf,
         subject=subject,

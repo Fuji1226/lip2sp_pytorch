@@ -287,13 +287,11 @@ def train_one_epoch_gan(
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+                check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+            check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
 
     epoch_loss_disc /= iter_cnt
     epoch_loss_gen_stft /= iter_cnt
@@ -352,13 +350,11 @@ def val_one_epoch_gan(
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+                check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+            check_wav(wav[0].to(torch.float32), wav_pred[0].to(torch.float32), cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
 
     epoch_loss_disc /= iter_cnt
     epoch_loss_gen_stft /= iter_cnt

@@ -1,5 +1,5 @@
 defaults:
   - model: mspec_avhubert
-  - train: nar
-  - test : nar
+  - train: pwg
+  - test : pwg
   - wandb_conf : debug

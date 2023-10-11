@@ -51,7 +51,6 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
 
         with torch.no_grad():
             if cfg.model.use_avhubert_video_modality:
-                print('use video modality')
                 output, classifier_out, fmaps = model(
                     lip=lip,
                     audio=None,
@@ -59,7 +58,6 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
                     spk_emb=spk_emb,
                 )
             elif cfg.model.use_avhubert_audio_modality:
-                print('use audio modality')
                 output, classifier_out, fmaps = model(
                     lip=None,
                     audio=feature_avhubert_sep,
@@ -88,22 +86,20 @@ def generate(cfg, model, pwg, test_loader, dataset, device, save_path):
             feat_std=feat_std,
         )
         
-        # noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=output.dtype)
+        with torch.no_grad():
+            noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
+            wav_pred = pwg(noise, output)
+            wav_abs = pwg(noise, feature)
 
-        # with torch.no_grad():
-        #     wav_pred = pwg(noise, output)
-        #     wav_abs = pwg(noise, feature)
-
-        # _save_path = save_path / "pwg" / speaker[0] / filename[0]
-        # os.makedirs(_save_path, exist_ok=True)
-
-        # save_data_pwg(
-        #     cfg=cfg,
-        #     save_path=_save_path,
-        #     target=wav,
-        #     output=wav_pred,
-        #     ana_syn=wav_abs,
-        # )
+        _save_path = save_path / "pwg" / speaker[0] / filename[0]
+        _save_path.mkdir(parents=True, exist_ok=True)
+        save_data_pwg(
+            cfg=cfg,
+            save_path=_save_path,
+            target=wav,
+            output=wav_pred,
+            ana_syn=wav_abs,
+        )
 
 
 @hydra.main(config_name="config", config_path="conf")
@@ -114,8 +110,8 @@ def main(cfg):
     print(f"device = {device}")
 
     pwg, disc = make_pwg(cfg, device)
-    # model_path_pwg = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt").expanduser()
-    # pwg = load_pretrained_model(model_path_pwg, pwg, "gen")
+    model_path_pwg = Path(cfg.test.pwg_path).expanduser()
+    pwg = load_pretrained_model(model_path_pwg, pwg, "gen")
 
     model_path = select_checkpoint(cfg)
     model = make_model(cfg, device)
@@ -138,10 +134,11 @@ def main(cfg):
     
     for speaker in cfg.test.speaker:
         save_path_spk = save_path / "griffinlim" / speaker
-        # save_path_pwg_spk = save_path / "pwg" / speaker
+        save_path_pwg_spk = save_path / "pwg" / speaker
         calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
-        # calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+        calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
     calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
+    calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
         
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],

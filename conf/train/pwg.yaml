@@ -115,7 +115,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 30
+max_epoch : 15
 
 # テキスト処理
 for_tts : False
@@ -161,6 +161,7 @@ rnn_dropout : 0.1
 lm_enc_dropout : 0.1
 
 # optimizer
+lr : 0.001
 lr_gen : 0.001
 lr_disc : 0.001
 beta_1 : 0.9
@@ -168,11 +169,11 @@ beta_2 : 0.999
 eps : 1.0e-6
 weight_decay : 1.0e-6
 which_optim : 'adam'
-which_scheduler : 'warmup'
+which_scheduler : 'exp'
 
 # scheduler
 multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
-lr_decay_exp : 0.96
+lr_decay_exp : 0.8
 warmup_t_rate : 0.1
 warmup_lr_init : 1.0e-5
 warmup_lr_min : 0
