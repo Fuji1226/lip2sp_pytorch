@@ -333,7 +333,9 @@ def main(cfg):
 
     # Dataloader作成
     train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, data_root, mean_std_path)
-    test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
+  
+    test_data_root = Path(cfg.test.face_pre_loaded_path).expanduser()
+    test_loader, test_dataset = make_test_loader(cfg, test_data_root, mean_std_path)
 
     # 損失関数
     loss_f = MaskedLoss()

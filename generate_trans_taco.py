@@ -406,15 +406,17 @@ def generate_for_train_dataset(cfg, model,train_loader, dataset, device, save_pa
     return process_times
 
 
-@hydra.main(config_name="config_desk", config_path="conf")
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     model = make_model(cfg, device)
     
-    path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/test/mspec80_330.ckpt'
-    model_path = Path(path)
+    # path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/test/mspec80_330.ckpt'
+    # model_path = Path(path)
+    
+    
     if cfg.model_path is not None:
         model_path = Path(cfg.model_path)
 
@@ -440,7 +442,6 @@ def main(cfg):
     test = True
     for data_root, save_path in zip(data_root_list, save_path_list):
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
-        breakpoint()
 
         print("--- generate ---")
         if test:
