@@ -13,6 +13,7 @@
 4. 結果の確認
     result/generateの下に保存されると思います
 """
+
 import matplotlib.pyplot as plt
 from librosa.display import specshow
 
@@ -405,16 +406,19 @@ def generate_for_train_dataset(cfg, model,train_loader, dataset, device, save_pa
     return process_times
 
 
-@hydra.main(config_name="config", config_path="conf")
+@hydra.main(config_name="config_desk", config_path="conf")
 def main(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
 
     model = make_model(cfg, device)
-    #model_path = Path("/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/lip/transfomer_check/mspec80_300.ckpt")
+    
+    path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/test/mspec80_330.ckpt'
+    model_path = Path(path)
     if cfg.model_path is not None:
         model_path = Path(cfg.model_path)
 
+    
     print('model path')
     print(str(model_path))
     #breakpoint()
@@ -436,7 +440,7 @@ def main(cfg):
     test = True
     for data_root, save_path in zip(data_root_list, save_path_list):
         test_loader, test_dataset = make_test_loader(cfg, data_root, mean_std_path)
-        train_loader, _, train_dataset, _ = make_train_val_loader(cfg, data_root, mean_std_path)
+        breakpoint()
 
         print("--- generate ---")
         if test:
@@ -445,15 +449,6 @@ def main(cfg):
                 model=model,
                 test_loader=test_loader,
                 dataset=test_dataset,
-                device=device,
-                save_path=save_path,
-            )
-        else:
-            process_times = generate_for_train_dataset(
-                cfg=cfg,
-                model=model,
-                test_loader=train_loader,
-                dataset=train_dataset,
                 device=device,
                 save_path=save_path,
             )

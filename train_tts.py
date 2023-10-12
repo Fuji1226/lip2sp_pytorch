@@ -193,7 +193,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg):
 
 
 
-@hydra.main(config_name="config_tts", config_path="conf")
+@hydra.main(config_name="config_tts_desk", config_path="conf")
 def main(cfg):
     print(f'tag: {cfg.tag}')
     #breakpoint()
