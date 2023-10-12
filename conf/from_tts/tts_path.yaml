@@ -1,0 +1,3 @@
+tts_name : desk_debug
+
+desk_debug : /home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/test/mspec80_92.ckpt

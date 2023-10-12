@@ -313,6 +313,12 @@ def main(cfg):
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
 
+    model = make_model(cfg, device)
+    
+    if cfg.from_tts.tts_name is not None:
+        tts_name = cfg.from_tts.tts_name
+        from_tts_path = cfg.from_tts[tts_name]
+        model = load_from_tts(model, from_tts_path)
 
     # 現在時刻を取得
     current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -351,6 +357,7 @@ def main(cfg):
         model = make_model(cfg, device)
         if cfg.from_tts is not None:
             model = load_from_tts(model, cfg.from_tts)
+        breakpoint()
 
         # optimizer
         optimizer = torch.optim.Adam(
