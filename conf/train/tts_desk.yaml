@@ -43,15 +43,10 @@ tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/tra
 
 text_dir : "/mnt/diskA/naoaki/dataset/lip/utt"
 
-# 元データ
-data_dir : "~/dataset/lip/cropped_fps25"
-bbox_dir : "~/dataset/lip/bbox_fps25"
-landmark_dir : "~/dataset/lip/landmark_fps25"
-train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
-val_df_path : "~/dataset/lip/data_split_csv/val.csv"
-
 # 使用するコーパス
-corpus : "ATR"
+corpus : 
+data_size : 1000
+
 
 # 使用する話者
 speaker : ["F01_kabulab"]

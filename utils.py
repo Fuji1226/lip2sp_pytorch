@@ -313,16 +313,17 @@ def save_GAN_prob(correct_list, wrong_list, save_path, filename):
 def make_train_val_loader(cfg, data_root, mean_std_path):
     # パスを取得
     
-    if cfg.train.corpus is None:
+    if cfg.train.corpus not in ['ATR']:
         data_path = get_datasets(
             data_root=data_root,
             cfg=cfg,
         )
         data_path = random.sample(data_path, len(data_path))
         n_samples = len(data_path)
-        train_size = int(n_samples * 0.95)
+        train_size = int(n_samples * 0.8)
         train_data_path = data_path[:train_size]
         val_data_path = data_path[train_size:]
+        
     else:
         data_path = get_datasets(
             data_root=data_root,
@@ -389,7 +390,7 @@ def make_train_val_loader_tts(cfg, data_root):
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     
-    train_size = int(n_samples * 0.95)
+    train_size = int(n_samples * 0.8)
     train_data_path = data_path[:train_size]
     val_data_path = data_path[train_size:]
     

@@ -35,8 +35,10 @@ lip_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"
 
 # コーパス
-corpus : "ATR"
-train_data_size : None
+corpus : 
+data_size : 1500
+
+
 # 使用する話者
 speaker : ["F01_kabulab"]
 use_gc : False

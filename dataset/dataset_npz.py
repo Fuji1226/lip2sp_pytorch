@@ -40,14 +40,18 @@ def get_datasets(data_root, cfg):
                 file_paths = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension and 'ATR' in str(p)]
                 n_ATR = len(file_paths)
                 val_tmp = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension and 'ATR' not in str(p)]
-                file_paths += val_tmp[:n_ATR]
+                file_paths += val_tmp[:int(n_ATR*0.2)]
+
             else:
                 file_paths = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension]
         else:
             file_paths = [p for p in spk_path.rglob('*') if p.is_file() and p.suffix == target_extension]
+        
+            if cfg.train.data_size is not None:
+                all_data_size = int(cfg.train.data_size * 1.2) if cfg.train.data_size * 1.2 < len(file_paths) else len(file_paths)
+                file_paths = file_paths[:all_data_size]
     
         items += file_paths
-    
     return items
 
 def get_dataset_all(data_root):
