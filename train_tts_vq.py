@@ -104,7 +104,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
         stop_token = torch.masked_select(stop_token, logit_mask)
         stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
 
-        total_loss = dec_output_loss + output_loss + stop_token_loss + 100 * vq_loss
+        total_loss = dec_output_loss + output_loss + stop_token_loss + vq_loss
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()

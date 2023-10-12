@@ -123,6 +123,13 @@ def load_from_tts(model, ckpt_path):
         param.requires_grad = False
     return model
 
+
+def model_grad_ok(model):
+    for param in model.decoder.parameters():
+        param.requires_grad = True
+    for param in model.postnet.parameters():
+        param.requires_grad = True
+    return model
     
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
     epoch_output_loss = 0
@@ -393,7 +400,7 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test14(cfg)
+        prob_list = mixing_prob_controller_test15(cfg)
 
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
@@ -502,8 +509,8 @@ def main(cfg):
                 mixing_prob=mixing_prob
             )
             
-            mem = psutil.virtual_memory() 
-            print(f'cpu usage: {mem.percent}')
+            if epoch > 30:
+                model_grad_ok(model)
                 
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"

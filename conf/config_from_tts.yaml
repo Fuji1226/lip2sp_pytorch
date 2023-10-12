@@ -6,4 +6,4 @@ defaults:
 tag: "tts_test"
 model_path: None
 stop_weight: 1.0
-from_tts: /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:03_22-26-45__revise_stop_token/mspec80_108.ckpt
+from_tts: /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:05_23-04-58__jsut_BASIC5000/mspec80_228.ckpt

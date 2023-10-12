@@ -256,3 +256,43 @@ def mixing_prob_controller_test14(cfg):
     print(*prob_list)
 
     return prob_list
+
+def mixing_prob_controller_test15(cfg):
+    prob_list = []
+    
+    for i in range(40):
+        tmp = 1.0
+        prob_list.append(tmp)
+
+    for i in range(400):
+        tmp = 0.998 ** i
+        if tmp < 0.5:
+            tmp = 0.5
+        prob_list.append(tmp)
+        prob_list.append(tmp)
+    
+    print('prob')
+    print(*prob_list)
+
+    return prob_list
+
+def mixing_prob_controller_test16(cfg):
+    prob_list = []
+    
+    for i in range(40):
+        tmp = 1.0
+        prob_list.append(tmp)
+
+    for i in range(400):
+        tmp = 0.998 ** i
+        if tmp < 0.5:
+            tmp = 0.5
+        
+        prob_multi = 3
+        for _ in range(prob_multi):
+            prob_list.append(tmp)
+    
+    print('prob')
+    print(*prob_list)
+
+    return prob_list
