@@ -357,8 +357,10 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
-        if cfg.from_tts is not None:
-            model = load_from_tts(model, cfg.from_tts)
+        if cfg.from_tts.tts_name is not None:
+            name = cfg.from_tts.tts_name
+            tts_path = cfg.from_tts[name]
+            model = load_from_tts(model, tts_path)
         breakpoint()
 
         # optimizer
