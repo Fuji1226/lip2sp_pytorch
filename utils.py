@@ -386,10 +386,15 @@ def make_train_val_loader_tts(cfg, data_root):
         data_root=data_root,
         cfg=cfg,
     )
+    
 
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     
+    if cfg.train.data_size is not None:
+        data_size = int(cfg.train.data_size * 1.25)
+        data_path = data_path[:data_size]
+        
     train_size = int(n_samples * 0.8)
     train_data_path = data_path[:train_size]
     val_data_path = data_path[train_size:]

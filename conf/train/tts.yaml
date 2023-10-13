@@ -44,15 +44,9 @@ tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
 text_dir : "/home/usr1/q70261a/dataset/lip/utt"
 
 
-# 元データ
-data_dir : "~/dataset/lip/cropped_fps25"
-bbox_dir : "~/dataset/lip/bbox_fps25"
-landmark_dir : "~/dataset/lip/landmark_fps25"
-train_df_path : "~/dataset/lip/data_split_csv/train_all.csv"
-val_df_path : "~/dataset/lip/data_split_csv/val.csv"
-
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : "ATR"
+data_size :
 
 # 使用する話者
 speaker : ["F01_kabulab"]

@@ -44,8 +44,8 @@ tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/tra
 text_dir : "/mnt/diskA/naoaki/dataset/lip/utt"
 
 # 使用するコーパス
-corpus : 
-data_size : 1000
+corpus : "ATR"
+data_size :
 
 
 # 使用する話者
