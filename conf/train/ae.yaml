@@ -1,0 +1,126 @@
+---
+
+name : "ae"
+
+# デバッグ
+debug : True
+debug_data_len : 1000
+debug_max_epoch : 200
+debug_iter : 0
+
+# checkpointから再開する場合
+check_point_start : False
+start_ckpt_path : 
+
+# face or lip
+face_or_lip : "lip"
+
+# データを置いているディレクトリまでのパス
+lip_path : "~/dataset/lip/lip_cropped"
+face_path : "~/dataset/lip/cropped"
+
+# 学習したモデルのパラメータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch/result/ae/train"
+
+# check point path
+ckpt_path : "~/lip2sp_pytorch/check_point/ae"
+ckpt_step : 10
+
+# 平均、標準偏差ディレクトリまでのパス
+lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
+face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
+
+# 口唇動画、音響特徴量ディレクトリまでのパス
+lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
+face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
+
+# 使用するコーパス
+corpus : ["ATR", "BASIC5000", "balanced"]
+
+# 使用する話者
+speaker : ["F01_kablab", "M01_kablab"]
+
+# 口唇動画を使用した学習時にロードする事前学習済みモデルまでのパス
+model_path : "~/lip2sp_pytorch/check_point/ae/lip/2022:09:22_12-06-45/mspec80_140.ckpt"
+
+# max_epoch
+max_epoch : 200
+
+# validation lossを計算する間隔
+display_val_loss_step : 1
+
+# data augmentationの有無
+# 空間
+use_color_jitter : False
+use_blur : False
+use_horizontal_flip : False
+use_pad : False
+use_rotation : False
+# 時間
+use_time_augment : False
+time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
+
+# global condition
+use_gc : False
+
+# dataloader
+batch_size : 12
+num_workers : 12
+
+# dropout
+dec_dropout : 0.1
+res_dropout : 0.1
+
+# optimizer
+lr : 1.0e-3
+lr_lf : 0.0001
+lr_mi : 0.0003
+lr_feat_add : 0.001
+lr_disc : 1.0e-4
+beta_1 : 0.9
+beta_2 : 0.999
+weight_decay : 1.0e-6
+weight_decay_mi : 0
+
+# scheduler
+lr_decay_rate : 0.5
+lr_decay_step : 4   # max_epoch // lr_decay_stepでlr_decay_rate倍に学習率を変更
+multi_lr_decay_step : [200,]   # 学習率を変更するepoch
+warmup_t : 10
+warmup_lr_init : 1.0e-5
+warmup_lr_min : 1.0e-5
+
+# gradient clipping
+max_norm : 3.0
+
+# 途中のメルスペクトログラムの可視化
+visualize_step : 400    # iteration
+
+# delta loss
+blur : True
+batch_norm : True
+
+# 動画に対して最初にbatch normalizationをするかどうか
+apply_first_bn : False
+
+# lossの重みづけ
+mse_weight : 1.0
+feat_add_weight : 0
+phoneme_weight : 0
+mi_weight : 0
+classifier_weight : 0.5
+gan_weight : 0.1
+
+# multi task
+use_feat_add : True
+use_phoneme : False
+
+# 時間方向の削減とアップサンプリングの方法
+upsample_method : "interpolate"   # conv or interpolate
+compress_rate : 2   # 2 or 4
+time_reduction : False
+time_reduction_rate : 30
+
+use_dec_attention : False
+
+separate_frontend : False

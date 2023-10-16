@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_default
+    entity:
+    mode: online
+    name : default
+watch:
+    log: all
+    log_freq: 100

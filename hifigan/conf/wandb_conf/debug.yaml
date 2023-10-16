@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: debug
+    entity:
+    mode: online
+    name : debug
+watch:
+    log: all
+    log_freq: 100

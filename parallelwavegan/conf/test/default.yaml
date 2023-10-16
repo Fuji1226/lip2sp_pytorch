@@ -1,0 +1,18 @@
+---
+
+# face or lip
+face_or_lip : "face"
+
+# generate.pyを実行したときのデータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch/parallelwavegan/result/default/generate"
+
+# data path
+lip_pre_loaded_path_nn_gray_08_50 : "~/dataset/lip/np_files/lip_cropped_nn_gray_0.8_50/test"
+face_pre_loaded_path_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/test"
+
+test_df_path : "~/dataset/lip/data_split_csv/test.csv"
+
+speaker : ["F01_kablab"]
+# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+# speaker : ["F01_kablab", "F02_kablab"]
+# speaker : ["M01_kablab", "M04_kablab"]

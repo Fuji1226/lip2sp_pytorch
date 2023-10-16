@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: face_gen_text
+    entity:
+    mode: online
+    name : face_gen_text
+watch:
+    log: all
+    log_freq: 100

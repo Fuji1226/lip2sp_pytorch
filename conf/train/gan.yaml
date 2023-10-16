@@ -1,0 +1,120 @@
+---
+
+name : gan
+
+# デバッグ
+debug : False
+debug_data_len : 1000
+debug_max_epoch : 200
+debug_iter : 5
+
+# checkpointから再開する場合
+check_point_start : False
+start_ckpt_path : 
+
+# face or lip
+face_or_lip : "lip_9696_time_only"
+
+# データを置いているディレクトリまでのパス
+lip_path : "~/dataset/lip/lip_cropped"
+face_path : "~/dataset/lip/cropped"
+lip_path_128128 : "~/dataset/lip/lip_cropped_128128"
+lip_path_9696 : "~/dataset/lip/lip_cropped_9696"
+
+# 学習したモデルのパラメータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch/result/gan/train"
+
+# checkpoint path
+ckpt_path : "~/lip2sp_pytorch/check_point/gan"
+ckpt_step : 10
+
+# 平均、標準偏差ディレクトリまでのパス
+lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
+face_mean_std_path : "~/dataset/lip/np_files/face/mean_std"
+lip_mean_std_path_128128 : "~/dataset/lip/np_files/lip_cropped_128128/mean_std"
+lip_mean_std_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/mean_std"
+lip_mean_std_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/mean_std"
+
+# 口唇動画、音響特徴量ディレクトリまでのパス
+lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
+face_pre_loaded_path : "~/dataset/lip/np_files/face/train"
+lip_pre_loaded_path_128128 : "~/dataset/lip/np_files/lip_cropped_128128/train"
+lip_pre_loaded_path_9696 : "~/dataset/lip/np_files/lip_cropped_9696/train"
+lip_pre_loaded_path_9696_time_only : "~/dataset/lip/np_files/lip_cropped_9696_time_only/train"
+
+# ロードするモデルのパス
+load_model : True
+model_path_mspec80 : "~/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:18_01-59-42/mspec80_300.ckpt"
+model_path_world_melfb : "~/lip2sp_pytorch/check_point/nar/lip_9696_time_only/2022:08:18_23-47-54/world_melfb_300.ckpt"
+
+# max_epoch
+max_epoch : 400
+
+# validation lossを計算する間隔
+display_val_loss_step : 1
+
+# data augmentationの有無
+# 空間
+use_color_jitter : False
+use_blur : False
+use_horizontal_flip : False
+use_pad : False
+use_rotation : False
+# 時間
+use_time_augment : False
+time_augment_rate : 30 
+
+# global condition
+use_gc : False
+
+# dataloader
+batch_size : 16
+num_workers : 16
+
+# dropout
+dec_dropout : 0.1
+res_dropout : 0.1
+disc_dropout : 0.5
+
+# optimizer
+lr_gen: 0.0001
+lr_disc: 0.0001
+beta_1: 0.9
+beta_2: 0.999
+weight_decay: 1.0e-6
+
+# scheduler
+lr_decay_rate_gen: 0.5
+lr_decay_step_gen: 4
+multi_lr_decay_step_gen: [500,]   # 学習率を変更するepoch
+lr_decay_rate_disc: 0.5
+lr_decay_step_disc: 4
+multi_lr_decay_step_disc: [500,]   # 学習率を変更するepoch
+
+# gradient clipping
+max_norm : 10.0
+
+# 途中のメルスペクトログラムの可視化
+visualize_step : 400    # iteration
+
+# delta loss
+blur : True
+batch_norm : True
+
+# 動画に対して最初にbatch normalizationをするかどうか
+apply_first_bn : False
+
+# 最初のresnetに対してのdropoutを行うかどうか
+input_layer_dropout : False
+
+# feat_addを使用するかどうか
+multi_task : False
+add_feat_add  : False
+
+# lossの重み
+mse_weight : 1   # 10
+ls_weight : 1   # 1
+fm_weight : 1   # 1
+
+# generatorを更新するiteration
+gen_opt_step : 1

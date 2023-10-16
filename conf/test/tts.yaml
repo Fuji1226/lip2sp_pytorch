@@ -1,0 +1,24 @@
+---
+
+# debug
+debug : True
+debug_data_len : 1
+
+# face or lip
+face_or_lip : "face_aligned_0_50_gray"
+
+# generate.pyを実行したときのデータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch/result/tts/generate"
+
+# 口唇動画、音響特徴量ディレクトリまでのパス
+lip_pre_loaded_path_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/test"
+lip_pre_loaded_path_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/test"
+face_pre_loaded_path_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/test"
+face_pre_loaded_path_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/test"
+
+test_df_path : "~/dataset/lip/data_split_csv/test.csv"
+
+speaker : ["F01_kablab"]
+# speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+# speaker : ["F01_kablab", "F02_kablab"]
+# speaker : ["M01_kablab", "M04_kablab"]

@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: language_model
+    entity:
+    mode: online
+    name : language_model
+watch:
+    log: all
+    log_freq: 100

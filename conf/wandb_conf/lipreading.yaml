@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lipreading
+    entity:
+    mode: online
+    name : lipreading
+watch:
+    log: all
+    log_freq: 100

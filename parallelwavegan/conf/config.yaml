@@ -1,0 +1,5 @@
+defaults:
+  - model: mspec80
+  - train: default
+  - test : default
+  - wandb_conf : debug
