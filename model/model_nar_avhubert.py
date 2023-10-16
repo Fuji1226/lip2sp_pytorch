@@ -14,15 +14,16 @@ from transformer_remake import PositionalEncoding
 
 def load_avhubert_torch(
     cfg,
-    ckpt_path,
     model_size,
     load_pretrained_weight,
     layer_loaded,
 ):
     if model_size == 'base':
         avhubert = MyAVHubertModel(cfg.base)
+        ckpt_path = Path(cfg.base.ckpt_path).expanduser()
     elif model_size == 'large':
         avhubert = MyAVHubertModel(cfg.large)
+        ckpt_path = Path(cfg.large.ckpt_path).expanduser()
 
     if load_pretrained_weight:
         pretrained_dict = torch.load(str(ckpt_path))[str('avhubert')]
@@ -76,7 +77,6 @@ class Lip2SP_NAR_AVHubert(nn.Module):
     def __init__(
         self,
         avhubert_config,
-        avhubert_ckpt_path,
         avhubert_model_size,
         avhubert_return_res_output,
         load_avhubert_pretrained_weight,
@@ -102,7 +102,6 @@ class Lip2SP_NAR_AVHubert(nn.Module):
         self.which_decoder = which_decoder
         self.avhubert = load_avhubert_torch(
             cfg=avhubert_config,
-            ckpt_path=avhubert_ckpt_path,
             model_size=avhubert_model_size,
             load_pretrained_weight=load_avhubert_pretrained_weight,
             layer_loaded=avhubert_layer_loaded,
@@ -120,12 +119,6 @@ class Lip2SP_NAR_AVHubert(nn.Module):
                 n_layers=dec_n_layers,
                 kernel_size=dec_kernel_size,
                 dropout=dec_dropout,
-                reduction_factor=reduction_factor,
-            )
-        elif which_decoder == 'linear':
-            self.decoder = LinearDecoder(
-                in_channels=inner_channels,
-                out_channels=out_channels,
                 reduction_factor=reduction_factor,
             )
         elif which_decoder == 'transformer':

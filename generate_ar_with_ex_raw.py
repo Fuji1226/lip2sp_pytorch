@@ -9,7 +9,7 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data, save_data_pwg
-from train_nar_with_ex_avhubert_raw import make_model
+from train_ar_with_ex_avhubert_raw import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 from utils import (
     make_test_loader_with_external_data_raw,
@@ -58,20 +58,13 @@ def generate(
         spk_emb = spk_emb.expand(lip_sep.shape[0], -1)
 
         with torch.no_grad():
-            if cfg.model.use_avhubert_video_modality:
-                output, classifier_out, fmaps = model(
-                    lip=lip,
-                    audio=None,
-                    lip_len=lip_len,
-                    spk_emb=spk_emb,
-                )
-            elif cfg.model.use_avhubert_audio_modality:
-                output, classifier_out, fmaps = model(
-                    lip=None,
-                    audio=feature_avhubert_sep,
-                    lip_len=lip_len,
-                    spk_emb=spk_emb,
-                )
+            output, dec_output, att_w = model(
+                lip=lip,
+                audio=None,
+                lip_len=lip_len,
+                spk_emb=spk_emb,
+                feature_target=None,
+            )
 
         output = gen_data_concat(
             output, 

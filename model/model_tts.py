@@ -158,7 +158,7 @@ class ZoneOutCell(nn.Module):
         else:
             return prob * h + (1 - prob) * next_h
 
-
+ 
 class Decoder(nn.Module):
     def __init__(
         self, enc_channels, dec_channels, atten_conv_channels, atten_conv_kernel_size, atten_hidden_channels,

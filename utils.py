@@ -224,10 +224,14 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
     data_path_list = []
     for i in range(df.shape[0]):
         row = df.iloc[i]
+        audio_path = audio_dir / row['speaker'] / f'{row["filename"]}.wav'
+        video_path = video_dir / row['speaker'] / f'{row["filename"]}.mp4'
+        if (not audio_path.exists()) or (not video_path.exists()):
+            continue
         data_path_list.append(
             {
-                'audio_path': audio_dir / row['speaker'] / f'{row["filename"]}.wav',
-                'video_path': video_dir / row['speaker'] / f'{row["filename"]}.mp4',
+                'audio_path': audio_path,
+                'video_path': video_path,
                 'speaker': row['speaker'],
                 'filename': row['filename'],
             }
@@ -740,7 +744,7 @@ def check_mel_ss(orig, mixed, cfg, filename, current_time, ckpt_time=None):
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
 
 
-def check_mel_default(target, output, dec_output, cfg, filename, current_time, ckpt_time=None):
+def check_mel_ar(target, output, dec_output, cfg, filename, current_time, ckpt_time=None):
     target = target.to('cpu').detach().numpy().copy()
     output = output.to('cpu').detach().numpy().copy()
     dec_output = dec_output.to('cpu').detach().numpy().copy()
@@ -1000,7 +1004,7 @@ def check_attention_weight(att_w, cfg, filename, current_time, ckpt_time=None):
     plt.figure()
     sns.heatmap(att_w, cmap="viridis", cbar=True)
     plt.title("attention weight")
-    plt.xlabel("text")
+    plt.xlabel("encoder output")
     plt.ylabel("feature")
 
     save_path = Path("~/lip2sp_pytorch/data_check").expanduser()

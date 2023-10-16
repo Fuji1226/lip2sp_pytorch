@@ -1,5 +1,5 @@
 defaults:
   - model: mspec_avhubert
-  - train: pwg
-  - test : pwg
+  - train: ar
+  - test : ar
   - wandb_conf : debug

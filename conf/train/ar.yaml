@@ -1,19 +1,19 @@
 ---
 
-name : "nar"
+name : "ar"
 
 # 乱数固定
 random_seed : 42
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 10
 
 # checkpointから再開する場合
 check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+start_ckpt_path : "~/lip2sp_pytorch/check_point/ar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
@@ -23,7 +23,7 @@ module_is_fixed : []
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/ar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
 
 # face or lip
 face_or_lip : "avhubert_preprocess_fps25_gray"
@@ -31,10 +31,10 @@ use_synth_corpus : False
 n_data_used_recorded_and_synth : 20000
 
 # 学習したモデルのパラメータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/nar/train"
+save_path : "~/lip2sp_pytorch/result/ar/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/nar"
+ckpt_path : "~/lip2sp_pytorch/check_point/ar"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
@@ -94,7 +94,7 @@ use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
 
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : ["ATR", "BASIC5000"]
 # corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
@@ -105,7 +105,7 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+speaker : ["F01_kablab", "M01_kablab"]
 use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
@@ -184,5 +184,9 @@ classifier_weight : 0.05
 use_weighted_mean : False
 loss_disc_weight : 0.01
 
-# gradient accumulation
+# gradient accumulatin
 iters_to_accumulate : 4
+
+# training method
+training_method : 'teacher_forcing'
+scheduled_sampling_thres : 0

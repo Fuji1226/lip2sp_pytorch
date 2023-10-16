@@ -71,9 +71,6 @@ class GLU(nn.Module):
 
         self.prenet = Prenet(pre_in_channels, inner_channels, pre_inner_channels)
 
-        if use_spk_emb:
-            self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
-
         self.cond_layer = nn.Conv1d(cond_channels, inner_channels, kernel_size=1)
         self.dropout = nn.Dropout(dropout)
         self.glu_layers = nn.ModuleList([
@@ -81,12 +78,10 @@ class GLU(nn.Module):
         ])
         self.conv_o = nn.Conv1d(inner_channels, self.out_channels * self.reduction_factor, kernel_size=1)
 
-    def forward(self, enc_output, spk_emb, mode, prev=None):
+    def forward(self, enc_output, mode, prev=None):
         """
         enc_output : (B, T, C)
-        spk_emb : (B, C)
         prev : (B, C, T)
-        dec_output : (B, C, T)
         """
         assert mode == "training" or "inference"
         enc_output = enc_output.permute(0, -1, -2)  # (B, C, T)
@@ -109,12 +104,6 @@ class GLU(nn.Module):
 
         # prenet
         prev = self.dropout(self.prenet(prev))      # (B, C, T)
-
-        if hasattr(self, "spk_emb_layer"):
-            spk_emb = spk_emb.unsqueeze(-1).expand(-1, -1, prev.shape[-1])  # (B, C, T)
-            prev = torch.cat([prev, spk_emb], dim=1)
-            prev = self.spk_emb_layer(prev)
-
         dec_layer_out = prev
 
         # decoder layers

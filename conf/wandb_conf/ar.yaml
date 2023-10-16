@@ -1,0 +1,10 @@
+---
+
+setup:
+    project: lip2sp_ar
+    entity:
+    mode: online
+    name : ar
+watch:
+    log: all
+    log_freq: 100
