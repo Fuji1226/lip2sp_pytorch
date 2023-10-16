@@ -9,7 +9,7 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data
-from train_nar import make_model
+from train_realtime import make_model
 from utils import (
     make_test_loader,
     get_path_test,
@@ -52,7 +52,7 @@ def generate(
         spk_emb = spk_emb.expand(lip_sep.shape[0], -1)
 
         with torch.no_grad():
-            output, classifier_out, fmaps = model(lip_sep, lip_len, spk_emb)
+            output, classifier_out, fmaps = model(lip,spk_emb)
 
         output = gen_data_concat(
             output, 

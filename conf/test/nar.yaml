@@ -8,7 +8,7 @@ debug_data_len : 1
 face_or_lip : "face"
 
 # 合成するチェックポイントについて、一番最後のパス 逐一確認！！！
-model_path : '/root/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2023:10:11_01-40-47/2.ckpt'
+model_path : '/root/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2023:10:12_13-59-30/2.ckpt'
 
 # モデルパスを検証データの結果から選択するための指標
 metric_for_select : 'val_loss_list'
