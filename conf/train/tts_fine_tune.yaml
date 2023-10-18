@@ -1,0 +1,120 @@
+
+name : "tts"
+
+# デバッグ
+debug : False
+debug_data_len : 1000
+debug_max_epoch : 200
+debug_iter : 0
+
+# checkpointから再開する場合
+check_point_start : False
+start_ckpt_path : "~/lip2sp_pytorch/check_point/tts/face_aligned_0_50_gray/2022:12:11_16-17-37/mspec80_510.ckpt"
+
+# face or lip
+#face_or_lip : "face_aligned_0_50_gray"
+face_or_lip : "tts"
+use_synth_corpus : False
+n_data_used_recorded_and_synth : 20000
+
+# 学習したモデルのパラメータを保存するディレクトリまでのパス
+save_path : "~/lip2sp_pytorch_all/lip2sp_920_re/result/tts/train"
+
+# check point path
+ckpt_path : "~/lip2sp_pytorch_all/lip2sp_920_re/check_point"
+ckpt_step : 1
+
+# 口唇動画、音響特徴量ディレクトリまでのパス
+lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
+lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
+lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
+lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
+face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
+face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
+face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
+face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
+
+face_pre_loaded_path_train_fujita : "~/dataset/np_files/lip_cropped/train"
+face_pre_loaded_path_val_fujita : "~/dataset/np_files/lip_cropped/train"
+
+tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
+#tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"
+#tts_pre_loaded_path : "~/dataset/hifi"
+
+text_dir : "/home/usr1/q70261a/dataset/lip/utt"
+
+
+# 使用するコーパス
+corpus : "ATR"
+data_size :
+
+# 使用する話者
+speaker : ["F01_kabulab"]
+use_gc : False
+finetuning : False
+where_spk_emb : "after_res"
+
+# max_epoch
+max_epoch : 600
+
+# data augmentationの有無
+# 見た目変換系
+use_color_jitter : False
+use_blur : False
+use_pad : False
+use_rotation : False
+use_horizontal_flip : False
+use_random_crop : False
+
+# 空間領域にランダムマスキング
+use_spatial_masking : False
+which_spatial_mask : "has"
+spatial_divide_factor : 8
+n_spatial_mask : 24
+mask_length : 24
+
+# 再生速度変換
+use_time_augment : False
+time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
+
+# 動画の連続したフレームをある程度まとめてマスキング
+use_segment_masking : False
+which_seg_mask : "seg_mean"
+max_segment_masking_sec : 0.5
+
+# 音響特徴量に対してのマスキング
+use_time_frequency_masking : False
+feature_time_masking_length : 50
+feature_freq_masking_band : 40
+
+# dataloader
+batch_size : 16
+num_workers : 16
+
+# dropout
+dec_dropout : 0.1
+res_dropout : 0.1
+rnn_dropout : 0.1
+lm_enc_dropout : 0.1
+
+# optimizer
+lr : 0.001
+lr_lf : 0.0001
+beta_1 : 0.9
+beta_2 : 0.999
+weight_decay : 1.0e-6
+
+# scheduler
+lr_decay_rate : 0.5
+multi_lr_decay_step : [200, 400]   # 学習率を変更するepoch
+lr_decay_exp : 0.995
+
+# gradient clipping
+max_norm : 3.0
+
+# lossの重みづけ
+mse_weight : 1.0
+classifier_weight : 0
+use_weighted_mean : False
+
+n_stop_token_frame : 2
