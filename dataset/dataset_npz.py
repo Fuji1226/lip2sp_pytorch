@@ -396,6 +396,37 @@ class KablabTransform:
         lip_aug = lip_aug.permute(1, 2, 3, 0)
         return lip_aug
 
+    # def segment_masking_segmean(self, lip):
+    #         """
+    #         segment maskingと同様だが,segment内の平均値で全て埋めるところが違い
+    #         一般的に使用されているのがこっちなのでこれが無難
+    #         lip : (C, H, W, T)
+    #         """
+    #         C, H, W, T = lip.shape
+
+    #         # 最初の1秒から削除するセグメントの開始フレームを選択
+    #         mask_start_idx = torch.randint(0, 50, (1,))
+    #         idx = [i for i in range(T)]
+
+    #         # マスクする系列長を決定
+    #         mask_length = torch.randint(0, int(self.cfg.model.fps * self.cfg.train.max_segment_masking_sec), (1,))
+
+    #         while True:
+    #             mask_seg_idx = idx[mask_start_idx:mask_start_idx + mask_length]
+    #             seg_mean_lip = torch.mean(lip[..., idx[mask_start_idx:mask_start_idx + mask_length]].to(torch.float), dim=-1).to(torch.uint8)
+    #             for i in mask_seg_idx:
+    #                 lip[..., i] = seg_mean_lip
+
+    #             # 開始フレームを1秒先に更新
+    #             mask_start_idx += self.cfg.model.fps
+
+    #             # 次の範囲が動画自体の系列長を超えてしまうならループを抜ける
+    #             if mask_start_idx + mask_length - 1 > T:
+    #                 break
+        
+    #     return lip
+        
+
     def __call__(self, lip, feature, feat_add, upsample, data_len, lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std):
         """
         lip : (C, H, W, T)

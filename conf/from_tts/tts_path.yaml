@@ -2,5 +2,5 @@ tts_name : normal_data
 
 desk_debug : /home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/test/mspec80_92.ckpt
 
-noraml_data : /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:02_23-16-31__revise_stop_token/mspec80_430.ckpt
+normal_data : /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:02_23-16-31__revise_stop_token/mspec80_430.ckpt
 jsut_5000 : /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:05_23-04-58__jsut_BASIC5000/mspec80_227.ckpt

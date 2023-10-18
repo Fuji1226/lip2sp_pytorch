@@ -228,7 +228,8 @@ class Lip2SP(nn.Module):
                 dec_output, logit, att_w, stop_token = self.decoder(enc_output, data_len, use_stop_token=use_stop_token) 
 
             # postnet
-            out = self.postnet(dec_output) 
+            out = self.postnet(dec_output)
+            out = out + dec_output
             
 
             return out, dec_output, enc_output.clone().detach(), att_w, logit

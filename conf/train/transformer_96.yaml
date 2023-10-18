@@ -36,7 +36,7 @@ face_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
 
 # コーパス
 corpus : 
-data_size : 1500
+data_size : 2500
 
 
 # 使用する話者

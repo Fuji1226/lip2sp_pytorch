@@ -15,11 +15,13 @@ except:
 
 # speakerのみ変更してください
 speaker = "F01_kabulab"
-LIP_PATH = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
-LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files_48/lip_cropped/train").expanduser()
-LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_48/lip_cropped/mean_std").expanduser()
-LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files_48/lip_cropped/test").expanduser()
-LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_48/lip_cropped/mean_std").expanduser()
+#LIP_PATH = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
+
+LIP_PATH = Path("/home/usr1/q70261a/dataset/lip/tmp_add/F01_kablab_20220930").expanduser()
+LIP_TRAIN_DATA_PATH = Path(f"~/dataset/lip/np_files_96add/lip_cropped/train").expanduser()
+LIP_TRAIN_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_96add/lip_cropped/mean_std").expanduser()
+LIP_TEST_DATA_PATH = Path(f"~/dataset/lip/np_files_96add/lip_cropped/test").expanduser()
+LIP_TEST_MEAN_STD_SAVE_PATH = Path(f"~/dataset/lip/np_files_96add/lip_cropped/mean_std").expanduser()
 
 
 def get_dataset_lip(data_root):    

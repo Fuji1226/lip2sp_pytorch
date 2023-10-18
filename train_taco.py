@@ -250,7 +250,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_desk", config_path="conf")
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -290,6 +290,8 @@ def main(cfg):
     train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, data_root, mean_std_path)
     
     test_data_root = Path(cfg.test.face_pre_loaded_path).expanduser()
+    print(f'test root: {test_data_root}')
+
     test_loader, test_dataset = make_test_loader(cfg, test_data_root, mean_std_path)
     
     # 損失関数
@@ -361,7 +363,7 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test14(cfg)
+        prob_list = mixing_prob_controller_test16(cfg)
 
 
         for epoch in range(cfg.train.max_epoch - last_epoch):

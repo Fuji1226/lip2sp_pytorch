@@ -361,8 +361,6 @@ def main(cfg):
             name = cfg.from_tts.tts_name
             tts_path = cfg.from_tts[name]
             model = load_from_tts(model, tts_path)
-        breakpoint()
-
         # optimizer
         optimizer = torch.optim.Adam(
             params=model.parameters(),
