@@ -1128,8 +1128,7 @@ def check_att(att, cfg, filename, current_time, ckpt_time=None):
         save_path = save_path / cfg.train.name / tag
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
-    wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
-    
+    plt.close()
 
 def make_pad_mask_tts(lengths, max_len):
     """

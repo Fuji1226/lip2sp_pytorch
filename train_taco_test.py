@@ -23,7 +23,6 @@ import psutil
 
 from prob_list import *
 from transformers import get_cosine_schedule_with_warmup
-
 import gc
 
 # wandbへのログイン
@@ -94,7 +93,7 @@ def make_model(cfg, device):
     return model.to(device)
 
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler, scaler):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_loss_feat_add = 0
@@ -115,42 +114,44 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         # output : postnet後の出力
         # dec_output : postnet前の出力
         optimizer.zero_grad()
-        if cfg.train.use_gc:
-            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
-        else:
-            #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-                        
-        B, C, T = output.shape
+        with torch.cuda.amp.autocast():
+            if cfg.train.use_gc:
+                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
+            else:
+                #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
+                output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
+                            
+            B, C, T = output.shape
 
-        if cfg.train.multi_task:
-            loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            #loss_feat_add.backward(retain_graph=True)
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"train_loss_feat_add": loss_feat_add})
+            if cfg.train.multi_task:
+                loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
+                #loss_feat_add.backward(retain_graph=True)
+                epoch_loss_feat_add += loss_feat_add.item()
+                wandb.log({"train_loss_feat_add": loss_feat_add})
 
-        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
-        epoch_output_loss += output_loss.item()
-        wandb.log({"train_output_loss": output_loss})
-        #output_loss.backward(retain_graph=True)
+            output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
+            epoch_output_loss += output_loss.item()
+            wandb.log({"train_output_loss": output_loss})
+            #output_loss.backward(retain_graph=True)
 
-        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
-        epoch_dec_output_loss += dec_output_loss.item()
-        wandb.log({"train_dec_output_loss": dec_output_loss})
-        #dec_output_loss.backward()
+            dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
+            epoch_dec_output_loss += dec_output_loss.item()
+            wandb.log({"train_dec_output_loss": dec_output_loss})
+            #dec_output_loss.backward()
 
-        if not cfg.train.multi_task:
+    
             loss = output_loss + dec_output_loss
-            loss.backward()
-        else:
-            loss = output_loss + dec_output_loss + feat_add_out
-            loss.backward()
-
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer) 
+
+        # スケーラーの更新
+        scaler.update() 
+        
+        # optimizer.step()
+        # optimizer.zero_grad()
+        # scheduler.step()
 
         iter_cnt += 1
 
@@ -172,11 +173,10 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
                     check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
         
         del lip, feature, feat_add, upsample, data_len, speaker, label, output, dec_output
-        gc.collect()
         torch.cuda.empty_cache()
+        gc.collect()
         plt.clf()
         plt.close()
-
 
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
@@ -321,6 +321,8 @@ def main(cfg):
         # model
         model = make_model(cfg, device)
         
+        scaler = torch.cuda.amp.GradScaler() 
+        
         # optimizer
         optimizer = torch.optim.Adam(
             params=model.parameters(),
@@ -414,7 +416,8 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 epoch=current_epoch,
                 ckpt_time=ckpt_time,
-                scheduler=scheduler
+                scheduler=scheduler,
+                scaler=scaler
             )
             train_output_loss_list.append(train_epoch_loss_output)
             train_dec_output_loss_list.append(train_epoch_loss_dec_output)
@@ -481,9 +484,12 @@ def main(cfg):
             
             mem = psutil.virtual_memory() 
             print(f'cpu usage: {mem.percent}')
-            plt.clf()
-            plt.close()
-
+            
+        gc.collect()
+        torch.cuda.empty_cache()
+        plt.clf()
+        plt.close()
+                
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"
         torch.save(model.state_dict(), str(model_save_path))

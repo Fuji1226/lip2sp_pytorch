@@ -37,7 +37,7 @@ face_pre_loaded_path : ["/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/t
 # コーパス
 corpus : 
 data_size :
-
+use_all : False
 
 # 使用する話者
 speaker : ["F01_kabulab"]
