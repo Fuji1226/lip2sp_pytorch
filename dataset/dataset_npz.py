@@ -81,6 +81,7 @@ def get_datasets_re(data_root, cfg):
     
         print(f'test  {root}: {len(file_paths)}')
         items += file_paths
+        
     return items
 
 def get_dataset_all(data_root):
@@ -104,6 +105,20 @@ def get_datasets_test(data_root, cfg):
         spk_path = data_root / speaker
         spk_path = list(spk_path.glob(f"*{cfg.model.name}.npz"))
         items += spk_path
+    return items
+
+def get_datasets_test_re(data_root, cfg):
+    """
+    npzファイルのパス取得
+    """
+    print("\n--- get datasets ---")
+    target_extension = '.npz'
+    items = []
+        
+    file_paths = [p for p in data_root.rglob('*') if p.is_file() and p.suffix == target_extension]
+    items += file_paths
+    breakpoint()
+
     return items
 
 

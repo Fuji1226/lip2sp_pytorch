@@ -13,7 +13,7 @@ import json
 import seaborn as sns
 
 
-from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, get_datasets_re, collate_time_adjust, collate_time_adjust_lipemb
+from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, get_datasets_re, collate_time_adjust, collate_time_adjust_lipemb, get_datasets_test_re
 from dataset.dataset_npz_stop_token import KablabDatasetStopToken, collate_time_adjust_stop_token
 
 from dataset.dataset_tts import KablabTTSDataset, KablabTTSTransform, collate_time_adjust_tts, HIFIDataset
@@ -527,8 +527,6 @@ def make_train_val_loader_tts_multi(cfg, data_root):
         data_root=data_root,
         cfg=cfg,
     )
-    breakpoint()
-
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
     
@@ -540,7 +538,7 @@ def make_train_val_loader_tts_multi(cfg, data_root):
     train_data_path = data_path[:train_size]
     val_data_path = data_path[train_size:]
     
-    if False:
+    if True:
         train_data_path = train_data_path[:100]
         val_data_path = train_data_path
     
@@ -891,7 +889,7 @@ def make_test_loader_save(cfg, data_root, train_data_root):
 
 def make_test_loader_tts(cfg, data_root, train_data_root):
     print(f'data root: {data_root}')
-    train_data_path = get_datasets(train_data_root, cfg)
+    train_data_path = get_datasets_re(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
     
@@ -920,10 +918,11 @@ def make_test_loader_tts(cfg, data_root, train_data_root):
     )
     return test_loader, test_dataset
 
-def make_test_loader_tts(cfg, data_root, train_data_root):
+def make_test_loader_tts_re(cfg, data_root, train_data_root):
     print(f'data root: {data_root}')
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
+
+    train_data_path = get_datasets_re(train_data_root, cfg)
+    test_data_path = get_datasets_test_re(data_root, cfg)
     test_data_path = sorted(test_data_path)
     
     print(f'make loader test: {len(test_data_path)}')
