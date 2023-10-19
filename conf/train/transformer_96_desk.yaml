@@ -32,11 +32,11 @@ face_mean_std_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/mean
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files/lip_cropped/train"
-face_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"
+face_pre_loaded_path : ["/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train", "/mnt/diskA/naoaki/dataset/lip/np_files_96_add/lip_cropped/train"]
 
 # コーパス
 corpus : 
-data_size : 1500
+data_size :
 
 
 # 使用する話者

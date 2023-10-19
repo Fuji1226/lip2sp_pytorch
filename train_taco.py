@@ -15,7 +15,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_taco
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att
+from utils import make_train_val_loader_multi, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att
 from model.model_trans_taco import Lip2SP
 from loss import MaskedLoss
 
@@ -250,7 +250,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config", config_path="conf")
+@hydra.main(config_name="config_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -287,7 +287,7 @@ def main(cfg):
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, data_root, mean_std_path)
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_multi(cfg, data_root, mean_std_path)
     
     test_data_root = Path(cfg.test.face_pre_loaded_path).expanduser()
     print(f'test root: {test_data_root}')

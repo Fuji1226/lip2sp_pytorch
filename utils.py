@@ -13,7 +13,7 @@ import json
 import seaborn as sns
 
 
-from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, collate_time_adjust, collate_time_adjust_lipemb
+from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransform, collate_time_adjust_for_test, get_datasets, get_datasets_test, get_datasets_re, collate_time_adjust, collate_time_adjust_lipemb
 from dataset.dataset_npz_stop_token import KablabDatasetStopToken, collate_time_adjust_stop_token
 
 from dataset.dataset_tts import KablabTTSDataset, KablabTTSTransform, collate_time_adjust_tts, HIFIDataset
@@ -58,14 +58,17 @@ def get_sp_name(name, feature_type, frame_period, nmels=None):
 
 def get_path_train(cfg, current_time):
     # data
+    data_root_all = []
     if cfg.train.face_or_lip == "face":
         data_root = cfg.train.face_pre_loaded_path
         mean_std_path = cfg.train.face_mean_std_path
     elif cfg.train.face_or_lip == "lip":
         data_root = cfg.train.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
-                
-    data_root = Path(data_root).expanduser()
+    
+    for path in data_root:
+        data_root_all.append(Path(path).expanduser())
+    
     mean_std_path = Path(mean_std_path).expanduser()
 
     ckpt_time = None
@@ -98,7 +101,7 @@ def get_path_train(cfg, current_time):
     config_save = open(save_path_json, mode='w')
     json.dump(wandb_cfg, config_save, indent=4)
 
-    return data_root, mean_std_path, ckpt_path, save_path, ckpt_time
+    return data_root_all, mean_std_path, ckpt_path, save_path, ckpt_time
 
 def get_path_tts_train(cfg, current_time):
     if cfg.train.face_or_lip == "tts":
@@ -309,6 +312,78 @@ def save_GAN_prob(correct_list, wrong_list, save_path, filename):
     plt.grid()
     plt.savefig(str(prob_save_path))
     plt.close("all")
+
+def make_train_val_loader_multi(cfg, data_root, mean_std_path):
+    # パスを取得
+    
+    if cfg.train.corpus not in ['ATR']:
+        data_path = get_datasets_re(
+            data_root=data_root,
+            cfg=cfg,
+        )
+        breakpoint()
+        data_path = random.sample(data_path, len(data_path))
+        n_samples = len(data_path)
+        train_size = int(n_samples * 0.8)
+        train_data_path = data_path[:train_size]
+        val_data_path = data_path[train_size:]
+        
+    else:
+        data_path = get_datasets_re(
+            data_root=data_root,
+            cfg=cfg,
+        )
+        train_size = int(len(data_path)//2)
+        train_data_path = data_path[:train_size]
+        val_data_path = data_path[train_size:]
+        
+    # 学習用，検証用それぞれに対してtransformを作成
+    train_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="train",
+    )
+    val_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="val",
+    )
+
+    # dataset作成
+    print("\n--- make train dataset ---")
+    train_dataset = KablabDataset(
+        data_path=train_data_path,
+        mean_std_path = mean_std_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = KablabDataset(
+        data_path=val_data_path,
+        mean_std_path=mean_std_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    # それぞれのdata loaderを作成
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
 
 def make_train_val_loader(cfg, data_root, mean_std_path):
     # パスを取得
