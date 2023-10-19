@@ -1,6 +1,6 @@
 defaults:
   - model: mspec80_trans_taco_from_tts
-  - train: transformer_96
+  - train: transformer_96_from_tts
   - test : trans_taco
   - wandb_conf : default
   

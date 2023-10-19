@@ -1,7 +1,7 @@
 defaults:
   - model: tts
-  - train: tts
+  - train: tts_fine_tune
   - test : tts
   - wandb_conf : default
-tag: "_test_hifiAll"
+tag: "finetune_fromJsut5000_ATR"
 model_path: '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:02_16-56-42__revise_stop_token/mspec80_15.ckpt'
