@@ -323,7 +323,6 @@ def make_train_val_loader_multi(cfg, data_root, mean_std_path):
             data_root=data_root,
             cfg=cfg,
         )
-        breakpoint()
         data_path = random.sample(data_path, len(data_path))
         n_samples = len(data_path)
         train_size = int(n_samples * 0.8)
@@ -538,7 +537,7 @@ def make_train_val_loader_tts_multi(cfg, data_root):
     train_data_path = data_path[:train_size]
     val_data_path = data_path[train_size:]
     
-    if True:
+    if False:
         train_data_path = train_data_path[:100]
         val_data_path = train_data_path
     
@@ -864,7 +863,6 @@ def make_test_loader_save(cfg, data_root, train_data_root):
     
     train_trans = KablabTransform(cfg, "train")
     test_trans = KablabTransform(cfg, "test")
-    breakpoint()
     test_trans = KablabTransform(
         cfg=cfg,
         train_val_test="test",
