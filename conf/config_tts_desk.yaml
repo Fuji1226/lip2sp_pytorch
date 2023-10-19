@@ -1,6 +1,6 @@
 defaults:
   - model: tts
-  - train: tts
+  - train: tts_desk
   - test : tts
   - wandb_conf : default
 tag: "fujtia_last_re"

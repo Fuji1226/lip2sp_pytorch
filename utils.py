@@ -104,10 +104,12 @@ def get_path_train(cfg, current_time):
     return data_root_all, mean_std_path, ckpt_path, save_path, ckpt_time
 
 def get_path_tts_train(cfg, current_time):
+    data_root = []
     if cfg.train.face_or_lip == "tts":
-        data_root = cfg.train.tts_pre_loaded_path
-  
-    data_root = Path(data_root).expanduser()
+        data = cfg.train.tts_pre_loaded_path
+    
+    for tmp in data:
+        data_root.append(Path(tmp).expanduser())
 
     ckpt_time = None
     ckpt_path = cfg.train.ckpt_path
@@ -132,7 +134,7 @@ def get_path_tts_train(cfg, current_time):
     save_path_json = os.path.join(save_path, 'config.json')
     config_save = open(save_path_json, mode='w')
     json.dump(wandb_cfg, config_save, indent=4)
-    
+
     return data_root, save_path, ckpt_path
         
 
@@ -518,6 +520,71 @@ def make_train_val_loader_tts(cfg, data_root):
     )
     
     return train_loader, val_loader, train_dataset, val_dataset
+
+def make_train_val_loader_tts_multi(cfg, data_root):
+    # パスを取得
+    data_path = get_datasets_re(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    breakpoint()
+
+    data_path = random.sample(data_path, len(data_path))
+    n_samples = len(data_path)
+    
+    if cfg.train.data_size is not None:
+        data_size = int(cfg.train.data_size * 1.25)
+        data_path = data_path[:data_size]
+        
+    train_size = int(n_samples * 0.8)
+    train_data_path = data_path[:train_size]
+    val_data_path = data_path[train_size:]
+    
+    if False:
+        train_data_path = train_data_path[:100]
+        val_data_path = train_data_path
+    
+    train_trans = KablabTTSTransform(cfg, "train")
+    val_trans = KablabTTSTransform(cfg, "val")
+
+    print("\n--- make train dataset ---")
+
+    train_dataset = KablabTTSDataset(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+
+    val_dataset = KablabTTSDataset(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    
+    return train_loader, val_loader, train_dataset, val_dataset
+    
     
 def make_all_loader_tts_hifi(cfg, data_root):
     # パスを取得

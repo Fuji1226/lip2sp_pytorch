@@ -38,13 +38,13 @@ face_pre_loaded_path_train_fujita : "~/dataset/np_files/lip_cropped/train"
 face_pre_loaded_path_val_fujita : "~/dataset/np_files/lip_cropped/train"
 
 #tts_pre_loaded_path : "~/dataset/lip/np_files_96/lip_cropped/train"
-tts_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"
+tts_pre_loaded_path : ["/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train", "/mnt/diskA/naoaki/dataset/lip/np_files_96_add/lip_cropped/train"]
 #tts_pre_loaded_path : "~/dataset/hifi"
 
 text_dir : "/mnt/diskA/naoaki/dataset/lip/utt"
 
 # 使用するコーパス
-corpus : "ATR"
+corpus : 
 data_size :
 
 
