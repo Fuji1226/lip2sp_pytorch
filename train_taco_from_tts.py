@@ -379,7 +379,7 @@ def main(cfg):
 
         num_warmup_steps = 55 * 5
 
-        num_training_steps = 55 * 300
+        num_training_steps = 55 * 500
 
         scheduler = get_cosine_schedule_with_warmup(optimizer, 
             num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
@@ -409,7 +409,7 @@ def main(cfg):
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
-        prob_list = mixing_prob_controller_test15(cfg)
+        prob_list = mixing_prob_controller_test16(cfg)
 
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
@@ -477,7 +477,7 @@ def main(cfg):
             #scheduler.step()
 
             # check point
-            if current_epoch % cfg.train.ckpt_step == 0:
+            if current_epoch % 10 == 0:
                 save_checkpoint(
                     model=model,
                     optimizer=optimizer,
@@ -518,7 +518,7 @@ def main(cfg):
                 mixing_prob=mixing_prob
             )
             
-            if epoch > 30:
+            if epoch > 100:
                 model_grad_ok(model)
                 
         # モデルの保存

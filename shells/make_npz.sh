@@ -26,6 +26,6 @@ file_main="make_npz.py"
 
 # これより下に，Pythonなどを実行するコマンドを書きます。
 # 実際はもう少しごちゃごちゃした内容を記述していることが多いです。
-python $file_main model=mspec80_trans
+python $file_main
 # python $file_main model.n_layers=1,2 -m
 

@@ -48,6 +48,10 @@ text_dir : "/home/usr1/q70261a/dataset/lip/utt"
 corpus : "ATR"
 data_size :
 
+#fine tune
+finetune_path : /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:09_20-05-10__jsut_ALL/mspec80_393.ckpt
+
+
 # 使用する話者
 speaker : ["F01_kabulab"]
 use_gc : False
