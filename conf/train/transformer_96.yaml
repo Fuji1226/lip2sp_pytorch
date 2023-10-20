@@ -123,3 +123,6 @@ delta_loss_w : 1.0
 # feat_add_layer
 multi_task : False
 add_feat_add : False
+
+#grad
+gradient_accumulation_steps : 4
