@@ -1,0 +1,11 @@
+defaults:
+  - model: mspec80_trans_taco
+  - train: transformer_96_all
+  - test : trans_taco
+  - wandb_conf : default
+tag: "tts_test"
+#model_path: /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:10:11_17-59-42__from_tts_ATR_Transencoder_prob15_noatt_grad30/mspec80_340.ckpt
+stop_weight: 1.0
+from_tts: /home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/tts/2023:10:03_22-26-45__revise_stop_token/mspec80_108.ckpt
+
+method : 'tf'

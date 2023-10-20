@@ -280,7 +280,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_desk", config_path="conf")
+@hydra.main(config_name="config_all", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -355,9 +355,9 @@ def main(cfg):
         # )
 
         #lr_scheduler = optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=100000)
-        num_warmup_steps = len(train_loader) * 5
+        num_warmup_steps = int(len(train_loader)/cfg.train.gradient_accumulation_steps) * 5
 
-        num_training_steps = len(train_loader) * 300
+        num_training_steps = int(len(train_loader)/cfg.train.gradient_accumulation_steps) * 300
 
         scheduler = get_cosine_schedule_with_warmup(optimizer, 
             num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
