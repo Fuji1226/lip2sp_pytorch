@@ -142,7 +142,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     
             loss = output_loss + dec_output_loss
         
-        clip_grad_norm_(model.parameters(), cfg.train.max_norm)
+        #clip_grad_norm_(model.parameters(), cfg.train.max_norm)
         scaler.scale(loss).backward()
         scaler.step(optimizer) 
 
@@ -256,7 +256,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_desk", config_path="conf")
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
