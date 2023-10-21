@@ -1,0 +1,12 @@
+wandb: Currently logged in as: ryushimofmof (perticle). Use `wandb login --relogin` to force relogin
+wandb: Appending key for api.wandb.ai to your netrc file: /home/usr3/a72243a/.netrc
+In 'config': Could not find 'train/default'
+
+Available options in 'train':
+	nar
+Config search path:
+	provider=hydra, path=pkg://hydra.conf
+	provider=main, path=file:///home/usr3/a72243a/lip2sp_pytorch/conf
+	provider=schema, path=structured://
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
