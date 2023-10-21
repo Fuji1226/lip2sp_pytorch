@@ -43,7 +43,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 1000
+max_epoch : 2
 
 # data augmentationの有無
 # 見た目変換系
@@ -76,7 +76,7 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 16
+batch_size : 2
 num_workers : 1
 
 # dropout
