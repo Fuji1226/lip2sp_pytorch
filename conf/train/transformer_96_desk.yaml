@@ -34,6 +34,8 @@ face_mean_std_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/mean
 lip_pre_loaded_path : "/mnt/diskA/naoaki/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : ["/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train", "/mnt/diskA/naoaki/dataset/lip/np_files_96_add/lip_cropped/train"]
 
+text_dir : "/mnt/diskA/naoaki/dataset/lip/utt"
+
 # コーパス
 corpus : 
 data_size :
