@@ -11,12 +11,13 @@ from functools import partial
 from librosa.display import specshow
 
 import torch
+import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from torch.autograd import detect_anomaly
-from synthesis import generate_for_train_check_taco
+from synthesis import generate_for_train_check_taco_dict
 
-from utils import make_train_val_loader, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att
-from model.model_trans_taco import Lip2SP
+from utils import  make_train_val_loader_stop_token_all, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att, make_test_loader_dict
+from model.model_trans_taco import Lip2SP2
 from loss import MaskedLoss
 
 import psutil
@@ -24,7 +25,9 @@ import psutil
 from prob_list import *
 from transformers import get_cosine_schedule_with_warmup
 
-from util_from_tts import load_from_tts, model_grad_ok
+from util_from_tts import *
+
+import gc
 
 # wandbへのログイン
 wandb.login()
@@ -50,10 +53,26 @@ def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
         'cuda_random' : torch.cuda.get_rng_state(),
         'epoch': epoch
     }, ckpt_path)
+ 
+def make_pad_mask_stop_token(lengths, max_len):
+    device = lengths.device
 
+    if not isinstance(lengths, list):
+        lengths = lengths.tolist()
+    bs = int(len(lengths))
+    if max_len is None:
+        max_len = int(max(lengths))
+
+    seq_range = torch.arange(0, max_len, dtype=torch.int64)
+    seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+    seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+    mask = seq_range_expand >= seq_length_expand
+    mask = mask.to(device=device)  # マスクをデバイスに送る
+
+    return mask
 
 def make_model(cfg, device):
-    model = Lip2SP(
+    model = Lip2SP2(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
         res_layers=cfg.model.res_layers,
@@ -93,11 +112,12 @@ def make_model(cfg, device):
         print(f"\nusing {torch.cuda.device_count()} GPU")
     return model.to(device)
 
-    
+
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
     epoch_loss_feat_add = 0
+    epoch_stop_token_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start")
@@ -105,136 +125,157 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     model.train()
 
     for batch in train_loader:
+        iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
-        lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        if iter_cnt==0:
-            print(f'lip: {lip.shape}')
-       
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
+        
+        
+        lip = batch['lip'].to(device)
+        feature = batch['feature'].to(device)
+        data_len = batch['data_len'].to(device)
+        target_stop_token = batch['stop_tokens'].to(device)
       
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        optimizer.zero_grad()
-        if cfg.train.use_gc:
-            output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
-        else:
-            #output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-            output, dec_output, feat_add_out, att_w = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)
-                        
+        all_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)
+     
+        output = all_output['output']
+        dec_output = all_output['dec_output']
+        logit = all_output['logit']
+        
         B, C, T = output.shape
-
-        if cfg.train.multi_task:
-            loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            #loss_feat_add.backward(retain_graph=True)
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"train_loss_feat_add": loss_feat_add})
-
+    
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
+        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
+        
+        logit_mask = 1.0 - make_pad_mask_stop_token(data_len, feature.shape[-1]).to(torch.float32)
+        logit_mask = logit_mask.to(torch.bool)
+        logit = torch.masked_select(logit, logit_mask)
+        stop_token = torch.masked_select(target_stop_token, logit_mask)
+        stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
+        
+        if cfg.train.gradient_accumulation_steps > 1:
+            output_loss = output_loss / cfg.train.gradient_accumulation_steps
+            dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
+            stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
+            
+        loss = output_loss + dec_output_loss + stop_token_loss
+        loss.backward()
         epoch_output_loss += output_loss.item()
         wandb.log({"train_output_loss": output_loss})
-        #output_loss.backward(retain_graph=True)
-
-        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
         epoch_dec_output_loss += dec_output_loss.item()
         wandb.log({"train_dec_output_loss": dec_output_loss})
-        #dec_output_loss.backward()
-
-        if not cfg.train.multi_task:
-            loss = output_loss + dec_output_loss
-            loss.backward()
-        else:
-            loss = output_loss + dec_output_loss + feat_add_out
-            loss.backward()
-
-        
+        epoch_stop_token_loss += stop_token_loss.item()
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step()
 
-        iter_cnt += 1
-
-        check_att(att_w, cfg, "attention", current_time, ckpt_time)
+        if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step()
+            break
+        
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
-                    check_att(att_w, cfg, "attention", current_time, ckpt_time)
-                    if cfg.train.multi_task:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
                 break
         
        
         if iter_cnt % (all_iter - 1) == 0:
             if cfg.model.name == "mspec80":
                 check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
-                if cfg.train.multi_task:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_train", current_time, ckpt_time)
         
-        del lip, feature, feat_add, upsample, data_len, speaker, label, output, dec_output
+        del lip, feature, data_len, output, dec_output
+        gc.collect()
         torch.cuda.empty_cache()
+        plt.clf()
+        plt.close()
+        
 
+    iter_cnt = int(iter_cnt / cfg.train.gradient_accumulation_steps)
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
-    epoch_loss_feat_add /= iter_cnt
-    return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add
+    epoch_stop_token_loss /= iter_cnt
+    
+    sum_loss = {}
+    sum_loss['epoch_output_loss'] = epoch_output_loss
+    sum_loss['epoch_dec_output_loss'] = epoch_output_loss
+    sum_loss['epoch_stop_token_loss'] = epoch_stop_token_loss
+    return sum_loss
 
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
-    epoch_loss_feat_add = 0
+    epoch_stop_token_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("calc val loss")
     model.eval()
 
-    for batch in val_loader:
-        print(f'iter {iter_cnt}/{all_iter}')
+    with torch.no_grad():
+        for batch in val_loader:
+            iter_cnt += 1
+            print(f'iter {iter_cnt}/{all_iter}')
 
-        lip, feature, feat_add, upsample, data_len, speaker, label = batch        
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
-        
-        with torch.no_grad():
-            if cfg.train.use_gc:
-                output, dec_output, feat_add_out = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, gc=speaker)               
-            else:
-                output, dec_output, feat_add_out, _ = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob)               
+            lip = batch['lip'].to(device)
+            feature = batch['feature'].to(device)
+            data_len = batch['data_len'].to(device)
+            target_stop_token = batch['stop_tokens'].to(device)
+                    
+            all_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)            
 
-        B, C, T = output.shape
+            output = all_output['output']
+            dec_output = all_output['dec_output']
+            logit = all_output['logit']
+            
+            B, C, T = output.shape
+            output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
+            dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
 
-        if cfg.train.multi_task:
-            loss_feat_add = loss_f.mse_loss(feat_add_out, feat_add, data_len, max_len=T)
-            epoch_loss_feat_add += loss_feat_add.item()
-            wandb.log({"val_loss_feat_add": loss_feat_add})
+            logit_mask = 1.0 - make_pad_mask_stop_token(data_len, feature.shape[-1]).to(torch.float32)
+            logit_mask = logit_mask.to(torch.bool)
+            logit = torch.masked_select(logit, logit_mask)
+            stop_token = torch.masked_select(target_stop_token, logit_mask)
+            stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
+            
+            if cfg.train.gradient_accumulation_steps > 1:
+                output_loss = output_loss / cfg.train.gradient_accumulation_steps
+                dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
+                stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
+                
+            loss = output_loss + dec_output_loss + stop_token_loss
+            
+            epoch_output_loss += output_loss.item()
+            wandb.log({"val_output_loss": output_loss})
+            epoch_dec_output_loss += dec_output_loss.item()
+            wandb.log({"val_dec_output_loss": dec_output_loss})
+            epoch_stop_token_loss += stop_token_loss.item()
+            break
 
-        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
-        epoch_output_loss += output_loss.item()
-        wandb.log({"val_output_loss": output_loss})
-
-        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
-        epoch_dec_output_loss += dec_output_loss.item()
-        wandb.log({"val_dec_output_loss": dec_output_loss})
-
-        iter_cnt += 1
-        if cfg.train.debug:
-            if iter_cnt > cfg.train.debug_iter:
+            if cfg.train.debug:
+                if iter_cnt > cfg.train.debug_iter:
+                    if cfg.model.name == "mspec80":
+                        check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
+                    break
+            # if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
+            #     break
+            if iter_cnt % (all_iter - 1) == 0:
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                    if cfg.train.multi_task:
-                        check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", current_time, ckpt_time)
-                break
-
-        if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                if cfg.train.multi_task:
-                    check_feat_add(feature[0], feat_add_out[0], cfg, "feat_add_validation", current_time, ckpt_time)
+                    
             
+                    
+            
+    sum_loss = {}
+    
+    #iter_cnt = int(iter_cnt/cfg.train.gradient_accumulation_steps)
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
-    epoch_loss_feat_add /= iter_cnt
-    return epoch_output_loss, epoch_dec_output_loss, epoch_loss_feat_add
+    epoch_stop_token_loss /= iter_cnt
+    sum_loss['epoch_output_loss'] = epoch_output_loss
+    sum_loss['epoch_dec_output_loss'] = epoch_dec_output_loss
+    sum_loss['epoch_stop_token_loss'] = epoch_stop_token_loss  
+    return sum_loss
 
 
 def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
@@ -252,7 +293,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_from_tts", config_path="conf")
+@hydra.main(config_name="config_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -276,12 +317,6 @@ def main(cfg):
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
 
-    model = make_model(cfg, device)
-    
-    if cfg.from_tts.tts_name is not None:
-        tts_name = cfg.from_tts.tts_name
-        from_tts_path = cfg.from_tts[tts_name]
-        model = load_from_tts(model, from_tts_path)
 
     # 現在時刻を取得
     current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -295,35 +330,34 @@ def main(cfg):
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader(cfg, data_root, mean_std_path)
-  
+    train_loader, val_loader, train_dataset, val_dataset =  make_train_val_loader_stop_token_all(cfg, data_root, mean_std_path)
+    
     test_data_root = Path(cfg.test.face_pre_loaded_path).expanduser()
-    test_loader, test_dataset = make_test_loader(cfg, test_data_root, mean_std_path)
+    print(f'test root: {test_data_root}')
 
+    test_loader, test_dataset = make_test_loader_dict(cfg, test_data_root, mean_std_path)
+    
     # 損失関数
     loss_f = MaskedLoss()
     train_output_loss_list = []
     train_dec_output_loss_list = []
-    train_feat_add_loss_list = []
+    train_stop_token_loss_list = []
     val_output_loss_list = []
     val_dec_output_loss_list = []
-    val_feat_add_loss_list = []
+    val_stop_token_loss_list = []
     
-    train_output_loss_list_FR = []
-    train_dec_output_loss_list_FR = []
-    val_output_loss_list_FR = []
-    val_dec_output_loss_list_FR = []
-
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
  
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
+        
         if cfg.from_tts.tts_name is not None:
             name = cfg.from_tts.tts_name
             tts_path = cfg.from_tts[name]
             model = load_from_tts(model, tts_path)
+
         # optimizer
         optimizer = torch.optim.Adam(
             params=model.parameters(),
@@ -339,10 +373,9 @@ def main(cfg):
         # )
 
         #lr_scheduler = optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=100000)
+        num_warmup_steps = int(len(train_loader)/cfg.train.gradient_accumulation_steps) * 5
 
-        num_warmup_steps = 55 * 5
-
-        num_training_steps = 55 * 500
+        num_training_steps = int(len(train_loader)/cfg.train.gradient_accumulation_steps) * 300
 
         scheduler = get_cosine_schedule_with_warmup(optimizer, 
             num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
@@ -383,7 +416,9 @@ def main(cfg):
             if current_epoch < cfg.train.tm_change_step:
                 training_method = "tf"  # teacher forcing
             else:
-                training_method = "ss"  # scheduled samplin
+                training_method = "ss"  # scheduled sampling
+                
+            training_method = cfg.method
 
             # mixing_probの変更
             if cfg.train.change_mixing_prob:
@@ -405,7 +440,7 @@ def main(cfg):
             print(f"learning_rate = {scheduler.get_last_lr()[0]}")
 
             # training
-            train_epoch_loss_output, train_epoch_loss_dec_output, train_epoch_loss_feat_add = train_one_epoch(
+            train_sum_loss = train_one_epoch(
                 model=model, 
                 train_loader=train_loader, 
                 optimizer=optimizer, 
@@ -418,12 +453,12 @@ def main(cfg):
                 ckpt_time=ckpt_time,
                 scheduler=scheduler
             )
-            train_output_loss_list.append(train_epoch_loss_output)
-            train_dec_output_loss_list.append(train_epoch_loss_dec_output)
-            train_feat_add_loss_list.append(train_epoch_loss_feat_add)
+            train_output_loss_list.append(train_sum_loss['epoch_output_loss'])
+            train_dec_output_loss_list.append(train_sum_loss['epoch_dec_output_loss'])
+            train_stop_token_loss_list.append(train_sum_loss['epoch_stop_token_loss'])
 
             # validation
-            val_epoch_loss_output, val_epoch_loss_dec_output, val_epoch_loss_feat_add = calc_val_loss(
+            val_sum_loss = calc_val_loss(
                 model=model, 
                 val_loader=val_loader, 
                 loss_f=loss_f, 
@@ -433,14 +468,14 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 ckpt_time=ckpt_time,
             )
-            val_output_loss_list.append(val_epoch_loss_output)
-            val_dec_output_loss_list.append(val_epoch_loss_dec_output)
-            val_feat_add_loss_list.append(val_epoch_loss_feat_add)
+            val_output_loss_list.append(val_sum_loss['epoch_output_loss'])
+            val_dec_output_loss_list.append(val_sum_loss['epoch_dec_output_loss'])
+            val_stop_token_loss_list.append(val_sum_loss['epoch_stop_token_loss'])
         
             #scheduler.step()
 
             # check point
-            if current_epoch % 10 == 0:
+            if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(
                     model=model,
                     optimizer=optimizer,
@@ -451,7 +486,7 @@ def main(cfg):
             
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
-            save_loss(train_feat_add_loss_list, val_feat_add_loss_list, save_path, "loss_feat_add")
+            save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token_loss")
 
             # epoch_output_loss_FR_train, epoch_dec_output_loss_FR_train = generate_for_FR_train_loss(
             #     cfg = cfg,
@@ -470,7 +505,7 @@ def main(cfg):
             # save_loss(train_output_loss_list_FR, val_output_loss_list_FR, save_path, "FR_output_loss")
             # save_loss(train_dec_output_loss_list_FR, val_dec_output_loss_list_FR, save_path, "FR_dec_output_loss")
             
-            generate_for_train_check_taco(
+            generate_for_train_check_taco_dict(
                 cfg = cfg,
                 model = model,
                 test_loader = test_loader,
@@ -483,7 +518,12 @@ def main(cfg):
             
             if epoch > 100:
                 model_grad_ok(model)
-                
+            
+            mem = psutil.virtual_memory() 
+            print(f'cpu usage: {mem.percent}')
+            plt.clf()
+            plt.close()
+
         # モデルの保存
         model_save_path = save_path / f"model_{cfg.model.name}.pth"
         torch.save(model.state_dict(), str(model_save_path))

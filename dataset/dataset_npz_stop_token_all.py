@@ -353,7 +353,6 @@ def collate_time_adjust_stop_token_all(batch, cfg):
     フレーム数の調整を行う
     """
     wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
-
     use_all = True
 
     stop_tokens = adjust_max_data_len_stop_token(feature)
@@ -363,7 +362,6 @@ def collate_time_adjust_stop_token_all(batch, cfg):
     feat_add = adjust_max_data_len(feat_add)
 
 
-    
     wav = torch.stack(wav)
     lip = torch.stack(lip)
     feature = torch.stack(feature)
@@ -381,6 +379,26 @@ def collate_time_adjust_stop_token_all(batch, cfg):
     output['speaker'] = speaker
     output['lalbel'] = label
     output['stop_tokens'] = stop_tokens
+
+    return output
+
+def collate_test_dict(batch):
+    wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
+    
+    wav = torch.stack(wav)
+    lip = torch.stack(lip)
+    feature = torch.stack(feature)
+    feat_add = torch.stack(feat_add)
+    data_len = torch.stack(data_len)
+    
+    output = {}
+    output['lip'] = lip
+    output['feature'] = feature
+    output['feat_add'] = feat_add
+    output['upsample'] = upsample
+    output['data_len'] = data_len
+    output['speaker'] = speaker
+    output['label'] = label
 
     return output
 

@@ -17,7 +17,7 @@ from dataset.dataset_npz import KablabDataset, KablabDatasetLipEmb, KablabTransf
 from dataset.dataset_npz_stop_token import KablabDatasetStopToken, collate_time_adjust_stop_token
 
 from dataset.dataset_tts import KablabTTSDataset, KablabTTSTransform, collate_time_adjust_tts, HIFIDataset
-from dataset.dataset_npz_stop_token_all import KablabDatasetStopTokenAll, collate_time_adjust_stop_token_all
+from dataset.dataset_npz_stop_token_all import KablabDatasetStopTokenAll, collate_time_adjust_stop_token_all, collate_test_dict
 from dataset.dataset_npz_lipread import KablabLipReadDataset, KablabLipReadTransform, collate_time_adjust_lipread
 
 save_root_path = Path("~/lip2sp_pytorch_all/lip2sp_920_re/data_check").expanduser()
@@ -794,6 +794,9 @@ def make_train_val_loader_stop_token_all(cfg, data_root, mean_std_path):
     )
     return train_loader, val_loader, train_dataset, val_dataset
 
+
+
+
 def make_train_val_loader_lip_emb(cfg, data_root, mean_std_path):
     # パスを取得
     data_path = get_datasets(
@@ -878,6 +881,33 @@ def make_test_loader(cfg, data_root, mean_std_path):
         pin_memory=True,
         drop_last=True,
         collate_fn=None
+    )
+    return test_loader, test_dataset
+
+def make_test_loader_dict(cfg, data_root, mean_std_path):
+    test_data_path = get_datasets_test(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    test_data_path = sorted(test_data_path)
+    test_trans = KablabTransform(
+        cfg=cfg,
+        train_val_test="test",
+    )
+    test_dataset = KablabDataset(
+        data_path=test_data_path,
+        mean_std_path = mean_std_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=collate_test_dict
     )
     return test_loader, test_dataset
 

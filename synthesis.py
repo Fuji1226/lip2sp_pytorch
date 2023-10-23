@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from librosa.display import specshow
 import seaborn as sns
 
+from generate_plot import *
+
 def check_attention_weight(att_w, filename, save_path):
     att_w = att_w.to('cpu').detach().numpy().copy()
 
@@ -174,49 +176,7 @@ def generate_for_train_check_taco(cfg, model, test_loader, dataset, device, save
         output_tmp = output[0].to('cpu').detach().numpy().copy()
         dec_output_tmp = dec_output[0].to('cpu').detach().numpy().copy()
 
-        plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
-        ax = plt.subplot(3, 1, 1)
-        specshow(
-        data=feature_tmp, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=16000,
-        cmap="viridis",
-        )
-        plt.colorbar(format="%+2.f dB")
-        plt.xlabel("Time[s]")
-        plt.ylabel("Frequency[Hz]")
-        plt.title("target")
-        ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
-        specshow(
-        data=output_tmp, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=16000,
-        cmap="viridis",
-        )
-        plt.colorbar(format="%+2.f dB")
-        plt.xlabel("Time[s]")
-        plt.ylabel("Frequency[Hz]")
-        plt.title("output")
-
-        ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
-        specshow(
-        data=dec_output_tmp, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=16000,
-        cmap="viridis",
-        )
-        plt.colorbar(format="%+2.f dB")
-        plt.xlabel("Time[s]")
-        plt.ylabel("Frequency[Hz]")
-        plt.title("dec_output")
-        plt.tight_layout()
-
-        plt.savefig(str(_save_path))
-        plt.close()
-        
+        save_target_pred(feature_tmp, output_tmp, dec_output_tmp)
         check_attention_weight(att_w[0], "attention", str(_save_path)+"_attention")
 
         with torch.no_grad():
@@ -636,6 +596,104 @@ def generate_for_train_check_nar(cfg, model, test_loader, dataset, device, save_
 
         plt.savefig(str(_save_path))
         plt.close()
+        print('synthesis finished')
+        break
+
+def generate_for_train_check_taco_dict(cfg, model, test_loader, dataset, device, save_path, epoch, mixing_prob):
+    model.eval()
+
+    process_times = []
+
+    iter_cnt = 0
+    for batch in test_loader:
+        lip = batch['lip'].to(device)
+        data_len = batch['data_len'].to(device)
+        feature = batch['feature'].to(device)
+        label = batch['label']
+
+        start_time = time.time()
+        with torch.no_grad():
+            print('taco generate')
+            all_output = model(lip, data_len=data_len, use_stop_token=True)
+
+        
+        output = all_output['output']
+        dec_output = all_output['dec_output']
+        logit = all_output['logit']
+    
+        end_time = time.time()
+        process_time = end_time - start_time
+        process_times.append(process_time)
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_FR'
+        os.makedirs(str(_save_path), exist_ok=True)
+        tmp_label = label[0]+'_FR'
+        _save_path = _save_path / label[0]
+
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+       
+        feature_tmp = feature[0].to('cpu').detach().numpy().copy()
+        output_tmp = output[0].to('cpu').detach().numpy().copy()
+        dec_output_tmp = dec_output[0].to('cpu').detach().numpy().copy()
+        
+        save_target_pred(feature_tmp, output_tmp, dec_output_tmp, str(_save_path))
+        
+        att_path = _save_path / label[0]
+        
+        with torch.no_grad():
+            all_output = model(lip=lip, prev=feature, data_len=data_len, training_method='tf', use_stop_token=True)
+
+        output = all_output['output']
+        dec_output = all_output['dec_output']
+        logit = all_output['logit']
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_TF'
+        os.makedirs(str(_save_path), exist_ok=True)
+        _save_path = _save_path / label[0]
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+        
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
+       
+        feature_tmp = feature[0].to('cpu').detach().numpy().copy()
+        output_tmp = output[0].to('cpu').detach().numpy().copy()
+        dec_output_tmp = dec_output[0].to('cpu').detach().numpy().copy()
+
+        save_target_pred(feature_tmp, output_tmp, dec_output_tmp, str(_save_path))
+
+        with torch.no_grad():
+            all_output = model(lip=lip, prev=feature, data_len=data_len, training_method='ss', mixing_prob=mixing_prob, use_stop_token=True)
+
+        output = all_output['output']
+        dec_output = all_output['dec_output']
+        logit = all_output['logit']
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_SS'
+        os.makedirs(str(_save_path), exist_ok=True)
+        _save_path = _save_path / label[0]
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
+       
+        feature = feature[0].to('cpu').detach().numpy().copy()
+        output = output[0].to('cpu').detach().numpy().copy()
+        dec_output = dec_output[0].to('cpu').detach().numpy().copy()
+
+        save_target_pred(feature_tmp, output_tmp, dec_output_tmp, str(_save_path))
+
         print('synthesis finished')
         break
     

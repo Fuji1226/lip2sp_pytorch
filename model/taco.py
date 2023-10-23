@@ -402,7 +402,7 @@ class TacotronDecoder(nn.Module):
         logit = torch.cat(logit_list, dim=-1)   # (B, T)
 
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
-
+        
         if not use_stop_token:
             if vq is None:
                 return output, logit, att_w #(B, mel, T) (B, T)
