@@ -164,7 +164,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             optimizer.step()
             optimizer.zero_grad()
             scheduler.step()
-            break
         
         check_att(att_w, cfg, "attention", current_time, ckpt_time)
         if cfg.train.debug:
@@ -172,7 +171,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
                     check_att(att_w, cfg, "attention", current_time, ckpt_time)
-                break
         
        
         if iter_cnt % (all_iter - 1) == 0:
@@ -245,9 +243,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
                 if iter_cnt > cfg.train.debug_iter:
                     if cfg.model.name == "mspec80":
                         check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                    break
-            if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
-                break
+                 
             if iter_cnt % (all_iter - 1) == 0:
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)

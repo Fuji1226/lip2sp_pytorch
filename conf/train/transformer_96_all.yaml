@@ -32,11 +32,11 @@ face_mean_std_path : "~/dataset/lip/np_files_96/lip_cropped/mean_std"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
-face_pre_loaded_path : ["~/dataset/lip/np_files_96/lip_cropped/train", "/home/usr1/q70261a/dataset/lip/np_files_96add/lip_cropped/train"]
-
+#face_pre_loaded_path : ["~/dataset/lip/np_files_96/lip_cropped/train", "/home/usr1/q70261a/dataset/lip/np_files_96add/lip_cropped/train"]
+face_pre_loaded_path : ["~/dataset/lip/np_files_96/lip_cropped/train"]
 # コーパス
 corpus : 
-data_size : 
+data_size : 2000
 
 # 使用する話者
 speaker : ["F01_kabulab"]
@@ -60,7 +60,7 @@ use_time_augment : False
 time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # dataloader
-batch_size : 2
+batch_size : 1
 num_workers : 2
 
 # dropout
@@ -125,4 +125,4 @@ multi_task : False
 add_feat_add : False
 
 #grad
-gradient_accumulation_steps : 4
+gradient_accumulation_steps : 8
