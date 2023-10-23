@@ -77,7 +77,7 @@ class KablabLipReadDataset(Dataset):
         feat_add = torch.from_numpy(npz_key['feat_add'])
         upsample = torch.from_numpy(npz_key['upsample'])
         data_len = torch.from_numpy(npz_key['data_len'])
-        lip_len = torch.Tensor(lip.shape[-1])
+        lip_len = torch.tensor(lip.shape[-1])
         
         feature, text, lip = self.transform(
             feature=feature,
@@ -186,7 +186,7 @@ def collate_time_adjust_lipread(batch, cfg):
     text = [sample['text'] for sample in batch]
     text_len = [sample['text_len'] for sample in batch]
     lip_len = [sample['lip_len'] for sample in batch]
-    
+
     lip = adjust_max_data_len(lip)
     feature = adjust_max_data_len(feature)
     text = adjust_max_data_len(text)
