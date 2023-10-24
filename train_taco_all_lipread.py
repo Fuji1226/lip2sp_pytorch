@@ -17,7 +17,7 @@ from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_taco_dict
 
 from utils import  make_train_val_loader_stop_token_all, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att, make_test_loader_dict
-from model.model_trans_taco import Lip2SP2
+from model.model_trans_taco_lipread import Lip2SP
 from loss import MaskedLoss
 
 import psutil
@@ -73,7 +73,7 @@ def make_pad_mask_stop_token(lengths, max_len):
     return mask
 
 def make_model(cfg, device):
-    model = Lip2SP2(
+    model = Lip2SP(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
         res_layers=cfg.model.res_layers,
@@ -134,6 +134,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         feature = batch['feature'].to(device)
         data_len = batch['data_len'].to(device)
         target_stop_token = batch['stop_tokens'].to(device)
+        phoneme_index_output = batch['text'].to(device)
       
         # output : postnet後の出力
         # dec_output : postnet前の出力
@@ -299,7 +300,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_all_from_tts", config_path="conf")
+@hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4

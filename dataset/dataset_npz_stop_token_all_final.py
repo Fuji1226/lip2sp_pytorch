@@ -405,6 +405,9 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     data_len = torch.stack(data_len)
     stop_tokens = torch.stack(stop_tokens)
     text = torch.stack(text)
+    lip_len = torch.stack(lip_len)
+    text_len = torch.stack(text_len)
+
 
     output = {}
     output['lip'] = lip
@@ -437,7 +440,6 @@ def collate_time_adjust_stop_token_all(batch, cfg):
     feature = torch.stack(feature)
     feat_add = torch.stack(feat_add)
     data_len = torch.stack(data_len)
-
     stop_tokens = torch.stack(stop_tokens)
 
     output = {}
@@ -470,6 +472,8 @@ def collate_test_all_lipread_final(batch):
     data_len = torch.stack(data_len)
     stop_tokens = torch.stack(stop_tokens)
     text = torch.stack(text)
+    lip_len = torch.stack(lip_len)
+    text_len = torch.stack(text_len)
     
     output = {}
     output['lip'] = lip

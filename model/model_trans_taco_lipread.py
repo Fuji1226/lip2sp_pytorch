@@ -145,7 +145,7 @@ class Lip2SP(nn.Module):
         )
         
         # feat_add predicter
-        self.ctc_output_layer = nn.Linear(inner_channels=256, out_channels=52)
+        self.ctc_output_layer = nn.Linear(256, 52)
 
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
@@ -190,8 +190,6 @@ class Lip2SP(nn.Module):
             # postnet
             out = self.postnet(dec_output) 
             
-
-            return out, dec_output, enc_output.clone().detach(), att_w
         else:
             if prev is not None:
                 #print('prev is not None')
@@ -202,14 +200,13 @@ class Lip2SP(nn.Module):
             # postnet
             out = self.postnet(dec_output)
 
-            output_dict = {}
-            output_dict['output'] = out
-            output_dict['dec_output'] = dec_output
-            output_dict['logit'] = logit
-            output_dict['att_w'] = att_w
-            output_dict['ctc_output'] = ctc_output
-
-            return output_dict
+        output_dict = {}
+        output_dict['output'] = out
+        output_dict['dec_output'] = dec_output
+        output_dict['logit'] = logit
+        output_dict['att_w'] = att_w
+        output_dict['ctc_output'] = ctc_output
+        return output_dict
 
  
 

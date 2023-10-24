@@ -17,7 +17,7 @@ from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_taco_dict
 
 from utils import  make_train_val_loader_stop_token_all, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att, make_test_loader_dict
-from model.model_trans_taco import Lip2SP2
+from model.model_trans_taco_lipread import Lip2SP
 from loss import MaskedLoss
 
 from utils import make_train_val_loader_final, make_test_loader_final
@@ -26,7 +26,7 @@ import psutil
 
 from prob_list import *
 from transformers import get_cosine_schedule_with_warmup
-
+from data_process.phoneme_encode import IGNORE_INDEX, SOS_INDEX, EOS_INDEX
 from util_from_tts import *
 
 import gc
@@ -74,7 +74,7 @@ def make_pad_mask_stop_token(lengths, max_len):
     return mask
 
 def make_model(cfg, device):
-    model = Lip2SP2(
+    model = Lip2SP(
         in_channels=cfg.model.in_channels,
         out_channels=cfg.model.out_channels,
         res_layers=cfg.model.res_layers,
@@ -116,10 +116,14 @@ def make_model(cfg, device):
 
 
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
-    epoch_output_loss = 0
-    epoch_dec_output_loss = 0
-    epoch_loss_feat_add = 0
-    epoch_stop_token_loss = 0
+    
+    sum_loss = {}
+    sum_loss['epoch_output_loss'] = 0
+    sum_loss['epoch_dec_output_loss'] = 0
+    sum_loss['epoch_stop_token_loss'] = 0
+    sum_loss['epoch_ctc_loss'] = 0
+    grad_cnt = 0
+    
     iter_cnt = 0
     all_iter = len(train_loader)
     print("iter start")
@@ -129,19 +133,22 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     for batch in train_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
- 
+
         lip = batch['lip'].to(device)
         feature = batch['feature'].to(device)
         data_len = batch['data_len'].to(device)
         target_stop_token = batch['stop_tokens'].to(device)
-      
+        phoneme_index_output = batch['text'].to(device)
+        text_len = batch['text_len'].to(device)
+        
         # output : postnet後の出力
         # dec_output : postnet前の出力
         all_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)
-     
+    
         output = all_output['output']
         dec_output = all_output['dec_output']
         logit = all_output['logit']
+        ctc_output = all_output['ctc_output']
         
         B, C, T = output.shape
     
@@ -154,25 +161,33 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         stop_token = torch.masked_select(target_stop_token, logit_mask)
         stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
         
+        ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
+        input_lens = torch.full((lip.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
+        ctc_loss = F.ctc_loss(ctc_output, phoneme_index_output, input_lengths=input_lens, target_lengths=text_len, blank=IGNORE_INDEX)
+        
         if cfg.train.gradient_accumulation_steps > 1:
             output_loss = output_loss / cfg.train.gradient_accumulation_steps
             dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
             stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
+            ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
             
-        loss = output_loss + dec_output_loss + stop_token_loss
+        loss = output_loss + dec_output_loss + stop_token_loss + ctc_loss
         loss.backward()
-        epoch_output_loss += output_loss.item()
+        sum_loss['epoch_output_loss'] += output_loss.item()
         wandb.log({"train_output_loss": output_loss})
-        epoch_dec_output_loss += dec_output_loss.item()
+        sum_loss['epoch_dec_output_loss'] += dec_output_loss.item()
         wandb.log({"train_dec_output_loss": dec_output_loss})
-        epoch_stop_token_loss += stop_token_loss.item()
+        sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
+        sum_loss['epoch_ctc_loss'] += ctc_loss.item()
+        
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
 
         if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
             optimizer.step()
             optimizer.zero_grad()
             scheduler.step()
-            break
+            grad_cnt += 1
+
         
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
@@ -191,23 +206,21 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         plt.clf()
         plt.close()
         
-
-    iter_cnt = int(iter_cnt / cfg.train.gradient_accumulation_steps)
-    epoch_output_loss /= iter_cnt
-    epoch_dec_output_loss /= iter_cnt
-    epoch_stop_token_loss /= iter_cnt
-    
-    sum_loss = {}
-    sum_loss['epoch_output_loss'] = epoch_output_loss
-    sum_loss['epoch_dec_output_loss'] = epoch_output_loss
-    sum_loss['epoch_stop_token_loss'] = epoch_stop_token_loss
+    sum_loss['epoch_output_loss'] /= grad_cnt
+    sum_loss['epoch_dec_output_loss'] /= grad_cnt
+    sum_loss['epoch_stop_token_loss'] /= grad_cnt
+    sum_loss['epoch_ctc_loss'] /= grad_cnt
     return sum_loss
 
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
-    epoch_output_loss = 0
-    epoch_dec_output_loss = 0
-    epoch_stop_token_loss = 0
+    sum_loss = {}
+    sum_loss['epoch_output_loss'] = 0
+    sum_loss['epoch_dec_output_loss'] = 0
+    sum_loss['epoch_stop_token_loss'] = 0
+    sum_loss['epoch_ctc_loss'] = 0
+    grad_cnt = 0
+    
     iter_cnt = 0
     all_iter = len(val_loader)
     print("calc val loss")
@@ -222,12 +235,16 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             feature = batch['feature'].to(device)
             data_len = batch['data_len'].to(device)
             target_stop_token = batch['stop_tokens'].to(device)
+            phoneme_index_output = batch['text'].to(device)
+            text_len = batch['text_len'].to(device)
+            
                     
             all_output = model(lip=lip, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)            
 
             output = all_output['output']
             dec_output = all_output['dec_output']
             logit = all_output['logit']
+            ctc_output = all_output['ctc_output']
             
             B, C, T = output.shape
             output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
@@ -239,19 +256,23 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             stop_token = torch.masked_select(target_stop_token, logit_mask)
             stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
             
+            ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
+            input_lens = torch.full((lip.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
+            ctc_loss = F.ctc_loss(ctc_output, phoneme_index_output, input_lengths=input_lens, target_lengths=text_len, blank=IGNORE_INDEX)
+            
+            
             if cfg.train.gradient_accumulation_steps > 1:
                 output_loss = output_loss / cfg.train.gradient_accumulation_steps
                 dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
                 stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
+                ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
                 
-            loss = output_loss + dec_output_loss + stop_token_loss
+            loss = output_loss + dec_output_loss + stop_token_loss + ctc_loss
             
-            epoch_output_loss += output_loss.item()
-            wandb.log({"val_output_loss": output_loss})
-            epoch_dec_output_loss += dec_output_loss.item()
-            wandb.log({"val_dec_output_loss": dec_output_loss})
-            epoch_stop_token_loss += stop_token_loss.item()
-            break
+            sum_loss['epoch_output_loss'] += output_loss.item()
+            sum_loss['epoch_dec_output_loss'] += dec_output_loss.item()
+            sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
+            sum_loss['epoch_ctc_loss'] += ctc_loss.item()
 
             if cfg.train.debug:
                 if iter_cnt > cfg.train.debug_iter:
@@ -264,18 +285,11 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
                     
-            
-                    
-            
-    sum_loss = {}
-    
-    #iter_cnt = int(iter_cnt/cfg.train.gradient_accumulation_steps)
-    epoch_output_loss /= iter_cnt
-    epoch_dec_output_loss /= iter_cnt
-    epoch_stop_token_loss /= iter_cnt
-    sum_loss['epoch_output_loss'] = epoch_output_loss
-    sum_loss['epoch_dec_output_loss'] = epoch_dec_output_loss
-    sum_loss['epoch_stop_token_loss'] = epoch_stop_token_loss  
+    grad_cnt = int(iter_cnt/cfg.train.gradient_accumulation_steps)
+    sum_loss['epoch_output_loss'] /= grad_cnt
+    sum_loss['epoch_dec_output_loss'] /= grad_cnt
+    sum_loss['epoch_stop_token_loss'] /= grad_cnt
+    sum_loss['epoch_ctc_loss'] /= grad_cnt
     return sum_loss
 
 
@@ -294,7 +308,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_all_from_tts", config_path="conf")
+@hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
