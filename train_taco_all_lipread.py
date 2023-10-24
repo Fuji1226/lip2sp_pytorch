@@ -26,6 +26,7 @@ from prob_list import *
 from transformers import get_cosine_schedule_with_warmup
 
 from util_from_tts import *
+from data_process.phoneme_encode import IGNORE_INDEX, SOS_INDEX, EOS_INDEX
 
 import gc
 
@@ -141,6 +142,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         output = all_output['output']
         dec_output = all_output['dec_output']
         logit = all_output['logit']
+        ctc_output = all_output['ctc_output']
         
         B, C, T = output.shape
     
@@ -152,6 +154,10 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         logit = torch.masked_select(logit, logit_mask)
         stop_token = torch.masked_select(target_stop_token, logit_mask)
         stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
+        
+        ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
+        input_lens = torch.full((lip.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
+        ctc_loss = F.ctc_loss(ctc_output, phoneme_index_output, input_lengths=input_lens, target_lengths=text_len, blank=IGNORE_INDEX)
         
         if cfg.train.gradient_accumulation_steps > 1:
             output_loss = output_loss / cfg.train.gradient_accumulation_steps
@@ -348,14 +354,14 @@ def main(cfg):
     
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
-    
-
+ 
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
         
-        if cfg.from_tts is not None:
-            tts_path = cfg.from_tts
+        if cfg.from_tts.tts_name is not None:
+            name = cfg.from_tts.tts_name
+            tts_path = cfg.from_tts[name]
             model = load_from_tts(model, tts_path)
 
         # optimizer

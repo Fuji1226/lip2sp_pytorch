@@ -21,7 +21,9 @@ from torchvision import transforms as T
 from torch.utils.data import Dataset, DataLoader
 
 import random
-
+import pyopenjtalk
+from dataset.phoneme_encode import *
+from dataset.tts_utils import *
 
 def get_datasets(data_root, cfg):    
     """
@@ -107,13 +109,17 @@ class KablabDatasetStopTokenAll(Dataset):
 
         self.speaker_idx = get_speaker_idx(data_path)
         self.lip_mean, self.lip_std, self.feat_mean, self.feat_std, self.feat_add_mean, self.feat_add_std = load_mean_std(mean_std_path, cfg)
+        
+        self.class_to_id, self.id_to_class = classes2index_tts()
+        self.path_text_label_list = get_utt_label(data_path, cfg)
         print(f"n = {self.__len__()}")
     
     def __len__(self):
         return len(self.data_path)
 
     def __getitem__(self, index):
-        data_path = self.data_path[index]
+        data_path, text, label = self.path_text_label_list[index]
+    
         speaker = data_path.parents[0].name
         speaker = torch.tensor(self.speaker_idx[speaker])
         label = data_path.stem
@@ -125,6 +131,9 @@ class KablabDatasetStopTokenAll(Dataset):
         feat_add = torch.from_numpy(npz_key['feat_add'])
         upsample = torch.from_numpy(npz_key['upsample'])
         data_len = torch.from_numpy(npz_key['data_len'])
+        lip_len = torch.tensor(lip.shape[-1])
+        
+        text = self.text2index(text, self.class_to_id)
         
         lip, feature, feat_add, data_len = self.transform(
             lip=lip,
@@ -139,11 +148,47 @@ class KablabDatasetStopTokenAll(Dataset):
             feat_add_mean=self.feat_add_mean, 
             feat_add_std=self.feat_add_std, 
         )
-        return wav, lip, feature, feat_add, upsample, data_len, speaker, label
+        
+
+        feature_len = torch.tensor(feature.shape[-1])
+        text_len = torch.tensor(text.shape[0])
+        stop_token = torch.zeros(feature_len)
+        stop_token[-2:] = 1.0
+        
+        output = {}
+        output['lip'] = lip
+        output['feature'] = feature
+        output['feat_add'] = feat_add
+        output['upsample'] = upsample
+        output['data_len'] = data_len
+        output['label'] = label
+        output['stop_token'] = stop_token
+        output['text'] = text
+        output['text_len'] = text_len
+        output['lip_len'] = lip_len
+        return output
+    
+    def text2index(self, text, class_to_id):
+        """
+        音素を数値に変換
+        """
+        text = pyopenjtalk.extract_fullcontext(text)
+        text = pp_symbols(text)
+        text = [class_to_id[t] for t in text]
+        
+        # text = pyopenjtalk.g2p(text)
+        # text = text.split(" ")
+        # text.insert(0, "sos")
+        # text.append("eos")
+        # text_index = [class_to_id[t] if t in class_to_id.keys() else None for t in text]
+        # print(f'text idx {text_index}')
+        # assert (None in text_index) is False
+        return torch.tensor(text)
+
     
     
 
-class KablabTransform:
+class KablabTransformAll:
     def __init__(self, cfg, train_val_test=None):
         assert train_val_test == "train" or "val" or "test"
         self.lip_transforms = T.Compose([
@@ -348,60 +393,75 @@ class KablabTransform:
     
         return lip.to(torch.float32), feature.to(torch.float32), feat_add.to(torch.float32), data_len            
 
-def collate_time_adjust_stop_token_all(batch, cfg):
+def collate_time_adjust_stop_token_all_lipread(batch, cfg):
     """
     フレーム数の調整を行う
     """
-    wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
-    use_all = True
-
-    stop_tokens = adjust_max_data_len_stop_token(feature)
-    wav = adjust_max_data_len(wav)
+    lip = [sample['lip'] for sample in batch]
+    feature = [sample['feature'] for sample in batch]
+    upsample = [sample['upsample'] for sample in batch]
+    data_len = [sample['data_len'] for sample in batch]
+    stop_token = [sample['stop_token'] for sample in batch]
+    text = [sample['text'] for sample in batch]
+    text_len = [sample['text_len'] for sample in batch]
+    lip_len = [sample['lip_len'] for sample in batch]
+    label = [sample['label'] for sample in batch]
+        
     lip = adjust_max_data_len(lip)
     feature = adjust_max_data_len(feature)
-    feat_add = adjust_max_data_len(feat_add)
-
-
+    text = adjust_max_data_len(text)
+    stop_token = adjust_max_data_len(stop_token)
+    
     wav = torch.stack(wav)
     lip = torch.stack(lip)
     feature = torch.stack(feature)
-    feat_add = torch.stack(feat_add)
     data_len = torch.stack(data_len)
-
     stop_tokens = torch.stack(stop_tokens)
+    text = torch.stack(text)
 
     output = {}
     output['lip'] = lip
     output['feature'] = feature
-    output['feat_add'] = feat_add
     output['upsample'] = upsample
     output['data_len'] = data_len
-    output['speaker'] = speaker
-    output['lalbel'] = label
+    output['label'] = label
     output['stop_tokens'] = stop_tokens
+    output['text'] = text
+    output['lip_len'] = lip_len
+    output['text_len'] = text_len
 
     return output
 
-def collate_test_dict(batch):
-    wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
+def collate_test_all_lipread(batch):
+    lip = [sample['lip'] for sample in batch]
+    feature = [sample['feature'] for sample in batch]
+    upsample = [sample['upsample'] for sample in batch]
+    data_len = [sample['data_len'] for sample in batch]
+    stop_token = [sample['stop_token'] for sample in batch]
+    text = [sample['text'] for sample in batch]
+    text_len = [sample['text_len'] for sample in batch]
+    lip_len = [sample['lip_len'] for sample in batch]
+    label = [sample['label'] for sample in batch]
     
     wav = torch.stack(wav)
     lip = torch.stack(lip)
     feature = torch.stack(feature)
-    feat_add = torch.stack(feat_add)
     data_len = torch.stack(data_len)
+    stop_tokens = torch.stack(stop_tokens)
+    text = torch.stack(text)
     
     output = {}
     output['lip'] = lip
     output['feature'] = feature
-    output['feat_add'] = feat_add
     output['upsample'] = upsample
     output['data_len'] = data_len
-    output['speaker'] = speaker
     output['label'] = label
+    output['stop_tokens'] = stop_tokens
+    output['text'] = text
+    output['lip_len'] = lip_len
+    output['text_len'] = text_len
 
     return output
-
 def collate_time_adjust_all(batch, cfg):
     wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
     
