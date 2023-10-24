@@ -96,7 +96,7 @@ def load_mean_std(mean_std_path, cfg):
     return lip_mean, lip_std, feat_mean, feat_std, feat_add_mean, feat_add_std
 
 
-class KablabDatasetStopTokenAll(Dataset):
+class KablabDatasetStopTokenAllFinal(Dataset):
     def __init__(self, data_path, mean_std_path, transform, cfg):
         super().__init__()
         self.data_path = data_path
@@ -176,7 +176,7 @@ class KablabDatasetStopTokenAll(Dataset):
     
     
 
-class KablabTransformAll:
+class KablabTransformAllFinal:
     def __init__(self, cfg, train_val_test=None):
         assert train_val_test == "train" or "val" or "test"
         self.lip_transforms = T.Compose([
@@ -381,7 +381,7 @@ class KablabTransformAll:
     
         return lip.to(torch.float32), feature.to(torch.float32), feat_add.to(torch.float32), data_len            
 
-def collate_time_adjust_stop_token_all_lipread(batch, cfg):
+def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     """
     フレーム数の調整を行う
     """
@@ -389,7 +389,7 @@ def collate_time_adjust_stop_token_all_lipread(batch, cfg):
     feature = [sample['feature'] for sample in batch]
     upsample = [sample['upsample'] for sample in batch]
     data_len = [sample['data_len'] for sample in batch]
-    stop_token = [sample['stop_token'] for sample in batch]
+    stop_tokens = [sample['stop_token'] for sample in batch]
     text = [sample['text'] for sample in batch]
     text_len = [sample['text_len'] for sample in batch]
     lip_len = [sample['lip_len'] for sample in batch]
@@ -398,9 +398,8 @@ def collate_time_adjust_stop_token_all_lipread(batch, cfg):
     lip = adjust_max_data_len(lip)
     feature = adjust_max_data_len(feature)
     text = adjust_max_data_len(text)
-    stop_token = adjust_max_data_len(stop_token)
+    stop_tokens = adjust_max_data_len(stop_tokens)
     
-    wav = torch.stack(wav)
     lip = torch.stack(lip)
     feature = torch.stack(feature)
     data_len = torch.stack(data_len)
@@ -453,38 +452,19 @@ def collate_time_adjust_stop_token_all(batch, cfg):
 
     return output
 
-def collate_test_dict(batch):
-    wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
-    
-    wav = torch.stack(wav)
-    lip = torch.stack(lip)
-    feature = torch.stack(feature)
-    feat_add = torch.stack(feat_add)
-    data_len = torch.stack(data_len)
-    
-    output = {}
-    output['lip'] = lip
-    output['feature'] = feature
-    output['feat_add'] = feat_add
-    output['upsample'] = upsample
-    output['data_len'] = data_len
-    output['speaker'] = speaker
-    output['label'] = label
 
-    return output
-
-def collate_test_all_lipread(batch):
+def collate_test_all_lipread_final(batch):
     lip = [sample['lip'] for sample in batch]
     feature = [sample['feature'] for sample in batch]
     upsample = [sample['upsample'] for sample in batch]
     data_len = [sample['data_len'] for sample in batch]
-    stop_token = [sample['stop_token'] for sample in batch]
+    stop_tokens = [sample['stop_token'] for sample in batch]
     text = [sample['text'] for sample in batch]
     text_len = [sample['text_len'] for sample in batch]
     lip_len = [sample['lip_len'] for sample in batch]
     label = [sample['label'] for sample in batch]
     
-    wav = torch.stack(wav)
+
     lip = torch.stack(lip)
     feature = torch.stack(feature)
     data_len = torch.stack(data_len)
@@ -503,6 +483,7 @@ def collate_test_all_lipread(batch):
     output['text_len'] = text_len
 
     return output
+
 def collate_time_adjust_all(batch, cfg):
     wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
     
@@ -518,70 +499,6 @@ def collate_time_adjust_all(batch, cfg):
     data_len = torch.stack(data_len)
     
     return lip, feature, feat_add, upsample, data_len, speaker, label
-
-
-def collate_time_adjust_for_test(batch, cfg):
-    """
-    フレーム数の調整を行う
-    """
-    wav, lip, feature, feat_add, upsample, data_len, speaker, label = list(zip(*batch))
-    wav_list = []
-    lip_adjusted = []
-    feature_adjusted = []
-    feat_add_adjusted = []
-
-    # configで指定した範囲でフレーム数を決定
-    lip_len = torch.randint(cfg.model.lip_min_frame, cfg.model.lip_max_frame, (1,)).item()
-    upsample_scale = upsample[0].item()
-    feature_len = int(lip_len * upsample_scale)
-
-    for wa, l, f, f_add, d_len in zip(wav, lip, feature, feat_add, data_len):
-        # 揃えるlenよりも短い時
-        if d_len <= feature_len:
-            l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_len)
-            f_padded = torch.zeros(f.shape[0], feature_len)
-            f_add_padded = torch.zeros(f_add.shape[0], feature_len)
-
-            for t in range(l.shape[-1]):
-                l_padded[..., t] = l[..., t]
-            
-            for t in range(f.shape[-1]):
-                f_padded[:, t] = f[:, t]
-                f_add_padded[:, t] = f_add[:, t]
-
-            l = l_padded
-            f = f_padded
-            f_add = f_add_padded
-
-        # 揃えるlenよりも長い時
-        else:
-            lip_start_frame = torch.randint(0, l.shape[-1] - lip_len, (1,)).item()
-
-            if random.random() < 0.3:
-                lip_start_frame = 0
-
-            feature_start_frame = int(lip_start_frame * upsample_scale)
-            l = l[..., lip_start_frame:lip_start_frame + lip_len]
-            f = f[:, feature_start_frame:feature_start_frame + feature_len]
-            f_add = f_add[:, feature_start_frame:feature_start_frame + feature_len]
-
-        assert l.shape[-1] == lip_len
-        assert f.shape[-1] == feature_len
-        assert f_add.shape[-1] == feature_len
-
-        lip_adjusted.append(l)
-        feature_adjusted.append(f)
-        feat_add_adjusted.append(f_add)
-        wav_list.append(wa)
-
-    lip = torch.stack(lip_adjusted)
-    feature = torch.stack(feature_adjusted)
-    feat_add = torch.stack(feat_add_adjusted)
-    data_len = torch.stack(data_len)
-    speaker = torch.stack(speaker)
-    wav = torch.stack(wav_list)
-
-    return wav, lip, feature, feat_add, upsample, data_len, speaker, label
 
 
 def adjust_max_data_len(data):

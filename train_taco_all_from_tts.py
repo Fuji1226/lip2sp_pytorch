@@ -20,6 +20,8 @@ from utils import  make_train_val_loader_stop_token_all, get_path_train, save_lo
 from model.model_trans_taco import Lip2SP2
 from loss import MaskedLoss
 
+from utils import make_train_val_loader_final, make_test_loader_final
+
 import psutil
 
 from prob_list import *
@@ -127,8 +129,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     for batch in train_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
-        
-        
+ 
         lip = batch['lip'].to(device)
         feature = batch['feature'].to(device)
         data_len = batch['data_len'].to(device)
@@ -293,7 +294,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_all_from_tts", config_path="conf")
+@hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -317,7 +318,6 @@ def main(cfg):
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
 
-
     # 現在時刻を取得
     current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
     current_time += f'_{cfg.tag}'
@@ -330,12 +330,12 @@ def main(cfg):
     print(f"save_path = {save_path}")
 
     # Dataloader作成
-    train_loader, val_loader, train_dataset, val_dataset =  make_train_val_loader_stop_token_all(cfg, data_root, mean_std_path)
+    train_loader, val_loader, train_dataset, val_dataset =  make_train_val_loader_final(cfg, data_root, mean_std_path)
     
-    test_data_root = Path(cfg.test.face_pre_loaded_path).expanduser()
+    test_data_root = [Path(cfg.test.face_pre_loaded_path).expanduser()]
     print(f'test root: {test_data_root}')
 
-    test_loader, test_dataset = make_test_loader_dict(cfg, test_data_root, mean_std_path)
+    test_loader, test_dataset = make_test_loader_final(cfg, test_data_root, mean_std_path)
     
     # 損失関数
     loss_f = MaskedLoss()
@@ -349,13 +349,13 @@ def main(cfg):
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     
-
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
         
-        if cfg.from_tts is not None:
-            tts_path = cfg.from_tts
+        if cfg.from_tts.tts_name is not None:
+            name = cfg.from_tts.tts_name
+            tts_path = cfg.from_tts[name]
             model = load_from_tts(model, tts_path)
 
         # optimizer

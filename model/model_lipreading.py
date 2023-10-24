@@ -60,7 +60,7 @@ class Lip2Text(nn.Module):
             reduction_factor=reduction_factor,  
         )
 
-        self.ctc_output_layer = nn.Linear(inner_channels, out_channels)
+        self.ctc_output_layer = nn.Linear(inner_channels, 52)
 
     def forward(self, lip, data_len):
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化

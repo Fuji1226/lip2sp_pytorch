@@ -27,8 +27,8 @@ ckpt_path : "~/lip2sp_pytorch_all/lip2sp_920_re/check_point/default"
 ckpt_step : 10
 
 # 平均、標準偏差ディレクトリまでのパス
-lip_mean_std_path : "~/dataset/lip/np_files/lip_cropped/mean_std"
-face_mean_std_path : "~/dataset/lip/np_files_96/lip_cropped/mean_std"
+lip_mean_std_path : "/mnt/diskA/naoaki/dataset/lip/np_files/lip_cropped/mean_std"
+face_mean_std_path : "/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/mean_std"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
@@ -38,7 +38,7 @@ face_pre_loaded_path : ["/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/t
 text_dir : "/mnt/diskA/naoaki/dataset/lip/utt"
 # コーパス
 corpus : 
-data_size : 2000
+data_size : 
 
 # 使用する話者
 speaker : ["F01_kabulab"]

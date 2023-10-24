@@ -57,6 +57,7 @@ def get_datasets_re(data_root, cfg):
     """
     npzファイルのパス取得
     """
+    print(f'train {data_root}')
     print("\n--- get datasets ---")
     items = []
     target_extension = '.npz'

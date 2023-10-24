@@ -128,37 +128,6 @@ class Lip2SP(nn.Module):
                 dropout=0.5,  # Dropout 率
             )
 
-        # self.emb_layer = nn.Embedding(n_speaker, spk_emb_dim)
-        # self.spk_emb_layer = nn.Linear(d_model + spk_emb_dim, d_model)
-
-        # print(f'self decoder: {self.which_decoder}')
-        # # decoder
-        # if self.which_decoder == "transformer":
-        #     self.decoder = Decoder(
-        #         dec_n_layers=dec_n_layers, 
-        #         n_head=n_head, 
-        #         dec_d_model=dec_d_model, 
-        #         pre_in_channels=out_channels * reduction_factor, 
-        #         pre_inner_channels=pre_inner_channels, 
-        #         out_channels=out_channels, 
-        #         n_position=n_position, 
-        #         reduction_factor=reduction_factor, 
-        #         use_gc=use_gc,
-        #     )
-        # elif self.which_decoder == "glu":
-        #     self.decoder = GLU(
-        #         inner_channels=glu_inner_channels, 
-        #         out_channels=out_channels,
-        #         pre_in_channels=out_channels * reduction_factor, 
-        #         pre_inner_channels=pre_inner_channels,
-        #         cond_channels=d_model,
-        #         reduction_factor=reduction_factor, 
-        #         n_layers=glu_layers,
-        #         kernel_size=glu_kernel_size,
-        #         dropout=dec_dropout,
-        #     )
-        # elif self.which_decoder == 'taco':
-        #     self.decoder = TacotronDecoder()
 
         self.decoder = TacotronDecoder(
             enc_channels=256,
@@ -176,7 +145,7 @@ class Lip2SP(nn.Module):
         )
         
         # feat_add predicter
-        self.ctc_output_layer = nn.Linear(inner_channels=256, out_channels=80)
+        self.ctc_output_layer = nn.Linear(inner_channels=256, out_channels=52)
 
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)
