@@ -34,9 +34,12 @@ face_mean_std_path : "~/dataset/lip/np_files_96/lip_cropped/mean_std"
 lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 #face_pre_loaded_path : ["~/dataset/lip/np_files_96/lip_cropped/train", "/home/usr1/q70261a/dataset/lip/np_files_96add/lip_cropped/train"]
 face_pre_loaded_path : ["~/dataset/lip/np_files_96/lip_cropped/train"]
+
+text_dir : "/home/usr1/q70261a/dataset/lip/utt"
+
 # コーパス
 corpus : 
-data_size : 2000
+data_size : 1000
 
 # 使用する話者
 speaker : ["F01_kabulab"]

@@ -1285,7 +1285,7 @@ def make_train_val_loader_lipread(cfg, data_root):
     train_data_path = data_path[:train_size]
     val_data_path = data_path[train_size:]
     
-    if True:
+    if False:
         train_data_path = train_data_path[:100]
         val_data_path = train_data_path
     
