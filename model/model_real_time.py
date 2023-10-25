@@ -38,9 +38,9 @@ class Lip2SPRealTime(nn.Module):
         self, in_channels, res_inner_channels, res_dropout,
         n_gru_layers, zoneout, out_channels, reduction_factor):
         super().__init__()
-        self.inner_channels = int(res_inner_channels * 8)
-        self.out_channels = out_channels
-        self.reduction_factor = reduction_factor
+        self.inner_channels = int(res_inner_channels * 8) #32*8
+        self.out_channels = out_channels #80
+        self.reduction_factor = reduction_factor #2
         self.resnet = CausalResNet3D(
             in_channels=in_channels,
             out_channels=self.inner_channels,
@@ -54,7 +54,7 @@ class Lip2SPRealTime(nn.Module):
                 nn.GRUCell(self.inner_channels, self.inner_channels), zoneout,
             ))
         self.gru = nn.ModuleList(gru)
-        self.out_layer = nn.Linear(self.inner_channels, out_channels * 2)
+        self.out_layer = nn.Linear(self.inner_channels, out_channels * reduction_factor)
 
     def forward(self, lip, spk_emb=None):
         res_output = self.resnet(lip)   # (B, C, T)

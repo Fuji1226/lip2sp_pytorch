@@ -22,9 +22,9 @@ module load cuda/11.0
 dir_project="$(dirname $(cd $(dirname $0); pwd))"
 # cd "${dir_project}/scripts"
 cd "${dir_project}"
-file_main="train_realtime.py"
+file_main="generate_realtime.py"
 
 # これより下に，Pythonなどを実行するコマンドを書きます。
 # 実際はもう少しごちゃごちゃした内容を記述していることが多いです。
-python $file_main model=mspec80 train=nar test=nar wandb_conf=nar train.debug=False
+#python $file_main model=mspec80 train=nar test=nar wandb_conf=nar train.debug=False
 # python $file_main model.n_layers=1,2 -m
