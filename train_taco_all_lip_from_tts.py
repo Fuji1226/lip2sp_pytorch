@@ -149,7 +149,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         dec_output = all_output['dec_output']
         logit = all_output['logit']
         ctc_output = all_output['ctc_output']
-        
         B, C, T = output.shape
     
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
@@ -187,6 +186,8 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             optimizer.zero_grad()
             scheduler.step()
             grad_cnt += 1
+            
+            break
 
         
         if cfg.train.debug:
@@ -279,8 +280,8 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
                     if cfg.model.name == "mspec80":
                         check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
                     break
-            # if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
-            #     break
+            if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
+                break
             if iter_cnt % (all_iter - 1) == 0:
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
@@ -356,9 +357,12 @@ def main(cfg):
     train_output_loss_list = []
     train_dec_output_loss_list = []
     train_stop_token_loss_list = []
+    train_ctc_loss_list = []
+    
     val_output_loss_list = []
     val_dec_output_loss_list = []
     val_stop_token_loss_list = []
+    val_ctc_loss_list = []
     
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
@@ -366,6 +370,7 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
+        
         
         if cfg.from_tts.tts_name is not None:
             name = cfg.from_tts.tts_name
@@ -472,6 +477,7 @@ def main(cfg):
             train_output_loss_list.append(train_sum_loss['epoch_output_loss'])
             train_dec_output_loss_list.append(train_sum_loss['epoch_dec_output_loss'])
             train_stop_token_loss_list.append(train_sum_loss['epoch_stop_token_loss'])
+            train_ctc_loss_list.append(train_sum_loss['epoch_ctc_loss'])
 
             # validation
             val_sum_loss = calc_val_loss(
@@ -487,6 +493,7 @@ def main(cfg):
             val_output_loss_list.append(val_sum_loss['epoch_output_loss'])
             val_dec_output_loss_list.append(val_sum_loss['epoch_dec_output_loss'])
             val_stop_token_loss_list.append(val_sum_loss['epoch_stop_token_loss'])
+            val_ctc_loss_list.append(val_sum_loss['epoch_ctc_loss'])
         
             #scheduler.step()
 
@@ -503,6 +510,7 @@ def main(cfg):
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token_loss")
+            save_loss(train_ctc_loss_list, val_ctc_loss_list, save_path, "ctc_loss")
 
             # epoch_output_loss_FR_train, epoch_dec_output_loss_FR_train = generate_for_FR_train_loss(
             #     cfg = cfg,
