@@ -36,6 +36,8 @@ lip_pre_loaded_path : "~/dataset/lip/np_files/lip_cropped/train"
 face_pre_loaded_path : ["/mnt/diskA/naoaki/dataset/lip/np_files_96/lip_cropped/train"]
 
 text_dir : "/mnt/diskA/naoaki/dataset/lip/utt"
+avhubert_path : "/mnt/diskA/naoaki/dataset/lip/avhubert_feature_en/F01_kablab"
+
 # コーパス
 corpus : 
 data_size : 

@@ -697,6 +697,105 @@ def generate_for_train_check_taco_dict(cfg, model, test_loader, dataset, device,
         print('synthesis finished')
         break
     
+def generate_for_train_check_taco_dict_avhubert(cfg, model, test_loader, dataset, device, save_path, epoch, mixing_prob):
+    model.eval()
+
+    process_times = []
+
+    iter_cnt = 0
+    for batch in test_loader:
+        lip = batch['lip']
+        data_len = batch['data_len'].to(device)
+        feature = batch['feature'].to(device)
+        label = batch['label']
+        av_hubert = batch['av_hubert'].to(device)
+
+        start_time = time.time()
+        with torch.no_grad():
+            print('taco generate')
+            all_output = model(av_hubert=av_hubert, data_len=data_len, use_stop_token=True)
+
+        
+        output = all_output['output']
+        dec_output = all_output['dec_output']
+        logit = all_output['logit']
+    
+        end_time = time.time()
+        process_time = end_time - start_time
+        process_times.append(process_time)
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_FR'
+        os.makedirs(str(_save_path), exist_ok=True)
+        tmp_label = label[0]+'_FR'
+        _save_path = _save_path / label[0]
+
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+       
+        feature_tmp = feature[0].to('cpu').detach().numpy().copy()
+        output_tmp = output[0].to('cpu').detach().numpy().copy()
+        dec_output_tmp = dec_output[0].to('cpu').detach().numpy().copy()
+        
+        save_target_pred(feature_tmp, output_tmp, dec_output_tmp, str(_save_path))
+        
+        att_path = _save_path / label[0]
+        
+        with torch.no_grad():
+            all_output = model(av_hubert=av_hubert, prev=feature, data_len=data_len, training_method='tf', use_stop_token=True)
+
+        output = all_output['output']
+        dec_output = all_output['dec_output']
+        logit = all_output['logit']
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_TF'
+        os.makedirs(str(_save_path), exist_ok=True)
+        _save_path = _save_path / label[0]
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+        
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
+       
+        feature_tmp = feature[0].to('cpu').detach().numpy().copy()
+        output_tmp = output[0].to('cpu').detach().numpy().copy()
+        dec_output_tmp = dec_output[0].to('cpu').detach().numpy().copy()
+
+        save_target_pred(feature_tmp, output_tmp, dec_output_tmp, str(_save_path))
+
+        with torch.no_grad():
+            all_output = model(av_hubert=av_hubert, prev=feature, data_len=data_len, training_method='ss', mixing_prob=mixing_prob, use_stop_token=True)
+
+        output = all_output['output']
+        dec_output = all_output['dec_output']
+        logit = all_output['logit']
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_SS'
+        os.makedirs(str(_save_path), exist_ok=True)
+        _save_path = _save_path / label[0]
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+        logit = torch.nn.functional.softmax(logit)
+        logit = logit[0].to('cpu').detach().numpy().copy()
+        save_stop_token(logit, str(_save_path))
+
+       
+        feature = feature[0].to('cpu').detach().numpy().copy()
+        output = output[0].to('cpu').detach().numpy().copy()
+        dec_output = dec_output[0].to('cpu').detach().numpy().copy()
+
+        save_target_pred(feature_tmp, output_tmp, dec_output_tmp, str(_save_path))
+
+        print('synthesis finished')
+        break
+    
 def save_stop_token(logit, save_path):
     logit_save = save_path + 'stop_token'
   
