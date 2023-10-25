@@ -111,7 +111,8 @@ def train_one_epoch(
         speaker_idx = speaker_idx.to(device)
 
         output, classifier_out, fmaps = model(lip, spk_emb)
-
+        #print(output.shape)
+        #print(feature.shape)
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
         if cfg.train.adversarial_learning:
