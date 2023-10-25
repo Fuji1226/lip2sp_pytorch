@@ -411,7 +411,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     feature = adjust_max_data_len(feature)
     text = adjust_max_data_len(text)
     stop_tokens = adjust_max_data_len(stop_tokens)
-    av_hubert = adjust_max_data_len(av_hubert)
+    av_hubert = adjust_max_data_len_avhubert(av_hubert)
     
     lip = torch.stack(lip)
     feature = torch.stack(feature)
@@ -495,6 +495,32 @@ def adjust_max_data_len(data):
 
         for t in range(d.shape[-1]):
             d_padded[..., t] = d[..., t]
+
+        new_data.append(d_padded)
+    
+    return new_data
+
+def adjust_max_data_len_avhubert(data):
+    """
+    minibatchの中で最大のdata_lenに合わせて0パディングする
+    """
+    max_data_len = 0
+    max_data_len_id = 0
+
+    # minibatchの中でのdata_lenの最大値と，そのデータのインデックスを取得
+    for idx, d in enumerate(data):
+        if max_data_len < d.shape[0]:
+            max_data_len = d.shape[0]
+            max_data_len_id = idx
+
+    new_data = []
+
+    # data_lenが最大のデータに合わせて0パディング
+    for d in data:
+        d_padded = torch.zeros_like(data[max_data_len_id])
+
+        for t in range(d.shape[0]):
+            d_padded[t, ...] = d[t, ...]
 
         new_data.append(d_padded)
     
