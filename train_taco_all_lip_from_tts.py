@@ -540,7 +540,7 @@ def main(cfg):
                 mixing_prob=mixing_prob
             )
             
-            if epoch > 100:
+            if epoch > 50:
                 model_grad_ok(model)
             
             mem = psutil.virtual_memory() 

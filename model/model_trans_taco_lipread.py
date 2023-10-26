@@ -145,7 +145,7 @@ class Lip2SP(nn.Module):
         )
         
         # feat_add predicter
-        self.ctc_output_layer = nn.Linear(256, 52)
+        self.ctc_output_layer = nn.Linear(256, 53)
 
         # postnet
         self.postnet = Postnet(out_channels, post_inner_channels, out_channels, post_n_layers)

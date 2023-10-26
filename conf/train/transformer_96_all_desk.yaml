@@ -65,7 +65,7 @@ time_augment_rate : 30    # (100 - rate)から(100 + rate)の範囲で再生速�
 
 # dataloader
 batch_size : 1
-num_workers : 2
+num_workers : 1
 
 # dropout
 dec_dropout : 0.5
