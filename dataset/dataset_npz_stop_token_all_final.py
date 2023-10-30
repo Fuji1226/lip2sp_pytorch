@@ -160,6 +160,7 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         stop_token[-2:] = 1.0
         
         output = {}
+        output['wav'] = wav
         output['lip'] = lip
         output['feature'] = feature
         output['feat_add'] = feat_add
@@ -396,6 +397,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     """
     フレーム数の調整を行う
     """
+    wav = [sample['wav'] for sample in batch] 
     lip = [sample['lip'] for sample in batch]
     feature = [sample['feature'] for sample in batch]
     upsample = [sample['upsample'] for sample in batch]
@@ -406,13 +408,15 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     lip_len = [sample['lip_len'] for sample in batch]
     label = [sample['label'] for sample in batch]
     av_hubert = [sample['av_hubert'] for sample in batch]
-        
+    
+    wav = adjust_max_data_len(wav)
     lip = adjust_max_data_len(lip)
     feature = adjust_max_data_len(feature)
     text = adjust_max_data_len(text)
     stop_tokens = adjust_max_data_len(stop_tokens)
     av_hubert = adjust_max_data_len_avhubert(av_hubert)
     
+    wav = torch.stack(wav)
     lip = torch.stack(lip)
     feature = torch.stack(feature)
     data_len = torch.stack(data_len)
@@ -424,6 +428,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
 
 
     output = {}
+    output['wav'] = wav
     output['lip'] = lip
     output['feature'] = feature
     output['upsample'] = upsample
@@ -439,6 +444,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
 
 
 def collate_test_all_lipread_final(batch):
+    wav = [sample['wav'] for sample in batch]
     lip = [sample['lip'] for sample in batch]
     feature = [sample['feature'] for sample in batch]
     upsample = [sample['upsample'] for sample in batch]
@@ -450,7 +456,7 @@ def collate_test_all_lipread_final(batch):
     label = [sample['label'] for sample in batch]
     av_hubert = [sample['av_hubert'] for sample in batch]
     
-
+    wav = torch.stack(wav)
     lip = torch.stack(lip)
     feature = torch.stack(feature)
     data_len = torch.stack(data_len)
@@ -461,6 +467,7 @@ def collate_test_all_lipread_final(batch):
     av_hubert = torch.stack(av_hubert)
     
     output = {}
+    output['wav'] = wav
     output['lip'] = lip
     output['feature'] = feature
     output['upsample'] = upsample

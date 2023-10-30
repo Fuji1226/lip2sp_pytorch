@@ -6,5 +6,6 @@ defaults:
   
   - from_tts : tts_path
 tag: "tts_test"
-model_path: None
+
+generate_path : 
 stop_weight: 1.0
