@@ -170,7 +170,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
             ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
             
-        loss = output_loss + dec_output_loss + stop_token_loss + ctc_loss
+        loss = output_loss + dec_output_loss + stop_token_loss
         loss.backward()
         sum_loss['epoch_output_loss'] += output_loss.item()
         wandb.log({"train_output_loss": output_loss})
@@ -266,7 +266,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
                 stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
                 ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
                 
-            loss = output_loss + dec_output_loss + stop_token_loss + ctc_loss
+            loss = output_loss + dec_output_loss + stop_token_loss
             
             sum_loss['epoch_output_loss'] += output_loss.item()
             sum_loss['epoch_dec_output_loss'] += dec_output_loss.item()
@@ -538,7 +538,7 @@ def main(cfg):
                 mixing_prob=mixing_prob
             )
             
-            if epoch > 150:
+            if epoch > 50:
                 model_grad_ok(model)
             
             mem = psutil.virtual_memory() 
