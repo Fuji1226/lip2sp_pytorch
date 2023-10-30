@@ -525,6 +525,69 @@ def make_train_val_loader_tts(cfg, data_root):
     
     return train_loader, val_loader, train_dataset, val_dataset
 
+def make_train_val_loader_tts_final(cfg, data_root):
+    # パスを取得
+    data_path = get_datasets_re(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    data_path = random.sample(data_path, len(data_path))
+    n_samples = len(data_path)
+    
+    if cfg.train.data_size is not None:
+        data_size = int(cfg.train.data_size * 1.25)
+        data_path = data_path[:data_size]
+        
+    train_size = int(n_samples * 0.8)
+    train_data_path = data_path[:train_size]
+    val_data_path = data_path[train_size:]
+    
+    if cfg.debug:
+        train_data_path = train_data_path[:100]
+        val_data_path = train_data_path
+    
+    breakpoint()
+    train_trans = KablabTTSTransform(cfg, "train")
+    val_trans = KablabTTSTransform(cfg, "val")
+
+    print("\n--- make train dataset ---")
+
+    train_dataset = KablabTTSDataset(
+        data_path=train_data_path,
+        train_data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+
+    val_dataset = KablabTTSDataset(
+        data_path=val_data_path,
+        train_data_path=train_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    
+    return train_loader, val_loader, train_dataset, val_dataset
+
 def make_train_val_loader_tts_multi(cfg, data_root):
     # パスを取得
     data_path = get_datasets_re(
@@ -984,6 +1047,7 @@ def make_test_loader_tts(cfg, data_root, train_data_root):
     train_data_path = get_datasets_re(train_data_root, cfg)
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
+    breakpoint()
     
     print(f'make loader test: {len(test_data_path)}')
     if True:

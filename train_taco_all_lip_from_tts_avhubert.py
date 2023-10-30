@@ -142,7 +142,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         phoneme_index_output = batch['text'].to(device)
         text_len = batch['text_len'].to(device)
         av_hubert = batch['av_hubert'].to(device)
-
+    
         # output : postnet後の出力
         # dec_output : postnet前の出力
         all_output = model(av_hubert=av_hubert, prev=feature, data_len=data_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)

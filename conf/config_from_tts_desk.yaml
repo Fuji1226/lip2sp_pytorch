@@ -9,3 +9,4 @@ tag: "tts_test"
 
 generate_path : 
 stop_weight: 1.0
+debug : True
