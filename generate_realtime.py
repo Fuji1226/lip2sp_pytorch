@@ -82,15 +82,15 @@ def main(cfg):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
-    
+
     model_path = select_checkpoint(cfg)
     model = make_model(cfg, device)
     model = load_pretrained_model(model_path, model, "model")
     cfg.train.face_or_lip = model_path.parents[2].name
-    cfg.test.face_or_lip = model_path.parents[2].name    
+    cfg.test.face_or_lip = model_path.parents[2].name
 
     data_root_list, save_path_list, train_data_root = get_path_test(cfg, model_path)
-    
+
     for data_root, save_path in zip(data_root_list, save_path_list):
         test_loader, test_dataset = make_test_loader(cfg, data_root, train_data_root)
         generate(
@@ -112,7 +112,7 @@ def main(cfg):
         result_dir=save_path.parents[3],
         checkpoint_dir=model_path.parents[1],
     )
-        
+
 
 if __name__ == "__main__":
     main()
