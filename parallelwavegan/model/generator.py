@@ -120,7 +120,6 @@ class Generator(nn.Module):
         x, c : (B, C, T)
         """
         c = self.cond_upsample_layers(c)
-        assert c.shape[-1] == x.shape[-1]
 
         x = self.first_conv(x)
         skips = 0
