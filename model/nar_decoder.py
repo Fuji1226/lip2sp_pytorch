@@ -51,7 +51,7 @@ class ResTCDecoder(nn.Module):
         """
         enc_outout : (B, T, C)
         """
-        enc_output = enc_output.permute(0, -1, 1)   # (B, C, T)
+        enc_output = enc_output.permute(0, 2, 1)   # (B, C, T)
         out = enc_output
 
         # 音響特徴量のフレームまでアップサンプリング

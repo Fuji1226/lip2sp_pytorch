@@ -87,13 +87,14 @@ def make_model(cfg, device):
         dec_atten_hidden_channels=cfg.model.taco_dec_atten_hidden_channels,
         prenet_hidden_channels=cfg.model.taco_dec_prenet_hidden_channels,
         prenet_inner_channels=cfg.model.taco_dec_prenet_inner_channels,
+        prenet_dropout=cfg.model.taco_lip_prenet_dropout,
         lstm_n_layers=cfg.model.taco_dec_n_layers,
         post_inner_channels=cfg.model.post_inner_channels,
         post_n_layers=cfg.model.post_n_layers,
         post_kernel_size=cfg.model.post_kernel_size,
+        use_attention=cfg.model.taco_use_attention,
     )
-    model.decoder.training_method = 'teacher_forcing'
-    model.decoder.scheduled_sampling_thres = 0
+    model.decoder.training_method = cfg.train.training_method
     count_params(model, "model")
     return model.to(device)
 
@@ -355,6 +356,14 @@ def main(cfg):
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
+
+            if cfg.train.training_method == 'scheduled_sampling':
+                model.decoder.scheduled_sampling_thres = 100
+                # if current_epoch == 1:
+                #     model.decoder.scheduled_sampling_thres = 0
+                # else:
+                #     model.decoder.scheduled_sampling_thres = np.clip((current_epoch - 1) ** 3 / 100, a_min=0, a_max=100)
+            wandb.log({"scheduled_sampling_thres": model.decoder.scheduled_sampling_thres})
 
             epoch_loss, epoch_output_mse_loss, epoch_dec_output_mse_loss = train_one_epoch(
                 model=model, 

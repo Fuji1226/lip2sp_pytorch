@@ -145,8 +145,10 @@ class TacotronDecoder(nn.Module):
         reduction_factor,
         prenet_hidden_channels,
         prenet_inner_channels,
+        prenet_dropout,
         lstm_n_layers,
         dropout,
+        use_attention,
     ):
         super().__init__()
         self.enc_channels = enc_channels
@@ -156,6 +158,7 @@ class TacotronDecoder(nn.Module):
         self.reduction_factor = reduction_factor
         self.training_method = 'teacher_forcing'
         self.scheduled_sampling_thres = 0
+        self.use_attention = use_attention
 
         self.attention = Attention(
             enc_channels=enc_channels,
@@ -169,6 +172,7 @@ class TacotronDecoder(nn.Module):
             in_channels=out_channels * reduction_factor,
             out_channels=prenet_hidden_channels,
             inner_channels=prenet_inner_channels,
+            dropout=prenet_dropout,
         )
 
         lstm = []
@@ -220,9 +224,12 @@ class TacotronDecoder(nn.Module):
         att_w_list = []
 
         for t in range(enc_output.shape[1]):
-            # att_c, att_w = self.attention(enc_output, lip_len, h_list[0], prev_att_w, mask=mask)
-            att_c = enc_output[:, t, :]
-            att_w = torch.rand(B, 250)
+            if self.use_attention:
+                att_c, att_w = self.attention(enc_output, lip_len, h_list[0], prev_att_w, mask=mask)
+            else:
+                att_c = enc_output[:, t, :]
+                att_w = torch.rand(B, 250)
+
             prenet_out = self.prenet(prev_out)      # (B, C)
 
             xs = torch.cat([att_c, prenet_out], dim=1)      # (B, C)
@@ -311,10 +318,12 @@ class Lip2SP_AR_AVHubert(nn.Module):
         dec_atten_hidden_channels,
         prenet_hidden_channels,
         prenet_inner_channels,
+        prenet_dropout,
         lstm_n_layers,
         post_inner_channels,
         post_n_layers,
         post_kernel_size,
+        use_attention,
     ):
         super().__init__()
         self.avhubert_return_res_output = avhubert_return_res_output
@@ -355,8 +364,10 @@ class Lip2SP_AR_AVHubert(nn.Module):
                 reduction_factor=reduction_factor,
                 prenet_hidden_channels=prenet_hidden_channels,
                 prenet_inner_channels=prenet_inner_channels,
+                prenet_dropout=prenet_dropout,
                 lstm_n_layers=lstm_n_layers,
                 dropout=dec_dropout,
+                use_attention=use_attention,
             )
 
         self.postnet = PostNet(
@@ -478,6 +489,7 @@ class Lip2SP_AR_AVHubert(nn.Module):
 #         post_inner_channels=cfg.model.post_inner_channels,
 #         post_n_layers=cfg.model.post_n_layers,
 #         post_kernel_size=cfg.model.post_kernel_size,
+#         use_attention=cfg.model.taco_use_attention,
 #     )
 #     model.decoder.training_method = 'teacher_forcing'
 #     model.decoder.scheduled_sampling_thres = 0

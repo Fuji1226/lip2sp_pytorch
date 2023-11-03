@@ -158,7 +158,7 @@ class Lip2SP_NAR_AVHubert(nn.Module):
     def forward(
         self,
         lip,
-        audio,
+        # audio,
         lip_len,
         spk_emb,
     ):
@@ -168,34 +168,38 @@ class Lip2SP_NAR_AVHubert(nn.Module):
         lip_len : (B,)
         spk_emb : (B, C)
         '''
-        if lip is not None:
-            lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
-            padding_mask_avhubert = torch.zeros(lip.shape[0], lip.shape[2]).to(device=lip.device, dtype=torch.bool)     # (B, T)
-        elif audio is not None:
-            padding_mask_avhubert = torch.zeros(audio.shape[0], audio.shape[2]).to(device=audio.device, dtype=torch.bool)     # (B, T)
+        # if lip is not None:
+        #     lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+        #     padding_mask_avhubert = torch.zeros(lip.shape[0], lip.shape[2]).to(device=lip.device, dtype=torch.bool)     # (B, T)
+        # elif audio is not None:
+        #     padding_mask_avhubert = torch.zeros(audio.shape[0], audio.shape[2]).to(device=audio.device, dtype=torch.bool)     # (B, T)
+        # for i, l in enumerate(lip_len):
+        #     padding_mask_avhubert[i, l:] = True
 
-        # padding部分がTrue
-        for i, l in enumerate(lip_len):
-            padding_mask_avhubert[i, l:] = True
+        lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+        padding_mask_avhubert = torch.arange(lip.shape[2]).unsqueeze(1).to(device=lip.device)
+        padding_mask_avhubert = padding_mask_avhubert >= lip_len
+        padding_mask_avhubert = padding_mask_avhubert.permute(1, 0)     # transpose_1
         
         x = self.avhubert(
             video=lip,
-            audio=audio, 
+            audio=None, 
             return_res_output=self.avhubert_return_res_output,
             padding_mask=padding_mask_avhubert, 
         )   # (B, T, C)
+        avhubert_feature = x
 
         if self.avhubert_return_res_output:
             x = x.permute(0, 2, 1)  # (B, C, T)
             x = self.encoder(x, lip_len)     # (B, T, C)
 
         if hasattr(self, 'spk_emb_layer'):
-            x = x.permute(0, 2, 1)
-            spk_emb = spk_emb.unsqueeze(-1).expand(x.shape[0], -1, x.shape[-1])
+            x = x.permute(0, 2, 1)  # (B, C, T)
+            spk_emb = spk_emb.unsqueeze(-1).expand(spk_emb.shape[0], spk_emb.shape[1], x.shape[-1])
             x = torch.cat([x, spk_emb], dim=1)
             x = self.spk_emb_layer(x)
-            x = x.permute(0, 2, 1)
-
+            x = x.permute(0, 2, 1)  # (B, T, C)
+        
         if self.which_decoder == 'transformer':
             x = self.decoder(x, padding_mask=padding_mask_avhubert)     # (B, T, C)
             x = self.decoder_conv(x)
@@ -205,7 +209,7 @@ class Lip2SP_NAR_AVHubert(nn.Module):
             x = self.decoder_conv(x)
         else:
             x = self.decoder(x)
-        return x, None, None
+        return x, None, avhubert_feature
     
 
 class Lip2SP_NAR_Lightweight(nn.Module):
@@ -277,28 +281,3 @@ class Lip2SP_NAR_Lightweight(nn.Module):
         return x, None, None
     
 
-# import hydra
-# @hydra.main(version_base=None, config_name="config", config_path="../conf")
-# def main(cfg):
-#     model = Lip2SP_NAR_Lightweight(
-#         avhubert_config=cfg.model.avhubert_config,
-#         rnn_n_layers=cfg.model.rnn_n_layers,
-#         rnn_dropout=cfg.train.rnn_dropout,
-#         reduction_factor=cfg.model.reduction_factor,
-#         rnn_which_norm=cfg.model.rnn_which_norm,
-#         out_channels=cfg.model.out_channels,
-#         dec_n_layers=cfg.model.tc_n_layers,
-#         dec_kernel_size=cfg.model.tc_kernel_size,
-#         dec_dropout=cfg.train.dec_dropout,
-#         use_spk_emb=cfg.train.use_spk_emb,
-#         spk_emb_dim=cfg.model.spk_emb_dim,
-#     )
-#     lip = torch.rand(1, 1, 88, 88, 250)
-#     audio = None
-#     lip_len = torch.randint(100, 250, (lip.shape[0],))
-#     spk_emb = torch.rand(lip.shape[0], 256)
-#     model(lip, audio, lip_len, spk_emb)
-    
-
-# if __name__ == '__main__':
-#     main()

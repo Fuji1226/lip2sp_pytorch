@@ -114,8 +114,6 @@ def main(cfg):
     print(f"device = {device}")
 
     pwg, disc = make_pwg(cfg, device)
-    # model_path_pwg = Path(f"~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt").expanduser()
-    # pwg = load_pretrained_model(model_path_pwg, pwg, "gen")
 
     model_path = select_checkpoint(cfg)
     model = make_model(cfg, device)

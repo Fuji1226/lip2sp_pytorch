@@ -5,13 +5,13 @@ def main():
     subprocess.run(
         [
             'python',
-            '/home/minami/lip2sp_pytorch/run/run_avhubert.py',
+            '/home/minami/lip2sp_pytorch/run/run_avhubert_raw.py',
         ]
     )
     subprocess.run(
         [
             'python',
-            '/home/minami/lip2sp_pytorch/run/run_pwg.py'
+            '/home/minami/lip2sp_pytorch/run/run_pwg.py',
         ]
     )
 

@@ -543,14 +543,14 @@ class MultiheadAttention(nn.Module):
 
         tgt_len, bsz, embed_dim = query.size()
         src_len = tgt_len
-        assert embed_dim == self.embed_dim
-        assert list(query.size()) == [tgt_len, bsz, embed_dim]
+        # assert embed_dim == self.embed_dim
+        # assert list(query.size()) == [tgt_len, bsz, embed_dim]
         if key is not None:
             src_len, key_bsz, _ = key.size()
-            if not torch.jit.is_scripting():
-                assert key_bsz == bsz
-                assert value is not None
-                assert src_len, bsz == value.shape[:2]
+            # if not torch.jit.is_scripting():
+            #     assert key_bsz == bsz
+            #     assert value is not None
+            #     assert src_len, bsz == value.shape[:2]
 
         if (
             not self.onnx_trace
@@ -1108,6 +1108,10 @@ class TransformerEncoder(nn.Module):
         self.apply(init_bert_params)
 
     def forward(self, x, padding_mask=None, layer=None):
+        '''
+        x : (B, T, C)
+        padding_mask : (B, T)
+        '''
         x, layer_results = self.extract_features(x, padding_mask, layer)
 
         if self.layer_norm_first and layer is None:
@@ -1116,8 +1120,12 @@ class TransformerEncoder(nn.Module):
         return x, layer_results
 
     def extract_features(self, x, padding_mask=None, tgt_layer=None):
+        # padding_maskのTrueの部分（パディングする部分）を0に置き換える
         if padding_mask is not None:
-            x = index_put(x, padding_mask, 0)
+            # x = index_put(x, padding_mask, 0)
+            # onnxの変換でバグるので変更
+            mask_int = padding_mask.unsqueeze(-1).expand(padding_mask.shape[0], padding_mask.shape[1], x.shape[-1]).to(dtype=torch.int, device=x.device)
+            x -= x * mask_int
 
         x_conv = self.pos_conv(x.transpose(1, 2))
         x_conv = x_conv.transpose(1, 2)
@@ -1206,11 +1214,17 @@ class MyAVHubertModel(nn.Module):
         self.layer_norm = LayerNorm(self.embed)
 
     def forward_padding_mask(
-        self, features: torch.Tensor, padding_mask: torch.Tensor,
+        self, 
+        features: torch.Tensor,
+        padding_mask: torch.Tensor,
     ) -> torch.Tensor:
-        extra = padding_mask.size(1) % features.size(1)
-        if extra > 0:
-            padding_mask = padding_mask[:, :-extra]
+        '''
+        features: (B, T, C)
+        padding_mask: (B, T)
+        '''
+        # extra = padding_mask.size(1) % features.size(1)
+        # if extra > 0:
+        #     padding_mask = padding_mask[:, :-extra]
         padding_mask = padding_mask.view(
             padding_mask.size(0), features.size(1), -1
         )
@@ -1245,7 +1259,7 @@ class MyAVHubertModel(nn.Module):
         elif self.modality_fuse == 'add':
             features = features_audio + features_video
 
-        features = features.transpose(1, 2)
+        features = features.transpose(1, 2)     # (B, T, C)
         features = self.layer_norm(features)
 
         if padding_mask is not None:
@@ -1261,6 +1275,6 @@ class MyAVHubertModel(nn.Module):
             features, _ = self.encoder(
                 features,
                 padding_mask=padding_mask,
-                layer=None if output_layer is None else output_layer - 1
+                layer=None if output_layer is None else output_layer - 1,
             )
             return features     # (B, T, C)

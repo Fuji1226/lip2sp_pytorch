@@ -240,20 +240,38 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
 
 
 def get_datasets_external_data_raw(cfg, data_split):
-    df = pd.read_csv(str(Path(cfg.train.hifi_captain_df_path).expanduser()))
-    df = df.loc[df['data_split'] == data_split]
-    audio_dir = Path(cfg.train.hifi_captain_data_dir).expanduser()
     data_path_list = []
-    for i in range(df.shape[0]):
-        row = df.iloc[i]
-        data_path_list.append(
-            {
-                'audio_path': audio_dir / row['speaker'] / 'wav' / row['parent_dir'] / f'{row["filename"]}.wav',
-                'video_path': None,
-                'speaker': row['speaker'],
-                'filename': row['filename'],
-            }
-        )
+    if cfg.train.use_hifi_captain:
+        df = pd.read_csv(str(Path(cfg.train.hifi_captain_df_path).expanduser()))
+        df = df.loc[df['data_split'] == data_split]
+        audio_dir = Path(cfg.train.hifi_captain_data_dir).expanduser()
+        for i in range(df.shape[0]):
+            row = df.iloc[i]
+            data_path_list.append(
+                {
+                    'audio_path': audio_dir / row['speaker'] / 'wav' / row['parent_dir'] / f'{row["filename"]}.wav',
+                    'video_path': None,
+                    'speaker': row['speaker'],
+                    'filename': row['filename'],
+                }
+            )
+    if cfg.train.use_jvs_corpus:
+        df = pd.read_csv(str(Path(cfg.train.jvs_df_path).expanduser()))
+        df = df.loc[
+            (df['data'] == 'parallel100') | (df['data'] == 'nonpara30')
+        ]
+        df = df.loc[df['data_split'] == data_split]
+        audio_dir = Path(cfg.train.jvs_data_dir).expanduser()
+        for i in range(df.shape[0]):
+            row = df.iloc[i]
+            data_path_list.append(
+                {
+                    'audio_path': audio_dir / row['speaker'] / row['data'] / 'wav24kHz16bit' / f'{row["filename"]}.wav',
+                    'video_path': None,
+                    'speaker': row['speaker'],
+                    'filename': row['filename'],
+                }
+            )
     return data_path_list
 
 

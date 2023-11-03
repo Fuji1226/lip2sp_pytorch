@@ -56,13 +56,10 @@ face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_
 avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
 avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
 
-# 
+# kablab
 audio_dir : '~/dataset/lip/wav'
 avhubert_preprocess_fps25_video_dir : '~/dataset/lip/avhubert_preprocess_fps25'
 kablab_df_path : '~/dataset/lip/data_split_csv/kablab.csv'
-hifi_captain_df_path : '~/dataset/lip/data_split_csv/hifi_captain.csv'
-hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
-hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
 
 # 外部データの指定
 which_external_data : ""
@@ -92,6 +89,14 @@ jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 # jvs corpus
 use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
+jvs_df_path : '~/dataset/lip/data_split_csv/jvs.csv'
+jvs_data_dir : '~/dataset/jvs_ver1'
+
+# hifi-captain
+use_hifi_captain : False
+hifi_captain_df_path : '~/dataset/lip/data_split_csv/hifi_captain.csv'
+hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
+hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000"]

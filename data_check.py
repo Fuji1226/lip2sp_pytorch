@@ -662,13 +662,13 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
 
     wav = wav.to('cpu').numpy()
 
-    save_lip_video(
-        cfg=cfg,
-        save_path=save_path,
-        lip=lip,
-        lip_mean=lip_mean,
-        lip_std=lip_std
-    )
+    # save_lip_video(
+    #     cfg=cfg,
+    #     save_path=save_path,
+    #     lip=lip,
+    #     lip_mean=lip_mean,
+    #     lip_std=lip_std
+    # )
 
     wav_AbS = calc_wav(
         cfg=cfg,
@@ -694,15 +694,15 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
     wav_AbS = wav_AbS[:n_sample]
     wav_gen = wav_gen[:n_sample]
 
-    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=wav)
+    write(str(save_path / "gt.wav"), rate=cfg.model.sampling_rate, data=wav)
     write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=wav_AbS)
     write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=wav_gen)
 
     # プロット
-    plot_wav(cfg, save_path, wav, wav_AbS, wav_gen)
+    # plot_wav(cfg, save_path, wav, wav_AbS, wav_gen)
     plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
-    plot_spec(cfg, save_path, wav, wav_AbS, wav_gen)
-    plot_f0_from_wav(cfg, save_path, wav, wav_AbS, wav_gen)
+    # plot_spec(cfg, save_path, wav, wav_AbS, wav_gen)
+    # plot_f0_from_wav(cfg, save_path, wav, wav_AbS, wav_gen)
 
     
 def save_data_lipreading(cfg, save_path, target, output, classes_index):
@@ -751,7 +751,7 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
     target = target[:data_len]
     output = output[:data_len]
     ana_syn = ana_syn[:data_len]
-    write(str(save_path / "input.wav"), rate=cfg.model.sampling_rate, data=target)
+    write(str(save_path / "gt.wav"), rate=cfg.model.sampling_rate, data=target)
     write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=output)
 
     if ana_syn is not None:

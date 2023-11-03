@@ -113,14 +113,55 @@ def data_split_jsut():
     return df
 
 
+def data_split_jvs():
+    data_dir = Path('~/dataset/jvs_ver1').expanduser()
+    data_path_list = data_dir.glob('**/*.wav')
+    speaker_list = []
+    data_list = []
+    filename_list = []
+    data_split_list = []
+
+    for data_path in data_path_list:
+        speaker = data_path.parents[2].name
+        data = data_path.parents[1].name
+        filename = data_path.stem
+        speaker_num = int(str(speaker).replace('jvs', ''))
+        if speaker_num > 90:
+            data_split = 'val'
+        else:
+            data_split = 'train'
+
+        speaker_list.append(speaker)
+        data_list.append(data)
+        filename_list.append(filename)
+        data_split_list.append(data_split)
+        
+    df = pd.DataFrame(
+        {
+            'speaker': speaker_list,
+            'data': data_list,
+            'filename': filename_list,
+            'data_split': data_split_list,
+        }
+    )
+    # df = df.loc[
+    #     ((df['data'] == 'parallel100') | (df['data'] == 'nonpara30'))
+    # ]
+    # train_df = df.loc[df['data_split'] == 'train']
+    # val_df = df.loc[df['data_split'] == 'val']
+    return df
+    
+
 def main():
     save_dir = Path('~/dataset/lip/data_split_csv').expanduser()
-    df = data_split_kablab()
-    df.to_csv(str(save_dir / 'kablab.csv'), index=False)
-    df = data_split_hifi_captain()
-    df.to_csv(str(save_dir / 'hifi_captain.csv'), index=False)
-    df = data_split_jsut()
-    df.to_csv(str(save_dir / 'jsut.csv'), index=False)
+    # df = data_split_kablab()
+    # df.to_csv(str(save_dir / 'kablab.csv'), index=False)
+    # df = data_split_hifi_captain()
+    # df.to_csv(str(save_dir / 'hifi_captain.csv'), index=False)
+    # df = data_split_jsut()
+    # df.to_csv(str(save_dir / 'jsut.csv'), index=False)
+    # df = data_split_jvs()
+    # df.to_csv(str(save_dir / 'jvs.csv'), index=False)
 
 
 if __name__ == '__main__':

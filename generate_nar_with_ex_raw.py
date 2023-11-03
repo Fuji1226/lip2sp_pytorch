@@ -21,7 +21,7 @@ from utils import (
     fix_random_seed,
     delete_unnecessary_checkpoint,
 )
-from calc_accuracy import calc_accuracy, calc_mean
+from calc_accuracy import calc_accuracy, calc_mean, calc_accuracy_new
 
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
@@ -143,8 +143,8 @@ def main(cfg):
     for speaker in cfg.test.speaker:
         save_path_spk = save_path / "griffinlim" / speaker
         save_path_pwg_spk = save_path / "pwg" / speaker
-        calc_accuracy(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
-        calc_accuracy(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+        calc_accuracy_new(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
+        calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
     calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
     calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
         

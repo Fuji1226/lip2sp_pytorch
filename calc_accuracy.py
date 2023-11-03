@@ -20,6 +20,8 @@ import pyopenjtalk
 import pandas as pd
 from collections import defaultdict
 import re
+import whisper
+import torch
 
 
 debug = False
@@ -50,6 +52,153 @@ def load_utt():
     df = pd.read_csv(str(csv_path))
     df = df.values[-53:]
     return df
+
+
+def calc_wer_mecab(mecab, utt, result_gt, result_abs, result_gen):
+    utt_parse = mecab.parse(utt)
+    result_gt_parse = mecab.parse(result_gt)
+    result_abs_parse = mecab.parse(result_abs)
+    result_gen_parse = mecab.parse(result_gen)
+    wer_gt = wer(utt_parse, result_gt_parse)
+    wer_abs = wer(utt_parse, result_abs_parse)
+    wer_gen = wer(utt_parse, result_gen_parse)
+    print(f'utt = {utt_parse}')
+    print(f'result_gt = {result_gt_parse}')
+    print(f'result_abs = {result_abs_parse}')
+    print(f'result_gen = {result_gen_parse}')
+    print(f'wer_gt = {wer_gt}')
+    print(f'wer_abs = {wer_abs}')
+    print(f'wer_gen = {wer_gen}')
+    return wer_gt, wer_abs, wer_gen
+
+
+def calc_accuracy_new(data_dir, save_path, cfg, filename):
+    speaker = data_dir.stem
+    df = load_utt()
+    wb_pesq_evaluator = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
+    stoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
+    estoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=True)
+    speech_recognizer = whisper.load_model('large')
+    mecab = MeCab.Tagger('-Owakati')
+
+    pesq_abs_list = []
+    pesq_generate_list = []
+    stoi_abs_list = []
+    stoi_generate_list = []
+    estoi_abs_list = []
+    estoi_generate_list = []
+    wer_gt_list = []
+    wer_abs_list = []
+    wer_generate_list = []
+    per_gt_list = []
+    per_abs_list = []
+    per_generate_list = []
+
+    gt_data_path_list = list(data_dir.glob('**/gt.wav'))
+    for i, gt_data_path in enumerate(gt_data_path_list):
+        abs_data_path = Path(str(gt_data_path).replace('gt', 'abs'))
+        generate_data_path = Path(str(gt_data_path).replace('gt', 'generate'))
+        wav_gt, _ = librosa.load(str(gt_data_path), sr=cfg.model.sampling_rate)
+        wav_abs, _ = librosa.load(str(abs_data_path), sr=cfg.model.sampling_rate)
+        wav_generate, _ = librosa.load(str(generate_data_path), sr=cfg.model.sampling_rate)
+        min_sample = min(wav_gt.shape[0], wav_abs.shape[0], wav_generate.shape[0])
+        wav_gt = wav_gt[:min_sample]
+        wav_abs = wav_abs[:min_sample]
+        wav_generate = wav_generate[:min_sample]
+        wav_gt = torch.from_numpy(wav_gt)
+        wav_abs = torch.from_numpy(wav_abs)
+        wav_generate = torch.from_numpy(wav_generate)
+
+        for j in range(53):
+            utt_num = df[j][2]
+            if utt_num in gt_data_path.parents[0].name:
+                utt = df[j][3]
+                utt = utt.replace("。", "").replace("、", "")
+                break
+
+        pesq_abs = wb_pesq_evaluator(wav_abs, wav_gt)
+        pesq_generate = wb_pesq_evaluator(wav_generate, wav_gt)
+        stoi_abs = stoi_evaluator(wav_abs, wav_gt)
+        stoi_generate = stoi_evaluator(wav_generate, wav_gt)
+        estoi_abs = estoi_evaluator(wav_abs, wav_gt)
+        estoi_generate = estoi_evaluator(wav_generate, wav_gt)
+        pesq_abs_list.append(pesq_abs)
+        pesq_generate_list.append(pesq_generate)
+        stoi_abs_list.append(stoi_abs)
+        stoi_generate_list.append(stoi_generate)
+        estoi_abs_list.append(estoi_abs)
+        estoi_generate_list.append(estoi_generate)
+
+        utt_pred_gt = speech_recognizer.transcribe(str(gt_data_path))['text'].replace('。', '').replace('、', '')
+        utt_pred_abs = speech_recognizer.transcribe(str(abs_data_path))['text'].replace('。', '').replace('、', '')
+        utt_pred_generate = speech_recognizer.transcribe(str(generate_data_path))['text'].replace('。', '').replace('、', '')
+        utt_parse = mecab.parse(utt)
+        utt_pred_gt_parse = mecab.parse(utt_pred_gt)
+        utt_pred_abs_parse = mecab.parse(utt_pred_abs)
+        utt_pred_generate_parse = mecab.parse(utt_pred_generate)
+        wer_gt = np.clip(wer(utt_parse, utt_pred_gt_parse), a_min=0, a_max=1)
+        wer_abs = np.clip(wer(utt_parse, utt_pred_abs_parse), a_min=0, a_max=1)
+        wer_generate = np.clip(wer(utt_parse, utt_pred_generate_parse), a_min=0, a_max=1)
+        utt_p = pyopenjtalk.g2p(utt)
+        utt_pred_gt_p = pyopenjtalk.g2p(utt_pred_gt)
+        utt_pred_abs_p = pyopenjtalk.g2p(utt_pred_abs)
+        utt_pred_generate_p = pyopenjtalk.g2p(utt_pred_generate)
+        per_gt = np.clip(wer(utt_p, utt_pred_gt_p), a_min=0, a_max=1)
+        per_abs = np.clip(wer(utt_p, utt_pred_abs_p), a_min=0, a_max=1)
+        per_generate = np.clip(wer(utt_p, utt_pred_generate_p), a_min=0, a_max=1)
+        wer_gt_list.append(wer_gt)
+        wer_abs_list.append(wer_abs)
+        wer_generate_list.append(wer_generate)
+        per_gt_list.append(per_gt)
+        per_abs_list.append(per_abs)
+        per_generate_list.append(per_generate)
+
+        print(f'--- iter {i} ---')
+        print(f'utt = {utt}')
+        print(f'pesq_abs = {pesq_abs}')
+        print(f'pesq_generate = {pesq_generate}')
+        print(f'stoi_abs = {stoi_abs}')
+        print(f'stoi_generate = {stoi_generate}')
+        print(f'estoi_abs = {estoi_abs}')
+        print(f'estoi_generate = {estoi_generate}')
+        print(f'wer_gt = {wer_gt}')
+        print(f'wer_abs = {wer_abs}')
+        print(f'wer_generate = {wer_generate}')
+        print(f'per_gt = {per_gt}')
+        print(f'per_abs = {per_abs}')
+        print(f'per_generate = {per_generate}')
+        print('')
+
+    pesq_abs = np.mean(pesq_abs_list)
+    pesq_generate = np.mean(pesq_generate_list)
+    stoi_abs = np.mean(stoi_abs_list)
+    stoi_generate = np.mean(stoi_generate_list)
+    estoi_abs = np.mean(estoi_abs_list)
+    estoi_generate = np.mean(estoi_generate_list)
+    wer_gt = np.mean(wer_gt_list)
+    wer_abs = np.mean(wer_abs_list)
+    wer_generate = np.mean(wer_generate_list)
+    per_gt = np.mean(per_gt_list)
+    per_abs = np.mean(per_abs_list)
+    per_generate = np.mean(per_generate_list)
+
+    file_name = save_path / f"{filename}.txt"
+    with open(str(file_name), "a") as f:
+        f.write("--- Objective Evaluation Metrics ---\n")
+        f.write(f'speaker = {speaker}\n')
+        f.write(f"pesq_abs = {pesq_abs:f}\n")
+        f.write(f"pesq_generate = {pesq_generate:f}\n")
+        f.write(f"stoi_abs = {stoi_abs:f}\n")
+        f.write(f"stoi_generate = {stoi_generate:f}\n")
+        f.write(f"estoi_abs = {estoi_abs:f}\n")
+        f.write(f"estoi_generate = {estoi_generate:f}\n")
+        f.write(f'wer_gt = {wer_gt * 100:f}%\n')
+        f.write(f'wer_abs = {wer_abs * 100:f}%\n')
+        f.write(f'wer_generate = {wer_generate * 100:f}%\n')
+        f.write(f'per_gt = {per_gt * 100:f}%\n')
+        f.write(f'per_abs = {per_abs * 100:f}%\n')
+        f.write(f'per_generate = {per_generate * 100:f}%\n')
+        f.write('\n')
 
 
 def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
@@ -87,7 +236,6 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                     print(f"\niter_cnt : {iter_cnt}")
                     wav_gen, fs = torchaudio.load(os.path.join(curdir, file))
                     wav_in, fs = torchaudio.load(os.path.join(curdir, "input.wav"))
-
                     wav_gen = wav_gen.squeeze(0)
                     wav_in = wav_in.squeeze(0)
 
@@ -309,42 +457,6 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
 
             f.write('\n')
                     
-
-def calc_accuracy_vc(cfg, data_root_same, data_root_mix):
-    data_path_same = list(sorted(data_root_same.glob("*/*generate.wav")))
-    data_path_mix = list(sorted(data_root_mix.glob("*/*generate.wav")))
-
-    fft_size = 512
-    mcep_size = 34
-    alpha = 0.65
-
-    mcd_list = []
-    iter_cnt = 0
-
-    for p_s, p_m in zip(data_path_same, data_path_mix):
-        iter_cnt += 1
-        print(f"iter_cnt : {iter_cnt}")
-        wav_same, fs = librosa.load(str(p_s), sr=cfg.model.sampling_rate, mono=True)
-        wav_mix, fs = librosa.load(str(p_m), sr=cfg.model.sampling_rate, mono=True)
-
-        _, sp_same, _ = pyworld.wav2world(wav_same.astype(np.double), fs=cfg.model.sampling_rate, frame_period=cfg.model.frame_period, fft_size=fft_size)
-        mgc_same = pysptk.sptk.mcep(sp_same, order=mcep_size, alpha=alpha, maxiter=0, etype=1, eps=1.0E-8, min_det=0.0, itype=3)    # (T, C)
-        _, sp_mix, _ = pyworld.wav2world(wav_mix.astype(np.double), fs=cfg.model.sampling_rate,frame_period=cfg.model.frame_period, fft_size=fft_size)
-        mgc_mix = pysptk.sptk.mcep(sp_mix, order=mcep_size, alpha=alpha, maxiter=0, etype=1, eps=1.0E-8, min_det=0.0, itype=3)
-
-        ref_frame_no = len(mgc_same)
-        min_cost, wp = librosa.sequence.dtw(mgc_same[:, 1:].T, mgc_mix[:, 1:].T)
-        mcd = melcd(mgc_same[wp[:,0]], mgc_mix[wp[:,1]] , lengths=None)
-        mcd_list.append(mcd)
-        print(f"mcd = {mcd}")
-
-    mcd = sum(mcd_list) / len(mcd_list)
-
-    save_path = data_root_same.parents[2] / "accuracy.txt"
-    with open(str(save_path), "a") as f:
-        f.write(f"{data_root_same.parents[1].name}\n")
-        f.write(f"mcd = {mcd:f}dB\n")
-
 
 def calc_mean(result_file_path):
     with open(str(result_file_path), 'r') as f:

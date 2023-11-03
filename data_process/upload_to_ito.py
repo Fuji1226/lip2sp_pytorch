@@ -15,17 +15,16 @@ def progress(filename, size, sent):
 
 
 def main():
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--toFolder')
-    argparser.add_argument('--fromFolder')
-    args = argparser.parse_args()
+    # argparser = argparse.ArgumentParser()
+    # argparser.add_argument('--toFolder')
+    # argparser.add_argument('--fromFolder')
+    # args = argparser.parse_args()
+    # to_folder = args.toFolder 
+    # from_folder = args.fromFolder
 
     hostname = 'ito'
-    to_folder = args.toFolder
-    from_folder = args.fromFolder
-
-    print(f'to_folder = {to_folder}')
-    print(f'from_folder = {from_folder}')
+    to_folder = '/home/usr4/r70264c/dataset/lip'
+    from_folder = '/home/minami/dataset/lip/avhubert_feature_ja_2023:10:12_19-34-33'
 
     config_file = os.path.expanduser('~/.ssh/config')
     ssh_config = paramiko.SSHConfig()

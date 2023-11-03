@@ -107,7 +107,7 @@ tc_kernel_size : 5
 which_encoder : "gru"
 
 # 使用するdecoder
-which_decoder : "tacotron"
+which_decoder : "restc"
 
 # audio encoder
 ae_emb_dim : 16
@@ -204,7 +204,7 @@ taco_dec_n_layers : 2
 taco_dec_hidden_channels : 512
 taco_dec_conv_channels : 32
 taco_dec_conv_kernel_size : 31
-taco_use_attention : True
+taco_use_attention : False
 taco_enc_hidden_channels : 512
 taco_enc_conv_n_layers : 3
 taco_enc_conv_kernel_size : 5

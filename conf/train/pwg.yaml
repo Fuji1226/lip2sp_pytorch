@@ -15,8 +15,8 @@ debug_iter : 10
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_200.ckpt"
 use_disc : True
-start_gan_training_pretrained_gen : False
-gen_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:30_15-38-44/mspec80_300.ckpt"
+start_gan_training_pretrained_gen : True
+gen_path : "~/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:11_19-43-11/15.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
@@ -59,13 +59,10 @@ face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_
 avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
 avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
 
-# 
+# kablab
 audio_dir : '~/dataset/lip/wav'
 avhubert_preprocess_fps25_video_dir : '~/dataset/lip/avhubert_preprocess_fps25'
 kablab_df_path : '~/dataset/lip/data_split_csv/kablab.csv'
-hifi_captain_df_path : '~/dataset/lip/data_split_csv/hifi_captain.csv'
-hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
-hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
 
 # 外部データの指定
 which_external_data : ""
@@ -95,6 +92,14 @@ jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 # jvs corpus
 use_jvs_corpus : False
 jvs_path_train : "~/dataset/lip/np_files/jvs/train"
+jvs_df_path : '~/dataset/lip/data_split_csv/jvs.csv'
+jvs_data_dir : '~/dataset/jvs_ver1'
+
+# hifi-captain
+use_hifi_captain : False
+hifi_captain_df_path : '~/dataset/lip/data_split_csv/hifi_captain.csv'
+hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
+hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]

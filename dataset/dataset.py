@@ -14,6 +14,7 @@ from torchvision import transforms as T
 from dataset.utils import (
     get_spk_emb, 
     get_spk_emb_hifi_captain,
+    get_spk_emb_jvs,
 )
 from data_process.transform import load_data
 
@@ -31,6 +32,7 @@ class DatasetWithExternalDataRaw(Dataset):
         self.cfg = cfg
         self.embs = get_spk_emb(cfg)
         self.embs.update(get_spk_emb_hifi_captain())
+        self.embs.update(get_spk_emb_jvs())
 
         lip_mean = np.array([cfg.model.avhubert_lip_mean])
         lip_std = np.array([cfg.model.avhubert_lip_std])
