@@ -9,8 +9,8 @@ debug_max_epoch : 200
 debug_iter : 10
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/default/lip_128128/2022:07:20_13-10-21/world_melfb_100.ckpt"
+check_point_start : True
+start_ckpt_path : "/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/test/mspec80_330.ckpt"
 
 # face or lip
 face_or_lip : "face"
