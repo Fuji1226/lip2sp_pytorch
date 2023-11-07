@@ -178,8 +178,7 @@ class Lip2SP(nn.Module):
         prev, out, dec_output : (B, C, T)
         """
         # 推論時にdecoderでインスタンスとして保持されていた結果の初期化
-        breakpoint()
-    
+  
         # encoder
         if self.apply_first_bn:
             lip = self.first_batch_norm(lip)
