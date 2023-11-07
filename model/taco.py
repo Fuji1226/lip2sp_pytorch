@@ -320,6 +320,7 @@ class TacotronDecoder(nn.Module):
         output_list = []
         logit_list = []
         att_w_list = []
+        att_c_list = []
         t = 0
 
         # if feature_target is not None:
@@ -362,6 +363,7 @@ class TacotronDecoder(nn.Module):
             output_list.append(output)
             logit_list.append(logit)
             att_w_list.append(att_w)
+            att_c_list.append(att_c)
 
             # if feature_target is not None:
             #     prev_out = feature_target[:, t, :]
@@ -402,10 +404,11 @@ class TacotronDecoder(nn.Module):
         logit = torch.cat(logit_list, dim=-1)   # (B, T)
 
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
+        att_c = torch.stack(att_c_list, dim=1) # (B, T, C)
         
         if not use_stop_token:
             if vq is None:
-                return output, logit, att_w #(B, mel, T) (B, T)
+                return output, logit, att_w, att_c #(B, mel, T) (B, T)
             else:
                 return output, logit, att_w, step_vq_loss, step_perplexity 
         else:
