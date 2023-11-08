@@ -109,6 +109,7 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         self.path_text_label_list = get_utt_label(data_path, cfg)
         
         self.av_huvert_path = Path(cfg.train.avhubert_path)
+        self.att_c_path = Path(cfg.train.att_c_path)
         print(f"n = {self.__len__()}")
     
     def __len__(self):
@@ -127,6 +128,11 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         av_huvert_path = self.av_huvert_path / f'{av_hubert_label}.npy'
         av_huvert = np.load(str(av_huvert_path))
         av_huvert = torch.from_numpy(av_huvert)
+        
+        att_c_path = self.att_c_path / f'{label}.npz'
+        att_c = np.load(str(att_c_path))
+        att_c = torch.from_numpy(att_c)
+        
 
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
