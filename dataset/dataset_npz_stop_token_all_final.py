@@ -124,10 +124,10 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         speaker = torch.tensor(self.speaker_idx[speaker])
         label = data_path.stem
     
-        av_hubert_label = label.replace('_0_mspec80', '')
-        av_huvert_path = self.av_huvert_path / f'{av_hubert_label}.npy'
-        av_huvert = np.load(str(av_huvert_path))
-        av_huvert = torch.from_numpy(av_huvert)
+        # av_hubert_label = label.replace('_0_mspec80', '')
+        # av_huvert_path = self.av_huvert_path / f'{av_hubert_label}.npy'
+        # av_huvert = np.load(str(av_huvert_path))
+        # av_huvert = torch.from_numpy(av_huvert)
         
         att_c_path = self.att_c_path / f'{label}.npz'
         att_c = np.load(str(att_c_path))['att_c']
@@ -177,7 +177,7 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         output['text'] = text
         output['text_len'] = text_len
         output['lip_len'] = lip_len
-        output['av_hubert'] = av_huvert
+        #output['av_hubert'] = av_huvert
         output['att_c'] = att_c
         
         return output
@@ -414,7 +414,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     text_len = [sample['text_len'] for sample in batch]
     lip_len = [sample['lip_len'] for sample in batch]
     label = [sample['label'] for sample in batch]
-    av_hubert = [sample['av_hubert'] for sample in batch]
+    #av_hubert = [sample['av_hubert'] for sample in batch]
     att_c = [sample['att_c'] for sample in batch]
     
     wav = adjust_max_data_len(wav)
@@ -422,7 +422,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     feature = adjust_max_data_len(feature)
     text = adjust_max_data_len(text)
     stop_tokens = adjust_max_data_len(stop_tokens)
-    av_hubert = adjust_max_data_len_avhubert(av_hubert)
+    #av_hubert = adjust_max_data_len_avhubert(av_hubert)
     att_c = adjust_max_data_len_avhubert(att_c)
     
     wav = torch.stack(wav)
@@ -433,7 +433,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     text = torch.stack(text)
     lip_len = torch.stack(lip_len)
     text_len = torch.stack(text_len)
-    av_hubert = torch.stack(av_hubert)
+    #av_hubert = torch.stack(av_hubert)
     att_c = torch.stack(att_c)
 
 
@@ -448,7 +448,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     output['text'] = text
     output['lip_len'] = lip_len
     output['text_len'] = text_len
-    output['av_hubert'] = av_hubert
+    #output['av_hubert'] = av_hubert
     output['att_c'] = att_c
 
     return output
@@ -465,7 +465,7 @@ def collate_test_all_lipread_final(batch):
     text_len = [sample['text_len'] for sample in batch]
     lip_len = [sample['lip_len'] for sample in batch]
     label = [sample['label'] for sample in batch]
-    av_hubert = [sample['av_hubert'] for sample in batch]
+    #av_hubert = [sample['av_hubert'] for sample in batch]
     att_c = [sample['att_c'] for sample in batch]
     
     wav = torch.stack(wav)
@@ -476,7 +476,7 @@ def collate_test_all_lipread_final(batch):
     text = torch.stack(text)
     lip_len = torch.stack(lip_len)
     text_len = torch.stack(text_len)
-    av_hubert = torch.stack(av_hubert)
+    #av_hubert = torch.stack(av_hubert)
     att_c = torch.stack(att_c)
     
     output = {}
@@ -490,7 +490,7 @@ def collate_test_all_lipread_final(batch):
     output['text'] = text
     output['lip_len'] = lip_len
     output['text_len'] = text_len
-    output['av_hubert'] = av_hubert
+    #output['av_hubert'] = av_hubert
     output['att_c'] = att_c
 
     return output
