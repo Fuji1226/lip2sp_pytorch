@@ -17,7 +17,7 @@ from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_taco_dict
 
 from utils import  make_train_val_loader_stop_token_all, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att, make_test_loader_dict
-from model.model_trans_taco_lipread_hybrid import Lip2SP
+from model.model_pretrain_lmmodel import LMModel
 from loss import MaskedLoss
 
 from utils import make_train_val_loader_final, make_test_loader_final
@@ -74,39 +74,7 @@ def make_pad_mask_stop_token(lengths, max_len):
     return mask
 
 def make_model(cfg, device):
-    model = Lip2SP(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        res_layers=cfg.model.res_layers,
-        res_inner_channels=cfg.model.res_inner_channels,
-        norm_type=cfg.model.norm_type_lip,
-        d_model=cfg.model.d_model,
-        n_layers=cfg.model.n_layers,
-        n_head=cfg.model.n_head,
-        dec_n_layers=cfg.model.dec_n_layers,
-        dec_d_model=cfg.model.dec_d_model,
-        conformer_conv_kernel_size=cfg.model.conformer_conv_kernel_size,
-        glu_inner_channels=cfg.model.glu_inner_channels,
-        glu_layers=cfg.model.glu_layers,
-        glu_kernel_size=cfg.model.glu_kernel_size,
-        feat_add_channels=cfg.model.tc_feat_add_channels,
-        feat_add_layers=cfg.model.tc_feat_add_layers,
-        n_speaker=len(cfg.train.speaker),
-        spk_emb_dim=cfg.model.spk_emb_dim,
-        pre_inner_channels=cfg.model.pre_inner_channels,
-        post_inner_channels=cfg.model.post_inner_channels,
-        post_n_layers=cfg.model.post_n_layers,
-        n_position=cfg.model.length * 5,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        apply_first_bn=cfg.train.apply_first_bn,
-        multi_task=cfg.train.multi_task,
-        add_feat_add=cfg.train.add_feat_add,
-        dec_dropout=cfg.train.dec_dropout,
-        res_dropout=cfg.train.res_dropout,
-        reduction_factor=cfg.model.reduction_factor,
-        use_gc=cfg.train.use_gc,
-    )
+    model = LMModel()
     
     # multi GPU
     if torch.cuda.device_count() > 1:
@@ -118,9 +86,6 @@ def make_model(cfg, device):
 def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
     
     sum_loss = {}
-    sum_loss['epoch_output_loss'] = 0
-    sum_loss['epoch_dec_output_loss'] = 0
-    sum_loss['epoch_stop_token_loss'] = 0
     sum_loss['epoch_ctc_loss'] = 0
     sum_loss['epoch_lm_loss'] = 0
     grad_cnt = 0
@@ -134,37 +99,21 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     for batch in train_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
-
-        lip = batch['lip'].to(device)
-        feature = batch['feature'].to(device)
-        data_len = batch['data_len'].to(device)
-        target_stop_token = batch['stop_tokens'].to(device)
+        att_c = batch['att_c'].to(device)
         phoneme_index_output = batch['text'].to(device)[:, 1:]
         lip_len = batch['lip_len'].to(device)
         text_len = batch['text_len'].to(device) -1 
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        all_output = model(lip=lip, prev=feature, data_len=data_len, input_len=lip_len, text=phoneme_index_output, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)
-        
-        output = all_output['output']
-        dec_output = all_output['dec_output']
-        logit = all_output['logit']
+        all_output = model(att_c=att_c, text=phoneme_index_output, input_len=lip_len)
+
+
         ctc_output = all_output['ctc_output']
         lm_output = all_output['lm_output']
-        B, C, T = output.shape
-    
-        output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
-        dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
-        
-        logit_mask = 1.0 - make_pad_mask_stop_token(data_len, feature.shape[-1]).to(torch.float32)
-        logit_mask = logit_mask.to(torch.bool)
-        logit = torch.masked_select(logit, logit_mask)
-        stop_token = torch.masked_select(target_stop_token, logit_mask)
-        stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
         
         ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
-        input_lens = torch.full((lip.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
+        input_lens = torch.full((att_c.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
         ctc_loss = F.ctc_loss(ctc_output, phoneme_index_output, input_lengths=input_lens, target_lengths=text_len, blank=IGNORE_INDEX)
         
         
@@ -172,19 +121,12 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         lm_loss = F.cross_entropy(lm_output.reshape(b_size*t_size, -1), phoneme_index_output.reshape(-1), ignore_index=0)
         
         if cfg.train.gradient_accumulation_steps > 1:
-            output_loss = output_loss / cfg.train.gradient_accumulation_steps
-            dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
-            stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
             ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
             lm_loss = lm_loss / cfg.train.gradient_accumulation_steps
             
-        loss = output_loss + dec_output_loss + stop_token_loss + ctc_loss + lm_loss
+        loss = ctc_loss + lm_loss
         loss.backward()
-        sum_loss['epoch_output_loss'] += output_loss.item()
-        wandb.log({"train_output_loss": output_loss})
-        sum_loss['epoch_dec_output_loss'] += dec_output_loss.item()
-        wandb.log({"train_dec_output_loss": dec_output_loss})
-        sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
+
         sum_loss['epoch_ctc_loss'] += ctc_loss.item()
         sum_loss['epoch_lm_loss'] += lm_loss.item()
         
@@ -199,27 +141,11 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             if cfg.debug:
                 break
             
-        
-        if cfg.train.debug:
-            if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
-                break
-        
-       
-        if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
-        
-        del lip, feature, data_len, output, dec_output
         gc.collect()
         torch.cuda.empty_cache()
         plt.clf()
         plt.close()
-        
-    sum_loss['epoch_output_loss'] /= grad_cnt
-    sum_loss['epoch_dec_output_loss'] /= grad_cnt
-    sum_loss['epoch_stop_token_loss'] /= grad_cnt
+ 
     sum_loss['epoch_ctc_loss'] /= grad_cnt
     sum_loss['epoch_lm_loss'] /= grad_cnt
     return sum_loss 
@@ -227,9 +153,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
 
 def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     sum_loss = {}
-    sum_loss['epoch_output_loss'] = 0
-    sum_loss['epoch_dec_output_loss'] = 0
-    sum_loss['epoch_stop_token_loss'] = 0
     sum_loss['epoch_ctc_loss'] = 0
     sum_loss['epoch_lm_loss'] = 0
     grad_cnt = 0
@@ -243,73 +166,42 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         for batch in val_loader:
             iter_cnt += 1
             print(f'iter {iter_cnt}/{all_iter}')
-
-            lip = batch['lip'].to(device)
-            feature = batch['feature'].to(device)
-            data_len = batch['data_len'].to(device)
-            target_stop_token = batch['stop_tokens'].to(device)
+            att_c = batch['att_c'].to(device)
             phoneme_index_output = batch['text'].to(device)[:, 1:]
             lip_len = batch['lip_len'].to(device)
             text_len = batch['text_len'].to(device) -1 
             
-                    
-            all_output = model(lip=lip, prev=feature, data_len=data_len, text=phoneme_index_output, input_len=lip_len, training_method=training_method, mixing_prob=mixing_prob, use_stop_token=True)            
+            # output : postnet後の出力
+            # dec_output : postnet前の出力
+            all_output = model(att_c=att_c, text=phoneme_index_output, input_len=lip_len)
 
-            output = all_output['output']
-            dec_output = all_output['dec_output']
-            logit = all_output['logit']
+
             ctc_output = all_output['ctc_output']
             lm_output = all_output['lm_output']
             
-            B, C, T = output.shape
-            output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T)
-            dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
-
-            logit_mask = 1.0 - make_pad_mask_stop_token(data_len, feature.shape[-1]).to(torch.float32)
-            logit_mask = logit_mask.to(torch.bool)
-            logit = torch.masked_select(logit, logit_mask)
-            stop_token = torch.masked_select(target_stop_token, logit_mask)
-            stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
-            
             ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
-            input_lens = torch.full((lip.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
+            input_lens = torch.full((att_c.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
             ctc_loss = F.ctc_loss(ctc_output, phoneme_index_output, input_lengths=input_lens, target_lengths=text_len, blank=IGNORE_INDEX)
+            
             
             b_size, t_size, _ = lm_output.shape
             lm_loss = F.cross_entropy(lm_output.reshape(b_size*t_size, -1), phoneme_index_output.reshape(-1), ignore_index=0)
+
             
             if cfg.train.gradient_accumulation_steps > 1:
-                output_loss = output_loss / cfg.train.gradient_accumulation_steps
-                dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
-                stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
                 ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
                 lm_loss = lm_loss / cfg.train.gradient_accumulation_steps
                 
-            loss = output_loss + dec_output_loss + stop_token_loss + ctc_loss + lm_loss
+            loss = ctc_loss + lm_loss
             
-            sum_loss['epoch_output_loss'] += output_loss.item()
-            sum_loss['epoch_dec_output_loss'] += dec_output_loss.item()
-            sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
             sum_loss['epoch_ctc_loss'] += ctc_loss.item()
             sum_loss['epoch_lm_loss'] += lm_loss.item()
 
-            if cfg.train.debug:
-                if iter_cnt > cfg.train.debug_iter:
-                    if cfg.model.name == "mspec80":
-                        check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                    break
             if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
                 grad_cnt += 1
                 if cfg.debug:
                     break
-            if iter_cnt % (all_iter - 1) == 0:
-                if cfg.model.name == "mspec80":
-                    check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                    
-    grad_cnt = int(iter_cnt/cfg.train.gradient_accumulation_steps)
-    sum_loss['epoch_output_loss'] /= grad_cnt
-    sum_loss['epoch_dec_output_loss'] /= grad_cnt
-    sum_loss['epoch_stop_token_loss'] /= grad_cnt
+
     sum_loss['epoch_ctc_loss'] /= grad_cnt
     sum_loss['epoch_lm_loss'] /= grad_cnt
     return sum_loss
@@ -375,15 +267,9 @@ def main(cfg):
     
     # 損失関数
     loss_f = MaskedLoss()
-    train_output_loss_list = []
-    train_dec_output_loss_list = []
-    train_stop_token_loss_list = []
     train_ctc_loss_list = []
     train_lm_loss_list = []
-    
-    val_output_loss_list = []
-    val_dec_output_loss_list = []
-    val_stop_token_loss_list = []
+
     val_ctc_loss_list = []
     val_lm_loss_list = []
     
@@ -489,9 +375,6 @@ def main(cfg):
                 ckpt_time=ckpt_time,
                 scheduler=scheduler
             )
-            train_output_loss_list.append(train_sum_loss['epoch_output_loss'])
-            train_dec_output_loss_list.append(train_sum_loss['epoch_dec_output_loss'])
-            train_stop_token_loss_list.append(train_sum_loss['epoch_stop_token_loss'])
             train_ctc_loss_list.append(train_sum_loss['epoch_ctc_loss'])
             train_lm_loss_list.append(train_sum_loss['epoch_lm_loss'])
 
@@ -506,9 +389,7 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 ckpt_time=ckpt_time,
             )
-            val_output_loss_list.append(val_sum_loss['epoch_output_loss'])
-            val_dec_output_loss_list.append(val_sum_loss['epoch_dec_output_loss'])
-            val_stop_token_loss_list.append(val_sum_loss['epoch_stop_token_loss'])
+
             val_ctc_loss_list.append(val_sum_loss['epoch_ctc_loss'])
             val_lm_loss_list.append(val_sum_loss['epoch_lm_loss'])
         
