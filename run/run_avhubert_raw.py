@@ -267,6 +267,8 @@ def run_ar(
     avhubert_encoder_attention_heads,
     avhubert_audio_pretrain,
     prenet_dropout,
+    use_attention,
+    taco_dec_conv_kernel_size,
     debug,
     wandb_conf,
     subject,
@@ -316,6 +318,8 @@ def run_ar(
             f'model.avhubert_config.base.encoder_attention_heads={avhubert_encoder_attention_heads}',
             f'model.avhubert_audio_pretrain={avhubert_audio_pretrain}',
             f'model.taco_lip_prenet_dropout={prenet_dropout}',
+            f'model.taco_use_attention={use_attention}',
+            f'model.taco_dec_conv_kernel_size={taco_dec_conv_kernel_size}',
         ],
         subject=subject,
         body=f'finish {run_filename_train}. {message}'
@@ -364,6 +368,8 @@ def run_ar(
             f'model.avhubert_config.base.encoder_attention_heads={avhubert_encoder_attention_heads}',
             f'model.avhubert_audio_pretrain={avhubert_audio_pretrain}',
             f'model.taco_lip_prenet_dropout={prenet_dropout}',
+            f'model.taco_use_attention={use_attention}',
+            f'model.taco_dec_conv_kernel_size={taco_dec_conv_kernel_size}',
             f'test.model_path={get_last_checkpoint_path(checkpoint_dir)}',
             f'test.metric_for_select={metric_for_select}',
             f'test.speaker={speaker}',
@@ -833,50 +839,61 @@ def experiments_ar_decoder():
     prenet_dropout_list = [
         0.5,
     ]
+    training_method_list = [
+        'teacher_forcing',
+        # 'scheduled_sampling',
+    ]
+    use_attention_list = [True]
+    taco_dec_conv_kernel_size_list = [75, 125]
     for training_param in training_param_list:
         for data in data_list:
             for which_decoder in which_decoder_list:
                 for avhubert_layer_loaded in avhubert_layer_loaded_list:
                     for prenet_dropout in prenet_dropout_list:
-                        # load pretrained avhubert. finetuning all layers.
-                        run_ar(
-                            checkpoint_dir=Path('~/lip2sp_pytorch/check_point/ar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                            result_dir=Path('~/lip2sp_pytorch/result/ar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                            run_filename_train='train_ar_with_ex_avhubert_raw.py',
-                            run_filename_generate='generate_ar_with_ex_raw.py',
-                            metric_for_select='val_loss_list',
-                            use_spatial_aug=True,
-                            use_time_masking=True,
-                            module_is_fixed=[],
-                            use_jsut_corpus=False,
-                            use_jvs_corpus=False,
-                            lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
-                            corpus=data['corpus'],
-                            speaker=data['speaker'],
-                            which_decoder=which_decoder,
-                            which_scheduler=training_param['which_scheduler'],
-                            lr_decay_exp=training_param['lr_decay_exp'],
-                            max_epoch=training_param['max_epoch'],
-                            avhubert_return_res_output=False,
-                            load_avhubert_pretrained_weight=True,
-                            avhubert_layer_loaded=avhubert_layer_loaded,
-                            use_avhubert_video_modality=True,
-                            use_avhubert_audio_modality=False,
-                            use_avhubert_encoder=True,
-                            check_point_start_separate_save_dir=False,
-                            start_ckpt_path_separate_save_dir='',
-                            training_method='scheduled_sampling',
-                            avhubert_encoder_embed_dim=768,
-                            avhubert_encoder_layers=12,
-                            avhubert_encoder_ffn_embed_dim=3072,
-                            avhubert_encoder_attention_heads=12,
-                            avhubert_audio_pretrain=False,
-                            prenet_dropout=prenet_dropout,
-                            debug=debug,
-                            wandb_conf=wandb_conf,
-                            subject=subject,
-                            message='load pretrained avhubert, finetuning all layers.'
-                        )
+                        for training_method in training_method_list:
+                            for use_attention in use_attention_list:
+                                for taco_dec_conv_kernel_size in taco_dec_conv_kernel_size_list:
+                                    # load pretrained avhubert. finetuning all layers.
+                                    run_ar(
+                                        checkpoint_dir=Path('~/lip2sp_pytorch/check_point/ar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                                        result_dir=Path('~/lip2sp_pytorch/result/ar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                                        run_filename_train='train_ar_with_ex_avhubert_raw.py',
+                                        run_filename_generate='generate_ar_with_ex_raw.py',
+                                        metric_for_select='val_loss_list',
+                                        use_spatial_aug=True,
+                                        use_time_masking=True,
+                                        module_is_fixed=[],
+                                        use_jsut_corpus=False,
+                                        use_jvs_corpus=False,
+                                        lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                                        corpus=data['corpus'],
+                                        speaker=data['speaker'],
+                                        which_decoder=which_decoder,
+                                        which_scheduler=training_param['which_scheduler'],
+                                        lr_decay_exp=training_param['lr_decay_exp'],
+                                        max_epoch=training_param['max_epoch'],
+                                        avhubert_return_res_output=False,
+                                        load_avhubert_pretrained_weight=True,
+                                        avhubert_layer_loaded=avhubert_layer_loaded,
+                                        use_avhubert_video_modality=True,
+                                        use_avhubert_audio_modality=False,
+                                        use_avhubert_encoder=True,
+                                        check_point_start_separate_save_dir=False,
+                                        start_ckpt_path_separate_save_dir='',
+                                        training_method=training_method,
+                                        avhubert_encoder_embed_dim=768,
+                                        avhubert_encoder_layers=12,
+                                        avhubert_encoder_ffn_embed_dim=3072,
+                                        avhubert_encoder_attention_heads=12,
+                                        avhubert_audio_pretrain=False,
+                                        prenet_dropout=prenet_dropout,
+                                        use_attention=use_attention,
+                                        taco_dec_conv_kernel_size=taco_dec_conv_kernel_size,
+                                        debug=debug,
+                                        wandb_conf=wandb_conf,
+                                        subject=subject,
+                                        message='load pretrained avhubert, finetuning all layers.'
+                                    )
 
 
 def main():

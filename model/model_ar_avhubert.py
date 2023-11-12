@@ -70,7 +70,7 @@ class Attention(nn.Module):
         if prev_att_w is None:
             prev_att_w = 1.0 - make_pad_mask(lip_len, enc_output.shape[1]).squeeze(1).to(torch.float32)   # (B, T)
             prev_att_w = prev_att_w / lip_len.unsqueeze(1)
-
+    
         att_conv = self.loc_conv(prev_att_w.unsqueeze(1))     # (B, C, T)
         att_conv = att_conv.permute(0, 2, 1)    # (B, T, C)
         att_conv = self.fc_att(att_conv)    # (B, T, C)
@@ -485,15 +485,15 @@ class Lip2SP_AR_AVHubert(nn.Module):
 #         dec_atten_hidden_channels=cfg.model.taco_dec_atten_hidden_channels,
 #         prenet_hidden_channels=cfg.model.taco_dec_prenet_hidden_channels,
 #         prenet_inner_channels=cfg.model.taco_dec_prenet_inner_channels,
+#         prenet_dropout=cfg.model.taco_lip_prenet_dropout,
 #         lstm_n_layers=cfg.model.taco_dec_n_layers,
 #         post_inner_channels=cfg.model.post_inner_channels,
 #         post_n_layers=cfg.model.post_n_layers,
 #         post_kernel_size=cfg.model.post_kernel_size,
-#         use_attention=cfg.model.taco_use_attention,
+#         use_attention=True,
 #     )
-#     model.decoder.training_method = 'teacher_forcing'
-#     model.decoder.scheduled_sampling_thres = 0
-#     lip = torch.rand(1, 1, 88, 88, 250)
+#     model.decoder.training_method = cfg.train.training_method
+#     lip = torch.rand(2, 1, 88, 88, 250)
 #     feature = torch.rand(lip.shape[0], 80, lip.shape[-1] * cfg.model.reduction_factor)
 #     lip_len = torch.randint(100, 250, (lip.shape[0],))
 #     spk_emb = torch.rand(lip.shape[0], 256)

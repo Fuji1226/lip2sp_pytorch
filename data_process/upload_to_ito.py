@@ -24,7 +24,7 @@ def main():
 
     hostname = 'ito'
     to_folder = '/home/usr4/r70264c/dataset/lip'
-    from_folder = '/home/minami/dataset/lip/avhubert_feature_ja_2023:10:12_19-34-33'
+    from_folder = '/home/minami/dataset/lip/mel_npz'
 
     config_file = os.path.expanduser('~/.ssh/config')
     ssh_config = paramiko.SSHConfig()
