@@ -106,7 +106,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        all_output = model(att_c=att_c, text=phoneme_index_output, input_len=lip_len)
+        all_output = model(att_c=att_c, text=phoneme_index_output, input_len=lip_len, training=training_method, prob=mixing_prob)
 
 
         ctc_output = all_output['ctc_output']
@@ -173,7 +173,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             
             # output : postnet後の出力
             # dec_output : postnet前の出力
-            all_output = model(att_c=att_c, text=phoneme_index_output, input_len=lip_len)
+            all_output = model(att_c=att_c, text=phoneme_index_output, input_len=lip_len, training=training_method, prob=mixing_prob)
 
 
             ctc_output = all_output['ctc_output']
@@ -340,7 +340,7 @@ def main(cfg):
             else:
                 training_method = "ss"  # scheduled sampling
                 
-            training_method = cfg.method
+            training_method = 'ss'
 
             # mixing_probの変更
             if cfg.train.change_mixing_prob:

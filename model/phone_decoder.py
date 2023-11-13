@@ -75,7 +75,7 @@ class LMDecoder(nn.Module):
         self.att_matrix = None
 
 
-    def forward(self, enc_sequence, enc_lengths, label_sequence=None):
+    def forward(self, enc_sequence, enc_lengths, label_sequence=None, training='tf', prob=1.0):
         ''' ネットワーク計算(forward処理)の関数
         enc_sequence:   各発話のエンコーダ出力系列
                         [B x Tenc x Denc]
@@ -176,12 +176,21 @@ class LMDecoder(nn.Module):
             prev_rnnout = rnnout
             prev_h_c = h_c
             prev_att = att_weight
+            
             # トークンの更新
-    
             if label_sequence is not None:
                 # 学習時:
                 #  = 正解ラベルが与えられている場合はそれを用いる
-                prev_token = label_sequence[:,i].view(batch_size,1)
+                
+                if training=='tf':
+                    prev_token = label_sequence[:,i].view(batch_size,1)
+                else:
+                    judge = torch.bernoulli(torch.tensor(prob))
+                    
+                    if judge:
+                        prev_token = label_sequence[:,i].view(batch_size,1)
+                    else:
+                        _, prev_token = torch.max(out, 2)
             else:
                 # 評価時:
                 #  = 正解ラベルが与えられていない場合は，

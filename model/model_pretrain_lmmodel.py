@@ -85,7 +85,7 @@ class LMModel(nn.Module):
         # feat_add predicter
         self.ctc_output_layer = nn.Linear(256, 53)
 
-    def forward(self, att_c, text, input_len):
+    def forward(self, att_c, input_len, text=None, training='tf', prob=1.0):
         """
         lip : (B, C, H, W, T)
         prev, out, dec_output : (B, C, T)
@@ -98,7 +98,10 @@ class LMModel(nn.Module):
         #Lm Decoder
         lm_out = self.lm_decoder(enc_output,
                                 input_len,
-                                text)
+                                text,
+                                training,
+                                prob
+                                )
 
         output_dict = {}
         output_dict['ctc_output'] = ctc_output
