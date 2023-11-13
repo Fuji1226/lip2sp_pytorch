@@ -394,11 +394,13 @@ def main(cfg):
         # model
         model = make_model(cfg, device)
         
-        
         if cfg.from_tts.tts_name is not None:
             name = cfg.from_tts.tts_name
-            tts_path = cfg.from_tts[name]
+            tts_path = cfg.from_tts[name]['model']
             model = load_from_tts(model, tts_path)
+            
+            lm_path = cfg.from_tts[name]['lmmodel']
+            model = load_lmmodel(model, lm_path)
             
             print(f'load ckpt: {name}')
 
