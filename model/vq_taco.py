@@ -53,3 +53,31 @@ class VectorQuantizer(nn.Module):
         
         # convert quantized from BHWC -> BCHW
         return loss, quantized, perplexity, encodings
+    
+    
+    
+class Quantizer(nn.Module):
+    def __init__(self, num_embeddings,  embedding_dim):
+        super(Quantizer, self).__init__()
+        self.embedding_dim = embedding_dim
+        self.num_embeddings = num_embeddings
+
+        # Learnable parameters
+        self.codebook = nn.Parameter(torch.randn(num_embeddings, embedding_dim))
+        self.temperature = nn.Parameter(torch.tensor(1.0))
+
+    def forward(self, latent_representation):
+        # Calculate Gumbel noise
+    
+        # Apply Gumbel softmax to obtain discrete indices
+        logits = F.cosine_similarity(latent_representation.unsqueeze(1), self.codebook.unsqueeze(0), dim=-1) / self.temperature
+     
+        gumbel_noise = -torch.log(-torch.log(torch.rand_like(logits)))
+        logits += gumbel_noise
+        soft_indices = F.softmax(logits, dim=-1)
+        hard_indices = torch.argmax(soft_indices, dim=-1)
+     
+        # Quantized representation using hard indices
+        quantized_representation = self.codebook[hard_indices]
+
+        return quantized_representation

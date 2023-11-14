@@ -415,8 +415,7 @@ class TacotronDecoder(nn.Module):
             return output, logit, att_w, logit_list
 
 
-"""
-class TacotronDecoder(nn.Module):
+class TacotronDecoderWithQuantizer(nn.Module):
     def __init__(
         self, enc_channels, dec_channels, atten_conv_channels, atten_conv_kernel_size, atten_hidden_channels,
         rnn_n_layers, prenet_hidden_channels, prenet_n_layers, out_channels, reduction_factor, dropout, use_gc):
@@ -459,7 +458,13 @@ class TacotronDecoder(nn.Module):
         init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
         return init_hs
 
-    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False):
+    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False, mode='lip', vq=None):
+        """
+        enc_output : (B, T, C)
+        text_len : (B,)
+        feature_target : (B, C, T)
+        spk_emb : (B, C)
+        """
         #print(f'text len: {text_len}')
         if feature_target is not None:
             B, C, T = feature_target.shape
@@ -469,10 +474,20 @@ class TacotronDecoder(nn.Module):
             B = enc_output.shape[0]
             C = self.out_channels
 
+
         if feature_target is not None:
             max_decoder_time_step = feature_target.shape[1]
         else:
-            max_decoder_time_step = enc_output.shape[1]  * int(2//self.reduction_factor)
+            if mode=='lip':
+                max_decoder_time_step = enc_output.shape[1]
+            else:
+                max_decoder_time_step = 1000
+        
+        if feature_target is not None:
+            print(f'max step: {max_decoder_time_step} enc_ouput: {enc_output.shape}, feature:{feature_target.shape} ')
+        else:
+            print(f'max step: {max_decoder_time_step} enc_ouput: {enc_output.shape}, feature: None')
+
 
         mask = make_pad_mask(text_len, enc_output.shape[1]).squeeze(1)      # (B, T)
 
@@ -490,16 +505,23 @@ class TacotronDecoder(nn.Module):
         output_list = []
         logit_list = []
         att_w_list = []
+        att_c_list = []
         t = 0
 
-        # if feature_target is not None:
-        #     print(f'featue target: {feature_target.shape}')
-        #     print(f'training method: {training_method}')
+
+        no_att = True
+        
+        if mode=='tts':
+            no_att = False
         while True:
             att_c, att_w = self.attention(enc_output, text_len, h_list[0], prev_att_w, mask=mask)
-            #test attentionベクトルを固定
-            # enc_index = int(t//2)
-            # att_c = enc_output[:, enc_index, :]
+            
+            if vq is not None:
+                att_c = vq(att_c)
+   
+            if no_att:
+                enc_idx = int(t//2)
+                att_c = enc_output[:, enc_idx, :]
 
 
             prenet_out = self.prenet(prev_out)      # (B, C)
@@ -517,6 +539,7 @@ class TacotronDecoder(nn.Module):
             output_list.append(output)
             logit_list.append(logit)
             att_w_list.append(att_w)
+            att_c_list.append(att_c)
 
             # if feature_target is not None:
             #     prev_out = feature_target[:, t, :]
@@ -527,12 +550,16 @@ class TacotronDecoder(nn.Module):
                     prev_out = feature_target[:, t, :]
 
                 elif training_method == "ss":
+                    """
+                    mixing_prob = 1 : teacher forcing
+                    mixing_prob = 0 : using decoder prediction completely
+                    """
                     judge = torch.bernoulli(torch.tensor(mixing_prob))
                     if judge:
                         prev_out = feature_target[:, t, :]
                     else:
+                        #prev_out = output.clone().detach()
                         prev_out = output.clone().detach()
-                        #prev_out = output
             else:
                 prev_out = output
 
@@ -542,15 +569,18 @@ class TacotronDecoder(nn.Module):
 
             if t > max_decoder_time_step - 1:
                 break
+            if mode=='tts':
+                if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
+                    print('stop for logit')
+                    print(f'logit shape: {logit.shape}')
+                    break
 
         output = torch.cat(output_list, dim=1)  # (B, T, C)
         output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)
         logit = torch.cat(logit_list, dim=-1)   # (B, T)
 
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
+        att_c = torch.stack(att_c_list, dim=1) # (B, T, C)
 
-        if not use_stop_token:
-            return output, logit, att_w #(B, mel, T) (B, T)
-        else:
-            return output, logit, att_w, logit
-"""
+
+        return output, logit, att_w, att_c #(B, mel, T) (B, T)
