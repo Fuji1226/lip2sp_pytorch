@@ -11,8 +11,8 @@ class VectorQuantizer(nn.Module):
         
         self._embedding = nn.Embedding(self._num_embeddings, self._embedding_dim)
         self._embedding.weight.data.uniform_(-1/self._num_embeddings, 1/self._num_embeddings)
-        self._commitment_cost = commitment_cost
-    
+
+        self._commitment_cost = nn.Parameter(torch.Tensor([commitment_cost]))
         """_summary_
         text_lenによる長さを考慮した損失計算
 
