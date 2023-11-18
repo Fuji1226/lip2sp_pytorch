@@ -107,7 +107,7 @@ tc_kernel_size : 5
 which_encoder : "gru"
 
 # 使用するdecoder
-which_decoder : "tacotron"
+which_decoder : "restc"
 
 # audio encoder
 ae_emb_dim : 16
@@ -247,6 +247,7 @@ use_avhubert_video_modality : True
 use_avhubert_audio_modality : False
 transformer_decoder_num_layers : 6
 avhubert_audio_pretrain : False
+prompt_tuning: True
 avhubert_config:
   base:
     ckpt_path : '~/av_hubert_data/base_vox_iter5_torch.ckpt'
@@ -269,6 +270,11 @@ avhubert_config:
     activation_fn : 'gelu'
     layer_norm_first : True
     encoder_layerdrop : 0.05
+    use_soft_prompt: True
+    n_prompt_tokens: 10
+    use_prompt_block: True
+    prompt_block_kernel_size: 3
+    prompt_block_se_r: 16
   large:
     ckpt_path : '~/av_hubert_data/large_vox_iter5_torch.ckpt'
     resnet_relu_type : 'prelu'

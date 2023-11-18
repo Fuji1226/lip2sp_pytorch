@@ -117,7 +117,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 30
+max_epoch : 200
 
 # テキスト処理
 for_tts : False
@@ -170,7 +170,7 @@ beta_1 : 0.9
 beta_2 : 0.98
 weight_decay : 1.0e-2
 which_optim : 'adamw'
-which_scheduler : 'exp'
+which_scheduler : 'warmup'
 
 # scheduler
 lr_decay_rate : 0.5

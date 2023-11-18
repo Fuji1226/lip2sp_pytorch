@@ -374,7 +374,7 @@ def main(cfg):
                 checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["model"])
         
-        if len(cfg.train.module_is_fixed) != 0:
+        if len(cfg.train.module_is_fixed) != 0 or cfg.model.prompt_tuning:
             print('\n--- Fix Model Parameters ---')
             count_params(model, 'model')
 
@@ -385,6 +385,11 @@ def main(cfg):
                     set_requires_grad_by_name(model, lambda name: name.startswith('avhubert.encoder.'), requires_grad=False)
                 elif module == 'avhubert_resnet':
                     set_requires_grad_by_name(model, lambda name: not name.startswith('avhubert.encoder'), requires_grad=False)
+
+            if cfg.model.prompt_tuning:
+                for name, param in model.named_parameters():
+                    if not 'soft_prompt' in name and not 'prompt_block' in name:
+                        param.requires_grad = False
 
             print('--- Number of Learnable Parameters ---')
             count_params(model, 'model')

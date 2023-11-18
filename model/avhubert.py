@@ -82,14 +82,63 @@ def downsample_basic_block_v2( inplanes, outplanes, stride ):
             )
 
 
+class SELayer(nn.Module):
+    def __init__(
+            self,
+            in_channels,
+            r,
+    ):
+        super().__init__()
+        self.fc1 = nn.Linear(in_channels, in_channels // r)
+        self.fc2 = nn.Linear(in_channels // r, in_channels)
+
+    def forward(self, x):
+        '''
+        x : (B * T, C, H, W)
+        '''
+        z = torch.mean(x, dim=(2, 3))
+        s = torch.relu(self.fc1(z))
+        s = torch.sigmoid(self.fc2(s))
+        s = s.unsqueeze(-1).unsqueeze(-1)
+        x = x * s
+        return x
+
+
+class DepthwiseSeparableConv(nn.Module):
+    def __init__(
+            self,
+            in_channels,
+            hidden_channels,
+            kernel_size,
+            se_r,
+    ):
+        super().__init__()
+        padding = (kernel_size - 1) // 2
+        self.pointwise_conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1)
+        self.depthwise_conv = nn.Conv2d(hidden_channels, hidden_channels, kernel_size=kernel_size, padding=padding, groups=hidden_channels)
+        self.se_layer = SELayer(hidden_channels, se_r)
+        self.pointwise_conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=1)
+        self.scale = nn.Parameter(torch.tensor(1.0e-5))
+
+    def forward(self, x):
+        '''
+        x : (B * T, C, H, W)
+        '''
+        x = self.pointwise_conv1(x)
+        x = self.depthwise_conv(x)
+        x = self.se_layer(x)
+        x = self.pointwise_conv2(x)
+        x = x * self.scale
+        return x
+
+
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, relu_type = 'relu' ):
+    def __init__(self, inplanes, planes, cfg, stride=1, downsample=None, relu_type = 'relu' ):
         super(BasicBlock, self).__init__()
-
         assert relu_type in ['relu','prelu']
-
+        self.cfg = cfg
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
 
@@ -108,25 +157,40 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
+        if cfg.use_prompt_block:
+            self.prompt_block = DepthwiseSeparableConv(
+                in_channels=planes,
+                hidden_channels=planes,
+                kernel_size=cfg.prompt_block_kernel_size,
+                se_r=cfg.prompt_block_se_r,
+            )
+
+
     def forward(self, x):
+        '''
+        x : (B * T, C, H, W)
+        '''
         residual = x
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu1(out)
         out = self.conv2(out)
         out = self.bn2(out)
+
+        if self.cfg.use_prompt_block:
+            out = self.prompt_block(out)
+
         if self.downsample is not None:
             residual = self.downsample(x)
-
         out += residual
         out = self.relu2(out)
-
         return out
 
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=1000, relu_type = 'relu', gamma_zero = False, avg_pool_downsample = False):
+    def __init__(self, block, layers, cfg, num_classes=1000, relu_type = 'relu', gamma_zero = False, avg_pool_downsample = False):
+        self.cfg = cfg
         self.inplanes = 64
         self.relu_type = relu_type
         self.gamma_zero = gamma_zero
@@ -153,19 +217,19 @@ class ResNet(nn.Module):
                     m.bn2.weight.data.zero_()
 
     def _make_layer(self, block, planes, blocks, stride=1):
-
-
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = self.downsample_block( inplanes = self.inplanes, 
-                                                 outplanes = planes * block.expansion, 
-                                                 stride = stride )
+            downsample = self.downsample_block(
+                inplanes=self.inplanes,
+                outplanes=planes * block.expansion, 
+                stride=stride
+            )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, relu_type = self.relu_type))
+        layers.append(block(self.inplanes, planes, self.cfg, stride, downsample, relu_type = self.relu_type))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, relu_type = self.relu_type))
+            layers.append(block(self.inplanes, planes, self.cfg, relu_type = self.relu_type))
 
         return nn.Sequential(*layers)
 
@@ -180,8 +244,9 @@ class ResNet(nn.Module):
 
 
 class ResEncoder(nn.Module):
-    def __init__(self, relu_type, weights):
+    def __init__(self, relu_type, weights, cfg):
         super(ResEncoder, self).__init__()
+        self.cfg = cfg
         self.frontend_nout = 64
         self.backend_out = 512
         frontend_relu = nn.PReLU(num_parameters=self.frontend_nout) if relu_type == 'prelu' else nn.ReLU()
@@ -190,7 +255,7 @@ class ResEncoder(nn.Module):
             nn.BatchNorm3d(self.frontend_nout),
             frontend_relu,
             nn.MaxPool3d( kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)))
-        self.trunk = ResNet(BasicBlock, [2, 2, 2, 2], relu_type=relu_type)
+        self.trunk = ResNet(BasicBlock, [2, 2, 2, 2], cfg=cfg, relu_type=relu_type)
         if weights is not None:
             logger.info(f"Load {weights} for resnet")
             std = torch.load(weights, map_location=torch.device('cpu'))['model_state_dict']
@@ -204,11 +269,21 @@ class ResEncoder(nn.Module):
             self.frontend3D.load_state_dict(frontend_std)
             self.trunk.load_state_dict(trunk_std)
 
+        if cfg.use_prompt_block:
+            self.prompt_block = DepthwiseSeparableConv(
+                in_channels=self.frontend_nout,
+                hidden_channels=self.frontend_nout,
+                kernel_size=cfg.prompt_block_kernel_size,
+                se_r=cfg.prompt_block_se_r,
+            )
+
     def forward(self, x):
         B, C, T, H, W = x.size()
         x = self.frontend3D(x)
         Tnew = x.shape[2]
         x = self.threeD_to_2D_tensor(x)
+        if self.cfg.use_prompt_block:
+            x = self.prompt_block(x)
         x = self.trunk(x)
         x = x.view(B, Tnew, x.size(1))
         x = x.transpose(1, 2).contiguous()
@@ -1067,7 +1142,7 @@ def index_put(tensor, indices, value):
 class TransformerEncoder(nn.Module):
     def __init__(self, args):
         super().__init__()
-
+        self.args = args
         self.dropout = args.dropout
         self.embedding_dim = args.encoder_embed_dim
         self.pos_conv = nn.Conv1d(
@@ -1107,6 +1182,10 @@ class TransformerEncoder(nn.Module):
 
         self.apply(init_bert_params)
 
+        if args.use_soft_prompt:
+            self.soft_prompt = nn.Embedding(args.n_prompt_tokens, self.embedding_dim)
+            torch.nn.init.xavier_uniform_(self.soft_prompt.weight)
+
     def forward(self, x, padding_mask=None, layer=None):
         '''
         x : (B, T, C)
@@ -1126,6 +1205,16 @@ class TransformerEncoder(nn.Module):
             # onnxの変換でバグるので変更
             mask_int = padding_mask.unsqueeze(-1).expand(padding_mask.shape[0], padding_mask.shape[1], x.shape[-1]).to(dtype=torch.int, device=x.device)
             x -= x * mask_int
+
+        # concatenate prompt
+        if self.args.use_soft_prompt:
+            prompt = self.soft_prompt.weight.unsqueeze(0).repeat(x.shape[0], 1, 1)
+            x = torch.cat([prompt, x], dim=1)
+            # プロンプトを用いるため、マスクを更新（マスクがパディングされないようにする）
+            non_padded_length = torch.tensor([x.shape[1] - padding_mask[i].sum() for i in range(padding_mask.shape[0])]).to(device=x.device)
+            padding_mask = torch.arange(x.shape[1]).unsqueeze(1).to(device=x.device)
+            padding_mask = padding_mask >= non_padded_length
+            padding_mask = padding_mask.permute(1, 0)   # (B, T)
 
         x_conv = self.pos_conv(x.transpose(1, 2))
         x_conv = x_conv.transpose(1, 2)
@@ -1156,7 +1245,9 @@ class TransformerEncoder(nn.Module):
 
         # T x B x C -> B x T x C
         x = x.transpose(0, 1)
-
+        if self.args.use_soft_prompt:
+            x = x[:, :-self.args.n_prompt_tokens, :]
+        
         return x, layer_results
 
     def max_positions(self):
@@ -1194,7 +1285,7 @@ class MyAVHubertModel(nn.Module):
         super().__init__()
         sub_cfg = deepcopy(cfg)
         sub_cfg.encoder_layers = sub_cfg.sub_encoder_layers
-        resnet = ResEncoder(relu_type=cfg.resnet_relu_type, weights=cfg.resnet_weights)
+        resnet = ResEncoder(relu_type=cfg.resnet_relu_type, weights=cfg.resnet_weights, cfg=cfg)
         self.feature_extractor_audio = SubModel(resnet=None, input_dim=cfg.audio_feat_dim, cfg=sub_cfg)
         self.feature_extractor_video = SubModel(resnet=resnet, input_dim=resnet.backend_out, cfg=sub_cfg)
         self.modality_fuse = cfg.modality_fuse

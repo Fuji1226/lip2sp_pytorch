@@ -158,7 +158,7 @@ class Lip2SP_NAR_AVHubert(nn.Module):
     def forward(
         self,
         lip,
-        # audio,
+        audio,
         lip_len,
         spk_emb,
     ):
@@ -281,3 +281,54 @@ class Lip2SP_NAR_Lightweight(nn.Module):
         return x, None, None
     
 
+
+# import hydra
+# @hydra.main(version_base=None, config_name="config", config_path="../conf")
+# def main(cfg):
+#     model = Lip2SP_NAR_AVHubert(
+#         avhubert_config=cfg.model.avhubert_config,
+#         avhubert_model_size=cfg.model.avhubert_model_size,
+#         avhubert_return_res_output=cfg.model.avhubert_return_res_output,
+#         load_avhubert_pretrained_weight=cfg.model.load_avhubert_pretrained_weight,
+#         avhubert_layer_loaded=cfg.model.avhubert_layer_loaded,
+#         which_encoder=cfg.model.which_encoder,
+#         rnn_n_layers=cfg.model.rnn_n_layers,
+#         rnn_dropout=cfg.train.rnn_dropout,
+#         reduction_factor=cfg.model.reduction_factor,
+#         rnn_which_norm=cfg.model.rnn_which_norm,
+#         which_decoder=cfg.model.which_decoder,
+#         out_channels=cfg.model.out_channels,
+#         dec_n_layers=cfg.model.tc_n_layers,
+#         dec_kernel_size=cfg.model.tc_kernel_size,
+#         dec_dropout=cfg.train.dec_dropout,
+#         use_spk_emb=cfg.train.use_spk_emb,
+#         spk_emb_dim=cfg.model.spk_emb_dim,
+#         dec_args=cfg.model.avhubert_dec_args,
+#         transformer_decoder_num_layers=cfg.model.transformer_decoder_num_layers,
+#         pos_enc_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
+#     )
+#     for name, param in model.named_parameters():
+#         if not 'soft_prompt' in name and not 'prompt_block' in name:
+#             param.requires_grad = False
+
+#     for name, param in model.named_parameters():
+#         if param.requires_grad:
+#             print(f'{name}: requires_grad={param.requires_grad}')
+
+#     num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+#     print("Number of trainable parameters with requires_grad=True:", num_trainable_params)
+    
+#     lip = torch.rand(8, 1, 88, 88, 250)
+#     lip_len = torch.randint(100, 250, (lip.shape[0],))
+#     spk_emb = torch.rand(lip.shape[0], 256)
+#     output, classifier_out, fmaps = model(
+#         lip=lip,
+#         audio=None,
+#         lip_len=lip_len,
+#         spk_emb=spk_emb,
+#     )
+#     print(output.shape)
+
+
+# if __name__ == '__main__':
+#     main()

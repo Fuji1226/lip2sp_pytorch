@@ -110,7 +110,7 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+speaker : ["F01_kablab", "M01_kablab"]
 use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
@@ -170,7 +170,7 @@ beta_1 : 0.9
 beta_2 : 0.98
 weight_decay : 1.0e-2
 which_optim : 'adamw'
-which_scheduler : 'exp'
+which_scheduler : 'warmup'
 
 # scheduler
 lr_decay_rate : 0.5
