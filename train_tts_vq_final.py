@@ -16,7 +16,7 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 import torch.nn.functional as F
 
-from model.tts_taco import TTSTacotronVq
+from model.tts_taco import TTSTacotronVqEMA
 from loss import MaskedLossTTS
 
 from utils import get_path_tts_train, make_train_val_loader_tts_final, make_pad_mask_tts, check_mel_default, check_attention_weight, save_loss, make_test_loader_tts
@@ -66,7 +66,7 @@ def save_checkpoint(
 
 
 def make_model(cfg, device):
-    model = TTSTacotronVq(cfg)
+    model = TTSTacotronVqEMA(cfg)
     
     # multi GPU
     if torch.cuda.device_count() > 1:
@@ -74,7 +74,7 @@ def make_model(cfg, device):
         print(f"\nusing {torch.cuda.device_count()} GPU")
     return model.to(device)
 
-def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
+def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, scheduler):
     epoch_loss = 0
     epoch_output_loss = 0
     epoch_dec_output_loss = 0
@@ -110,12 +110,13 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
         total_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+        scheduler.step()
 
         epoch_loss += total_loss.item()
         epoch_output_loss += output_loss.item()
         epoch_dec_output_loss += dec_output_loss.item()
         epoch_stop_token_loss += stop_token_loss.item()
-        epoch_vq_loss = vq_loss.item()
+        epoch_vq_loss += vq_loss.item()
 
         iter_cnt += 1
 
@@ -203,7 +204,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg):
 
 
 
-@hydra.main(config_name="config_tts_desk", config_path="conf")
+@hydra.main(config_name="config_tts", config_path="conf")
 def main(cfg):
     print(f'tag: {cfg.tag}')
     #breakpoint()
@@ -231,7 +232,7 @@ def main(cfg):
     
     test_root = Path(cfg.test.tts_pre_loaded_path).expanduser()
     test_loader, test_dataset = make_test_loader_tts(cfg, test_root, data_root)
-    breakpoint()
+
     loss_f = MaskedLossTTS()    
 
     train_loss_list = []
@@ -258,9 +259,10 @@ def main(cfg):
     )
 
     # scheduler    wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(
-        optimizer, gamma=cfg.train.lr_decay_exp
-    )
+    # scheduler = torch.optim.lr_scheduler.ExponentialLR(
+    #     optimizer, gamma=cfg.train.lr_decay_exp
+    # )
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=100000)
 
     last_epoch = 0
     for epoch in range(cfg.train.max_epoch - last_epoch):
@@ -274,7 +276,8 @@ def main(cfg):
             optimizer=optimizer,
             loss_f=loss_f,
             device=device,
-            cfg=cfg
+            cfg=cfg,
+            scheduler=scheduler
         )
         train_loss_list.append(epoch_loss)
         train_output_loss_list.append(epoch_output_loss)
