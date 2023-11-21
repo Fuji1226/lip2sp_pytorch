@@ -17,7 +17,7 @@ from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_vqvae_dict
 
 from utils import  make_train_val_loader_stop_token_all, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att, make_test_loader_dict
-from model.vq_vae import VQVAE
+from model.vq_vae import VQVAE_Content_ResTC
 from loss import MaskedLoss
 
 from utils import make_train_val_loader_final, make_test_loader_final
@@ -74,7 +74,7 @@ def make_pad_mask_stop_token(lengths, max_len):
     return mask
 
 def make_model(cfg, device):
-    model = VQVAE(
+    model = VQVAE_Content_ResTC(
     )
     
     # multi GPU
@@ -97,7 +97,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     print("iter start")
     optimizer.zero_grad()
     model.train()
-
+  
     for batch in train_loader:
         iter_cnt += 1
         print(f'iter {iter_cnt}/{all_iter}')
@@ -112,10 +112,9 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         output = all_output['output']
         vq_loss = all_output['vq_loss']
         B, C, T = output.shape
-    
+
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
     
-            
         loss = output_loss + vq_loss 
         loss.backward()
         sum_loss['epoch_output_loss'] += output_loss.item()

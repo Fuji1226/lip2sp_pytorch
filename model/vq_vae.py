@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
+from .transformer_remake import EncoderLayer, make_pad_mask, posenc
+
 class VQVAE(nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -28,7 +30,54 @@ class VQVAE(nn.Module):
 
         return all_out
         
+class VQVAE_Content_ResTC(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        
+        self.content_enc = ContentEncoder(
+            in_channels=80,
+            out_channels=256,
+            n_attn_layer=2,
+            n_head=4,
+            reduction_factor=1,
+            norm_type='bn',
+        )
+        self.vq = VectorQuantizer(num_embeddings=512, embedding_dim=256, commitment_cost=0.25)
 
+        # decoder
+        self.decoder = ResTCDecoder(
+            cond_channels=256,
+            out_channels=80,
+            inner_channels=256,
+            n_layers=3,
+            kernel_size=5,
+            dropout=0.5,
+            feat_add_channels=80, 
+            feat_add_layers=80,
+            use_feat_add=False,
+            phoneme_classes=53,
+            use_phoneme=False,
+            n_attn_layer=1,
+            n_head=4,
+            d_model=256,
+            reduction_factor=1,
+            use_attention=False,
+            compress_rate=2,
+            upsample_method='conv'
+        )
+        
+    def forward(self, feature, data_len):
+        enc_output = self.content_enc(feature, data_len)
+        loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
+        output = self.decoder(enc_output, data_len)
+        
+        all_out = {}
+        all_out['output'] = output
+        all_out['vq_loss'] = loss
+        all_out['perplexity'] = perplexity
+        all_out['encoding'] = encoding
+
+        return all_out
 
 class Encoder(nn.Module):
     def __init__(self, in_channels=80, out_channels=256):
@@ -111,6 +160,109 @@ class Decoder(nn.Module):
        
         return x
 
+class ResTCDecoder(nn.Module):
+    """
+    残差結合を取り入れたdecoder
+    """
+    def __init__(
+        self, cond_channels, out_channels, inner_channels, n_layers, kernel_size, dropout, 
+        feat_add_channels, feat_add_layers, use_feat_add, phoneme_classes, use_phoneme, 
+        n_attn_layer, n_head, d_model, reduction_factor,  use_attention, compress_rate, upsample_method):
+        super().__init__()
+        self.use_phoneme = use_phoneme
+        self.compress_rate = compress_rate
+        self.use_attention = use_attention
+        
+        self.upsample_method = upsample_method 
+
+        self.upsample_layer = nn.Sequential(
+            nn.ConvTranspose1d(cond_channels, inner_channels, kernel_size=compress_rate, stride=compress_rate),
+            nn.BatchNorm1d(inner_channels),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+        self.interp_layer = nn.Conv1d(cond_channels, inner_channels, kernel_size=1)
+
+        if self.use_attention:
+            self.pre_attention_layer = nn.Conv1d(inner_channels, d_model, kernel_size=1)
+            self.attention = Encoder(
+                n_layers=n_attn_layer,
+                n_head=n_head,
+                d_model=d_model,
+                reduction_factor=reduction_factor,
+            )
+            self.post_attention_layer = nn.Conv1d(d_model, inner_channels, kernel_size=1)
+
+        self.conv_layers = nn.ModuleList(
+            ResBlock(inner_channels, inner_channels, kernel_size) for _ in range(n_layers)
+        )
+
+        self.out_layer = nn.Conv1d(inner_channels, out_channels, kernel_size=1)
+
+    def forward(self, enc_output, data_len=None):
+        """
+        enc_outout : (B, T, C)
+        spk_emb : (B, C)
+        """
+        feat_add_out = phoneme = None
+
+        enc_output = enc_output.permute(0, -1, 1)   # (B, C, T)
+        out = enc_output
+
+        # 音響特徴量のフレームまでアップサンプリング
+        if self.upsample_method == "conv":
+            out_upsample = self.upsample_layer(out)
+        elif self.upsample_method == "interpolate":
+            out_upsample = F.interpolate(out ,scale_factor=self.compress_rate)
+            out_upsample = self.interp_layer(out_upsample)
+
+        out = out_upsample
+        
+        # attention
+        if self.use_attention:
+            out = self.pre_attention_layer(out)
+            out = self.attention(out, data_len, layer="dec")   # (B, T, C)
+            out = self.post_attention_layer(out.permute(0, 2, 1))   # (B, C, T)
+
+        for layer in self.conv_layers:
+            out = layer(out)
+
+        out = self.out_layer(out)
+        return out
+    
+class ContentEncoder(nn.Module):
+    def __init__(self, in_channels, out_channels, n_attn_layer, n_head, reduction_factor, norm_type):
+        super().__init__()
+        assert out_channels % n_head == 0
+        
+        self.first_conv = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv_layers = nn.ModuleList([
+            ResBlock(out_channels, out_channels, kernel_size=3, norm_type=norm_type),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=2, padding=1),
+            NormLayer1D(out_channels, norm_type),
+            nn.ReLU(),
+            ResBlock(out_channels, out_channels, kernel_size=3, norm_type=norm_type),
+        ])
+
+        self.attention = EncoderContent(
+            n_layers=n_attn_layer, 
+            n_head=n_head, 
+            d_model=out_channels, 
+            reduction_factor=reduction_factor,  
+        )
+
+    def forward(self, x, data_len=None):
+        """
+        x : (B, C, T)
+        out : (B, T, C)
+        """
+        out = self.first_conv(x)
+        for layer in self.conv_layers:
+            out = layer(out)
+        
+        out = self.attention(out, data_len)
+        return out
+    
 class VectorQuantizer(nn.Module):
     def __init__(self, num_embeddings, embedding_dim, commitment_cost):
         super(VectorQuantizer, self).__init__()
@@ -131,8 +283,9 @@ class VectorQuantizer(nn.Module):
             inputs_len (_type_): _description_
         """
 
-    def forward(self, inputs):
+    def forward(self, inputs, data_len):
         # convert inputs from BCHW -> BHWC
+        data_len = data_len / 2
         input_shape = inputs.shape
         
         # Flatten input
@@ -152,8 +305,8 @@ class VectorQuantizer(nn.Module):
         quantized = torch.matmul(encodings, self._embedding.weight).view(input_shape)
         
         # Loss
-        e_latent_loss = F.mse_loss(quantized.detach(), inputs)
-        q_latent_loss = F.mse_loss(quantized, inputs.detach())
+        e_latent_loss = self.calc_mse(quantized.detach(), inputs, data_len)
+        q_latent_loss = self.calc_mse(quantized, inputs.detach(), data_len)
         loss = q_latent_loss + self._commitment_cost * e_latent_loss
         
         quantized = inputs + (quantized - inputs).detach()
@@ -162,3 +315,123 @@ class VectorQuantizer(nn.Module):
         
         # convert quantized from BHWC -> BCHW
         return loss, quantized, perplexity, encodings
+    
+    def calc_mse(self, output, target, data_len):
+        def make_pad_mask_tts(lengths):
+            """
+            口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+            マスクする場所をTrue
+            """
+            # この後の処理でリストになるので先にdeviceを取得しておく
+            device = lengths.device
+
+            if not isinstance(lengths, list):
+                lengths = lengths.tolist()
+            bs = int(len(lengths))
+
+            max_len = int(max(lengths))
+
+            seq_range = torch.arange(0, max_len, dtype=torch.int64)
+            seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+            seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+            mask = seq_range_expand >= seq_length_expand     
+            return mask.unsqueeze(1).to(device=device)  # (B, 1, T)
+         
+        tmp_mask = make_pad_mask_tts(data_len)
+        mask = tmp_mask.permute(0, 2, 1)
+        mask = mask.repeat(1, 1, output.shape[-1])
+
+        # 二乗誤差を計算
+        loss = (output - target)**2
+
+        # maskがTrueのところは0にして平均を取る
+        loss = torch.where(mask == 0, loss, torch.zeros_like(loss))
+        loss = torch.mean(loss, dim=2)  # (B, T)
+
+        # maskしていないところ全体で平均
+        mask = tmp_mask.squeeze(1)  # (B, T)
+        n_loss = torch.where(mask == 0, torch.ones_like(mask).to(torch.float32), torch.zeros_like(mask).to(torch.float32))
+        mse_loss = torch.sum(loss) / torch.sum(n_loss)
+
+        return mse_loss
+
+    
+class NormLayer1D(nn.Module):
+    def __init__(self, in_channels, norm_type):
+        super().__init__()
+        self.norm_type = norm_type
+        self.b_n = nn.BatchNorm1d(in_channels)
+        self.i_n = nn.InstanceNorm1d(in_channels)
+
+    def forward(self, x):
+        """
+        x : (B, C, T)
+        """
+        if self.norm_type == "bn":
+            out = self.b_n(x)
+        elif self.norm_type == "in":
+            out = self.i_n(x)
+        return out
+
+
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, norm_type='bn'):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
+            NormLayer1D(out_channels, norm_type),
+            nn.ReLU(),
+            nn.Conv1d(out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
+            NormLayer1D(out_channels, norm_type),
+            nn.ReLU(),
+        )
+
+    def forward(self, x):
+        res = x
+        out = self.layers(x)
+        out = out + res
+        return out
+    
+class EncoderContent(nn.Module):
+    def __init__(self, n_layers, n_head, d_model, reduction_factor, dropout=0.1):
+        super().__init__()
+        self.d_k = d_model // n_head
+        self.d_v = d_model // n_head
+        self.d_inner = d_model * 4
+        self.reduction_factor = reduction_factor
+
+        self.dropout = nn.Dropout(dropout)
+        self.enc_layers = nn.ModuleList([
+            EncoderLayer(d_model, self.d_inner, n_head, self.d_k, self.d_v, dropout)
+            for _ in range(n_layers)
+        ])
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+
+        self.alpha = nn.Parameter(torch.ones(1))
+
+    def forward(self, x, data_len=None, layer="enc"):
+        """
+        x : (B, C, T)
+        enc_output : (B, T, C)
+        """
+        B, C, T = x.shape
+
+        if data_len is not None:
+            if layer == "enc":
+                data_len = torch.div(data_len, self.reduction_factor).to(dtype=torch.int)
+            elif layer == "dec":
+                pass
+            max_len = T
+            mask = make_pad_mask(data_len, max_len)
+            
+        else:
+            mask = None
+
+        x = self.dropout(x)
+        x = x + self.alpha * posenc(x, device=x.device, start_index=0)
+        x = x.permute(0, -1, -2)  # (B, T, C)
+        enc_output = self.layer_norm(x)
+
+        for enc_layer in self.enc_layers:
+            enc_output = enc_layer(enc_output, mask)
+        return enc_output
