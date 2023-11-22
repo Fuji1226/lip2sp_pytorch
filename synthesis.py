@@ -736,6 +736,47 @@ def generate_for_train_check_vqvae_dict(cfg, model, test_loader, dataset, device
         
         print('synthesis finished')
         break
+
+def generate_for_train_check_lip_from_vqvae_dict(cfg, model, test_loader, dataset, device, save_path, epoch, mixing_prob):
+    model.eval()
+
+    process_times = []
+
+    iter_cnt = 0
+    for batch in test_loader:
+        feature = batch['feature'].to(device)
+        data_len = batch['data_len'].to(device)
+        label = batch['label']
+        lip = batch['lip'].to(device)
+
+        start_time = time.time()
+        with torch.no_grad():
+            print('taco generate')
+            all_output = model(lip=lip, data_len=data_len)
+
+        
+        output = all_output['output']
+
+    
+        end_time = time.time()
+        process_time = end_time - start_time
+        process_times.append(process_time)
+
+        _save_path = save_path / 'synthesis' / f'epoch_{epoch}_FR'
+        os.makedirs(str(_save_path), exist_ok=True)
+        tmp_label = label[0]+'_FR'
+        _save_path = _save_path / label[0]
+
+        #_save_path_tf = save_path / label[0]+'_tf'
+        #os.makedirs(_save_path, exist_ok=True)
+       
+        feature_tmp = feature[0].to('cpu').detach().numpy().copy()
+        output_tmp = output[0].to('cpu').detach().numpy().copy()
+        
+        save_target_pred(feature_tmp, output_tmp, output_tmp, str(_save_path))
+        
+        print('synthesis finished')
+        break
     
     
 def generate_for_train_check_taco_dict_avhubert(cfg, model, test_loader, dataset, device, save_path, epoch, mixing_prob):
