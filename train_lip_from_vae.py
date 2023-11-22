@@ -116,6 +116,10 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
 
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
     
+        if cfg.train.gradient_accumulation_steps > 1:
+            output_loss = output_loss / cfg.train.gradient_accumulation_steps
+            vq_loss = vq_loss / cfg.train.gradient_accumulation_steps
+            
         loss = output_loss + vq_loss 
         loss.backward()
         sum_loss['epoch_output_loss'] += output_loss.item()
@@ -125,14 +129,14 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
 
-       
-        optimizer.step()
-        optimizer.zero_grad()
-        scheduler.step()
-        grad_cnt += 1
+        if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step()
+            grad_cnt += 1
         
-        if cfg.debug:
-            break
+            if cfg.debug:
+                break
             
     
         del feature, data_len, output
@@ -175,14 +179,18 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         
             output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
         
+            if cfg.train.gradient_accumulation_steps > 1:
+                output_loss = output_loss / cfg.train.gradient_accumulation_steps
+                vq_loss = vq_loss / cfg.train.gradient_accumulation_steps
                 
             loss = output_loss + vq_loss 
             sum_loss['epoch_output_loss'] += output_loss.item()
-
             sum_loss['epoch_vq_loss'] += vq_loss.item()
-            grad_cnt += 1
-            if cfg.debug:
-                break
+            
+            if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
+                grad_cnt += 1
+                if cfg.debug:
+                    break
                     
                     
     sum_loss['epoch_output_loss'] /= grad_cnt
