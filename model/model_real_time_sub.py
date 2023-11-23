@@ -33,7 +33,7 @@ class ZoneOutCellGRU(nn.Module):
             return self.zoneout * h + (1 - self.zoneout) * next_h
 
 
-class Lip2SPRealTime(nn.Module):
+class Lip2SPRealTimeS(nn.Module):
     def __init__(
         self, in_channels, res_inner_channels, res_dropout,
         n_gru_layers, zoneout, out_channels, reduction_factor):

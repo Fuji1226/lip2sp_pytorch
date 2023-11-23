@@ -22,7 +22,7 @@ module load cuda/11.0
 dir_project="$(dirname $(cd $(dirname $0); pwd))"
 # cd "${dir_project}/scripts"
 cd "${dir_project}"
-file_main="train_realtime.py"
+file_main="train_nar.py"
 
 # これより下に，Pythonなどを実行するコマンドを書きます。
 # 実際はもう少しごちゃごちゃした内容を記述していることが多いです。
