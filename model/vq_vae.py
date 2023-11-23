@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from .transformer_remake import EncoderLayer, make_pad_mask, posenc
+from .taco import PreNet
 
 class VQVAE(nn.Module):
     def __init__(self) -> None:
@@ -33,20 +34,21 @@ class VQVAE(nn.Module):
 class VQVAE_Content_ResTC(nn.Module):
     def __init__(self) -> None:
         super().__init__()
+        emb_dim = 128
         
         self.content_enc = ContentEncoder(
             in_channels=80,
-            out_channels=256,
+            out_channels=emb_dim,
             n_attn_layer=2,
             n_head=4,
             reduction_factor=1,
             norm_type='bn',
         )
-        self.vq = VectorQuantizer(num_embeddings=512, embedding_dim=256, commitment_cost=0.25)
+        self.vq = VectorQuantizer(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25)
 
         # decoder
         self.decoder = ResTCDecoder(
-            cond_channels=256,
+            cond_channels=emb_dim,
             out_channels=80,
             inner_channels=256,
             n_layers=3,
@@ -59,7 +61,7 @@ class VQVAE_Content_ResTC(nn.Module):
             use_phoneme=False,
             n_attn_layer=1,
             n_head=4,
-            d_model=256,
+            d_model=emb_dim,
             reduction_factor=1,
             use_attention=False,
             compress_rate=2,
@@ -79,6 +81,36 @@ class VQVAE_Content_ResTC(nn.Module):
 
         return all_out
 
+class VQVAE_Content_AR(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        
+        self.content_enc = ContentEncoder(
+            in_channels=80,
+            out_channels=256,
+            n_attn_layer=2,
+            n_head=4,
+            reduction_factor=1,
+            norm_type='bn',
+        )
+        self.vq = VectorQuantizer(num_embeddings=512, embedding_dim=256, commitment_cost=0.25)
+
+        # decoder
+        self.decoder = ARDecoder()
+        
+    def forward(self, feature, data_len):
+        enc_output = self.content_enc(feature, data_len)
+        loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
+        output = self.decoder(enc_output, feature)
+        
+        all_out = {}
+        all_out['output'] = output
+        all_out['vq_loss'] = loss
+        all_out['perplexity'] = perplexity
+        all_out['encoding'] = encoding
+
+        return all_out
+    
 class Encoder(nn.Module):
     def __init__(self, in_channels=80, out_channels=256):
         super().__init__()
@@ -391,7 +423,144 @@ class ResBlock(nn.Module):
         out = self.layers(x)
         out = out + res
         return out
-    
+
+class ARDecoder(nn.Module):
+    def __init__(
+        self, enc_channels=256, dec_channels=1024,
+        rnn_n_layers=2, prenet_hidden_channels=256, prenet_n_layers=2, out_channels=80, reduction_factor=2, dropout=0.1):
+        super().__init__()
+        self.enc_channels = enc_channels
+        self.prenet_hidden_channels = prenet_hidden_channels
+        self.dec_channels = dec_channels
+        self.out_channels = out_channels
+        self.reduction_factor = reduction_factor
+
+
+        self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
+
+        lstm = []
+        for i in range(rnn_n_layers):
+            lstm.append(
+                ZoneOutCell(
+                    nn.LSTMCell(
+                        enc_channels + prenet_hidden_channels if i == 0 else dec_channels,
+                        dec_channels,
+                    ),
+                    zoneout=dropout
+                )
+            )
+        self.lstm = nn.ModuleList(lstm)
+        self.feat_out_layer = nn.Linear(enc_channels + dec_channels, int(out_channels * reduction_factor), bias=False)
+
+    def _zero_state(self, hs, i):
+        init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
+        return init_hs
+
+    def forward(self, enc_output, feature_target=None):
+        """
+        enc_output : (B, T, C)
+        text_len : (B,)
+        feature_target : (B, C, T)
+        spk_emb : (B, C)
+        """
+        
+        training_method = "tf"
+        
+        #print(f'text len: {text_len}')
+        breakpoint()
+        if feature_target is not None:
+            B, C, T = feature_target.shape
+            feature_target = feature_target.permute(0, 2, 1)
+            feature_target = feature_target.reshape(B, T // self.reduction_factor, int(C * self.reduction_factor))
+        else:
+            B = enc_output.shape[0]
+            C = self.out_channels
+
+        h_list, c_list = [], []
+        for i in range(len(self.lstm)):
+            h_list.append(self._zero_state(enc_output, i))
+            c_list.append(self._zero_state(enc_output, i))
+
+        go_frame = enc_output.new_zeros(enc_output.size(0), int(self.out_channels * self.reduction_factor))
+        prev_out = go_frame
+
+        output_list = []
+        logit_list = []
+        att_w_list = []
+        att_c_list = []
+        t = 0
+
+        breakpoint()
+        for t in range(enc_output.shape[1]):
+
+            prenet_out = self.prenet(prev_out)      # (B, C)
+
+            xs = torch.cat([att_c, prenet_out], dim=1)      # (B, C)
+            h_list[0], c_list[0] = self.lstm[0](xs, (h_list[0], c_list[0]))
+            for i in range(1, len(self.lstm)):
+                h_list[i], c_list[i] = self.lstm[i](
+                    h_list[i - 1], (h_list[i], c_list[i])
+                )
+
+            hcs = torch.cat([h_list[-1], att_c], dim=1)     # (B, C)
+            output = self.feat_out_layer(hcs)   # (B, C)
+            logit = self.prob_out_layer(hcs)    # (B, reduction_factor)
+            output_list.append(output)
+            logit_list.append(logit)
+
+            # if feature_target is not None:
+            #     prev_out = feature_target[:, t, :]
+            # else:
+            #     prev_out = output
+            if feature_target is not None:
+                if training_method == "tf":
+                    prev_out = feature_target[:, t, :]
+
+                elif training_method == "ss":
+                    """
+                    mixing_prob = 1 : teacher forcing
+                    mixing_prob = 0 : using decoder prediction completely
+                    """
+                    judge = torch.bernoulli(torch.tensor(mixing_prob))
+                    if judge:
+                        prev_out = feature_target[:, t, :]
+                    else:
+                        #prev_out = output.clone().detach()
+                        prev_out = output.clone().detach()
+            else:
+                prev_out = output
+
+        output = torch.cat(output_list, dim=1)  # (B, T, C)
+        output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)
+        
+        return output
+
+class ZoneOutCell(nn.Module):
+    def __init__(self, cell, zoneout=0.1):
+        super().__init__()
+        self.cell = cell
+        self.hidden_size = cell.hidden_size
+        self.zoneout = zoneout
+
+    def forward(self, inputs, hidden):
+        next_hidden = self.cell(inputs, hidden)
+        next_hidden = self._zoneout(hidden, next_hidden, self.zoneout)
+        return next_hidden
+
+    def _zoneout(self, h, next_h, prob):
+        h_0, c_0 = h
+        h_1, c_1 = next_h
+        h_1 = self._apply_zoneout(h_0, h_1, prob)
+        c_1 = self._apply_zoneout(c_0, c_1, prob)
+        return h_1, c_1
+
+    def _apply_zoneout(self, h, next_h, prob):
+        if self.training:
+            mask = h.new(*h.size()).bernoulli_(prob)
+            return mask * h + (1 - mask) * next_h
+        else:
+            return prob * h + (1 - prob) * next_h
+        
 class EncoderContent(nn.Module):
     def __init__(self, n_layers, n_head, d_model, reduction_factor, dropout=0.1):
         super().__init__()
