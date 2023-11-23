@@ -11,6 +11,64 @@ from utils import (
 )
 
 
+class ResBlock(nn.Module):
+    def __init__(self, hidden_channels, kernel_size, dropout):
+        super().__init__()
+        padding = (kernel_size - 1) // 2
+        self.conv_layers = nn.Sequential(
+            nn.Conv1d(hidden_channels, hidden_channels, kernel_size=kernel_size, stride=1, padding=padding),
+            nn.BatchNorm1d(hidden_channels),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Conv1d(hidden_channels, hidden_channels, kernel_size=kernel_size, stride=1, padding=padding),
+            nn.BatchNorm1d(hidden_channels),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x):
+        res = x
+        out = self.conv_layers(x)
+        return out + res
+
+
+class ResConvDecoder(nn.Module):
+    def __init__(
+            self,
+            cfg,
+            hidden_channels,
+    ):
+        super().__init__()
+        self.cfg = cfg
+        self.conv_layers = []
+        for i in range(cfg.model.decoder.n_conv_layers):
+            self.conv_layers.append(
+                ResBlock(
+                    hidden_channels=hidden_channels,
+                    kernel_size=cfg.model.decoder.conv_kernel_size,
+                    dropout=cfg.model.decoder.dropout,
+                )
+            )
+        self.conv_layers = nn.ModuleList(self.conv_layers)
+        self.out_layer = nn.Conv1d(hidden_channels, cfg.model.n_mel_channels * cfg.model.reduction_factor, kernel_size=1)
+
+    def forward(
+            self,
+            x,
+    ):
+        '''
+        x: (B, T, C)
+        '''
+        x = x.permute(0, 2, 1)
+        for layer in self.conv_layers:
+            x = layer(x)
+        x = self.out_layer(x)
+        x = x.permute(0, 2, 1)      # (B, T, C)
+        x = x.reshape(x.shape[0], -1, self.cfg.model.n_mel_channels)
+        x = x.permute(0, 2, 1)      # (B, C, T)
+        return x
+
+
 class Lip2SpeechSSL(nn.Module):
     def __init__(
             self,
@@ -43,6 +101,8 @@ class Lip2SpeechSSL(nn.Module):
                 hidden_channels + cfg.model.spk_emb_dim,
                 hidden_channels,
             )
+
+        self.out_layer = ResConvDecoder(cfg, hidden_channels)
         
     def extract_feature_avhubert(
             self,
@@ -123,38 +183,40 @@ class Lip2SpeechSSL(nn.Module):
             feature = torch.cat([feature, spk_emb], dim=-1)
             feature = self.spk_emb_layer(feature)
 
-        print(feature.shape)
-        return
+        output = self.out_layer(feature)
+
+        return output
 
 
-import hydra
-@hydra.main(version_base=None, config_name="config", config_path="../conf")
-def main(cfg):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    breakpoint()
+# import hydra
+# @hydra.main(version_base=None, config_name="config", config_path="../conf")
+# def main(cfg):
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     print(device)
 
-    lip = torch.rand(2, 1, 88, 88, 250)
-    lip_len = torch.randint(100, 250, (lip.shape[0],))
-    feature = torch.rand(lip.shape[0], 80, 1000)
-    feature_len = lip_len * 4
-    spk_emb = torch.rand(lip.shape[0], 256)
-    model = Lip2SpeechSSL(cfg)
+#     lip = torch.rand(2, 1, 88, 88, 145)
+#     lip_len = torch.randint(100, 250, (lip.shape[0],))
+#     feature = torch.rand(lip.shape[0], 80, 1000)
+#     feature_len = lip_len * 4
+#     spk_emb = torch.rand(lip.shape[0], 256)
+#     model = Lip2SpeechSSL(cfg)
 
-    lip = lip.to(device)
-    lip_len = lip_len.to(device)
-    feature = feature.to(device)
-    feature_len = feature_len.to(device)
-    spk_emb = spk_emb.to(device)
-    model = model.to(device)
+#     lip = lip.to(device)
+#     lip_len = lip_len.to(device)
+#     feature = feature.to(device)
+#     feature_len = feature_len.to(device)
+#     spk_emb = spk_emb.to(device)
+#     model = model.to(device)
 
-    model.train()
-    model(
-        lip=lip,
-        audio=None,
-        lip_len=lip_len,
-        spk_emb=spk_emb,
-    )
+#     model.train()
+#     output = model(
+#         lip=lip,
+#         audio=None,
+#         lip_len=lip_len,
+#         spk_emb=spk_emb,
+#     )
+#     print(output.shape)
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

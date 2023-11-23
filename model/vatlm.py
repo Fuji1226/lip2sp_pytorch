@@ -1451,18 +1451,6 @@ class MyVATLM(nn.Module):
             )
         else:
             self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
-
-        # modules below are not needed during fine-tuning
-        # if any([d is None for d in dictionaries]):
-        #     logger.info(
-        #         "cannot find dictionary. assume will be used for fine-tuning"
-        #     )
-        # else:
-        #     self.num_classes = [len(d) for d in dictionaries]
-        #     self.label_embs_concat = nn.Parameter(
-        #         torch.FloatTensor(sum(self.num_classes), final_dim)
-        #     )
-        #     nn.init.uniform_(self.label_embs_concat)
         
         self.phone_embed = nn.Embedding(46, cfg.encoder_embed_dim)
         self.phone_conv = nn.Sequential(
@@ -1470,45 +1458,52 @@ class MyVATLM(nn.Module):
             nn.ReLU(),
             nn.Conv1d(in_channels=cfg.encoder_embed_dim, out_channels=cfg.encoder_embed_dim, kernel_size=3, stride=2, padding=1),
         )
-    
+
+    def forward_padding_mask(
+        self, 
+        features: torch.Tensor,
+        padding_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        '''
+        features: (B, T, C)
+        padding_mask: (B, T)
+        '''
+        # extra = padding_mask.size(1) % features.size(1)
+        # if extra > 0:
+        #     padding_mask = padding_mask[:, :-extra]
+        padding_mask = padding_mask.view(
+            padding_mask.size(0), features.size(1), -1
+        )
+        padding_mask = padding_mask.all(-1)
+        return padding_mask
+
     def forward(
             self,
-            source,
-            padding_mask=None,
-            mask=False,
-            ret_conv=False,
+            video,
+            audio,
+            padding_mask,
             output_layer=None,
     ):
-        src_audio, src_video = source['audio'], source['video']
-        if mask and self.masking_type == 'input':
-            src_video, mask_indices_video = self.apply_input_mask(src_video, padding_mask, target_list=None)
-            src_audio, mask_indices_audio = self.apply_input_mask(src_audio, padding_mask, target_list=None)
-            mask_indices = torch.logical_or(mask_indices_audio, mask_indices_video) # mask_indices not used in fine-tuning
-        else:
-            src_audio, src_video, mask_indices = src_audio, src_video, None
-
-        if src_audio is not None and src_video is None:
-            features_audio = self.forward_features(src_audio, modality='audio') # features: [B, F, T]
-            features_video = features_audio.new_zeros(features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1))
-            feature_phone = features_audio.new_zeros(features_audio.size(0), features_audio.size(1), features_audio.size(-1))
-        elif src_audio is None and src_video is not None:
-            features_video = self.forward_features(src_video, modality='video')
+        if video is not None and audio is None:
+            features_video = self.feature_extractor_video(video)
             features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
             feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
-        elif src_audio is not None and src_video is not None:
-            features_video = self.forward_features(src_video, modality='video')
-            features_audio = self.forward_features(src_audio, modality='audio') # features: [B, F, T]
+        elif video is None and audio is not None:
+            features_audio = self.feature_extractor_audio(audio)
+            features_video = features_audio.new_zeros(features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1))
+            feature_phone = features_audio.new_zeros(features_audio.size(0), features_audio.size(1), features_audio.size(-1))
+        elif video is not None and audio is not None:
+            features_video = self.feature_extractor_video(video)
+            features_audio = self.feature_extractor_audio(audio)
             feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
 
         if self.modality_fuse == 'concat':
             features = torch.cat([features_audio, features_video, feature_phone], dim=1)
         elif self.modality_fuse == 'add':
             features = features_audio + features_video + feature_phone
-        features_pen = features.float().pow(2).mean()
 
         features = features.transpose(1, 2)
         features = self.layer_norm(features)
-        unmasked_features = features.clone()
 
         if padding_mask is not None:
             padding_mask = self.forward_padding_mask(features, padding_mask)
@@ -1517,19 +1512,10 @@ class MyVATLM(nn.Module):
             features = self.post_extract_proj(features)
 
         features = self.dropout_input(features)
-        unmasked_features = self.dropout_features(unmasked_features)
-        x = features
-        mask_indices = None
 
-        # feature: (B, T, D), float
-        # target: (B, T), long
-        # x: (B, T, D), float
-        # padding_mask: (B, T), bool
-        # mask_indices: (B, T), bool
-        x, _ = self.encoder(
-            x,
+        features, _ = self.encoder(
+            features,
             padding_mask=padding_mask,
             layer=None if output_layer is None else output_layer - 1
         )
-
-        return x, padding_mask
+        return features

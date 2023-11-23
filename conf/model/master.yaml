@@ -78,106 +78,8 @@ which_res: "avhubert"
 # speaker embedding
 spk_emb_dim: 256
 
-# glu parameter
-glu_layers: 6    # 4 or 6
-glu_kernel_size: 5   # 5 or 9
-glu_inner_channels: 256
-
-# transformer parameter
-trans_enc_n_layers: 4    # 1, 2 or 4
-trans_enc_n_head: 4    # 2 or 4
-trans_dec_n_layers: 4
-trans_dec_n_head: 4
-
-# conformer
-conf_n_layers: 6
-conf_n_head: 4
-conf_feed_forward_expansion_factor: 8
-
-# rnn parameter
-rnn_n_layers: 2
-rnn_which_norm: "ln"
-
-# transposed convolution parameter
-tc_n_layers: 3
-tc_kernel_size: 5
-
-# 使用するencoder
-which_encoder: "gru"
-
-# 使用するdecoder
-which_decoder: "restc"
-
-# audio encoder
-ae_emb_dim: 16
-vae_emb_dim: 64
-vq_emb_dim: 256
-vq_num_emb: 64
-norm_type_audio: "in"
-content_d_model: 256
-content_n_attn_layer: 1
-content_n_head: 4
-which_spk_enc: "rnn"
-audio_enc_hidden_channels: 128
-audio_enc_conv_dropout: 0.1
-audio_enc_which_encoder: ''
-audio_enc_rnn_n_layers: 2
-audio_enc_rnn_dropout: 0.1
-audio_enc_conf_n_Layers: 6
-audio_enc_conf_n_head: 4
-audio_enc_conf_feed_forward_expansion_factor: 8
-
-# audio decoder
-audio_dec_hidden_channels: 256
-audio_dec_each_gru_n_layers: 1
-audio_dec_n_gru_layers: 4
-audio_dec_which_decoder: 'gru'
-audio_dec_rnn_n_layers: 2
-audio_dec_rnn_dropout: 0.1
-audio_dec_conf_n_layers: 6
-audio_dec_conf_n_head: 4
-audio_dec_conf_feedforward_expansion_factor: 8
-audio_dec_conv_dropout: 0.1
-
-# domain classifier
-which_domain_classifier: 'linear'
-domain_classifier_hidden_channels: 128
-domain_classifier_n_layers: 3
-domain_classifier_n_conv_layers: 2
-domain_classifier_conv_dropout: 0
-domain_classifier_rnn_n_layers: 2
-domain_classifier_rnn_dropout: 0
-
-# feature converter
-which_feature_converter: 'linear'
-converter_hidden_channels: 128
-converter_n_layers: 3
-converter_dropout: 0
-converter_n_conv_layers: 2
-converter_conv_dropout: 0
-converter_rnn_n_layers: 2
-converter_rnn_dropout: 0
-
-# mutual information
-mi_hidden_channels: 256
-
-# discriminator
-which_d: "jcu"
-
 # out_channels
 out_channels: 80
-
-# Prenet & Postnet parameter
-pre_in_channels: 160  # 音響特徴量から計算します
-pre_inner_channels: 32
-post_inner_channels: 256
-post_n_layers: 5   # 5
-post_kernel_size: 5  # 5
-
-# enhancer parameter
-which_enhancer: "2D"   # 2D or 1D
-lstm_layers: 1
-bidirectional: True
 
 # parallel wave gan
 pwg_in_channels: 1
@@ -197,42 +99,11 @@ pwg_disc_dropout: 0
 pwg_use_weight_norm: False
 pwg_which_disc: "normal"
 
-# tacotron2
-n_vocab: 52
-taco_dec_n_layers: 2
-taco_dec_hidden_channels: 512
-taco_dec_conv_channels: 32
-taco_dec_conv_kernel_size: 75   # 動画なので31だと短い？
-taco_use_attention: False
-taco_enc_hidden_channels: 512
-taco_enc_conv_n_layers: 3
-taco_enc_conv_kernel_size: 5
-taco_enc_rnn_n_layers: 1
-taco_enc_dropout: 0.5
-taco_dec_channels: 1024
-taco_dec_atten_conv_channels: 32
-taco_dec_atten_conv_kernel_size: 31
-taco_dec_atten_hidden_channels: 128
-taco_dec_rnn_n_layers: 2
-taco_dec_prenet_hidden_channels: 256
-taco_dec_prenet_inner_channels: 256
-taco_dec_prenet_n_layers: 2
-taco_dec_dropout: 0.1
-taco_post_hidden_channels: 512
-taco_post_n_layers: 5
-taco_post_kernel_size: 5
-taco_lip_prenet_hidden_channels: 32
-taco_lip_prenet_dropout: 0.5
-taco_lip_out_hidden_channels: 256
-taco_lip_out_dropout: 0.1
-taco_lip_post_hidden_channels: 64
-taco_lip_post_n_layers: 5
-taco_lip_post_kernel_size: 5
-lip_post_dropout: 0.5
-taco_vae_hidden_channels: 512
-taco_vae_n_conv_layers: 6
-taco_vae_n_rnn_layers: 2
-taco_vae_z_dim: 32
+# decoder
+decoder:
+  n_conv_layers: 3
+  conv_kernel_size: 3
+  dropout: 0.1
 
 # ssl
 use_ssl_model: 'ensemble'
