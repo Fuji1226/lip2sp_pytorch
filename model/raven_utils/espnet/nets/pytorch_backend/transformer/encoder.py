@@ -119,6 +119,7 @@ class Encoder(torch.nn.Module):
         """Construct an Encoder object."""
         super(Encoder, self).__init__()
         self._register_load_state_dict_pre_hook(_pre_hook)
+        self.attention_dim = attention_dim
 
         if encoder_attn_layer_type == "rel_mha":
             pos_enc_class = RelPositionalEncoding

@@ -42,115 +42,223 @@ def ChoiceEnum(choices: List[str]):
 
 
 class Config():
-    def __init__(self):
-        self.label_rate = 25
-        self.modalities = ['video']  # or ['video', 'audio']
-        self.extractor_mode = 'default'
-        self.encoder_layers = 12
-        self.encoder_embed_dim = 768
-        self.encoder_ffn_embed_dim = 3072
-        self.encoder_attention_heads = 12
-        self.activation_fn = "gelu"
-        self.dropout = 0.0
-        self.attention_dropout = 0.0
-        self.activation_dropout = 0.1
-        self.encoder_layerdrop = 0.0
-        self.dropout_input = 0.0
-        self.dropout_features = 0.0
-        self.final_dim = 0
-        self.untie_final_proj = False
-        self.layer_norm_first = False
-        self.conv_feature_layers = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"
-        self.conv_bias = False
-        self.logit_temp = 0.1
-        self.target_glu = False
-        self.feature_grad_mult = 1.0
-        self.mask_length_audio = 10
-        self.mask_prob_audio = 0.65
-        self.mask_length_image = 10
-        self.mask_prob_image = 0.65
-        self.mask_selection = 'static'
-        self.mask_other = 0
-        self.no_mask_overlap = False
-        self.mask_min_space = 1
-        self.mask_channel_length = 64
-        self.mask_channel_prob = 0.5
-        self.mask_channel_selection = 'static'
-        self.mask_channel_other = 0
-        self.no_mask_channel_overlap = False
-        self.mask_channel_min_space = 1
-        self.conv_pos = 128
-        self.conv_pos_groups = 16
-        self.latent_temp = (2, 0.5, 0.999995)
-        self.skip_masked = False
-        self.skip_nomask = False
-        self.resnet_relu_type = 'prelu'
-        self.resnet_weights = None
-        self.sim_type = 'cosine'
-        self.sub_encoder_layers = 0
-        self.audio_feat_dim = 104
-        self.modality_dropout = 0
-        self.audio_dropout = 00
-        self.modality_fuse = 'concat'
-        self.selection_type = 'same_other_seq'
-        self.masking_type = 'input'
-        self.decoder_embed_dim = 768
-        self.decoder_ffn_embed_dim = 3072
-        self.decoder_layers = 6
-        self.decoder_layerdrop = 0.0
-        self.decoder_attention_heads = 4
-        self.decoder_learned_pos = False
-        self.decoder_normalize_before = True
-        self.no_token_positional_embeddings = False
-        self.decoder_dropout = 0.1
-        self.decoder_attention_dropout = 0.0
-        self.decoder_activation_dropout = 0.1
-        self.max_target_positions = 2048
-        self.share_decoder_input_output_embed = True
-        self.no_scale_embedding = True
+    def __init__(self, model_size):
+        if model_size == 'base':
+            self.label_rate = 25
+            self.modalities = ['video']  # or ['video', 'audio']
+            self.extractor_mode = 'default'
+            self.encoder_layers = 12
+            self.encoder_embed_dim = 768
+            self.encoder_ffn_embed_dim = 3072
+            self.encoder_attention_heads = 12
+            self.activation_fn = "gelu"
+            self.dropout = 0.0
+            self.attention_dropout = 0.0
+            self.activation_dropout = 0.1
+            self.encoder_layerdrop = 0.0
+            self.dropout_input = 0.0
+            self.dropout_features = 0.0
+            self.final_dim = 0
+            self.untie_final_proj = False
+            self.layer_norm_first = False
+            self.conv_feature_layers = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"
+            self.conv_bias = False
+            self.logit_temp = 0.1
+            self.target_glu = False
+            self.feature_grad_mult = 1.0
+            self.mask_length_audio = 10
+            self.mask_prob_audio = 0.65
+            self.mask_length_image = 10
+            self.mask_prob_image = 0.65
+            self.mask_selection = 'static'
+            self.mask_other = 0
+            self.no_mask_overlap = False
+            self.mask_min_space = 1
+            self.mask_channel_length = 64
+            self.mask_channel_prob = 0.5
+            self.mask_channel_selection = 'static'
+            self.mask_channel_other = 0
+            self.no_mask_channel_overlap = False
+            self.mask_channel_min_space = 1
+            self.conv_pos = 128
+            self.conv_pos_groups = 16
+            self.latent_temp = (2, 0.5, 0.999995)
+            self.skip_masked = False
+            self.skip_nomask = False
+            self.resnet_relu_type = 'prelu'
+            self.resnet_weights = None
+            self.sim_type = 'cosine'
+            self.sub_encoder_layers = 0
+            self.audio_feat_dim = 104
+            self.modality_dropout = 0
+            self.audio_dropout = 0.0
+            self.modality_fuse = 'concat'
+            self.selection_type = 'same_other_seq'
+            self.masking_type = 'input'
+            self.decoder_embed_dim = 768
+            self.decoder_ffn_embed_dim = 3072
+            self.decoder_layers = 6
+            self.decoder_layerdrop = 0.0
+            self.decoder_attention_heads = 4
+            self.decoder_learned_pos = False
+            self.decoder_normalize_before = True
+            self.no_token_positional_embeddings = False
+            self.decoder_dropout = 0.1
+            self.decoder_attention_dropout = 0.0
+            self.decoder_activation_dropout = 0.1
+            self.max_target_positions = 2048
+            self.share_decoder_input_output_embed = True
+            self.no_scale_embedding = True
+        if model_size == 'large':
+            self.label_rate = 25
+            self.modalities = ['video']  # or ['video', 'audio']
+            self.extractor_mode = 'default'
+            self.encoder_layers = 24
+            self.encoder_embed_dim = 1024
+            self.encoder_ffn_embed_dim = 4096
+            self.encoder_attention_heads = 16
+            self.activation_fn = "gelu"
+            self.dropout = 0.0
+            self.attention_dropout = 0.0
+            self.activation_dropout = 0.1
+            self.encoder_layerdrop = 0.0
+            self.dropout_input = 0.0
+            self.dropout_features = 0.0
+            self.final_dim = 0
+            self.untie_final_proj = False
+            self.layer_norm_first = False
+            self.conv_feature_layers = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"
+            self.conv_bias = False
+            self.logit_temp = 0.1
+            self.target_glu = False
+            self.feature_grad_mult = 1.0
+            self.mask_length_audio = 10
+            self.mask_prob_audio = 0.65
+            self.mask_length_image = 10
+            self.mask_prob_image = 0.65
+            self.mask_selection = 'static'
+            self.mask_other = 0
+            self.no_mask_overlap = False
+            self.mask_min_space = 1
+            self.mask_channel_length = 64
+            self.mask_channel_prob = 0.5
+            self.mask_channel_selection = 'static'
+            self.mask_channel_other = 0
+            self.no_mask_channel_overlap = False
+            self.mask_channel_min_space = 1
+            self.conv_pos = 128
+            self.conv_pos_groups = 16
+            self.latent_temp = (2, 0.5, 0.999995)
+            self.skip_masked = False
+            self.skip_nomask = False
+            self.resnet_relu_type = 'prelu'
+            self.resnet_weights = None
+            self.sim_type = 'cosine'
+            self.sub_encoder_layers = 0
+            self.audio_feat_dim = 104
+            self.modality_dropout = 0
+            self.audio_dropout = 0.0
+            self.modality_fuse = 'concat'
+            self.selection_type = 'same_other_seq'
+            self.masking_type = 'input'
+            self.decoder_embed_dim = 1024
+            self.decoder_ffn_embed_dim = 4096
+            self.decoder_layers = 9
+            self.decoder_layerdrop = 0.0
+            self.decoder_attention_heads = 8
+            self.decoder_learned_pos = False
+            self.decoder_normalize_before = True
+            self.no_token_positional_embeddings = False
+            self.decoder_dropout = 0.1
+            self.decoder_attention_dropout = 0.0
+            self.decoder_activation_dropout = 0.1
+            self.max_target_positions = 2048
+            self.share_decoder_input_output_embed = True
+            self.no_scale_embedding = True
 
 
 class TaskConfig():
-    def __init__(self):
-        self.data = ''
-        self.labels = ["wrd"]
-        self.label_dir = ''
-        self.label_rate = 25
-        self.sample_rate = 16_000
-        self.normalize = True
-        self.enable_padding = False
-        self.max_sample_size = 500
-        self.min_sample_size = None
-        self.max_trim_sample_size = 5000
-        self.single_target = True
-        self.random_crop = False
-        self.pad_audio = True
-        self.pdb = False
-        self.stack_order_audio = 4
-        self.skip_verify = False
-        self.text_sampling_alpha = 0.2
-        self.split_modality_batch = False
-        self.image_aug = True
-        self.image_crop_size = 88
-        self.image_mean = 0.421
-        self.image_std = 0.165
-        self.modalities = ["video","audio"]
-        self.is_s2s = True
-        self.tokenizer_bpe_name = 'sentencepiece'
-        self.tokenizer_bpe_model = None
-        self.noise_wav = None
-        self.noise_prob = 0
-        self.noise_snr = '0'
-        self.noise_num = 1
-        self.fine_tuning = True
-        self.use_supervised_data = True
-        self.sup_data_path = None
-        self.sup_manifest = None
-        self.sample_distributions = '0'
-        self.use_extra_textdata = True
-        self.onlytext_manifest = None
-        self.use_extra_audiodata = True
-        self.onlyaudio_manifest = None
+    def __init__(self, model_size):
+        if model_size == 'base':
+            self.data = ''
+            self.labels = ["wrd"]
+            self.label_dir = ''
+            self.label_rate = 25
+            self.sample_rate = 16_000
+            self.normalize = True
+            self.enable_padding = False
+            self.max_sample_size = 500
+            self.min_sample_size = None
+            self.max_trim_sample_size = 5000
+            self.single_target = True
+            self.random_crop = False
+            self.pad_audio = True
+            self.pdb = False
+            self.stack_order_audio = 4
+            self.skip_verify = False
+            self.text_sampling_alpha = 0.2
+            self.split_modality_batch = False
+            self.image_aug = True
+            self.image_crop_size = 88
+            self.image_mean = 0.421
+            self.image_std = 0.165
+            self.modalities = ["video"]
+            self.is_s2s = True
+            self.tokenizer_bpe_name = 'sentencepiece'
+            self.tokenizer_bpe_model = None
+            self.noise_wav = None
+            self.noise_prob = 0
+            self.noise_snr = '0'
+            self.noise_num = 1
+            self.fine_tuning = True
+            self.use_supervised_data = True
+            self.sup_data_path = None
+            self.sup_manifest = None
+            self.sample_distributions = '0'
+            self.use_extra_textdata = True
+            self.onlytext_manifest = None
+            self.use_extra_audiodata = True
+            self.onlyaudio_manifest = None
+        if model_size == 'large':
+            self.data = ''
+            self.labels = ["wrd"]
+            self.label_dir = ''
+            self.label_rate = 25
+            self.sample_rate = 16_000
+            self.normalize = True
+            self.enable_padding = False
+            self.max_sample_size = 500
+            self.min_sample_size = None
+            self.max_trim_sample_size = 5000
+            self.single_target = True
+            self.random_crop = False
+            self.pad_audio = True
+            self.pdb = False
+            self.stack_order_audio = 4
+            self.skip_verify = False
+            self.text_sampling_alpha = 0.2
+            self.split_modality_batch = False
+            self.image_aug = True
+            self.image_crop_size = 88
+            self.image_mean = 0.421
+            self.image_std = 0.165
+            self.modalities = ["video"]
+            self.is_s2s = True
+            self.tokenizer_bpe_name = 'sentencepiece'
+            self.tokenizer_bpe_model = None
+            self.noise_wav = None
+            self.noise_prob = 0
+            self.noise_snr = '0'
+            self.noise_num = 1
+            self.fine_tuning = True
+            self.use_supervised_data = True
+            self.sup_data_path = None
+            self.sup_manifest = None
+            self.sample_distributions = '0'
+            self.use_extra_textdata = True
+            self.onlytext_manifest = None
+            self.use_extra_audiodata = True
+            self.onlyaudio_manifest = None
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -1362,56 +1470,45 @@ class MyVATLM(nn.Module):
             nn.ReLU(),
             nn.Conv1d(in_channels=cfg.encoder_embed_dim, out_channels=cfg.encoder_embed_dim, kernel_size=3, stride=2, padding=1),
         )
-
-    def forward_padding_mask(
-        self, 
-        features: torch.Tensor,
-        padding_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        '''
-        features: (B, T, C)
-        padding_mask: (B, T)
-        '''
-        # extra = padding_mask.size(1) % features.size(1)
-        # if extra > 0:
-        #     padding_mask = padding_mask[:, :-extra]
-        padding_mask = padding_mask.view(
-            padding_mask.size(0), features.size(1), -1
-        )
-        padding_mask = padding_mask.all(-1)
-        return padding_mask
-
+    
     def forward(
             self,
-            video,
-            audio,
+            source,
             padding_mask=None,
+            mask=False,
+            ret_conv=False,
             output_layer=None,
     ):
-        '''
-        video : (B, C, T, H, W)
-        audio : (B, C, T)
-        padding_mask (padding elements are indicated by 1.) : (B, T)
-        '''
-        if video is not None and audio is None:
-            features_video = self.feature_extractor_video(video)
-            features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
-            feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
-        elif video is None and audio is not None:
-            features_audio = self.feature_extractor_audio(audio)
+        src_audio, src_video = source['audio'], source['video']
+        if mask and self.masking_type == 'input':
+            src_video, mask_indices_video = self.apply_input_mask(src_video, padding_mask, target_list=None)
+            src_audio, mask_indices_audio = self.apply_input_mask(src_audio, padding_mask, target_list=None)
+            mask_indices = torch.logical_or(mask_indices_audio, mask_indices_video) # mask_indices not used in fine-tuning
+        else:
+            src_audio, src_video, mask_indices = src_audio, src_video, None
+
+        if src_audio is not None and src_video is None:
+            features_audio = self.forward_features(src_audio, modality='audio') # features: [B, F, T]
             features_video = features_audio.new_zeros(features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1))
             feature_phone = features_audio.new_zeros(features_audio.size(0), features_audio.size(1), features_audio.size(-1))
-        elif video is not None and audio is not None:
-            features_video = self.feature_extractor_video(video)
-            features_audio = self.feature_extractor_audio(audio)
+        elif src_audio is None and src_video is not None:
+            features_video = self.forward_features(src_video, modality='video')
+            features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
+            feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
+        elif src_audio is not None and src_video is not None:
+            features_video = self.forward_features(src_video, modality='video')
+            features_audio = self.forward_features(src_audio, modality='audio') # features: [B, F, T]
             feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
 
         if self.modality_fuse == 'concat':
             features = torch.cat([features_audio, features_video, feature_phone], dim=1)
         elif self.modality_fuse == 'add':
             features = features_audio + features_video + feature_phone
+        features_pen = features.float().pow(2).mean()
+
         features = features.transpose(1, 2)
         features = self.layer_norm(features)
+        unmasked_features = features.clone()
 
         if padding_mask is not None:
             padding_mask = self.forward_padding_mask(features, padding_mask)
@@ -1420,10 +1517,19 @@ class MyVATLM(nn.Module):
             features = self.post_extract_proj(features)
 
         features = self.dropout_input(features)
+        unmasked_features = self.dropout_features(unmasked_features)
+        x = features
+        mask_indices = None
 
-        features, _ = self.encoder(
-            features,
+        # feature: (B, T, D), float
+        # target: (B, T), long
+        # x: (B, T, D), float
+        # padding_mask: (B, T), bool
+        # mask_indices: (B, T), bool
+        x, _ = self.encoder(
+            x,
             padding_mask=padding_mask,
             layer=None if output_layer is None else output_layer - 1
-        )   # (B, T, C)
-        return features
+        )
+
+        return x, padding_mask

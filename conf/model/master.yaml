@@ -234,9 +234,12 @@ taco_vae_n_conv_layers: 6
 taco_vae_n_rnn_layers: 2
 taco_vae_z_dim: 32
 
+# ssl
+use_ssl_model: 'ensemble'
+
 # avhubert
 avhubert_config:
-  model_size: 'base'
+  model_size: 'large'
   load_pretrained_weight: True
   base:
     ckpt_path: '~/av_hubert_data/base_vox_iter5_torch.ckpt'
@@ -293,7 +296,7 @@ avhubert_config:
 
 # raven
 raven_config:
-  model_size: 'base'
+  model_size: 'large'
   load_pretrained_weight: True
   base:
     ckpt_path: '~/raven_data/raven_vox2lrs3_base_video.pth'
@@ -368,7 +371,7 @@ raven_config:
 
 # vatlm
 vatlm_config:
-  model_size: 'base'
+  model_size: 'large'
   load_pretrained_weight: True
   base:
     ckpt_path: '~/vatlm_data/pretrain_base_vox2_torch.ckpt'
