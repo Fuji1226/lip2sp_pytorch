@@ -71,7 +71,7 @@ class VQVAE_Content_ResTC(nn.Module):
     def forward(self, feature, data_len):
         enc_output = self.content_enc(feature, data_len)
         loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
-        output = self.decoder(enc_output, data_len)
+        output = self.decoder(vq, data_len)
         
         all_out = {}
         all_out['output'] = output
