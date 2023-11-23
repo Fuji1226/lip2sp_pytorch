@@ -246,11 +246,11 @@ class ResNet3DVTP(nn.Module):
         x = self.out_layer(x.permute(0, 2, 1))  # (B, C, T)
         return x, fmaps
 
-
+#ここのkernel_sizeに変更を加える　kernel_size=(T,H,W)
 class CausalConv3DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
         super().__init__()
-        self.conv = CausalConv3D(in_channels, out_channels, kernel_size=3, stride=stride)
+        self.conv = CausalConv3D(in_channels, out_channels, kernel_size=(5,3,3), stride=stride)
         self.bn = nn.BatchNorm3d(out_channels)
         self.relu = nn.ReLU()
         
