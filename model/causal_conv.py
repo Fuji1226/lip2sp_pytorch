@@ -165,7 +165,7 @@ class Conv3D(nn.Conv3d):
 class CausalConv3D(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, dilation=1):
         super().__init__()
-        self.padding = (kernel_size - 1) * dilation
+        self.padding = (kernel_size[0] - 1) * dilation
         self.conv = Conv3D(in_channels, out_channels, kernel_size, padding=(self.padding, 1, 1), dilation=dilation, stride=(1, stride, stride))
         
     def forward(self, x):
