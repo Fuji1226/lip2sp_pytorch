@@ -180,61 +180,61 @@ def run_nar(
         subject=subject,
         body=f'finish {run_filename_train}. {message}'
     )
-    run_program(
-        script=[
-            'python',
-            f'/home/minami/lip2sp_pytorch/{run_filename_generate}',
-            'model=mspec_avhubert',
-            'train=nar',
-            'test=nar',
-            f'wandb_conf={wandb_conf}',
-            f'train.debug={debug}',
-            f'train.module_is_fixed={module_is_fixed}',
-            f'train.use_jsut_corpus={use_jsut_corpus}',
-            f'train.use_jvs_corpus={use_jvs_corpus}',
-            f'train.lr={lr}',
-            f'train.corpus={corpus}',
-            f'train.speaker={speaker}',
-            f'model.which_decoder={which_decoder}',
-            # f'train.beta_1={beta_1}',
-            # f'train.beta_2={beta_2}',
-            # f'train.weight_decay={weight_decay}',
-            # f'train.which_optim={which_optim}',
-            f'train.which_scheduler={which_scheduler}',
-            f'train.lr_decay_exp={lr_decay_exp}',
-            # f'train.warmup_t_rate={warmup_t_rate}',
-            # f'train.warmup_lr_init={warmup_lr_init}',
-            # f'train.warmup_lr_min={warmup_lr_min}',
-            f'train.max_epoch={max_epoch}',
-            f'train.use_horizontal_flip={use_spatial_aug}',
-            f'train.use_random_crop={use_spatial_aug}',
-            f'train.use_segment_masking={use_time_masking}',
-            f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
-            f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
-            f'model.avhubert_return_res_output={avhubert_return_res_output}',
-            f'model.avhubert_layer_loaded={avhubert_layer_loaded}',
-            f'model.load_avhubert_pretrained_weight={load_avhubert_pretrained_weight}',
-            f'model.use_avhubert_video_modality={use_avhubert_video_modality}',
-            f'model.use_avhubert_audio_modality={use_avhubert_audio_modality}',
-            f'model.use_avhubert_encoder={use_avhubert_encoder}',
-            f'model.avhubert_config.base.encoder_embed_dim={avhubert_encoder_embed_dim}',
-            f'model.avhubert_config.base.encoder_layers={avhubert_encoder_layers}',
-            f'model.avhubert_config.base.encoder_ffn_embed_dim={avhubert_encoder_ffn_embed_dim}',
-            f'model.avhubert_config.base.encoder_attention_heads={avhubert_encoder_attention_heads}',
-            f'model.avhubert_audio_pretrain={avhubert_audio_pretrain}',
-            f'model.prompt_tuning={prompt_tuning}',
-            f'model.avhubert_config.base.use_soft_prompt={use_soft_prompt}',
-            f'model.avhubert_config.base.n_prompt_tokens={n_prompt_tokens}',
-            f'model.avhubert_config.base.use_prompt_block={use_prompt_block}',
-            f'model.avhubert_config.base.prompt_block_se_r={prompt_block_se_r}',
-            f'test.model_path={get_last_checkpoint_path(checkpoint_dir)}',
-            f'test.metric_for_select={metric_for_select}',
-            f'test.speaker={speaker}',
-            f'test.debug={debug}',
-        ],
-        subject=subject,
-        body=f'finish {run_filename_generate}. {message}'
-    )
+    # run_program(
+    #     script=[
+    #         'python',
+    #         f'/home/minami/lip2sp_pytorch/{run_filename_generate}',
+    #         'model=mspec_avhubert',
+    #         'train=nar',
+    #         'test=nar',
+    #         f'wandb_conf={wandb_conf}',
+    #         f'train.debug={debug}',
+    #         f'train.module_is_fixed={module_is_fixed}',
+    #         f'train.use_jsut_corpus={use_jsut_corpus}',
+    #         f'train.use_jvs_corpus={use_jvs_corpus}',
+    #         f'train.lr={lr}',
+    #         f'train.corpus={corpus}',
+    #         f'train.speaker={speaker}',
+    #         f'model.which_decoder={which_decoder}',
+    #         # f'train.beta_1={beta_1}',
+    #         # f'train.beta_2={beta_2}',
+    #         # f'train.weight_decay={weight_decay}',
+    #         # f'train.which_optim={which_optim}',
+    #         f'train.which_scheduler={which_scheduler}',
+    #         f'train.lr_decay_exp={lr_decay_exp}',
+    #         # f'train.warmup_t_rate={warmup_t_rate}',
+    #         # f'train.warmup_lr_init={warmup_lr_init}',
+    #         # f'train.warmup_lr_min={warmup_lr_min}',
+    #         f'train.max_epoch={max_epoch}',
+    #         f'train.use_horizontal_flip={use_spatial_aug}',
+    #         f'train.use_random_crop={use_spatial_aug}',
+    #         f'train.use_segment_masking={use_time_masking}',
+    #         f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
+    #         f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
+    #         f'model.avhubert_return_res_output={avhubert_return_res_output}',
+    #         f'model.avhubert_layer_loaded={avhubert_layer_loaded}',
+    #         f'model.load_avhubert_pretrained_weight={load_avhubert_pretrained_weight}',
+    #         f'model.use_avhubert_video_modality={use_avhubert_video_modality}',
+    #         f'model.use_avhubert_audio_modality={use_avhubert_audio_modality}',
+    #         f'model.use_avhubert_encoder={use_avhubert_encoder}',
+    #         f'model.avhubert_config.base.encoder_embed_dim={avhubert_encoder_embed_dim}',
+    #         f'model.avhubert_config.base.encoder_layers={avhubert_encoder_layers}',
+    #         f'model.avhubert_config.base.encoder_ffn_embed_dim={avhubert_encoder_ffn_embed_dim}',
+    #         f'model.avhubert_config.base.encoder_attention_heads={avhubert_encoder_attention_heads}',
+    #         f'model.avhubert_audio_pretrain={avhubert_audio_pretrain}',
+    #         f'model.prompt_tuning={prompt_tuning}',
+    #         f'model.avhubert_config.base.use_soft_prompt={use_soft_prompt}',
+    #         f'model.avhubert_config.base.n_prompt_tokens={n_prompt_tokens}',
+    #         f'model.avhubert_config.base.use_prompt_block={use_prompt_block}',
+    #         f'model.avhubert_config.base.prompt_block_se_r={prompt_block_se_r}',
+    #         f'test.model_path={get_last_checkpoint_path(checkpoint_dir)}',
+    #         f'test.metric_for_select={metric_for_select}',
+    #         f'test.speaker={speaker}',
+    #         f'test.debug={debug}',
+    #     ],
+    #     subject=subject,
+    #     body=f'finish {run_filename_generate}. {message}'
+    # )
     send_email(subject=subject, body=get_result(result_dir))
     checkpoint_path_last = get_last_checkpoint_path(checkpoint_dir)
     checkpoint_path_best = get_best_checkpoint_path(checkpoint_path_last, metric_for_select)
@@ -593,6 +593,159 @@ def experiments_avhubert_transferability():
                     )
 
 
+def experiments_avhubert_postnet():
+    debug = False
+    wandb_conf = 'debug' if debug else 'nar'
+    subject = 'プログラム経過'
+
+    training_param_list = [
+        {
+            'which_scheduler': 'warmup',
+            'lr_decay_exp': 0.98,
+            'max_epoch': 30,
+        },
+    ]
+    data_list = [
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+        },
+    ]
+    which_decoder_list = [
+        'restc',
+    ]
+    for training_param in training_param_list:
+        for data in data_list:
+            for which_decoder in which_decoder_list:
+                check_point_path_best = run_nar(
+                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    run_filename_train='train_nar_avhubert_both.py',
+                    run_filename_generate='',
+                    metric_for_select='val_mse_loss_dec_output_list',
+                    use_spatial_aug=True,
+                    use_time_masking=True,
+                    module_is_fixed=['avhubert_postnet'],
+                    use_jsut_corpus=False,
+                    use_jvs_corpus=False,
+                    lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                    corpus=data['corpus'],
+                    speaker=data['speaker'],
+                    which_decoder=which_decoder,
+                    which_scheduler=training_param['which_scheduler'],
+                    lr_decay_exp=training_param['lr_decay_exp'],
+                    max_epoch=training_param['max_epoch'],
+                    avhubert_return_res_output=False,
+                    load_avhubert_pretrained_weight=True,
+                    avhubert_layer_loaded='all',
+                    use_avhubert_video_modality=True,
+                    use_avhubert_audio_modality=False,
+                    use_avhubert_encoder=True,
+                    check_point_start_separate_save_dir=False,
+                    start_ckpt_path_separate_save_dir='',
+                    avhubert_encoder_embed_dim=768,
+                    avhubert_encoder_layers=12,
+                    avhubert_encoder_ffn_embed_dim=3072,
+                    avhubert_encoder_attention_heads=12,
+                    avhubert_audio_pretrain=False,
+                    prompt_tuning=False,
+                    use_soft_prompt=False,
+                    n_prompt_tokens=50,
+                    use_prompt_block=False,
+                    prompt_block_se_r=16,
+                    debug=debug,
+                    wandb_conf=wandb_conf,
+                    subject=subject,
+                    message='lip2sp training'
+                )
+                check_point_path_best = run_nar(
+                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    run_filename_train='train_nar_avhubert_both.py',
+                    run_filename_generate='',
+                    metric_for_select='val_mse_loss_output_list',
+                    use_spatial_aug=True,
+                    use_time_masking=True,
+                    module_is_fixed=['lip2sp'],
+                    use_jsut_corpus=False,
+                    use_jvs_corpus=False,
+                    lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                    corpus=data['corpus'],
+                    speaker=data['speaker'],
+                    which_decoder=which_decoder,
+                    which_scheduler=training_param['which_scheduler'],
+                    lr_decay_exp=training_param['lr_decay_exp'],
+                    max_epoch=training_param['max_epoch'],
+                    avhubert_return_res_output=False,
+                    load_avhubert_pretrained_weight=True,
+                    avhubert_layer_loaded='all',
+                    use_avhubert_video_modality=True,
+                    use_avhubert_audio_modality=False,
+                    use_avhubert_encoder=True,
+                    check_point_start_separate_save_dir=True,
+                    start_ckpt_path_separate_save_dir=check_point_path_best,
+                    avhubert_encoder_embed_dim=768,
+                    avhubert_encoder_layers=12,
+                    avhubert_encoder_ffn_embed_dim=3072,
+                    avhubert_encoder_attention_heads=12,
+                    avhubert_audio_pretrain=False,
+                    prompt_tuning=False,
+                    use_soft_prompt=False,
+                    n_prompt_tokens=50,
+                    use_prompt_block=False,
+                    prompt_block_se_r=16,
+                    debug=debug,
+                    wandb_conf=wandb_conf,
+                    subject=subject,
+                    message='avhubert_postnet training'
+                )
+                run_nar(
+                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
+                    run_filename_train='train_nar_avhubert_both.py',
+                    run_filename_generate='',
+                    metric_for_select='val_mse_loss_output_list',
+                    use_spatial_aug=True,
+                    use_time_masking=True,
+                    module_is_fixed=[],
+                    use_jsut_corpus=False,
+                    use_jvs_corpus=False,
+                    lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
+                    corpus=data['corpus'],
+                    speaker=data['speaker'],
+                    which_decoder=which_decoder,
+                    which_scheduler=training_param['which_scheduler'],
+                    lr_decay_exp=training_param['lr_decay_exp'],
+                    max_epoch=training_param['max_epoch'],
+                    avhubert_return_res_output=False,
+                    load_avhubert_pretrained_weight=True,
+                    avhubert_layer_loaded='all',
+                    use_avhubert_video_modality=True,
+                    use_avhubert_audio_modality=False,
+                    use_avhubert_encoder=True,
+                    check_point_start_separate_save_dir=True,
+                    start_ckpt_path_separate_save_dir=check_point_path_best,
+                    avhubert_encoder_embed_dim=768,
+                    avhubert_encoder_layers=12,
+                    avhubert_encoder_ffn_embed_dim=3072,
+                    avhubert_encoder_attention_heads=12,
+                    avhubert_audio_pretrain=False,
+                    prompt_tuning=False,
+                    use_soft_prompt=False,
+                    n_prompt_tokens=50,
+                    use_prompt_block=False,
+                    prompt_block_se_r=16,
+                    debug=debug,
+                    wandb_conf=wandb_conf,
+                    subject=subject,
+                    message='whole model training'
+                )
+
+
 def experiments_prompt_tuning():
     debug = False
     wandb_conf = 'debug' if debug else 'nar'
@@ -818,7 +971,8 @@ def experiments_ar_decoder():
 def main():
     # experiments_avhubert_transferability()
     # experiments_ar_decoder()
-    experiments_prompt_tuning()
+    # experiments_prompt_tuning()
+    experiments_avhubert_postnet()
 
 
 if __name__ == '__main__':

@@ -1,66 +1,156 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from copy import deepcopy
+import logging
+import math
+import numpy as np
+import warnings
+from typing import Callable, Dict, List, Optional, Tuple
 from torch import Tensor
 from torch.nn import Parameter
-import math
-import logging
 from collections import OrderedDict
-from typing import Callable, Dict, List, Optional, Tuple
-import warnings
-import numpy as np
-from copy import deepcopy
-
+from enum import Enum, EnumMeta
 logger = logging.getLogger(__name__)
 
 
-class Config:
-    def __init__(self, model_size):
-        if model_size == 'base':
-            self.resnet_relu_type = 'prelu'
-            self.resnet_weights = None
-            self.audio_feat_dim = 104
-            self.encoder_embed_dim = 768
-            self.dropout_input = 0.1
-            self.dropout_features = 0.1
-            self.modality_fuse = 'concat'
-            self.encoder_layers = 12
-            self.sub_encoder_layers = 0
+class StrEnumMeta(EnumMeta):
+    # this is workaround for submitit pickling leading to instance checks failing in hydra for StrEnum, see
+    # https://github.com/facebookresearch/hydra/issues/1156
+    @classmethod
+    def __instancecheck__(cls, other):
+        return "enum" in str(type(other))
 
-            # TransformerEncoder
-            self.dropout = 0.1
-            self.conv_pos = 128
-            self.conv_pos_groups = 16
-            self.encoder_ffn_embed_dim = 3072
-            self.encoder_attention_heads = 12
-            self.attention_dropout = 0.1
-            self.activation_dropout = 0.0
-            self.activation_fn = 'gelu'
-            self.layer_norm_first = True
-            self.encoder_layerdrop = 0.05
 
-        elif model_size == 'large':
-            self.resnet_relu_type = 'prelu'
-            self.resnet_weights = None
-            self.audio_feat_dim = 104
-            self.encoder_embed_dim = 1024
-            self.dropout_input = 0.1
-            self.dropout_features = 0.1
-            self.modality_fuse = 'concat'
-            self.encoder_layers = 24
-            self.sub_encoder_layers = 0
+class StrEnum(Enum, metaclass=StrEnumMeta):
+    def __str__(self):
+        return self.value
 
-            # TransformerEncoder
-            self.dropout = 0.1
-            self.conv_pos = 128
-            self.conv_pos_groups = 16
-            self.encoder_ffn_embed_dim = 4096
-            self.encoder_attention_heads = 16
-            self.attention_dropout = 0.1
-            self.activation_dropout = 0.0
-            self.activation_fn = 'gelu'
-            self.layer_norm_first = True
-            self.encoder_layerdrop = 0.05
+    def __eq__(self, other: str):
+        return self.value == other
+
+    def __repr__(self):
+        return self.value
+
+    def __hash__(self):
+        return hash(str(self))
+
+
+def ChoiceEnum(choices: List[str]):
+    """return the Enum class used to enforce list of choices"""
+    return StrEnum("Choices", {k: k for k in choices})
+
+
+class Config():
+    def __init__(self):
+        self.label_rate = 25
+        self.modalities = ['video']  # or ['video', 'audio']
+        self.extractor_mode = 'default'
+        self.encoder_layers = 12
+        self.encoder_embed_dim = 768
+        self.encoder_ffn_embed_dim = 3072
+        self.encoder_attention_heads = 12
+        self.activation_fn = "gelu"
+        self.dropout = 0.0
+        self.attention_dropout = 0.0
+        self.activation_dropout = 0.1
+        self.encoder_layerdrop = 0.0
+        self.dropout_input = 0.0
+        self.dropout_features = 0.0
+        self.final_dim = 0
+        self.untie_final_proj = False
+        self.layer_norm_first = False
+        self.conv_feature_layers = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"
+        self.conv_bias = False
+        self.logit_temp = 0.1
+        self.target_glu = False
+        self.feature_grad_mult = 1.0
+        self.mask_length_audio = 10
+        self.mask_prob_audio = 0.65
+        self.mask_length_image = 10
+        self.mask_prob_image = 0.65
+        self.mask_selection = 'static'
+        self.mask_other = 0
+        self.no_mask_overlap = False
+        self.mask_min_space = 1
+        self.mask_channel_length = 64
+        self.mask_channel_prob = 0.5
+        self.mask_channel_selection = 'static'
+        self.mask_channel_other = 0
+        self.no_mask_channel_overlap = False
+        self.mask_channel_min_space = 1
+        self.conv_pos = 128
+        self.conv_pos_groups = 16
+        self.latent_temp = (2, 0.5, 0.999995)
+        self.skip_masked = False
+        self.skip_nomask = False
+        self.resnet_relu_type = 'prelu'
+        self.resnet_weights = None
+        self.sim_type = 'cosine'
+        self.sub_encoder_layers = 0
+        self.audio_feat_dim = 104
+        self.modality_dropout = 0
+        self.audio_dropout = 00
+        self.modality_fuse = 'concat'
+        self.selection_type = 'same_other_seq'
+        self.masking_type = 'input'
+        self.decoder_embed_dim = 768
+        self.decoder_ffn_embed_dim = 3072
+        self.decoder_layers = 6
+        self.decoder_layerdrop = 0.0
+        self.decoder_attention_heads = 4
+        self.decoder_learned_pos = False
+        self.decoder_normalize_before = True
+        self.no_token_positional_embeddings = False
+        self.decoder_dropout = 0.1
+        self.decoder_attention_dropout = 0.0
+        self.decoder_activation_dropout = 0.1
+        self.max_target_positions = 2048
+        self.share_decoder_input_output_embed = True
+        self.no_scale_embedding = True
+
+
+class TaskConfig():
+    def __init__(self):
+        self.data = ''
+        self.labels = ["wrd"]
+        self.label_dir = ''
+        self.label_rate = 25
+        self.sample_rate = 16_000
+        self.normalize = True
+        self.enable_padding = False
+        self.max_sample_size = 500
+        self.min_sample_size = None
+        self.max_trim_sample_size = 5000
+        self.single_target = True
+        self.random_crop = False
+        self.pad_audio = True
+        self.pdb = False
+        self.stack_order_audio = 4
+        self.skip_verify = False
+        self.text_sampling_alpha = 0.2
+        self.split_modality_batch = False
+        self.image_aug = True
+        self.image_crop_size = 88
+        self.image_mean = 0.421
+        self.image_std = 0.165
+        self.modalities = ["video","audio"]
+        self.is_s2s = True
+        self.tokenizer_bpe_name = 'sentencepiece'
+        self.tokenizer_bpe_model = None
+        self.noise_wav = None
+        self.noise_prob = 0
+        self.noise_snr = '0'
+        self.noise_num = 1
+        self.fine_tuning = True
+        self.use_supervised_data = True
+        self.sup_data_path = None
+        self.sup_manifest = None
+        self.sample_distributions = '0'
+        self.use_extra_textdata = True
+        self.onlytext_manifest = None
+        self.use_extra_audiodata = True
+        self.onlyaudio_manifest = None
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -82,63 +172,14 @@ def downsample_basic_block_v2( inplanes, outplanes, stride ):
             )
 
 
-class SELayer(nn.Module):
-    def __init__(
-            self,
-            in_channels,
-            r,
-    ):
-        super().__init__()
-        self.fc1 = nn.Linear(in_channels, in_channels // r)
-        self.fc2 = nn.Linear(in_channels // r, in_channels)
-
-    def forward(self, x):
-        '''
-        x : (B * T, C, H, W)
-        '''
-        z = torch.mean(x, dim=(2, 3))
-        s = torch.relu(self.fc1(z))
-        s = torch.sigmoid(self.fc2(s))
-        s = s.unsqueeze(-1).unsqueeze(-1)
-        x = x * s
-        return x
-
-
-class DepthwiseSeparableConv(nn.Module):
-    def __init__(
-            self,
-            in_channels,
-            hidden_channels,
-            kernel_size,
-            se_r,
-    ):
-        super().__init__()
-        padding = (kernel_size - 1) // 2
-        self.pointwise_conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=1)
-        self.depthwise_conv = nn.Conv2d(hidden_channels, hidden_channels, kernel_size=kernel_size, padding=padding, groups=hidden_channels)
-        self.se_layer = SELayer(hidden_channels, se_r)
-        self.pointwise_conv2 = nn.Conv2d(hidden_channels, in_channels, kernel_size=1)
-        self.scale = nn.Parameter(torch.tensor(1.0e-5))
-
-    def forward(self, x):
-        '''
-        x : (B * T, C, H, W)
-        '''
-        x = self.pointwise_conv1(x)
-        x = self.depthwise_conv(x)
-        x = self.se_layer(x)
-        x = self.pointwise_conv2(x)
-        x = x * self.scale
-        return x
-
-
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, cfg, stride=1, downsample=None, relu_type = 'relu' ):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, relu_type = 'relu' ):
         super(BasicBlock, self).__init__()
+
         assert relu_type in ['relu','prelu']
-        self.cfg = cfg
+
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
 
@@ -157,40 +198,25 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-        if cfg.use_prompt_block:
-            self.prompt_block = DepthwiseSeparableConv(
-                in_channels=planes,
-                hidden_channels=planes,
-                kernel_size=cfg.prompt_block_kernel_size,
-                se_r=cfg.prompt_block_se_r,
-            )
-
-
     def forward(self, x):
-        '''
-        x : (B * T, C, H, W)
-        '''
         residual = x
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu1(out)
         out = self.conv2(out)
         out = self.bn2(out)
-
-        if self.cfg.use_prompt_block:
-            out = self.prompt_block(out)
-
         if self.downsample is not None:
             residual = self.downsample(x)
+
         out += residual
         out = self.relu2(out)
+
         return out
 
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, cfg, num_classes=1000, relu_type = 'relu', gamma_zero = False, avg_pool_downsample = False):
-        self.cfg = cfg
+    def __init__(self, block, layers, num_classes=1000, relu_type = 'relu', gamma_zero = False, avg_pool_downsample = False):
         self.inplanes = 64
         self.relu_type = relu_type
         self.gamma_zero = gamma_zero
@@ -217,19 +243,19 @@ class ResNet(nn.Module):
                     m.bn2.weight.data.zero_()
 
     def _make_layer(self, block, planes, blocks, stride=1):
+
+
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = self.downsample_block(
-                inplanes=self.inplanes,
-                outplanes=planes * block.expansion, 
-                stride=stride
-            )
+            downsample = self.downsample_block( inplanes = self.inplanes, 
+                                                 outplanes = planes * block.expansion, 
+                                                 stride = stride )
 
         layers = []
-        layers.append(block(self.inplanes, planes, self.cfg, stride, downsample, relu_type = self.relu_type))
+        layers.append(block(self.inplanes, planes, stride, downsample, relu_type = self.relu_type))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, self.cfg, relu_type = self.relu_type))
+            layers.append(block(self.inplanes, planes, relu_type = self.relu_type))
 
         return nn.Sequential(*layers)
 
@@ -244,9 +270,8 @@ class ResNet(nn.Module):
 
 
 class ResEncoder(nn.Module):
-    def __init__(self, relu_type, weights, cfg):
+    def __init__(self, relu_type, weights):
         super(ResEncoder, self).__init__()
-        self.cfg = cfg
         self.frontend_nout = 64
         self.backend_out = 512
         frontend_relu = nn.PReLU(num_parameters=self.frontend_nout) if relu_type == 'prelu' else nn.ReLU()
@@ -255,7 +280,7 @@ class ResEncoder(nn.Module):
             nn.BatchNorm3d(self.frontend_nout),
             frontend_relu,
             nn.MaxPool3d( kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)))
-        self.trunk = ResNet(BasicBlock, [2, 2, 2, 2], cfg=cfg, relu_type=relu_type)
+        self.trunk = ResNet(BasicBlock, [2, 2, 2, 2], relu_type=relu_type)
         if weights is not None:
             logger.info(f"Load {weights} for resnet")
             std = torch.load(weights, map_location=torch.device('cpu'))['model_state_dict']
@@ -269,21 +294,11 @@ class ResEncoder(nn.Module):
             self.frontend3D.load_state_dict(frontend_std)
             self.trunk.load_state_dict(trunk_std)
 
-        if cfg.use_prompt_block:
-            self.prompt_block = DepthwiseSeparableConv(
-                in_channels=self.frontend_nout,
-                hidden_channels=self.frontend_nout,
-                kernel_size=cfg.prompt_block_kernel_size,
-                se_r=cfg.prompt_block_se_r,
-            )
-
     def forward(self, x):
         B, C, T, H, W = x.size()
         x = self.frontend3D(x)
         Tnew = x.shape[2]
         x = self.threeD_to_2D_tensor(x)
-        if self.cfg.use_prompt_block:
-            x = self.prompt_block(x)
         x = self.trunk(x)
         x = x.view(B, Tnew, x.size(1))
         x = x.transpose(1, 2).contiguous()
@@ -293,92 +308,28 @@ class ResEncoder(nn.Module):
         n_batch, n_channels, s_time, sx, sy = x.shape
         x = x.transpose(1, 2).contiguous()
         return x.reshape(n_batch*s_time, n_channels, sx, sy)
+
+
+class SamePad(nn.Module):
+    def __init__(self, kernel_size, causal=False):
+        super().__init__()
+        if causal:
+            self.remove = kernel_size - 1
+        else:
+            self.remove = 1 if kernel_size % 2 == 0 else 0
+
+    def forward(self, x):
+        if self.remove > 0:
+            x = x[:, :, : -self.remove]
+        return x
     
 
-def gelu_accurate(x):
-    if not hasattr(gelu_accurate, "_a"):
-        gelu_accurate._a = math.sqrt(2 / math.pi)
-    return (
-        0.5 * x * (1 + torch.tanh(gelu_accurate._a * (x + 0.044715 * torch.pow(x, 3))))
-    )
-
-
-def gelu(x: torch.Tensor) -> torch.Tensor:
-    return torch.nn.functional.gelu(x.float()).type_as(x)
-
-
-def deprecation_warning(message, stacklevel=3):
-    # don't use DeprecationWarning, since it's ignored by default
-    warnings.warn(message, stacklevel=stacklevel)
-
-
-def get_activation_fn(activation: str) -> Callable:
-    """Returns the activation function corresponding to `activation`"""
-
-    if activation == "relu":
-        return F.relu
-    elif activation == "gelu":
-        return gelu
-    elif activation == "gelu_fast":
-        deprecation_warning(
-            "--activation-fn=gelu_fast has been renamed to gelu_accurate"
-        )
-        return gelu_accurate
-    elif activation == "gelu_accurate":
-        return gelu_accurate
-    elif activation == "tanh":
-        return torch.tanh
-    elif activation == "linear":
-        return lambda x: x
+def softmax(x, dim: int, onnx_trace: bool = False):
+    if onnx_trace:
+        return F.softmax(x.float(), dim=dim)
     else:
-        raise RuntimeError("--activation-fn {} not supported".format(activation))
-
-
-def LayerNorm(normalized_shape, eps=1e-5, elementwise_affine=True, export=False):
-    # if torch.jit.is_scripting():
-    #     export = True
-    # if not export and torch.cuda.is_available() and has_fused_layernorm:
-    #     return FusedLayerNorm(normalized_shape, eps, elementwise_affine)
-    return torch.nn.LayerNorm(normalized_shape, eps, elementwise_affine)
-
-
-class FairseqDropout(nn.Module):
-    def __init__(self, p, module_name=None):
-        super().__init__()
-        self.p = p
-        self.module_name = module_name
-        self.apply_during_inference = False
-
-    def forward(self, x, inplace: bool = False):
-        if self.p > 0 and (self.training or self.apply_during_inference):
-            return F.dropout(x, p=self.p, training=True, inplace=inplace)
-        else:
-            return x
-
-    def make_generation_fast_(
-        self,
-        name: str,
-        retain_dropout: bool = False,
-        retain_dropout_modules: Optional[List[str]] = None,
-        **kwargs
-    ):
-        if retain_dropout:
-            if retain_dropout_modules is not None and self.module_name is None:
-                logger.warning(
-                    "Cannot enable dropout during inference for module {} "
-                    "because module_name was not set".format(name)
-                )
-            elif (
-                retain_dropout_modules is None  # if None, apply to all modules
-                or self.module_name in retain_dropout_modules
-            ):
-                logger.info(
-                    "Enabling dropout during inference for module: {}".format(name)
-                )
-                self.apply_during_inference = True
-            else:
-                logger.info("Disabling dropout for module: {}".format(name))\
-                
+        return F.softmax(x, dim=dim, dtype=torch.float32)
+    
 
 def quant_noise(module, p, block_size):
     """
@@ -480,11 +431,42 @@ def quant_noise(module, p, block_size):
     return module
 
 
-def softmax(x, dim: int, onnx_trace: bool = False):
-    if onnx_trace:
-        return F.softmax(x.float(), dim=dim)
-    else:
-        return F.softmax(x, dim=dim, dtype=torch.float32)
+class FairseqDropout(nn.Module):
+    def __init__(self, p, module_name=None):
+        super().__init__()
+        self.p = p
+        self.module_name = module_name
+        self.apply_during_inference = False
+
+    def forward(self, x, inplace: bool = False):
+        if self.p > 0 and (self.training or self.apply_during_inference):
+            return F.dropout(x, p=self.p, training=True, inplace=inplace)
+        else:
+            return x
+
+    def make_generation_fast_(
+        self,
+        name: str,
+        retain_dropout: bool = False,
+        retain_dropout_modules: Optional[List[str]] = None,
+        **kwargs
+    ):
+        if retain_dropout:
+            if retain_dropout_modules is not None and self.module_name is None:
+                logger.warning(
+                    "Cannot enable dropout during inference for module {} "
+                    "because module_name was not set".format(name)
+                )
+            elif (
+                retain_dropout_modules is None  # if None, apply to all modules
+                or self.module_name in retain_dropout_modules
+            ):
+                logger.info(
+                    "Enabling dropout during inference for module: {}".format(name)
+                )
+                self.apply_during_inference = True
+            else:
+                logger.info("Disabling dropout for module: {}".format(name))
 
 
 class MultiheadAttention(nn.Module):
@@ -618,14 +600,14 @@ class MultiheadAttention(nn.Module):
 
         tgt_len, bsz, embed_dim = query.size()
         src_len = tgt_len
-        # assert embed_dim == self.embed_dim
-        # assert list(query.size()) == [tgt_len, bsz, embed_dim]
+        assert embed_dim == self.embed_dim
+        assert list(query.size()) == [tgt_len, bsz, embed_dim]
         if key is not None:
             src_len, key_bsz, _ = key.size()
-            # if not torch.jit.is_scripting():
-            #     assert key_bsz == bsz
-            #     assert value is not None
-            #     assert src_len, bsz == value.shape[:2]
+            if not torch.jit.is_scripting():
+                assert key_bsz == bsz
+                assert value is not None
+                assert src_len, bsz == value.shape[:2]
 
         if (
             not self.onnx_trace
@@ -970,6 +952,45 @@ class MultiheadAttention(nn.Module):
             state_dict[key] = value
 
 
+def deprecation_warning(message, stacklevel=3):
+    # don't use DeprecationWarning, since it's ignored by default
+    warnings.warn(message, stacklevel=stacklevel)
+
+
+def gelu_accurate(x):
+    if not hasattr(gelu_accurate, "_a"):
+        gelu_accurate._a = math.sqrt(2 / math.pi)
+    return (
+        0.5 * x * (1 + torch.tanh(gelu_accurate._a * (x + 0.044715 * torch.pow(x, 3))))
+    )
+
+
+def gelu(x: torch.Tensor) -> torch.Tensor:
+    return torch.nn.functional.gelu(x.float()).type_as(x)
+
+
+def get_activation_fn(activation: str) -> Callable:
+    """Returns the activation function corresponding to `activation`"""
+
+    if activation == "relu":
+        return F.relu
+    elif activation == "gelu":
+        return gelu
+    elif activation == "gelu_fast":
+        deprecation_warning(
+            "--activation-fn=gelu_fast has been renamed to gelu_accurate"
+        )
+        return gelu_accurate
+    elif activation == "gelu_accurate":
+        return gelu_accurate
+    elif activation == "tanh":
+        return torch.tanh
+    elif activation == "linear":
+        return lambda x: x
+    else:
+        raise RuntimeError("--activation-fn {} not supported".format(activation))
+
+
 class TransformerSentenceEncoderLayer(nn.Module):
     """
     Implements a Transformer Encoder Layer used in BERT/XLM style pre-trained
@@ -1074,20 +1095,6 @@ class TransformerSentenceEncoderLayer(nn.Module):
         return x, attn
     
 
-class SamePad(nn.Module):
-    def __init__(self, kernel_size, causal=False):
-        super().__init__()
-        if causal:
-            self.remove = kernel_size - 1
-        else:
-            self.remove = 1 if kernel_size % 2 == 0 else 0
-
-    def forward(self, x):
-        if self.remove > 0:
-            x = x[:, :, : -self.remove]
-        return x
-
-
 def init_bert_params(module):
     """
     Initialize the weights specific to the BERT Model.
@@ -1121,11 +1128,11 @@ def init_bert_params(module):
         normal_(module.q_proj.weight.data)
         normal_(module.k_proj.weight.data)
         normal_(module.v_proj.weight.data)
-
+    
 
 def is_xla_tensor(tensor):
     return torch.is_tensor(tensor) and tensor.device.type == "xla"
-
+    
 
 def index_put(tensor, indices, value):
     if is_xla_tensor(tensor):
@@ -1142,9 +1149,10 @@ def index_put(tensor, indices, value):
 class TransformerEncoder(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.args = args
+
         self.dropout = args.dropout
         self.embedding_dim = args.encoder_embed_dim
+
         self.pos_conv = nn.Conv1d(
             self.embedding_dim,
             self.embedding_dim,
@@ -1182,15 +1190,7 @@ class TransformerEncoder(nn.Module):
 
         self.apply(init_bert_params)
 
-        if args.use_soft_prompt:
-            self.soft_prompt = nn.Embedding(args.n_prompt_tokens, self.embedding_dim)
-            torch.nn.init.xavier_uniform_(self.soft_prompt.weight)
-
     def forward(self, x, padding_mask=None, layer=None):
-        '''
-        x : (B, T, C)
-        padding_mask : (B, T)
-        '''
         x, layer_results = self.extract_features(x, padding_mask, layer)
 
         if self.layer_norm_first and layer is None:
@@ -1199,22 +1199,9 @@ class TransformerEncoder(nn.Module):
         return x, layer_results
 
     def extract_features(self, x, padding_mask=None, tgt_layer=None):
-        # padding_maskのTrueの部分（パディングする部分）を0に置き換える
-        if padding_mask is not None:
-            # x = index_put(x, padding_mask, 0)
-            # onnxの変換でバグるので変更
-            mask_int = padding_mask.unsqueeze(-1).expand(padding_mask.shape[0], padding_mask.shape[1], x.shape[-1]).to(dtype=torch.int, device=x.device)
-            x -= x * mask_int
 
-        # concatenate prompt
-        if self.args.use_soft_prompt:
-            prompt = self.soft_prompt.weight.unsqueeze(0).repeat(x.shape[0], 1, 1)
-            x = torch.cat([prompt, x], dim=1)
-            # プロンプトを用いるため、マスクを更新（マスクがパディングされないようにする）
-            non_padded_length = torch.tensor([x.shape[1] - padding_mask[i].sum() for i in range(padding_mask.shape[0])]).to(device=x.device)
-            padding_mask = torch.arange(x.shape[1]).unsqueeze(1).to(device=x.device)
-            padding_mask = padding_mask >= non_padded_length
-            padding_mask = padding_mask.permute(1, 0)   # (B, T)
+        if padding_mask is not None:
+            x = index_put(x, padding_mask, 0)
 
         x_conv = self.pos_conv(x.transpose(1, 2))
         x_conv = x_conv.transpose(1, 2)
@@ -1245,9 +1232,7 @@ class TransformerEncoder(nn.Module):
 
         # T x B x C -> B x T x C
         x = x.transpose(0, 1)
-        if self.args.use_soft_prompt:
-            x = x[:, :-self.args.n_prompt_tokens, :]
-        
+
         return x, layer_results
 
     def max_positions(self):
@@ -1257,6 +1242,10 @@ class TransformerEncoder(nn.Module):
     def upgrade_state_dict_named(self, state_dict, name):
         """Upgrade a (possibly old) state dict for new versions of fairseq."""
         return state_dict
+
+
+def LayerNorm(normalized_shape, eps=1e-5, elementwise_affine=True, export=False):
+    return torch.nn.LayerNorm(normalized_shape, eps, elementwise_affine)\
     
 
 class SubModel(nn.Module):
@@ -1277,21 +1266,26 @@ class SubModel(nn.Module):
         return x
 
 
-class MyAVHubertModel(nn.Module):
+class MyVATLM(nn.Module):
     def __init__(
-        self,
-        cfg,
+            self,
+            cfg,
+            task_cfg,
+            dictionaries,
     ):
         super().__init__()
+        feature_ds_rate = 1
+        self.feat2tar_ratio = cfg.label_rate * feature_ds_rate / task_cfg.sample_rate
         sub_cfg = deepcopy(cfg)
         sub_cfg.encoder_layers = sub_cfg.sub_encoder_layers
-        resnet = ResEncoder(relu_type=cfg.resnet_relu_type, weights=cfg.resnet_weights, cfg=cfg)
+        resnet = ResEncoder(relu_type=cfg.resnet_relu_type, weights=cfg.resnet_weights)
         self.feature_extractor_audio = SubModel(resnet=None, input_dim=cfg.audio_feat_dim, cfg=sub_cfg)
         self.feature_extractor_video = SubModel(resnet=resnet, input_dim=resnet.backend_out, cfg=sub_cfg)
+        self.modality_dropout, self.audio_dropout = cfg.modality_dropout, cfg.audio_dropout
         self.modality_fuse = cfg.modality_fuse
         self.encoder_embed_dim = cfg.encoder_embed_dim
         if self.modality_fuse == 'concat':
-            self.embed = cfg.encoder_embed_dim * 2
+            self.embed = cfg.encoder_embed_dim * 3
         elif self.modality_fuse == 'add':
             self.embed = cfg.encoder_embed_dim
         self.post_extract_proj = (
@@ -1299,10 +1293,75 @@ class MyAVHubertModel(nn.Module):
             if self.embed != cfg.encoder_embed_dim
             else None
         )
+
+        self.mask_prob_image, self.mask_prob_audio = cfg.mask_prob_image, cfg.mask_prob_audio
+        self.mask_selection = cfg.mask_selection
+        self.mask_other = cfg.mask_other
+        self.mask_length_image, self.mask_length_audio = cfg.mask_length_image, cfg.mask_length_audio
+        self.no_mask_overlap = cfg.no_mask_overlap
+        self.mask_min_space = cfg.mask_min_space
+
+        self.mask_channel_prob = cfg.mask_channel_prob
+        self.mask_channel_selection = cfg.mask_channel_selection
+        self.mask_channel_other = cfg.mask_channel_other
+        self.mask_channel_length = cfg.mask_channel_length
+        self.no_mask_channel_overlap = cfg.no_mask_channel_overlap
+        self.mask_channel_min_space = cfg.mask_channel_min_space
+
         self.dropout_input = nn.Dropout(cfg.dropout_input)
         self.dropout_features = nn.Dropout(cfg.dropout_features)
+
+        self.feature_grad_mult = cfg.feature_grad_mult
+        self.logit_temp = cfg.logit_temp
+        self.skip_masked = cfg.skip_masked
+        self.skip_nomask = cfg.skip_nomask
+        self.sim_type = cfg.sim_type
+        self.selection_type = cfg.selection_type
+        self.masking_type = cfg.masking_type
+
+        final_dim = (
+            cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim
+        )
+
+        self.mask_emb = nn.Parameter(
+            torch.FloatTensor(cfg.audio_feat_dim).uniform_() if self.masking_type == 'input' else torch.FloatTensor(cfg.encoder_embed_dim).uniform_()
+        )
+
         self.encoder = TransformerEncoder(cfg)
         self.layer_norm = LayerNorm(self.embed)
+
+        self.target_glu = None
+        if cfg.target_glu:
+            self.target_glu = nn.Sequential(
+                nn.Linear(final_dim, final_dim * 2), nn.GLU()
+            )
+
+        self.untie_final_proj = cfg.untie_final_proj
+        if self.untie_final_proj:
+            self.final_proj = nn.Linear(
+                cfg.encoder_embed_dim, final_dim * len(dictionaries)
+            )
+        else:
+            self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
+
+        # modules below are not needed during fine-tuning
+        # if any([d is None for d in dictionaries]):
+        #     logger.info(
+        #         "cannot find dictionary. assume will be used for fine-tuning"
+        #     )
+        # else:
+        #     self.num_classes = [len(d) for d in dictionaries]
+        #     self.label_embs_concat = nn.Parameter(
+        #         torch.FloatTensor(sum(self.num_classes), final_dim)
+        #     )
+        #     nn.init.uniform_(self.label_embs_concat)
+        
+        self.phone_embed = nn.Embedding(46, cfg.encoder_embed_dim)
+        self.phone_conv = nn.Sequential(
+            nn.Conv1d(in_channels=cfg.encoder_embed_dim, out_channels=cfg.encoder_embed_dim, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(in_channels=cfg.encoder_embed_dim, out_channels=cfg.encoder_embed_dim, kernel_size=3, stride=2, padding=1),
+        )
 
     def forward_padding_mask(
         self, 
@@ -1323,12 +1382,11 @@ class MyAVHubertModel(nn.Module):
         return padding_mask
 
     def forward(
-        self,
-        video,
-        audio,
-        return_res_output,
-        padding_mask=None,
-        output_layer=None,
+            self,
+            video,
+            audio,
+            padding_mask=None,
+            output_layer=None,
     ):
         '''
         video : (B, C, T, H, W)
@@ -1338,19 +1396,21 @@ class MyAVHubertModel(nn.Module):
         if video is not None and audio is None:
             features_video = self.feature_extractor_video(video)
             features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
+            feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
         elif video is None and audio is not None:
             features_audio = self.feature_extractor_audio(audio)
             features_video = features_audio.new_zeros(features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1))
+            feature_phone = features_audio.new_zeros(features_audio.size(0), features_audio.size(1), features_audio.size(-1))
         elif video is not None and audio is not None:
             features_video = self.feature_extractor_video(video)
             features_audio = self.feature_extractor_audio(audio)
+            feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
 
         if self.modality_fuse == 'concat':
-            features = torch.cat([features_audio, features_video], dim=1)
+            features = torch.cat([features_audio, features_video, feature_phone], dim=1)
         elif self.modality_fuse == 'add':
-            features = features_audio + features_video
-
-        features = features.transpose(1, 2)     # (B, T, C)
+            features = features_audio + features_video + feature_phone
+        features = features.transpose(1, 2)
         features = self.layer_norm(features)
 
         if padding_mask is not None:
@@ -1359,13 +1419,11 @@ class MyAVHubertModel(nn.Module):
         if self.post_extract_proj is not None:
             features = self.post_extract_proj(features)
 
-        if return_res_output:
-            return features
-        else:
-            features = self.dropout_input(features)
-            features, _ = self.encoder(
-                features,
-                padding_mask=padding_mask,
-                layer=None if output_layer is None else output_layer - 1,
-            )   # (B, T, C)
-            return features
+        features = self.dropout_input(features)
+
+        features, _ = self.encoder(
+            features,
+            padding_mask=padding_mask,
+            layer=None if output_layer is None else output_layer - 1
+        )   # (B, T, C)
+        return features

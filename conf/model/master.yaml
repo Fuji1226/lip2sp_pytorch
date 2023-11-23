@@ -1,6 +1,6 @@
 ---
 
-name: mspec_avhubert
+name: master
 
 #################################
 # data_info
@@ -52,12 +52,11 @@ mov_preprocess_method: "bbox_crop"
 align_desired_left_eye: 0.35
 align_desired_face_size: 128
 margin: 0.15
-# imsize: 56
-# imsize_cropped: 48
-# is_large: False
 imsize: 96
 imsize_cropped: 88
 is_large: True
+avhubert_lip_mean: 0.421 
+avhubert_lip_std: 0.165
 
 # griffin-limで合成するときに人為的に補正
 sharp: False
@@ -236,19 +235,9 @@ taco_vae_n_rnn_layers: 2
 taco_vae_z_dim: 32
 
 # avhubert
-avhubert_model_size: 'base'
-use_avhubert_encoder: True
-load_avhubert_pretrained_weight: True
-avhubert_return_res_output: False
-avhubert_layer_loaded: 'all'
-avhubert_lip_mean: 0.421 
-avhubert_lip_std: 0.165
-use_avhubert_video_modality: True
-use_avhubert_audio_modality: False
-transformer_decoder_num_layers: 6
-avhubert_audio_pretrain: False
-prompt_tuning: False
 avhubert_config:
+  model_size: 'base'
+  load_pretrained_weight: True
   base:
     ckpt_path: '~/av_hubert_data/base_vox_iter5_torch.ckpt'
     resnet_relu_type: 'prelu'
@@ -296,19 +285,11 @@ avhubert_config:
     activation_fn: 'gelu'
     layer_norm_first: True
     encoder_layerdrop: 0.05
-avhubert_dec_args:
-  dropout: 0.1
-  conv_pos: 128
-  conv_pos_groups: 16
-  encoder_layers: 6
-  encoder_ffn_embed_dim: 1536
-  encoder_attention_heads: 12
-  encoder_embed_dim: 768
-  attention_dropout: 0.1
-  activation_dropout: 0.0
-  activation_fn: 'gelu'
-  layer_norm_first: True
-  encoder_layerdrop: 0.05
+    use_soft_prompt: False
+    n_prompt_tokens: 10
+    use_prompt_block: False
+    prompt_block_kernel_size: 3
+    prompt_block_se_r: 16
 
 # raven
 raven_config:

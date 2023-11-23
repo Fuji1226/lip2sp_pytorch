@@ -18,12 +18,14 @@ from torch.utils.data.distributed import DistributedSampler
 from collections import OrderedDict, defaultdict
 import pandas as pd
 import copy
-
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 from dataset.dataset_npz_with_ex import DatasetWithExternalData, TransformWithExternalData, collate_time_adjust_with_external_data
 from dataset.dataset import DatasetWithExternalDataRaw
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
+from model.raven import E2E as MyRAVEN
+from model.vatlm import MyVATLM
+from model.avhubert import MyAVHubertModel
 
 
 def fix_random_seed(seed):
@@ -874,7 +876,7 @@ def check_mel_nar(target, output, cfg, filename, current_time, ckpt_time=None):
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(str(save_path / f"{filename}.png"))
     wandb.log({f"{filename}": wandb.Image(str(save_path / f"{filename}.png"))})
-    
+
 
 def check_f0(target, output, cfg, filename, current_time, ckpt_time=None):
     target = target.to('cpu').detach().numpy().copy()
@@ -1171,3 +1173,67 @@ def calc_gradient_norm(model):
             total_norm += param_norm.item() ** 2
     total_norm = total_norm ** 0.5
     return total_norm
+
+
+def load_raven(cfg):
+    '''
+    cfg: cfg.raven_config
+    '''
+    if cfg.model_size == 'base':
+        raven = MyRAVEN(1, cfg.base).encoder
+        ckpt_path = Path(cfg.base.ckpt_path).expanduser()
+    elif cfg.model_size == 'large':
+        raven = MyRAVEN(1, cfg.large).encoder
+        ckpt_path = Path(cfg.large.ckpt_path).expanduser()
+
+    if cfg.load_pretrained_weight:
+        pretrained_dict = torch.load(str(ckpt_path))
+        model_dict = raven.state_dict()
+        match_dict = {name: params for name, params in pretrained_dict.items() if name in model_dict}
+        raven.load_state_dict(match_dict, strict=True)
+
+    return raven
+
+
+def load_vatlm(cfg):
+    '''
+    cfg: cfg.vatlm_config
+    '''
+    if cfg.model_size == 'base':
+        vatlm = MyVATLM(
+            cfg=cfg.base.cfg,
+            task_cfg=cfg.base.task_cfg,
+            dictionaries=None,
+        )
+        ckpt_path = Path(cfg.base.ckpt_path).expanduser()
+    elif cfg.model_size == 'large':
+        vatlm = MyVATLM(
+            cfg=cfg.large.cfg,
+            task_cfg=cfg.large.task_cfg,
+            dictionaries=None,
+        )
+        ckpt_path = Path(cfg.large.ckpt_path).expanduser()
+
+    if cfg.load_pretrained_weight:
+        pretrained_dict = torch.load(str(ckpt_path))['vatlm']
+        vatlm.load_state_dict(pretrained_dict, strict=True)
+
+    return vatlm
+
+
+def load_avhubert(cfg):
+    '''
+    cfg: cfg.avhubert_config
+    '''
+    if cfg.model_size == 'base':
+        avhubert = MyAVHubertModel(cfg.base)
+        ckpt_path = Path(cfg.base.ckpt_path).expanduser()
+    elif cfg.model_size == 'large':
+        avhubert = MyAVHubertModel(cfg.large)
+        ckpt_path = Path(cfg.large.ckpt_path).expanduser()
+    
+    if cfg.load_pretrained_weight:
+        pretrained_dict = torch.load(str(ckpt_path))['avhubert']
+        avhubert.load_state_dict(pretrained_dict, strict=True)
+    
+    return avhubert

@@ -6,7 +6,7 @@ name : "nar"
 random_seed : 42
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 10
@@ -19,7 +19,7 @@ start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/
 fine_tuning_pretrained_model_by_external_data : False
 
 # 固定するレイヤーを指定
-module_is_fixed : []
+module_is_fixed : ['avhubert_postnet']
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
@@ -99,8 +99,8 @@ hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
 hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
 
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
-# corpus : ["ATR"]
+# corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : ["ATR"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
@@ -117,7 +117,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 30
+max_epoch : 100
 
 # テキスト処理
 for_tts : False
@@ -153,8 +153,8 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 8
-num_workers : 8
+batch_size : 7
+num_workers : 7
 
 # dropout
 dec_dropout : 0.1
