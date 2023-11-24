@@ -34,7 +34,7 @@ class VQVAE(nn.Module):
 class VQVAE_Content_ResTC(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        emb_dim = 128
+        emb_dim = 256
         
         self.content_enc = ContentEncoder(
             in_channels=80,
@@ -44,7 +44,7 @@ class VQVAE_Content_ResTC(nn.Module):
             reduction_factor=1,
             norm_type='bn',
         )
-        self.vq = VectorQuantizer(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25)
+        self.vq = VectorQuantizer(num_embeddings=800, embedding_dim=emb_dim, commitment_cost=0.25)
 
         # decoder
         self.decoder = ResTCDecoder(
@@ -78,6 +78,7 @@ class VQVAE_Content_ResTC(nn.Module):
         all_out['vq_loss'] = loss
         all_out['perplexity'] = perplexity
         all_out['encoding'] = encoding
+        all_out['vq'] = vq
 
         return all_out
 
@@ -346,7 +347,7 @@ class VectorQuantizer(nn.Module):
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
         
         # convert quantized from BHWC -> BCHW
-        return loss, quantized, perplexity, encodings
+        return loss, quantized, perplexity, encoding_indices
     
     def calc_mse(self, output, target, data_len):
         def make_pad_mask_tts(lengths):
