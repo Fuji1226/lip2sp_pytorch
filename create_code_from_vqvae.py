@@ -96,7 +96,7 @@ def main(cfg):
     print(f"cpu_num = {os.cpu_count()}")
     print(f"gpu_num = {torch.cuda.device_count()}")
     torch.backends.cudnn.benchmark = True
-
+ 
     # 現在時刻を取得
     current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
     current_time += f'_{cfg.tag}'
