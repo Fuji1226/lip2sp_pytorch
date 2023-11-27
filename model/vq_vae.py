@@ -30,11 +30,11 @@ class VQVAE(nn.Module):
         all_out['vq_loss'] = loss
 
         return all_out
-        
-class VQVAE_Content_ResTC(nn.Module):
+
+class VQVAEEMA_Content_ResTC(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        emb_dim = 256
+        emb_dim = 128
         
         self.content_enc = ContentEncoder(
             in_channels=80,
@@ -44,7 +44,58 @@ class VQVAE_Content_ResTC(nn.Module):
             reduction_factor=1,
             norm_type='bn',
         )
-        self.vq = VectorQuantizerEMA(num_embeddings=800, embedding_dim=emb_dim, commitment_cost=0.25)
+        self.vq = VectorQuantizerEMA(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25)
+
+        # decoder
+        self.decoder = ResTCDecoder(
+            cond_channels=emb_dim,
+            out_channels=80,
+            inner_channels=256,
+            n_layers=3,
+            kernel_size=5,
+            dropout=0.5,
+            feat_add_channels=80, 
+            feat_add_layers=80,
+            use_feat_add=False,
+            phoneme_classes=53,
+            use_phoneme=False,
+            n_attn_layer=1,
+            n_head=4,
+            d_model=emb_dim,
+            reduction_factor=1,
+            use_attention=False,
+            compress_rate=2,
+            upsample_method='conv'
+        )
+        
+    def forward(self, feature, data_len):
+        enc_output = self.content_enc(feature, data_len)
+        loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
+        output = self.decoder(vq, data_len)
+        
+        all_out = {}
+        all_out['output'] = output
+        all_out['vq_loss'] = loss
+        all_out['perplexity'] = perplexity
+        all_out['encoding'] = encoding
+        all_out['vq'] = vq
+
+        return all_out
+        
+class VQVAE_Content_ResTC(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        emb_dim = 128
+        
+        self.content_enc = ContentEncoder(
+            in_channels=80,
+            out_channels=emb_dim,
+            n_attn_layer=2,
+            n_head=4,
+            reduction_factor=1,
+            norm_type='bn',
+        )
+        self.vq = VectorQuantizerEMA(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25)
 
         # decoder
         self.decoder = ResTCDecoder(
