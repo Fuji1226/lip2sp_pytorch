@@ -66,7 +66,7 @@ use_time_augment : False
 time_augment_rate : 20    # (100 - rate)から(100 + rate)の範囲で再生速度を変更
 
 # 動画の連続したフレームをある程度まとめてマスキング
-use_segment_masking : True
+use_segment_masking : False
 which_seg_mask : "seg_mean"
 max_segment_masking_sec : 0.5
 
