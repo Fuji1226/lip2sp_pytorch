@@ -119,17 +119,21 @@ def main(cfg):
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     
-    save_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_idx'
-    save_path = Path(save_path)
     
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
-        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae/code800/mspec80_80.ckpt'
+        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae/code80_dim80/mspec80_80.ckpt'
     
         checkpoint = torch.load(str(vq_path))['model']
         model.load_state_dict(checkpoint)
         model.eval()
+        
+        save_path = '/mnt/diskA/naoaki/dataset/lip/vq_idx/code80_dim80'
+        save_path = Path(save_path)
+        
+        if not save_path.is_dir():
+            save_path.mkdir()
         
         embedding_weights = model.vq._embedding.weight.data.cpu().numpy()
         tmp_path = save_path / 'emb_wieghts'
