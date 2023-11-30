@@ -4,7 +4,7 @@ from torch import nn
 from .net import ResNet3D
 from .transformer_remake import Encoder
 
-from .vq_vae import ContentEncoder, VectorQuantizer, ResTCDecoder, VectorQuantizerEMA
+from .vq_vae import ContentEncoder, VectorQuantizer, ResTCDecoder, VectorQuantizerEMA, VectorQuantizerForFineTune
 
 class Lip2Sp_VQVAE(nn.Module):
     def __init__(self) -> None:
@@ -27,7 +27,7 @@ class Lip2Sp_VQVAE(nn.Module):
             reduction_factor=2,  
         )
 
-        self.vq = VectorQuantizerEMA(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25)
+        self.vq = VectorQuantizerForFineTune(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25)
 
         # decoder
         self.decoder = ResTCDecoder(

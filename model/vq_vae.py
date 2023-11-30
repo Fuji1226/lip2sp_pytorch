@@ -575,6 +575,107 @@ class VectorQuantizerEMA(nn.Module):
 
         return mse_loss
 
+class VectorQuantizerForFineTune(nn.Module):
+    def __init__(self, num_embeddings, embedding_dim, commitment_cost, decay=0.8, epsilon=1e-5):
+        super().__init__()
+        
+        self._embedding_dim = embedding_dim
+        self._num_embeddings = num_embeddings
+        
+        self._embedding = nn.Embedding(self._num_embeddings, self._embedding_dim)
+        self._embedding.weight.data.uniform_(-1/self._num_embeddings, 1/self._num_embeddings)
+        self._commitment_cost = commitment_cost
+        
+        self.register_buffer('_ema_cluster_size', torch.zeros(num_embeddings))
+        self._ema_w = nn.Parameter(torch.Tensor(num_embeddings, self._embedding_dim))
+        self._ema_w.data.normal_()
+        
+        self._decay = decay
+        self._epsilon = epsilon
+
+    
+        """_summary_
+        text_lenによる長さを考慮した損失計算
+
+        Args:
+            quantized (_type_): _description_
+            inputs (_type_): _description_
+            inputs_len (_type_): _description_
+        """
+
+    def forward(self, inputs, data_len):
+        # convert inputs from BCHW -> BHWC
+        data_len =  torch.floor(torch.true_divide(data_len, torch.tensor(2.0))).to(torch.int)
+        input_shape = inputs.shape
+        
+        # Flatten input
+        flat_input = inputs.view(-1, self._embedding_dim)
+        
+        # Calculate distances
+        distances = (torch.sum(flat_input**2, dim=1, keepdim=True) 
+                    + torch.sum(self._embedding.weight**2, dim=1)
+                    - 2 * torch.matmul(flat_input, self._embedding.weight.t()))
+        
+        # Encoding
+        encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
+        encodings = torch.zeros(encoding_indices.shape[0], self._num_embeddings, device=inputs.device)
+        encodings.scatter_(1, encoding_indices, 1)
+        
+        # Quantize and unflatten
+        quantized = torch.matmul(encodings, self._embedding.weight).view(input_shape)
+        
+        # Loss
+        e_latent_loss = self.calc_mse(quantized.detach(), inputs, data_len)
+        q_latent_loss = self.calc_mse(quantized, inputs.detach(), data_len)
+        loss = q_latent_loss + self._commitment_cost * e_latent_loss
+        
+        quantized = inputs + (quantized - inputs).detach()
+        avg_probs = torch.mean(encodings, dim=0)
+        perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-10)))
+        
+        # convert quantized from BHWC -> BCHW
+        return loss, quantized, perplexity, encoding_indices
+    
+    def calc_mse(self, output, target, data_len):
+        def make_pad_mask_tts(lengths):
+            """
+            口唇動画,音響特徴量に対してパディングした部分を隠すためのマスク
+            マスクする場所をTrue
+            """
+            # この後の処理でリストになるので先にdeviceを取得しておく
+            device = lengths.device
+
+            if not isinstance(lengths, list):
+                lengths = lengths.tolist()
+            bs = int(len(lengths))
+
+            max_len = int(max(lengths))
+
+            seq_range = torch.arange(0, max_len, dtype=torch.int64)
+            seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+            seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+            mask = seq_range_expand >= seq_length_expand     
+            return mask.unsqueeze(1).to(device=device)  # (B, 1, T)
+         
+        tmp_mask = make_pad_mask_tts(data_len)
+        mask = tmp_mask.permute(0, 2, 1)
+        mask = mask.repeat(1, 1, output.shape[-1])
+
+        # 二乗誤差を計算
+        loss = (output - target)**2
+
+        # maskがTrueのところは0にして平均を取る
+        loss = torch.where(mask == 0, loss, torch.zeros_like(loss))
+        loss = torch.mean(loss, dim=2)  # (B, T)
+
+        # maskしていないところ全体で平均
+        mask = tmp_mask.squeeze(1)  # (B, T)
+        n_loss = torch.where(mask == 0, torch.ones_like(mask).to(torch.float32), torch.zeros_like(mask).to(torch.float32))
+        mse_loss = torch.sum(loss) / torch.sum(n_loss)
+
+        return mse_loss
+
+
 
 class NormLayer1D(nn.Module):
     def __init__(self, in_channels, norm_type):
