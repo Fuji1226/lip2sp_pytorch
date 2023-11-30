@@ -42,6 +42,12 @@ torch.manual_seed(777)
 torch.cuda.manual_seed_all(777)
 random.seed(777)
 
+def grad_ok_vqvae(model):
+    for param in model.vq.parameters():
+        param.requires_grad = True
+    for param in model.decoder.parameters():
+        param.requires_grad = True
+    return model
 
 def save_checkpoint(model, optimizer, scheduler, epoch, ckpt_path):
 	torch.save({
@@ -272,7 +278,7 @@ def main(cfg):
         # model
         model = make_model(cfg, device)
         
-        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae/mspec80_50.ckpt'
+        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae/mspec80_80.ckpt'
         model = load_from_vqvae(model, vq_path)
             
         
@@ -329,6 +335,9 @@ def main(cfg):
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
+            
+            if epoch > 0:
+                grad_ok_vqvae(model)
           
             # 学習方法の変更
             if current_epoch < cfg.train.tm_change_step:
