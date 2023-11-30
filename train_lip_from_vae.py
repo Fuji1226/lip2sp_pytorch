@@ -42,6 +42,8 @@ torch.manual_seed(777)
 torch.cuda.manual_seed_all(777)
 random.seed(777)
 
+GRAD_OK_EPOCH = 30
+
 def grad_ok_vqvae(model):
     for param in model.vq.parameters():
         param.requires_grad = True
@@ -95,6 +97,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     sum_loss = {}
     sum_loss['epoch_output_loss'] = 0
     sum_loss['epoch_vq_loss'] = 0
+    sum_loss['epoch_enc_loss'] = 0
     
     grad_cnt = 0
     
@@ -111,26 +114,34 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         feature = batch['feature'].to(device)
         data_len = batch['data_len'].to(device)
         lip = batch['lip'].to(device)
+        vq_idx = batch['vq_idx'].to(device)
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        all_output = model(lip=lip, data_len=data_len)
+        all_output = model(lip=lip, data_len=data_len, vq_idx=vq_idx)
     
         output = all_output['output']
         vq_loss = all_output['vq_loss']
+        enc_loss = all_output['enc_loss']
+        
+        
         B, C, T = output.shape
-
         output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
     
         if cfg.train.gradient_accumulation_steps > 1:
             output_loss = output_loss / cfg.train.gradient_accumulation_steps
             vq_loss = vq_loss / cfg.train.gradient_accumulation_steps
-            
-        loss = output_loss + vq_loss 
+            enc_loss = enc_loss / cfg.train.gradient_accumulation_steps
+                
+        if epoch >= GRAD_OK_EPOCH:
+            loss = output_loss + vq_loss
+        else:
+            loss = output_loss + vq_loss + enc_loss
         loss.backward()
         sum_loss['epoch_output_loss'] += output_loss.item()
 
         sum_loss['epoch_vq_loss'] += vq_loss.item()
+        sum_loss['epoch_enc_loss'] += enc_loss.item()
 
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
@@ -153,6 +164,8 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_vq_loss'] /= grad_cnt
+    sum_loss['epoch_enc_loss'] /= grad_cnt
+    
     return sum_loss
 
 
@@ -160,6 +173,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
     sum_loss = {}
     sum_loss['epoch_output_loss'] = 0
     sum_loss['epoch_vq_loss'] = 0
+    sum_loss['epoch_enc_loss'] = 0
 
     grad_cnt = 0
     
@@ -175,12 +189,16 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             feature = batch['feature'].to(device)
             data_len = batch['data_len'].to(device)
             lip = batch['lip'].to(device)
+            vq_idx = batch['vq_idx'].to(device)
+            
             # output : postnet後の出力
             # dec_output : postnet前の出力
-            all_output = model(lip=lip, data_len=data_len)
+            all_output = model(lip=lip, data_len=data_len, vq_idx=vq_idx)
         
             output = all_output['output']
             vq_loss = all_output['vq_loss']
+            enc_loss = all_output['enc_loss']
+            
             B, C, T = output.shape
         
             output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
@@ -188,10 +206,12 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             if cfg.train.gradient_accumulation_steps > 1:
                 output_loss = output_loss / cfg.train.gradient_accumulation_steps
                 vq_loss = vq_loss / cfg.train.gradient_accumulation_steps
+                enc_loss = enc_loss / cfg.train.gradient_accumulation_steps
                 
             loss = output_loss + vq_loss 
             sum_loss['epoch_output_loss'] += output_loss.item()
             sum_loss['epoch_vq_loss'] += vq_loss.item()
+            sum_loss['epoch_enc_loss'] += enc_loss.item()
             
             if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
                 grad_cnt += 1
@@ -201,6 +221,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
                     
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_vq_loss'] /= grad_cnt
+    sum_loss['epoch_enc_loss'] /= grad_cnt
     return sum_loss
 
 
@@ -266,10 +287,12 @@ def main(cfg):
     loss_f = MaskedLoss()
     train_output_loss_list = []
     train_vq_loss_list = []
+    train_enc_loss_list = []
 
     
     val_output_loss_list = []
     val_vq_loss_list = []
+    val_enc_loss_list = []
     
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
@@ -278,7 +301,7 @@ def main(cfg):
         # model
         model = make_model(cfg, device)
         
-        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae/mspec80_80.ckpt'
+        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae/code80_dim80/mspec80_80.ckpt'
         model = load_from_vqvae(model, vq_path)
             
         
@@ -336,7 +359,7 @@ def main(cfg):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
             
-            if epoch > 0:
+            if epoch >= GRAD_OK_EPOCH:
                 grad_ok_vqvae(model)
           
             # 学習方法の変更
@@ -382,6 +405,7 @@ def main(cfg):
             )
             train_output_loss_list.append(train_sum_loss['epoch_output_loss'])
             train_vq_loss_list.append(train_sum_loss['epoch_vq_loss'])
+            train_enc_loss_list.append(train_sum_loss['epoch_enc_loss'])
 
 
             # validation
@@ -397,6 +421,7 @@ def main(cfg):
             )
             val_output_loss_list.append(val_sum_loss['epoch_output_loss'])
             val_vq_loss_list.append(val_sum_loss['epoch_vq_loss'])
+            val_enc_loss_list.append(val_sum_loss['epoch_enc_loss'])
 
             #scheduler.step()
 
@@ -412,6 +437,7 @@ def main(cfg):
             
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_vq_loss_list, val_vq_loss_list, save_path, "vq_loss")
+            save_loss(train_enc_loss_list, val_enc_loss_list, save_path, 'enc_loss')
       
 
             generate_for_train_check_lip_from_vqvae_dict(

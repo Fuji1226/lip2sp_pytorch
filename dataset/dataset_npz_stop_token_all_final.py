@@ -110,6 +110,7 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         
         self.av_huvert_path = Path(cfg.train.avhubert_path)
         self.att_c_path = Path(cfg.train.att_c_path)
+        self.vq_idx = Path(cfg.train.vq_idx)
         print(f"n = {self.__len__()}")
     
     def __len__(self):
@@ -129,11 +130,17 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         # av_huvert = np.load(str(av_huvert_path))
         # av_huvert = torch.from_numpy(av_huvert)
         
+        
+        
         att_c_path = self.att_c_path / f'{label}.npz'
         att_c = np.load(str(att_c_path))['att_c']
         att_c = torch.from_numpy(att_c)
         
-
+        vq_idx_path = self.vq_idx / f'{label}.npz'
+        encoding = np.load(str(vq_idx_path))['encoding_idx']
+        encoding = torch.from_numpy(encoding)
+        
+        
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
         lip = torch.from_numpy(npz_key['lip'])
@@ -179,6 +186,7 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         output['lip_len'] = lip_len
         #output['av_hubert'] = av_huvert
         output['att_c'] = att_c
+        output['vq_idx'] = encoding
         
         return output
     
@@ -416,6 +424,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     label = [sample['label'] for sample in batch]
     #av_hubert = [sample['av_hubert'] for sample in batch]
     att_c = [sample['att_c'] for sample in batch]
+    vq_idx = [sample['vq_idx'] for sample in batch]
     
     wav = adjust_max_data_len(wav)
     lip = adjust_max_data_len(lip)
@@ -424,6 +433,8 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     stop_tokens = adjust_max_data_len(stop_tokens)
     #av_hubert = adjust_max_data_len_avhubert(av_hubert)
     att_c = adjust_max_data_len_avhubert(att_c)
+    vq_idx = adjust_max_data_len_vq_idx(vq_idx)
+    
     
     wav = torch.stack(wav)
     lip = torch.stack(lip)
@@ -435,6 +446,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     text_len = torch.stack(text_len)
     #av_hubert = torch.stack(av_hubert)
     att_c = torch.stack(att_c)
+    vq_idx = torch.stack(vq_idx)
 
 
     output = {}
@@ -450,6 +462,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     output['text_len'] = text_len
     #output['av_hubert'] = av_hubert
     output['att_c'] = att_c
+    output['vq_idx'] = vq_idx
 
     return output
 
@@ -467,6 +480,7 @@ def collate_test_all_lipread_final(batch):
     label = [sample['label'] for sample in batch]
     #av_hubert = [sample['av_hubert'] for sample in batch]
     att_c = [sample['att_c'] for sample in batch]
+    vq_idx = [sample['vq_idx'] for sample in batch]
     
     wav = torch.stack(wav)
     lip = torch.stack(lip)
@@ -478,6 +492,7 @@ def collate_test_all_lipread_final(batch):
     text_len = torch.stack(text_len)
     #av_hubert = torch.stack(av_hubert)
     att_c = torch.stack(att_c)
+    vq_idx = torch.stack(vq_idx)
     
     output = {}
     output['wav'] = wav
@@ -563,6 +578,34 @@ def adjust_max_data_len_stop_token(feature):
         index = d.shape[-1]
         d_padded = torch.zeros_like(feature[max_data_len_id][0])
         d_padded[index-2:index] = 1.0
+
+        new_data.append(d_padded)
+    
+    return new_data
+
+def adjust_max_data_len_vq_idx(data):
+    """
+    minibatchの中で最大のdata_lenに合わせて0パディングする
+    """
+    max_data_len = 0
+    max_data_len_id = 0
+
+    # minibatchの中でのdata_lenの最大値と，そのデータのインデックスを取得
+    for idx, d in enumerate(data):
+        if max_data_len < d.shape[-1]:
+            max_data_len = d.shape[-1]
+            max_data_len_id = idx
+
+    new_data = []
+
+    # data_lenが最大のデータに合わせて0パディング
+    for d in data:
+        d_padded = torch.zeros_like(data[max_data_len_id])
+
+        for t in range(d.shape[-1]):
+            d_padded[..., t] = d[..., t]
+        for t in range(d.shape[-1], d_padded.shape[-1]):
+            d_padded[..., t] = -1
 
         new_data.append(d_padded)
     
