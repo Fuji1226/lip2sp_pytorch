@@ -20,13 +20,14 @@ except:
 
 
 class MLMTrainer(nn.Module):
-    def __init__(self, n_code=100, n_layers=1, n_head=4, d_model=256, reduction_factor=1, dropout=0.1) -> None:
+    def __init__(self, n_code=80, n_layers=4, n_head=4, d_model=80, reduction_factor=1, dropout=0.1,
+                 mask_prob=0.15, replace_prob=0.9, random_token_prob=0.15) -> None:
         super().__init__()
-        self.mask_prob = 0.15
-        self.replace_prob = 0.9
+        self.mask_prob = mask_prob
+        self.replace_prob = replace_prob
 
-        self.num_tokens = 100
-        self.random_token_prob = 0.15
+        self.num_tokens = n_code
+        self.random_token_prob = random_token_prob
 
         
         self.mask_ignore_token_ids = None
@@ -38,8 +39,15 @@ class MLMTrainer(nn.Module):
         self.encoder = MLM(n_code, n_layers, n_head, d_model, reduction_factor, dropout)
         self.last = nn.Linear(d_model, n_code)
         
-    def forward(self, seq, data_len, device):
-        seq = torch.where(seq == -1, torch.tensor(self.pad_token_id), seq)
+    def forward(self, seq, data_len, device, True_label=None):
+
+        if True_label is not None:
+            True_label = torch.where(True_label == -1, torch.tensor(self.pad_token_id).to(device), True_label)
+            
+        seq = seq.to(device)
+        
+        seq = pad_negative(seq, data_len)
+        seq = torch.where(seq == -1, torch.tensor(self.pad_token_id).to(device), seq)
     
         no_mask = mask_with_tokens(seq, self.mask_ignore_token_ids)
         mask = get_mask_subset_with_prob(~no_mask, self.mask_prob)
@@ -71,12 +79,33 @@ class MLMTrainer(nn.Module):
         logit = self.encoder(masked_seq, data_len)
         logit = self.last(logit)
         
-        mlm_loss = F.cross_entropy(
-            logit.transpose(1, 2),
-            labels,
-            ignore_index = self.pad_token_id
-        )
-        return mlm_loss
+
+        if True_label is None:
+            mlm_loss = F.cross_entropy(
+                logit.transpose(1, 2),
+                labels,
+                ignore_index = self.pad_token_id
+            )
+        else:
+            mlm_loss = F.cross_entropy(
+                logit.transpose(1, 2),
+                True_label,
+                ignore_index = self.pad_token_id
+            )
+        
+        pred = logit.argmax(dim=-1)
+        output = {}
+        output['mlm_loss'] = mlm_loss
+        output['pred'] = pred
+        
+        return output
+
+def pad_negative(seq, data_len):
+    for i in range(len(data_len)):
+        tmp = data_len[i]
+        seq[i, tmp:] = -1
+        
+    return seq
             
 def prob_mask_like(t, prob):
     return torch.zeros_like(t).float().uniform_(0, 1) < prob
@@ -171,6 +200,8 @@ def make_pad_mask(lengths, max_len):
     seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
     seq_length_expand = seq_range_expand.new(lengths)
 
+    if seq_length_expand.dim() < seq_range_expand.dim():
+        seq_length_expand = seq_length_expand.unsqueeze(-1)
     mask = seq_range_expand >= seq_length_expand
     mask = mask.unsqueeze(-1).to(device=device)
     
