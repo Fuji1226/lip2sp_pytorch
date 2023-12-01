@@ -1434,68 +1434,83 @@ def make_train_val_loader_lipread(cfg, data_root):
     
     return train_loader, val_loader, train_dataset, val_dataset
 
-# def make_train_val_loader_lipread_all(cfg, data_root, mean_std_path):
-#     # パスを取得
-#     data_path = get_datasets_re(
-#         data_root=data_root,
-#         cfg=cfg,
-#     )
-#     print(f'lip read')
-#     data_path = random.sample(data_path, len(data_path))
-#     n_samples = len(data_path)
-    
-#     if cfg.train.data_size is not None:
-#         data_size = int(cfg.train.data_size * 1.25)
-#         data_path = data_path[:data_size]
+
+def path_test(paths):
+    for path in paths:
+        npz = np.load(path)
+        breakpoint()
+
+from dataset.dataset_npz_stop_token_all_final import collate_time_redu4, collate_test_redu4
+
+def make_train_val_loader_redu4(cfg, data_root, mean_std_path):
+    # パスを取得
+
+    if cfg.train.corpus not in ['ATR']:
+        data_path = get_datasets_re(
+            data_root=data_root,
+            cfg=cfg,
+        )
         
-#     train_size = int(n_samples * 0.8)
-#     train_data_path = data_path[:train_size]
-#     val_data_path = data_path[train_size:]
-    
-#     if True:
-#         train_data_path = train_data_path[:100]
-#         val_data_path = train_data_path
-    
-#     train_trans = KablabTransformAll(cfg, "train")
-#     val_trans = KablabTransformAll(cfg, "val")
+        data_path = random.sample(data_path, len(data_path))
+        n_samples = len(data_path)
+        train_size = int(n_samples * 0.8)
+        train_data_path = data_path[:train_size]
+        val_data_path = data_path[train_size:]
+    else:
+        data_path = get_datasets_re(
+            data_root=data_root,
+            cfg=cfg,
+        )
+        train_size = int(len(data_path)//2)
+        train_data_path = data_path[:train_size]
+        val_data_path = data_path[train_size:]
+        
+    # 学習用，検証用それぞれに対してtransformを作成
+    train_trans = KablabTransformAllFinal(
+        cfg=cfg,
+        train_val_test="train",
+    )
+    val_trans = KablabTransformAllFinal(
+        cfg=cfg,
+        train_val_test="val",
+    )
 
-#     print("\n--- make train dataset ---")
+    # dataset作成
+    print("\n--- make train dataset ---")
+    train_dataset = KablabDatasetStopTokenAllFinal(
+        data_path=train_data_path,
+        mean_std_path = mean_std_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+    val_dataset = KablabDatasetStopTokenAllFinal(
+        data_path=val_data_path,
+        mean_std_path=mean_std_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
 
-#     train_dataset = KablabDatasetStopTokenAll(
-#         data_path=data_path,
-#         mean_std_path = mean_std_path,
-#         transform=train_trans,
-#         cfg=cfg,
-#     )
-#     print("\n--- make validation dataset ---")
-
-#     val_dataset = KablabDatasetStopTokenAll(
-#         data_path=data_path,
-#         mean_std_path = mean_std_path,
-#         transform=val_trans,
-#         cfg=cfg,
-#     )
-
-#     train_loader = DataLoader(
-#         dataset=train_dataset,
-#         batch_size=cfg.train.batch_size,   
-#         shuffle=True,
-#         num_workers=cfg.train.num_workers,      
-#         pin_memory=True,
-#         drop_last=True,
-#         collate_fn=partial(collate_time_adjust_stop_token_all_lipread, cfg=cfg),
-#     )
-#     val_loader = DataLoader(
-#         dataset=val_dataset,
-#         batch_size=cfg.train.batch_size,   
-#         shuffle=True,
-#         num_workers=0,      # 0じゃないとバグることがあります
-#         pin_memory=True,
-#         drop_last=True,
-#         collate_fn=partial(collate_time_adjust_stop_token_all_lipread, cfg=cfg),
-#     )
-    
-#     return train_loader, val_loader, train_dataset, val_dataset
+    # それぞれのdata loaderを作成
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_redu4, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_redu4, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
 
 
 def make_train_val_loader_final(cfg, data_root, mean_std_path):
@@ -1507,6 +1522,7 @@ def make_train_val_loader_final(cfg, data_root, mean_std_path):
             cfg=cfg,
         )
         
+        path_test(data_path)
         data_path = random.sample(data_path, len(data_path))
         n_samples = len(data_path)
         train_size = int(n_samples * 0.8)
@@ -1592,5 +1608,33 @@ def make_test_loader_final(cfg, data_root, mean_std_path):
         pin_memory=True,
         drop_last=True,
         collate_fn=collate_test_all_lipread_final
+    )
+    return test_loader, test_dataset
+
+
+def make_test_loader_redu4(cfg, data_root, mean_std_path):
+    test_data_path = get_datasets_re(
+        data_root=data_root,
+        cfg=cfg,
+    )
+    test_data_path = sorted(test_data_path)
+    test_trans = KablabTransformAllFinal(
+        cfg=cfg,
+        train_val_test="test",
+    )
+    test_dataset = KablabDatasetStopTokenAllFinal(
+        data_path=test_data_path,
+        mean_std_path = mean_std_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=collate_test_redu4
     )
     return test_loader, test_dataset

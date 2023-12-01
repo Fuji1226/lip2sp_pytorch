@@ -134,6 +134,64 @@ class VQVAE_Content_ResTC(nn.Module):
         all_out['vq'] = vq
 
         return all_out
+    
+class VQVAE_Redu4(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        emb_dim = 80
+        
+        self.content_enc = ContentEncoder_Redu4(
+            in_channels=80,
+            out_channels=emb_dim,
+            n_attn_layer=2,
+            n_head=4,
+            reduction_factor=4,
+            norm_type='bn',
+        )
+    
+        self.vq = VectorQuantizerEMA(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=4)
+
+        # decoder
+        self.decoder = ResTCDecoder_Redu4(
+            cond_channels=emb_dim,
+            out_channels=80,
+            inner_channels=256,
+            n_layers=3,
+            kernel_size=5,
+            dropout=0.5,
+            feat_add_channels=80, 
+            feat_add_layers=80,
+            use_feat_add=False,
+            phoneme_classes=53,
+            use_phoneme=False,
+            n_attn_layer=1,
+            n_head=4,
+            d_model=emb_dim,
+            reduction_factor=1,
+            use_attention=False,
+            compress_rate=2,
+            upsample_method='conv'
+        )
+        
+        self.ctc_output_layer = nn.Linear(emb_dim, 53)
+        
+    def forward(self, feature, data_len):
+
+        enc_output = self.content_enc(feature, data_len)
+        loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
+        output = self.decoder(vq, data_len)
+        
+        ctc_output = self.ctc_output_layer(vq)
+        
+        all_out = {}
+        all_out['output'] = output
+        all_out['vq_loss'] = loss
+        all_out['perplexity'] = perplexity
+        all_out['encoding'] = encoding
+        all_out['vq'] = vq
+        all_out['ctc_output'] = ctc_output
+        
+        return all_out
 
 class VQVAE_Content_ResTC_MLM(nn.Module):
     def __init__(self) -> None:
@@ -367,6 +425,77 @@ class ResTCDecoder(nn.Module):
         out = self.out_layer(out)
         return out
     
+class ResTCDecoder_Redu4(nn.Module):
+    """
+    残差結合を取り入れたdecoder
+    """
+    def __init__(
+        self, cond_channels, out_channels, inner_channels, n_layers, kernel_size, dropout, 
+        feat_add_channels, feat_add_layers, use_feat_add, phoneme_classes, use_phoneme, 
+        n_attn_layer, n_head, d_model, reduction_factor,  use_attention, compress_rate, upsample_method):
+        super().__init__()
+        self.use_phoneme = use_phoneme
+        self.compress_rate = compress_rate
+        self.use_attention = use_attention
+        
+        self.upsample_method = upsample_method 
+
+        self.upsample_layer = nn.Sequential(
+            nn.ConvTranspose1d(cond_channels, inner_channels, kernel_size=compress_rate, stride=compress_rate),
+            nn.BatchNorm1d(inner_channels),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.ConvTranspose1d(inner_channels, inner_channels, kernel_size=compress_rate, stride=compress_rate),
+            nn.BatchNorm1d(inner_channels),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+        self.interp_layer = nn.Conv1d(cond_channels, inner_channels, kernel_size=1)
+
+        if self.use_attention:
+            self.pre_attention_layer = nn.Conv1d(inner_channels, d_model, kernel_size=1)
+            self.attention = Encoder(
+                n_layers=n_attn_layer,
+                n_head=n_head,
+                d_model=d_model,
+                reduction_factor=reduction_factor,
+            )
+            self.post_attention_layer = nn.Conv1d(d_model, inner_channels, kernel_size=1)
+
+        self.conv_layers = nn.ModuleList(
+            ResBlock(inner_channels, inner_channels, kernel_size) for _ in range(n_layers)
+        )
+
+        self.out_layer = nn.Conv1d(inner_channels, out_channels, kernel_size=1)
+
+    def forward(self, enc_output, data_len=None):
+        """
+        enc_outout : (B, T, C)
+        spk_emb : (B, C)
+        """
+        feat_add_out = phoneme = None
+
+        enc_output = enc_output.permute(0, -1, 1)   # (B, C, T)
+        out = enc_output
+
+        # 音響特徴量のフレームまでアップサンプリング
+        if self.upsample_method == "conv":
+            out_upsample = self.upsample_layer(out)
+
+        out = out_upsample
+        
+        # attention
+        if self.use_attention:
+            out = self.pre_attention_layer(out)
+            out = self.attention(out, data_len, layer="dec")   # (B, T, C)
+            out = self.post_attention_layer(out.permute(0, 2, 1))   # (B, C, T)
+
+        for layer in self.conv_layers:
+            out = layer(out)
+
+        out = self.out_layer(out)
+        return out
+    
 class ContentEncoder(nn.Module):
     def __init__(self, in_channels, out_channels, n_attn_layer, n_head, reduction_factor, norm_type):
         super().__init__()
@@ -374,6 +503,43 @@ class ContentEncoder(nn.Module):
         
         self.first_conv = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
         self.conv_layers = nn.ModuleList([
+            ResBlock(out_channels, out_channels, kernel_size=3, norm_type=norm_type),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=2, padding=1),
+            NormLayer1D(out_channels, norm_type),
+            nn.ReLU(),
+            ResBlock(out_channels, out_channels, kernel_size=3, norm_type=norm_type),
+        ])
+
+        self.attention = EncoderContent(
+            n_layers=n_attn_layer, 
+            n_head=n_head, 
+            d_model=out_channels, 
+            reduction_factor=reduction_factor,  
+        )
+
+    def forward(self, x, data_len=None):
+        """
+        x : (B, C, T)
+        out : (B, T, C)
+        """
+        out = self.first_conv(x)
+        for layer in self.conv_layers:
+            out = layer(out)
+        
+        out = self.attention(out, data_len)
+        return out
+    
+class ContentEncoder_Redu4(nn.Module):
+    def __init__(self, in_channels, out_channels, n_attn_layer, n_head, reduction_factor, norm_type):
+        super().__init__()
+        assert out_channels % n_head == 0
+        
+        self.first_conv = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv_layers = nn.ModuleList([
+            ResBlock(out_channels, out_channels, kernel_size=3, norm_type=norm_type),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=2, padding=1),
+            NormLayer1D(out_channels, norm_type),
+            nn.ReLU(),
             ResBlock(out_channels, out_channels, kernel_size=3, norm_type=norm_type),
             nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=2, padding=1),
             NormLayer1D(out_channels, norm_type),
@@ -493,7 +659,7 @@ class VectorQuantizer(nn.Module):
         return mse_loss
 
 class VectorQuantizerEMA(nn.Module):
-    def __init__(self, num_embeddings, embedding_dim, commitment_cost, decay=0.8, epsilon=1e-5):
+    def __init__(self, num_embeddings, embedding_dim, commitment_cost, decay=0.8, epsilon=1e-5, reduction_factor=2):
         super().__init__()
         
         self._embedding_dim = embedding_dim
@@ -509,6 +675,8 @@ class VectorQuantizerEMA(nn.Module):
         
         self._decay = decay
         self._epsilon = epsilon
+        
+        self.reduction_factor = reduction_factor
 
     
         """_summary_
@@ -522,7 +690,7 @@ class VectorQuantizerEMA(nn.Module):
 
     def forward(self, inputs, data_len):
         # convert inputs from BCHW -> BHWC
-        data_len =  torch.floor(torch.true_divide(data_len, torch.tensor(2.0))).to(torch.int)
+        data_len =  torch.floor(torch.true_divide(data_len, torch.tensor(self.reduction_factor))).to(torch.int)
         input_shape = inputs.shape
         
         # Flatten input
