@@ -610,3 +610,98 @@ def adjust_max_data_len_vq_idx(data):
         new_data.append(d_padded)
     
     return new_data
+
+
+def collate_time_redu4(batch, cfg):
+    """
+    フレーム数の調整を行う
+    """
+    lip = [sample['lip'] for sample in batch]
+    feature = [sample['feature'] for sample in batch]
+   
+    data_len = [sample['data_len'] for sample in batch]
+
+    text = [sample['text'] for sample in batch]
+    text_len = [sample['text_len'] for sample in batch]
+    lip_len = [sample['lip_len'] for sample in batch]
+    label = [sample['label'] for sample in batch]
+    
+    lip, lip_len, feature, data_len = check_redu4(lip, lip_len, feature, data_len)
+
+    lip = adjust_max_data_len(lip)
+    feature = adjust_max_data_len(feature)
+    text = adjust_max_data_len(text)
+    
+    
+    lip = torch.stack(lip)
+    feature = torch.stack(feature)
+    data_len = torch.stack(data_len)
+    text = torch.stack(text)
+    lip_len = torch.stack(lip_len)
+    text_len = torch.stack(text_len)
+
+    
+    output = {}
+    output['lip'] = lip
+    output['feature'] = feature
+    output['data_len'] = data_len
+    output['label'] = label
+    output['text'] = text
+    output['lip_len'] = lip_len
+    output['text_len'] = text_len
+
+    return output
+
+def check_redu4(lip, lip_len, feature, data_len):
+
+    for i in range(len(lip)):
+        tmp = lip[i]
+        
+        if tmp.shape[-1] % 2 == 0:
+            continue
+        
+        lip[i] = tmp[..., :-1]
+        lip_len[i] = lip_len[i] - 1
+        feature[i] = feature[i][..., :-2]
+        data_len[i] = data_len[i] - 2
+        
+    return lip, lip_len, feature, data_len
+    
+def collate_test_redu4(batch):
+    wav = [sample['wav'] for sample in batch]
+    lip = [sample['lip'] for sample in batch]
+    feature = [sample['feature'] for sample in batch]
+    upsample = [sample['upsample'] for sample in batch]
+    data_len = [sample['data_len'] for sample in batch]
+
+    text = [sample['text'] for sample in batch]
+    text_len = [sample['text_len'] for sample in batch]
+    lip_len = [sample['lip_len'] for sample in batch]
+    label = [sample['label'] for sample in batch]
+    #av_hubert = [sample['av_hubert'] for sample in batch]
+    
+    lip, lip_len, feature, data_len = check_redu4(lip, lip_len, feature, data_len)
+
+    wav = torch.stack(wav)
+    lip = torch.stack(lip)
+    feature = torch.stack(feature)
+    data_len = torch.stack(data_len)
+    stop_tokens = torch.stack(stop_tokens)
+    text = torch.stack(text)
+    lip_len = torch.stack(lip_len)
+    text_len = torch.stack(text_len)
+
+    
+    output = {}
+    output['wav'] = wav
+    output['lip'] = lip
+    output['feature'] = feature
+    output['upsample'] = upsample
+    output['data_len'] = data_len
+    output['label'] = label
+    output['stop_tokens'] = stop_tokens
+    output['text'] = text
+    output['lip_len'] = lip_len
+    output['text_len'] = text_len
+    
+    return output
