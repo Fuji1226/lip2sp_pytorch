@@ -1,5 +1,5 @@
 defaults:
   - model: master
-  - train: nar
-  - test : nar
-  - wandb_conf : debug
+  - train: pwg
+  - test : pwg
+  - wandb_conf : pwg

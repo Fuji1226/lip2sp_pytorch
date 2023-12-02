@@ -2,12 +2,11 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
 
+import subprocess
 from run.utils import (
     clean_trash,
     get_last_checkpoint_path,
     get_best_checkpoint_path,
-    get_result,
-    send_email,
     run_program,
 )
 
@@ -29,11 +28,12 @@ def run_nar(
         result_dir,
         model_name,
         model_size,
+        kablab_use,
         tcd_timit_use,
         ssl_feature_dropout,
 ):
-    run_program(
-        script=[
+    subprocess.run(
+        [
             'python',
             f'/home/minami/lip2sp_pytorch/{run_filename_train}',
             'model=master',
@@ -46,18 +46,17 @@ def run_nar(
             f'train.speaker={speaker}',
             f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
             f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
+            f'train.kablab.use={kablab_use}',
             f'train.tcd_timit.use={tcd_timit_use}',
             f'model.model_name={model_name}',
             f'model.avhubert_config.model_size={model_size}',
             f'model.raven_config.model_size={model_size}',
             f'model.vatlm_config.model_size={model_size}',
             f'model.ssl_feature_dropout={ssl_feature_dropout}',
-        ],
-        subject=subject,
-        body=f'finish {run_filename_train}. {message}'
+        ]
     )
-    run_program(
-        script=[
+    subprocess.run(
+        [
             'python',
             f'/home/minami/lip2sp_pytorch/{run_filename_generate}',
             'model=master',
@@ -70,6 +69,7 @@ def run_nar(
             f'train.speaker={speaker}',
             f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
             f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
+            f'train.kablab.use={kablab_use}',
             f'train.tcd_timit.use={tcd_timit_use}',
             f'test.model_path={get_last_checkpoint_path(checkpoint_dir)}',
             f'test.metric_for_select={metric_for_select}',
@@ -80,17 +80,7 @@ def run_nar(
             f'model.raven_config.model_size={model_size}',
             f'model.vatlm_config.model_size={model_size}',
             f'model.ssl_feature_dropout={ssl_feature_dropout}',
-        ],
-        subject=subject,
-        body=f'finish {run_filename_generate}. {message}'
-    )
-    send_email(
-        subject=subject,
-        body='result: griffin_lim\n\n' + get_result(result_dir, 'accuracy_griffinlim.txt')
-    )
-    send_email(
-        subject=subject,
-        body='result: pwg\n\n' + get_result(result_dir, 'accuracy_pwg.txt')
+        ]
     )
     checkpoint_path_last = get_last_checkpoint_path(checkpoint_dir)
     checkpoint_path_best = get_best_checkpoint_path(checkpoint_path_last, metric_for_select)
@@ -107,11 +97,13 @@ def experiments():
         {
             'corpus': ['ATR'],
             'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
             'tcd_timit_use': False,
         },
         {
             'corpus': [],
             'speaker': ['spk1', 'spk2', 'spk3'],
+            'kablab_use': False,
             'tcd_timit_use': True,
         },
         # {
@@ -191,12 +183,13 @@ def experiments():
                 check_point_start_separate_save_dir=False,
                 start_ckpt_path_separate_save_dir='',
                 subject=subject,
-                message='test',
+                message='',
                 checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master').expanduser(),
                 result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master').expanduser(),
                 metric_for_select='val_loss_list',
                 model_name=model_condition['model_name'],
                 model_size=model_condition['model_size'],
+                kablab_use=data['kablab_use'],
                 tcd_timit_use=data['tcd_timit_use'],
                 ssl_feature_dropout=model_condition['ssl_feature_dropout'],
             )

@@ -1,8 +1,8 @@
 from pathlib import Path
-import shutil
-from tqdm import tqdm
 import pandas as pd
 import random
+import numpy as np
+from sklearn.model_selection import train_test_split
 random.seed(42)
 
 
@@ -77,7 +77,7 @@ def data_split_hifi_captain():
             elif data == 'dev':
                 df['data_split'] = 'val'
             elif data == 'eval':
-                df['data_split'] = 'train'
+                df['data_split'] = 'test'
             df['speaker'] = speaker
             df['parent_dir'] = data
             df_list.append(df)
@@ -127,6 +127,8 @@ def data_split_jvs():
         filename = data_path.stem
         speaker_num = int(str(speaker).replace('jvs', ''))
         if speaker_num > 90:
+            data_split = 'test'
+        elif speaker_num > 80:
             data_split = 'val'
         else:
             data_split = 'train'
@@ -144,11 +146,35 @@ def data_split_jvs():
             'data_split': data_split_list,
         }
     )
-    # df = df.loc[
-    #     ((df['data'] == 'parallel100') | (df['data'] == 'nonpara30'))
-    # ]
-    # train_df = df.loc[df['data_split'] == 'train']
-    # val_df = df.loc[df['data_split'] == 'val']
+    return df
+
+
+def data_split_vctk():
+    data_dir = Path('~/VCTK-Corpus').expanduser()
+    df_info = pd.read_csv(str(data_dir / 'speaker-info.txt'))
+    data_path_list = data_dir.glob('**/*.wav')
+    speaker_list = []
+    filename_list = []
+    
+    for data_path in data_path_list:
+        speaker = data_path.parents[0].name
+        filename = data_path.stem
+        speaker_list.append(speaker)
+        filename_list.append(filename)
+
+    df = pd.DataFrame(
+        {
+            'speaker': speaker_list,
+            'filename': filename_list,
+        }
+    )
+    speaker_list_train, speaker_list_test = train_test_split(df['speaker'].unique(), test_size=0.2)
+    speaker_list_test, speaker_list_val = train_test_split(speaker_list_test, test_size=0.5)
+    df.loc[df['speaker'].isin(speaker_list_train), 'data_split'] = 'train'
+    df.loc[df['speaker'].isin(speaker_list_val), 'data_split'] = 'val'
+    df.loc[df['speaker'].isin(speaker_list_test), 'data_split'] = 'test'
+    df['ID'] = df['speaker'].str.replace('p', '').astype(int)
+    df = df.merge(df_info, on='ID', how='left')
     return df
     
 
@@ -161,7 +187,9 @@ def main():
     # df = data_split_jsut()
     # df.to_csv(str(save_dir / 'jsut.csv'), index=False)
     # df = data_split_jvs()
-    # df.to_csv(str(save_dir / 'jvs.csv'), index=False)
+    # df.to_csv(str(save_dir / 'jvs.csv'), index=False)\
+    df = data_split_vctk()
+    df.to_csv(str(save_dir / 'vctk.csv'), index=False)
 
 
 if __name__ == '__main__':

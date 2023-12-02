@@ -378,6 +378,18 @@ def get_spk_emb_jvs(cfg):
     return spk_emb_dict
 
 
+def get_spk_emb_vctk(cfg):
+    data_dir = Path(cfg.train.vctk.emb_dir).expanduser()
+    data_path_list = data_dir.glob('**/*.npy')
+    spk_emb_dict = {}
+    for data_path in data_path_list:
+        speaker = data_path.parents[0].name
+        emb = np.load(str(data_path))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker] = emb
+    return spk_emb_dict
+
+
 def adjust_max_data_len(data):
     """
     minibatchの中で最大のdata_lenに合わせて0パディングする

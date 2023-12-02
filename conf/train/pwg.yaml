@@ -6,7 +6,7 @@ name : "pwg"
 random_seed : 42
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 10
@@ -15,7 +15,7 @@ debug_iter : 10
 check_point_start : False
 start_ckpt_path : "~/lip2sp_pytorch/parallelwavegan/check_point/default/face_aligned_0_50_gray/2023:01:08_22-47-42/mspec80_200.ckpt"
 use_disc : True
-start_gan_training_pretrained_gen : True
+start_gan_training_pretrained_gen : False
 gen_path : "~/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:11_19-43-11/15.ckpt"
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
@@ -41,28 +41,51 @@ ckpt_path : "~/lip2sp_pytorch/check_point/pwg"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
-lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
-lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
-lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
-face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
-face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
-face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
-face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
-synth_path_train : "~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train"
-recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
-recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
-face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/train"
-face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
-face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
-face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
 avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
 avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
 
 # kablab
-audio_dir : '~/dataset/lip/wav'
-avhubert_preprocess_fps25_video_dir : '~/dataset/lip/avhubert_preprocess_fps25'
-kablab_df_path : '~/dataset/lip/data_split_csv/kablab.csv'
+kablab:
+  use: False
+  audio_dir: '~/dataset/lip/wav'
+  avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
+  df_path: '~/dataset/lip/data_split_csv/kablab.csv'
+  emb_dir: '~/dataset/lip/emb'
+  text_dir: '~/dataset/lip/utt'
+
+# tcd_timit
+tcd_timit:
+  use: False
+  audio_dir: '~/tcd_timit'
+  avhubert_preprocess_fps25_video_dir: '~/tcd_timit_fps25_avhubert_preprocess'
+  df_path: '~/dataset/lip/data_split_csv/tcd_timit.csv'
+  emb_dir : '~/tcd_timit'
+  text_dir: '~/tcd_timit'
+
+# jvs corpus
+jvs:
+  use: True
+  data_dir: '~/dataset/jvs_ver1'
+  df_path: '~/dataset/lip/data_split_csv/jvs.csv'
+  path_train: "~/dataset/lip/np_files/jvs/train"
+  emb_dir: '~/dataset/jvs_ver1/emb'
+  stat_path: '~/dataset/lip/stat/jvs.npz'
+
+# hifi-captain
+hifi_captain:
+  use: False
+  data_dir: '~/dataset/hi-fi-captain/ja-JP'
+  df_path: '~/dataset/lip/data_split_csv/hifi_captain.csv'
+  emb_dir: '~/dataset/hi-fi-captain/ja-JP'
+  stat_path: '~/dataset/lip/stat/hi-fi-captain.npz'
+
+# vctk corpus
+vctk:
+  use: False
+  data_dir: '~/VCTK-Corpus/wav48'
+  df_path: '~/dataset/lip/data_split_csv/vctk.csv'
+  stat_path: '~/dataset/lip/stat/vctk.npz'
+  emb_dir: '~/VCTK-Corpus/emb'
 
 # 外部データの指定
 which_external_data : ""
@@ -88,18 +111,6 @@ npz_process_speaker_list : []
 use_jsut_corpus : False
 jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 jsut_path_val : "~/dataset/lip/np_files/jsut/val"
-
-# jvs corpus
-use_jvs_corpus : False
-jvs_path_train : "~/dataset/lip/np_files/jvs/train"
-jvs_df_path : '~/dataset/lip/data_split_csv/jvs.csv'
-jvs_data_dir : '~/dataset/jvs_ver1'
-
-# hifi-captain
-use_hifi_captain : False
-hifi_captain_df_path : '~/dataset/lip/data_split_csv/hifi_captain.csv'
-hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
-hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]

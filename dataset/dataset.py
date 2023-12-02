@@ -13,9 +13,9 @@ from torchvision import transforms as T
 
 from dataset.utils import (
     get_spk_emb, 
-    get_spk_emb_hifi_captain,
     get_spk_emb_jvs,
     get_spk_emb_tcd_timit,
+    get_spk_emb_vctk,
 )
 from data_process.transform import load_data
 
@@ -32,13 +32,13 @@ class DatasetWithExternalDataRaw(Dataset):
         self.transform = transform
         self.cfg = cfg
         self.embs = get_spk_emb(cfg)
-        self.embs.update(get_spk_emb_hifi_captain(cfg))
-        self.embs.update(get_spk_emb_jvs(cfg))
         self.embs.update(get_spk_emb_tcd_timit(cfg))
+        self.embs.update(get_spk_emb_jvs(cfg))
+        self.embs.update(get_spk_emb_vctk(cfg))
 
         lip_mean = np.array([cfg.model.avhubert_lip_mean])
         lip_std = np.array([cfg.model.avhubert_lip_std])
-        feat_mean_var_std = np.load(str(Path(cfg.train.hifi_captain.feat_mean_var_std_path).expanduser()))
+        feat_mean_var_std = np.load(str(Path(cfg.train.vctk.stat_path).expanduser()))
         feat_mean = feat_mean_var_std['feat_mean']
         feat_std = feat_mean_var_std['feat_std']
         self.lip_mean = torch.from_numpy(lip_mean)

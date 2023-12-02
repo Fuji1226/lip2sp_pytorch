@@ -43,6 +43,7 @@ avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps2
 
 # kablab
 kablab:
+  use: False
   audio_dir: '~/dataset/lip/wav'
   avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
   df_path: '~/dataset/lip/data_split_csv/kablab.csv'
@@ -57,6 +58,31 @@ tcd_timit:
   df_path: '~/dataset/lip/data_split_csv/tcd_timit.csv'
   emb_dir : '~/tcd_timit'
   text_dir: '~/tcd_timit'
+
+# jvs corpus
+jvs:
+  use: False
+  data_dir: '~/dataset/jvs_ver1'
+  df_path: '~/dataset/lip/data_split_csv/jvs.csv'
+  path_train: "~/dataset/lip/np_files/jvs/train"
+  emb_dir: '~/dataset/jvs_ver1/emb'
+  stat_path: '~/dataset/lip/stat/jvs.npz'
+
+# hifi-captain
+hifi_captain:
+  use: False
+  data_dir: '~/dataset/hi-fi-captain/ja-JP'
+  df_path: '~/dataset/lip/data_split_csv/hifi_captain.csv'
+  emb_dir: '~/dataset/hi-fi-captain/ja-JP'
+  stat_path: '~/dataset/lip/stat/hi-fi-captain.npz'
+
+# vctk corpus
+vctk:
+  use: False
+  data_dir: '~/VCTK-Corpus/wav48'
+  df_path: '~/dataset/lip/data_split_csv/vctk.csv'
+  stat_path: '~/dataset/lip/stat/vctk.npz'
+  emb_dir: '~/VCTK-Corpus/emb'
 
 # 外部データの指定
 which_external_data : ""
@@ -83,23 +109,6 @@ use_jsut_corpus : False
 jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 
-# jvs corpus
-jvs:
-  use: False
-  data_dir: '~/dataset/jvs_ver1'
-  df_path: '~/dataset/lip/data_split_csv/jvs.csv'
-  path_train: "~/dataset/lip/np_files/jvs/train"
-  emb_dir: '~/dataset/jvs_ver1/emb'
-
-# hifi-captain
-hifi_captain:
-  use: False
-  data_dir: '~/dataset/hi-fi-captain/ja-JP'
-  df_path: '~/dataset/lip/data_split_csv/hifi_captain.csv'
-  feat_mean_var_std_path: '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
-  emb_dir: '~/dataset/hi-fi-captain/ja-JP'
-
-
 # 使用するコーパス
 # corpus : ["ATR", "BASIC5000", "balanced"]
 corpus : ["ATR"]
@@ -112,7 +121,7 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : ["F01_kablab", "M01_kablab"]
+speaker : ['F01_kablab', 'M01_kablab']
 use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"

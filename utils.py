@@ -168,31 +168,34 @@ def get_datasets(data_root, cfg):
 
 
 def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
-    df = pd.read_csv(str(Path(cfg.train.kablab.df_path).expanduser()))
-    df = df.loc[df['speaker'].isin(cfg.train.speaker)]
-    df = df.loc[df['corpus'].isin(cfg.train.corpus)]
-    df = df.loc[df['data_split'] == data_split]
     data_path_list = []
-    for i in range(df.shape[0]):
-        row = df.iloc[i]
-        audio_path = audio_dir / row['speaker'] / f'{row["filename"]}.wav'
-        video_path = video_dir / row['speaker'] / f'{row["filename"]}.mp4'
-        if (not audio_path.exists()) or (not video_path.exists()):
-            continue
-        data_path_list.append(
-            {
-                'audio_path': audio_path,
-                'video_path': video_path,
-                'speaker': row['speaker'],
-                'filename': row['filename'],
-            }
-        )
+    if cfg.train.kablab.use:
+        print('load kablab')
+        df = pd.read_csv(str(Path(cfg.train.kablab.df_path).expanduser()))
+        df = df.loc[df['speaker'].isin(cfg.train.speaker)]
+        df = df.loc[df['corpus'].isin(cfg.train.corpus)]
+        df = df.loc[df['data_split'] == data_split]
+        for i in range(df.shape[0]):
+            row = df.iloc[i]
+            audio_path = audio_dir / row['speaker'] / f'{row["filename"]}.wav'
+            video_path = video_dir / row['speaker'] / f'{row["filename"]}.mp4'
+            if (not audio_path.exists()) or (not video_path.exists()):
+                continue
+            data_path_list.append(
+                {
+                    'audio_path': audio_path,
+                    'video_path': video_path,
+                    'speaker': row['speaker'],
+                    'filename': row['filename'],
+                }
+            )
     return data_path_list
 
 
 def get_datasets_external_data_raw(cfg, data_split):
     data_path_list = []
     if cfg.train.tcd_timit.use:
+        print('load tcd-timit')
         df = pd.read_csv(str(Path(cfg.train.tcd_timit.df_path).expanduser()))
         df = df.loc[df['data_split'] == data_split]
         audio_dir = Path(cfg.train.tcd_timit.audio_dir).expanduser()
@@ -208,6 +211,7 @@ def get_datasets_external_data_raw(cfg, data_split):
                 }
             )
     if cfg.train.hifi_captain.use:
+        print('load hi-fi-captain')
         df = pd.read_csv(str(Path(cfg.train.hifi_captain.df_path).expanduser()))
         df = df.loc[df['data_split'] == data_split]
         audio_dir = Path(cfg.train.hifi_captain.data_dir).expanduser()
@@ -222,6 +226,7 @@ def get_datasets_external_data_raw(cfg, data_split):
                 }
             )
     if cfg.train.jvs.use:
+        print('load jvs')
         df = pd.read_csv(str(Path(cfg.train.jvs.df_path).expanduser()))
         df = df.loc[
             (df['data'] == 'parallel100') | (df['data'] == 'nonpara30')
@@ -236,6 +241,21 @@ def get_datasets_external_data_raw(cfg, data_split):
                     'video_path': None,
                     'speaker': row['speaker'],
                     'filename': row['filename'],
+                }
+            )
+    if cfg.train.vctk.use:
+        print('load vctk')
+        df = pd.read_csv(str(Path(cfg.train.vctk.df_path).expanduser()))
+        df = df.loc[df['data_split'] == data_split]
+        audio_dir = Path(cfg.train.vctk.data_dir).expanduser()
+        for i in range(df.shape[0]):
+            row = df.iloc[i]
+            data_path_list.append(
+                {
+                    'audio_path': audio_dir / row['speaker'] / f'{row["filename"]}.wav',
+                    'video_path': None,
+                    'speaker': row['speaker'],
+                    'filename': row['speaker'],
                 }
             )
     return data_path_list
@@ -468,7 +488,7 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         train_external_data_path_list = train_external_data_path_list[:100]
         val_external_data_path_list = val_external_data_path_list[:100]
 
-    if cfg.train.name == 'pwg' or cfg.train.tcd_timit.use:
+    if cfg.train.tcd_timit.use or cfg.train.vctk.use or cfg.train.jvs.use:
         train_dataset = DatasetWithExternalDataRaw(
             data_path=train_external_data_path_list,
             transform=train_trans,

@@ -1,8 +1,8 @@
-from pathlib import Path
 import sys
-sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
+from pathlib import Path
+sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
 
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 import hydra
 import wandb
 from pathlib import Path
@@ -29,10 +29,7 @@ from parallelwavegan.model.generator import Generator
 from parallelwavegan.model.discriminator import Discriminator, WaveNetLikeDiscriminator
 from parallelwavegan.stft_loss import MultiResolutionSTFTLoss
 
-# wandbへのログイン
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
-
-# 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
 
@@ -160,13 +157,11 @@ def train_one_epoch(
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+                check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
+            check_wav(wav[0], wav_pred[0], cfg, "mel_train", "wav_train_target", "wav_train_output", current_time, ckpt_time)
 
     epoch_loss_disc /= iter_cnt
     epoch_loss_gen_stft /= iter_cnt
@@ -202,13 +197,11 @@ def val_one_epoch(gen, val_loader, loss_f, device, cfg, ckpt_time):
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+                check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
                 break
         
         if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
+            check_wav(wav[0], wav_pred[0], cfg, "mel_validation", "wav_validation_target", "wav_validation_output", current_time, ckpt_time)
 
     epoch_loss_disc /= iter_cnt
     epoch_loss_gen_stft /= iter_cnt
@@ -365,6 +358,7 @@ def val_one_epoch_gan(
 
 @hydra.main(version_base=None, config_name="config", config_path="../conf")
 def main(cfg):
+    cfg.model.input_lip_sec = 1.0
     set_config(cfg)
     fix_random_seed(cfg.train.random_seed)
 

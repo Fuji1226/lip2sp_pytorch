@@ -286,7 +286,7 @@ def collate_time_adjust_with_external_data(batch, cfg):
     feature_adjusted = []
     feature_avhubert_adjusted = []
 
-    lip_input_len = cfg.model.input_lip_sec * cfg.model.fps
+    lip_input_len = int(cfg.model.input_lip_sec * cfg.model.fps)
     upsample_scale = 1000 // cfg.model.frame_period // cfg.model.fps
     feat_input_len = int(lip_input_len * upsample_scale)
     wav_input_len = int(feat_input_len * cfg.model.hop_length)
@@ -301,7 +301,7 @@ def collate_time_adjust_with_external_data(batch, cfg):
 
             # 音響特徴量の系列長をベースに判定しているので、稀に波形のサンプル数が多い場合がある
             # その際に余ったサンプルを除外する（シフト幅的に余りが生じているのでそれを省いている）
-            w = w[:wav_input_len]     
+            w = w[:wav_input_len]
 
             w_padded[:w.shape[0]] = w
             l_padded[..., :l.shape[-1]] = l
