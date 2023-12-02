@@ -172,7 +172,7 @@ beta_1 : 0.9
 # weight_decay : 1.0e-6
 beta_2 : 0.98
 weight_decay : 1.0e-2
-which_optim : 'adam'
+which_optim : 'adamw'
 which_scheduler : 'warmup'
 
 # scheduler

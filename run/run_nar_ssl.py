@@ -30,8 +30,7 @@ def run_nar(
         model_name,
         model_size,
         tcd_timit_use,
-        which_optim,
-        weight_decay,
+        ssl_feature_dropout,
 ):
     run_program(
         script=[
@@ -48,12 +47,11 @@ def run_nar(
             f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
             f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
             f'train.tcd_timit.use={tcd_timit_use}',
-            f'train.which_optim={which_optim}',
-            f'train.weight_decay={weight_decay}',
             f'model.model_name={model_name}',
             f'model.avhubert_config.model_size={model_size}',
             f'model.raven_config.model_size={model_size}',
             f'model.vatlm_config.model_size={model_size}',
+            f'model.ssl_feature_dropout={ssl_feature_dropout}',
         ],
         subject=subject,
         body=f'finish {run_filename_train}. {message}'
@@ -73,8 +71,6 @@ def run_nar(
             f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
             f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
             f'train.tcd_timit.use={tcd_timit_use}',
-            f'train.which_optim={which_optim}',
-            f'train.weight_decay={weight_decay}',
             f'test.model_path={get_last_checkpoint_path(checkpoint_dir)}',
             f'test.metric_for_select={metric_for_select}',
             f'test.speaker={speaker}',
@@ -83,6 +79,7 @@ def run_nar(
             f'model.avhubert_config.model_size={model_size}',
             f'model.raven_config.model_size={model_size}',
             f'model.vatlm_config.model_size={model_size}',
+            f'model.ssl_feature_dropout={ssl_feature_dropout}',
         ],
         subject=subject,
         body=f'finish {run_filename_generate}. {message}'
@@ -107,11 +104,11 @@ def experiments():
     subject = 'プログラム経過'
 
     data_list = [
-        # {
-        #     'corpus': ['ATR'],
-        #     'speaker': ["F01_kablab", "M01_kablab"],
-        #     'tcd_timit_use': False,
-        # },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'tcd_timit_use': False,
+        },
         {
             'corpus': [],
             'speaker': ['spk1', 'spk2', 'spk3'],
@@ -124,177 +121,89 @@ def experiments():
         # },
     ]
     model_condition_list = [
-        # {
-        #     'model_name': 'avhubert',
-        #     'model_size': 'base',
-        # },
-        # {
-        #     'model_name': 'raven',
-        #     'model_size': 'base',
-        # },
+        {
+            'model_name': 'avhubert',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+        },
+        {
+            'model_name': 'raven',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+        },
         {
             'model_name': 'vatlm',
             'model_size': 'base',
+            'ssl_feature_dropout': 0,
         },
-        # {
-        #     'model_name': 'avhubert',
-        #     'model_size': 'large',
-        # },
-        # {
-        #     'model_name': 'raven',
-        #     'model_size': 'large',
-        # },
+        {
+            'model_name': 'avhubert',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+        },
+        {
+            'model_name': 'raven',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+        },
         {
             'model_name': 'vatlm',
             'model_size': 'large',
-        },
-        # {
-        #     'model_name': 'lightweight',
-        #     'model_size': 'base',
-        # },
-    ]
-    optimizer_param_list = [
-        {
-            'which_optim': 'adam',
-            'weight_decay': 1.0e-3,
+            'ssl_feature_dropout': 0,
         },
         {
-            'which_optim': 'adam',
-            'weight_decay': 1.0e-4,
+            'model_name': 'lightweight',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
         },
         {
-            'which_optim': 'adam',
-            'weight_decay': 1.0e-5,
+            'model_name': 'ensemble',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
         },
         {
-            'which_optim': 'adam',
-            'weight_decay': 1.0e-6,
+            'model_name': 'ensemble',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0.1,
         },
         {
-            'which_optim': 'adam',
-            'weight_decay': 0,
+            'model_name': 'ensemble',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0.2,
         },
         {
-            'which_optim': 'adamw',
-            'weight_decay': 1.0e-3,
-        },
-        {
-            'which_optim': 'adamw',
-            'weight_decay': 1.0e-4,
-        },
-        {
-            'which_optim': 'adamw',
-            'weight_decay': 1.0e-5,
-        },
-        {
-            'which_optim': 'adamw',
-            'weight_decay': 1.0e-6,
-        },
-        {
-            'which_optim': 'adamw',
-            'weight_decay': 0,
+            'model_name': 'ensemble',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0.3,
         },
     ]
 
     for data in data_list:
         for model_condition in model_condition_list:
-            for optimizer_param in optimizer_param_list:
-                run_nar(
-                    run_filename_train='train_nar_ssl.py',
-                    run_filename_generate='generate_nar_ssl.py',
-                    wandb_conf=wandb_conf,
-                    debug=debug,
-                    module_is_fixed='',
-                    corpus=data['corpus'],
-                    speaker=data['speaker'],
-                    check_point_start_separate_save_dir=False,
-                    start_ckpt_path_separate_save_dir='',
-                    subject=subject,
-                    message='test',
-                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master').expanduser(),
-                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master').expanduser(),
-                    metric_for_select='val_loss_list',
-                    model_name=model_condition['model_name'],
-                    model_size=model_condition['model_size'],
-                    tcd_timit_use=data['tcd_timit_use'],
-                    which_optim=optimizer_param['which_optim'],
-                    weight_decay=optimizer_param['weight_decay'],
-                )
-
-
-def experiments_ensembles():
-    debug = True
-    wandb_conf = 'debug' if debug else 'nar'
-    subject = 'プログラム経過'
-
-    condition_list = [
-        {
-            'corpus': ['ATR'],
-            'speaker': ["F01_kablab", "M01_kablab"],
-            'tcd_timit_use': False,
-            'model_name': 'ensemble',
-            'model_size': 'base',
-            'ckpt_path_avhubert': '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-16-55/2.ckpt',
-            'ckpt_path_raven': '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-18-17/2.ckpt',
-            'ckpt_path_vatlm': '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-19-35/2.ckpt',
-        },
-        {
-            'corpus': ['ATR'],
-            'speaker': ["F01_kablab", "M01_kablab"],
-            'tcd_timit_use': False,
-            'model_name': 'ensemble',
-            'model_size': 'large',
-            'ckpt_path_avhubert': '',
-            'ckpt_path_raven': '',
-            'ckpt_path_vatlm': '',
-        },
-        {
-            'corpus': [],
-            'speaker': ['spk1', 'spk2', 'spk3'],
-            'tcd_timit_use': True,
-            'model_name': 'ensemble',
-            'model_size': 'base',
-            'ckpt_path_avhubert': '',
-            'ckpt_path_raven': '',
-            'ckpt_path_vatlm': '',
-        },
-        {
-            'corpus': [],
-            'speaker': ['spk1', 'spk2', 'spk3'],
-            'tcd_timit_use': True,
-            'model_name': 'ensemble',
-            'model_size': 'large',
-            'ckpt_path_avhubert': '',
-            'ckpt_path_raven': '',
-            'ckpt_path_vatlm': '',
-        },
-    ]
-
-    for condition in condition_list:
-        run_nar(
-            run_filename_train='train_nar_ssl.py',
-            run_filename_generate='generate_nar_ssl.py',
-            wandb_conf=wandb_conf,
-            debug=debug,
-            module_is_fixed='',
-            corpus=condition['corpus'],
-            speaker=condition['speaker'],
-            check_point_start_separate_save_dir=False,
-            start_ckpt_path_separate_save_dir='',
-            subject=subject,
-            message='test',
-            checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master').expanduser(),
-            result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master').expanduser(),
-            metric_for_select='val_loss_list',
-            model_name=condition['model_name'],
-            model_size=condition['model_size'],
-            tcd_timit_use=condition['tcd_timit_use'],
-        )
+            run_nar(
+                run_filename_train='train_nar_ssl.py',
+                run_filename_generate='generate_nar_ssl.py',
+                wandb_conf=wandb_conf,
+                debug=debug,
+                module_is_fixed='',
+                corpus=data['corpus'],
+                speaker=data['speaker'],
+                check_point_start_separate_save_dir=False,
+                start_ckpt_path_separate_save_dir='',
+                subject=subject,
+                message='test',
+                checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master').expanduser(),
+                result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master').expanduser(),
+                metric_for_select='val_loss_list',
+                model_name=model_condition['model_name'],
+                model_size=model_condition['model_size'],
+                tcd_timit_use=data['tcd_timit_use'],
+                ssl_feature_dropout=model_condition['ssl_feature_dropout'],
+            )
 
 
 def main():
     experiments()
-    # experiments_ensembles()
 
 
 if __name__ == '__main__':

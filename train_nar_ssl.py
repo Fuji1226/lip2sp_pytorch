@@ -15,10 +15,8 @@ from utils import (
     save_loss,
     check_mel_nar,
     fix_random_seed,
-    set_requires_grad_by_name,
     get_path_train_raw,
     make_train_val_loader_with_external_data_raw,
-    load_ssl_ensemble,
 )
 from model.model_nar_ssl import Lip2SpeechSSL, Lip2SpeechLightWeight
 from loss import MaskedLoss
@@ -294,31 +292,6 @@ def main(cfg):
             else:
                 checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["model"])
-
-        if cfg.model.model_name == 'ensemble':
-            print('load pretrained ssl models for ensemble')
-            model = load_ssl_ensemble(
-                model=model,
-                ckpt_path=Path(cfg.model.ckpt_path_avhubert).expanduser(),
-                device=device,
-                ssl_model_name='avhubert',
-            )
-            model = load_ssl_ensemble(
-                model=model,
-                ckpt_path=Path(cfg.model.ckpt_path_raven).expanduser(),
-                device=device,
-                ssl_model_name='raven',
-            )
-            model = load_ssl_ensemble(
-                model=model,
-                ckpt_path=Path(cfg.model.ckpt_path_vatlm).expanduser(),
-                device=device,
-                ssl_model_name='vatlm',
-            )
-            for name, param in model.named_parameters():
-                if 'avhubert.' in name or 'raven.' in name or 'vatlm.' in name:
-                    param.requires_grad = False
-            count_params(model, 'model')
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 

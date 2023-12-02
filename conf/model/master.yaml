@@ -101,11 +101,12 @@ decoder:
   conv_kernel_size: 3
   dropout: 0.1
 
-# model name
+# ssl
 model_name: 'ensemble'
 ckpt_path_avhubert: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-16-55/2.ckpt'
 ckpt_path_raven: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-18-17/2.ckpt'
 ckpt_path_vatlm: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-19-35/2.ckpt'
+ssl_feature_dropout: 0.3
 
 # avhubert
 avhubert_config:
@@ -254,15 +255,15 @@ vatlm_config:
       encoder_ffn_embed_dim: 3072
       encoder_attention_heads: 12
       activation_fn: "gelu"
-      dropout: 0.0
-      attention_dropout: 0.0
-      activation_dropout: 0.1
-      encoder_layerdrop: 0.0
-      dropout_input: 0.0
-      dropout_features: 0.0
+      dropout: 0.1
+      attention_dropout: 0.1
+      activation_dropout: 0.0
+      encoder_layerdrop: 0.05
+      dropout_input: 0.1
+      dropout_features: 0.1
       final_dim: 0
       untie_final_proj: False
-      layer_norm_first: False
+      layer_norm_first: True
       conv_feature_layers: "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"
       conv_bias: False
       logit_temp: 0.1
@@ -362,15 +363,15 @@ vatlm_config:
       encoder_ffn_embed_dim: 4096
       encoder_attention_heads: 16
       activation_fn: "gelu"
-      dropout: 0.0
-      attention_dropout: 0.0
-      activation_dropout: 0.1
-      encoder_layerdrop: 0.0
-      dropout_input: 0.0
-      dropout_features: 0.0
+      dropout: 0.1
+      attention_dropout: 0.1
+      activation_dropout: 0.0
+      encoder_layerdrop: 0.05
+      dropout_input: 0.1
+      dropout_features: 0.1
       final_dim: 0
       untie_final_proj: False
-      layer_norm_first: False
+      layer_norm_first: True
       conv_feature_layers: "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"
       conv_bias: False
       logit_temp: 0.1

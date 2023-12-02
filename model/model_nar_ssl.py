@@ -93,6 +93,7 @@ class Lip2SpeechSSL(nn.Module):
             self.raven = load_raven(cfg.model.raven_config)
             self.vatlm = load_vatlm(cfg.model.vatlm_config)
             hidden_channels = self.avhubert.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
             self.fuse_layer = nn.Linear(
                 self.avhubert.encoder_embed_dim + self.raven.attention_dim + self.vatlm.encoder_embed_dim,
                 hidden_channels,
@@ -177,6 +178,9 @@ class Lip2SpeechSSL(nn.Module):
             feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
             feature_raven = self.extract_feature_raven(lip, lip_len, audio)
             feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
+            feature_avhubert = self.dropout(feature_avhubert)
+            feature_raven = self.dropout(feature_raven)
+            feature_vatlm = self.dropout(feature_vatlm)
             feature = torch.concat([feature_avhubert, feature_raven, feature_vatlm], dim=-1)
             feature = self.fuse_layer(feature)
 
