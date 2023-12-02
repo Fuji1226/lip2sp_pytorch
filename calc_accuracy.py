@@ -54,22 +54,12 @@ def load_utt():
     return df
 
 
-def calc_wer_mecab(mecab, utt, result_gt, result_abs, result_gen):
-    utt_parse = mecab.parse(utt)
-    result_gt_parse = mecab.parse(result_gt)
-    result_abs_parse = mecab.parse(result_abs)
-    result_gen_parse = mecab.parse(result_gen)
-    wer_gt = wer(utt_parse, result_gt_parse)
-    wer_abs = wer(utt_parse, result_abs_parse)
-    wer_gen = wer(utt_parse, result_gen_parse)
-    print(f'utt = {utt_parse}')
-    print(f'result_gt = {result_gt_parse}')
-    print(f'result_abs = {result_abs_parse}')
-    print(f'result_gen = {result_gen_parse}')
-    print(f'wer_gt = {wer_gt}')
-    print(f'wer_abs = {wer_abs}')
-    print(f'wer_gen = {wer_gen}')
-    return wer_gt, wer_abs, wer_gen
+def calc_error_rate(utt, utt_pred):
+    try:
+        wer_gt = np.clip(wer(utt, utt_pred), a_min=0, a_max=1)
+    except:
+        wer_gt = 1.0
+    return wer_gt
 
 
 def calc_accuracy_new(data_dir, save_path, cfg, filename):
@@ -129,23 +119,25 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         estoi_abs_list.append(estoi_abs)
         estoi_generate_list.append(estoi_generate)
 
-        utt_pred_gt = speech_recognizer.transcribe(str(gt_data_path))['text'].replace('。', '').replace('、', '')
-        utt_pred_abs = speech_recognizer.transcribe(str(abs_data_path))['text'].replace('。', '').replace('、', '')
-        utt_pred_generate = speech_recognizer.transcribe(str(generate_data_path))['text'].replace('。', '').replace('、', '')
+        utt_pred_gt = speech_recognizer.transcribe(str(gt_data_path), language='ja')['text'].replace('。', '').replace('、', '')
+        utt_pred_abs = speech_recognizer.transcribe(str(abs_data_path), language='ja')['text'].replace('。', '').replace('、', '')
+        utt_pred_generate = speech_recognizer.transcribe(str(generate_data_path), language='ja')['text'].replace('。', '').replace('、', '')
         utt_parse = mecab.parse(utt)
         utt_pred_gt_parse = mecab.parse(utt_pred_gt)
         utt_pred_abs_parse = mecab.parse(utt_pred_abs)
         utt_pred_generate_parse = mecab.parse(utt_pred_generate)
-        wer_gt = np.clip(wer(utt_parse, utt_pred_gt_parse), a_min=0, a_max=1)
-        wer_abs = np.clip(wer(utt_parse, utt_pred_abs_parse), a_min=0, a_max=1)
-        wer_generate = np.clip(wer(utt_parse, utt_pred_generate_parse), a_min=0, a_max=1)
+        wer_gt = calc_error_rate(utt_parse, utt_pred_gt_parse)
+        wer_abs = calc_error_rate(utt_parse, utt_pred_abs_parse)
+        wer_generate = calc_error_rate(utt_parse, utt_pred_generate_parse)
+
         utt_p = pyopenjtalk.g2p(utt)
         utt_pred_gt_p = pyopenjtalk.g2p(utt_pred_gt)
         utt_pred_abs_p = pyopenjtalk.g2p(utt_pred_abs)
         utt_pred_generate_p = pyopenjtalk.g2p(utt_pred_generate)
-        per_gt = np.clip(wer(utt_p, utt_pred_gt_p), a_min=0, a_max=1)
-        per_abs = np.clip(wer(utt_p, utt_pred_abs_p), a_min=0, a_max=1)
-        per_generate = np.clip(wer(utt_p, utt_pred_generate_p), a_min=0, a_max=1)
+        per_gt = calc_error_rate(utt_p, utt_pred_gt_p)
+        per_abs = calc_error_rate(utt_p, utt_pred_abs_p)
+        per_generate = calc_error_rate(utt_p, utt_pred_generate_p)
+
         wer_gt_list.append(wer_gt)
         wer_abs_list.append(wer_abs)
         wer_generate_list.append(wer_generate)
@@ -198,6 +190,129 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         f.write(f'per_gt = {per_gt * 100:f}%\n')
         f.write(f'per_abs = {per_abs * 100:f}%\n')
         f.write(f'per_generate = {per_generate * 100:f}%\n')
+        f.write('\n')
+
+
+def calc_accuracy_en(data_dir, save_path, cfg, filename):
+    speaker = data_dir.stem
+    wb_pesq_evaluator = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
+    stoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
+    estoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=True)
+    speech_recognizer = whisper.load_model('large')
+    utt_dir = Path(cfg.train.tcd_timit.text_dir).expanduser()
+
+    pesq_abs_list = []
+    pesq_generate_list = []
+    stoi_abs_list = []
+    stoi_generate_list = []
+    estoi_abs_list = []
+    estoi_generate_list = []
+    wer_gt_list = []
+    wer_abs_list = []
+    wer_generate_list = []
+    cer_gt_list = []
+    cer_abs_list = []
+    cer_generate_list = []
+
+    gt_data_path_list = list(data_dir.glob('**/gt.wav'))
+    for i, gt_data_path in enumerate(gt_data_path_list):
+        abs_data_path = Path(str(gt_data_path).replace('gt', 'abs'))
+        generate_data_path = Path(str(gt_data_path).replace('gt', 'generate'))
+        wav_gt, _ = librosa.load(str(gt_data_path), sr=cfg.model.sampling_rate)
+        wav_abs, _ = librosa.load(str(abs_data_path), sr=cfg.model.sampling_rate)
+        wav_generate, _ = librosa.load(str(generate_data_path), sr=cfg.model.sampling_rate)
+        min_sample = min(wav_gt.shape[0], wav_abs.shape[0], wav_generate.shape[0])
+        wav_gt = wav_gt[:min_sample]
+        wav_abs = wav_abs[:min_sample]
+        wav_generate = wav_generate[:min_sample]
+        wav_gt = torch.from_numpy(wav_gt)
+        wav_abs = torch.from_numpy(wav_abs)
+        wav_generate = torch.from_numpy(wav_generate)
+
+        utt_path = utt_dir / speaker / 'straightcam' / f'{gt_data_path.parents[0].name}.txt'
+        with open(str(utt_path), 'r') as f:
+            utt = f.read().rstrip().replace(',', '').replace('.', '')
+
+        pesq_abs = wb_pesq_evaluator(wav_abs, wav_gt)
+        pesq_generate = wb_pesq_evaluator(wav_generate, wav_gt)
+        stoi_abs = stoi_evaluator(wav_abs, wav_gt)
+        stoi_generate = stoi_evaluator(wav_generate, wav_gt)
+        estoi_abs = estoi_evaluator(wav_abs, wav_gt)
+        estoi_generate = estoi_evaluator(wav_generate, wav_gt)
+        pesq_abs_list.append(pesq_abs)
+        pesq_generate_list.append(pesq_generate)
+        stoi_abs_list.append(stoi_abs)
+        stoi_generate_list.append(stoi_generate)
+        estoi_abs_list.append(estoi_abs)
+        estoi_generate_list.append(estoi_generate)
+
+        utt_pred_gt = speech_recognizer.transcribe(str(gt_data_path), language='en')['text'].replace(',', '').replace('.', '')
+        utt_pred_abs = speech_recognizer.transcribe(str(abs_data_path), language='en')['text'].replace(',', '').replace('.', '')
+        utt_pred_generate = speech_recognizer.transcribe(str(generate_data_path), language='en')['text'].replace(',', '').replace('.', '')
+        wer_gt = calc_error_rate(utt, utt_pred_gt)
+        wer_abs = calc_error_rate(utt, utt_pred_abs)
+        wer_generate = calc_error_rate(utt, utt_pred_generate)
+
+        utt_c = [c for c in utt.replace(' ', '')]
+        utt_pred_gt_c = [c for c in utt_pred_gt.replace(' ', '')]
+        utt_pred_abs_c = [c for c in utt_pred_abs.replace(' ', '')]
+        utt_pred_generate_c = [c for c in utt_pred_generate.replace(' ', '')]
+        cer_gt = calc_error_rate(utt_c, utt_pred_gt_c)
+        cer_abs = calc_error_rate(utt_c, utt_pred_abs_c)
+        cer_generate = calc_error_rate(utt_c, utt_pred_generate_c)
+
+        wer_gt_list.append(wer_gt)
+        wer_abs_list.append(wer_abs)
+        wer_generate_list.append(wer_generate)
+        cer_gt_list.append(cer_gt)
+        cer_abs_list.append(cer_abs)
+        cer_generate_list.append(cer_generate)
+
+        print(f'--- iter {i} ---')
+        print(f'utt = {utt}')
+        print(f'pesq_abs = {pesq_abs}')
+        print(f'pesq_generate = {pesq_generate}')
+        print(f'stoi_abs = {stoi_abs}')
+        print(f'stoi_generate = {stoi_generate}')
+        print(f'estoi_abs = {estoi_abs}')
+        print(f'estoi_generate = {estoi_generate}')
+        print(f'wer_gt = {wer_gt}')
+        print(f'wer_abs = {wer_abs}')
+        print(f'wer_generate = {wer_generate}')
+        print(f'cer_gt = {cer_gt}')
+        print(f'cer_abs = {cer_abs}')
+        print(f'cer_generate = {cer_generate}')
+        print('')
+        
+    pesq_abs = np.mean(pesq_abs_list)
+    pesq_generate = np.mean(pesq_generate_list)
+    stoi_abs = np.mean(stoi_abs_list)
+    stoi_generate = np.mean(stoi_generate_list)
+    estoi_abs = np.mean(estoi_abs_list)
+    estoi_generate = np.mean(estoi_generate_list)
+    wer_gt = np.mean(wer_gt_list)
+    wer_abs = np.mean(wer_abs_list)
+    wer_generate = np.mean(wer_generate_list)
+    cer_gt = np.mean(cer_gt_list)
+    cer_abs = np.mean(cer_abs_list)
+    cer_generate = np.mean(cer_generate_list)
+
+    file_name = save_path / f"{filename}.txt"
+    with open(str(file_name), "a") as f:
+        f.write("--- Objective Evaluation Metrics ---\n")
+        f.write(f'speaker = {speaker}\n')
+        f.write(f"pesq_abs = {pesq_abs:f}\n")
+        f.write(f"pesq_generate = {pesq_generate:f}\n")
+        f.write(f"stoi_abs = {stoi_abs:f}\n")
+        f.write(f"stoi_generate = {stoi_generate:f}\n")
+        f.write(f"estoi_abs = {estoi_abs:f}\n")
+        f.write(f"estoi_generate = {estoi_generate:f}\n")
+        f.write(f'wer_gt = {wer_gt * 100:f}%\n')
+        f.write(f'wer_abs = {wer_abs * 100:f}%\n')
+        f.write(f'wer_generate = {wer_generate * 100:f}%\n')
+        f.write(f'cer_gt = {cer_gt * 100:f}%\n')
+        f.write(f'cer_abs = {cer_abs * 100:f}%\n')
+        f.write(f'cer_generate = {cer_generate * 100:f}%\n')
         f.write('\n')
 
 

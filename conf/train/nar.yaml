@@ -6,10 +6,10 @@ name : "nar"
 random_seed : 42
 
 # デバッグ
-debug : False
+debug : True
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 10
+debug_iter : 50
 
 # checkpointから再開する場合
 check_point_start : False
@@ -38,28 +38,25 @@ ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 1
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-lip_pre_loaded_path_train_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/train"
-lip_pre_loaded_path_val_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/val"
-lip_pre_loaded_path_train_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/train"
-lip_pre_loaded_path_val_08_50_gray : "~/dataset/lip/np_files/lip_cropped_0.8_50_gray/val"
-face_pre_loaded_path_train_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/train"
-face_pre_loaded_path_val_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/val"
-face_pre_loaded_path_train_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/train"
-face_pre_loaded_path_val_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/val"
-synth_path_train : "~/dataset/lip/np_files_synth_corpus/face_aligned_0_50_gray/train"
-recorded_and_synth_path_train : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/train"
-recorded_and_synth_path_val : "~/dataset/lip/np_files_recorded_and_synth/face_aligned_0_50_gray/val"
-face_cropped_max_size_train : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/train"
-face_cropped_max_size_val : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/val"
-face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
-face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
 avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
 avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
 
 # kablab
-audio_dir : '~/dataset/lip/wav'
-avhubert_preprocess_fps25_video_dir : '~/dataset/lip/avhubert_preprocess_fps25'
-kablab_df_path : '~/dataset/lip/data_split_csv/kablab.csv'
+kablab:
+  audio_dir: '~/dataset/lip/wav'
+  avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
+  df_path: '~/dataset/lip/data_split_csv/kablab.csv'
+  emb_dir: '~/dataset/lip/emb'
+  text_dir: '~/dataset/lip/utt'
+
+# tcd_timit
+tcd_timit:
+  use: False
+  audio_dir: '~/tcd_timit'
+  avhubert_preprocess_fps25_video_dir: '~/tcd_timit_fps25_avhubert_preprocess'
+  df_path: '~/dataset/lip/data_split_csv/tcd_timit.csv'
+  emb_dir : '~/tcd_timit'
+  text_dir: '~/tcd_timit'
 
 # 外部データの指定
 which_external_data : ""
@@ -87,16 +84,21 @@ jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 
 # jvs corpus
-use_jvs_corpus : False
-jvs_path_train : "~/dataset/lip/np_files/jvs/train"
-jvs_df_path : '~/dataset/lip/data_split_csv/jvs.csv'
-jvs_data_dir : '~/dataset/jvs_ver1'
+jvs:
+  use: False
+  data_dir: '~/dataset/jvs_ver1'
+  df_path: '~/dataset/lip/data_split_csv/jvs.csv'
+  path_train: "~/dataset/lip/np_files/jvs/train"
+  emb_dir: '~/dataset/jvs_ver1/emb'
 
 # hifi-captain
-use_hifi_captain : False
-hifi_captain_df_path : '~/dataset/lip/data_split_csv/hifi_captain.csv'
-hifi_captain_data_dir : '~/dataset/hi-fi-captain/ja-JP'
-hifi_captain_feat_mean_var_std_path : '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
+hifi_captain:
+  use: False
+  data_dir: '~/dataset/hi-fi-captain/ja-JP'
+  df_path: '~/dataset/lip/data_split_csv/hifi_captain.csv'
+  feat_mean_var_std_path: '~/dataset/hi-fi-captain/ja-JP/feat_mean_var_std.npz'
+  emb_dir: '~/dataset/hi-fi-captain/ja-JP'
+
 
 # 使用するコーパス
 # corpus : ["ATR", "BASIC5000", "balanced"]
@@ -117,7 +119,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 100
+max_epoch : 50
 
 # テキスト処理
 for_tts : False
@@ -153,8 +155,9 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 7
-num_workers : 7
+batch_size : 2
+num_workers : 2
+iters_to_accumulate : 16
 
 # dropout
 dec_dropout : 0.1
@@ -169,7 +172,7 @@ beta_1 : 0.9
 # weight_decay : 1.0e-6
 beta_2 : 0.98
 weight_decay : 1.0e-2
-which_optim : 'adamw'
+which_optim : 'adam'
 which_scheduler : 'warmup'
 
 # scheduler
@@ -185,9 +188,7 @@ max_norm : 3.0
 
 # lossの重みづけ
 mse_weight : 1.0
+l1_loss_weight : 1.0
 classifier_weight : 0.05
 use_weighted_mean : False
 loss_disc_weight : 0.01
-
-# gradient accumulation
-iters_to_accumulate : 4

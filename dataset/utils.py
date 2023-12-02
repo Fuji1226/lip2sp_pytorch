@@ -292,6 +292,7 @@ def get_utt_wiki(data_path, cfg):
 
 def get_spk_emb(cfg):
     spk_emb_dict = {}
+    emb_dir = Path(cfg.train.kablab.emb_dir).expanduser()
     data_path_list = emb_dir.glob('**/*.npy')
     for data_path in data_path_list:
         speaker = data_path.parents[0].name
@@ -302,9 +303,21 @@ def get_spk_emb(cfg):
     return spk_emb_dict
 
 
-def get_spk_emb_hifi_captain():
+def get_spk_emb_tcd_timit(cfg):
     spk_emb_dict = {}
-    data_dir = Path('~/dataset/hi-fi-captain/ja-JP').expanduser()
+    emb_dir = Path(cfg.train.tcd_timit.emb_dir).expanduser()
+    data_path_list = emb_dir.glob('**/emb.npy')
+    for data_path in data_path_list:
+        speaker = data_path.parents[0].name
+        emb = np.load(str(data_path))
+        emb = emb / np.linalg.norm(emb)
+        spk_emb_dict[speaker] = emb
+    return spk_emb_dict
+
+
+def get_spk_emb_hifi_captain(cfg):
+    spk_emb_dict = {}
+    data_dir = Path(cfg.train.hifi_captain.emb_dir).expanduser()
     for speaker in ['female', 'male']:
         data_path = data_dir / speaker /'emb.npy'
         emb = np.load(str(data_path))
@@ -354,8 +367,8 @@ def get_spk_emb_jsut():
     return spk_emb_dict
 
 
-def get_spk_emb_jvs():
-    data_path = Path("~/dataset/jvs_ver1/emb").expanduser()
+def get_spk_emb_jvs(cfg):
+    data_path = Path(cfg.train.jvs.emb_dir).expanduser()
     speaker_list = [f"jvs{i:03d}" for i in range(1, 101)]
     spk_emb_dict = {}
     for speaker in speaker_list:

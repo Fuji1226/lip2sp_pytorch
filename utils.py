@@ -20,7 +20,7 @@ import pandas as pd
 import copy
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 from dataset.dataset_npz_with_ex import DatasetWithExternalData, TransformWithExternalData, collate_time_adjust_with_external_data
-from dataset.dataset import DatasetWithExternalDataRaw
+from dataset.dataset import DatasetWithExternalDataRaw, TransformWithExternalDataRaw
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
 from model.raven import E2E as MyRAVEN
@@ -35,10 +35,6 @@ def fix_random_seed(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.use_deterministic_algorithms = True
-
-
-def get_padding(kernel_size, dilation=1):
-    return (kernel_size*dilation - dilation) // 2
 
 
 def set_config(cfg):
@@ -57,32 +53,7 @@ def set_config(cfg):
 
 
 def get_path_train(cfg, current_time):
-    # data
-    if cfg.train.face_or_lip == "lip_cropped_0.3_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_03_50_gray
-        val_data_root = cfg.train.lip_pre_loaded_path_val_03_50_gray
-    elif cfg.train.face_or_lip == "lip_cropped_0.8_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_08_50_gray
-        val_data_root = cfg.train.lip_pre_loaded_path_val_08_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50_gray":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50_gray
-        val_data_root = cfg.train.face_pre_loaded_path_val_0_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50
-        val_data_root = cfg.train.face_pre_loaded_path_val_0_50
-    elif cfg.train.face_or_lip == "tts_vae_tf_sample":
-        train_data_root = cfg.train.tts_vae_tf_sample_path_train
-        val_data_root = cfg.train.tts_vae_tf_sample_path_val
-    elif cfg.train.face_or_lip == "lip_and_face":
-        train_data_root = cfg.train.lip_face_path_train
-        val_data_root = cfg.train.lip_face_path_val
-    elif cfg.train.face_or_lip == "face_cropped_max_size":
-        train_data_root = cfg.train.face_cropped_max_size_train
-        val_data_root = cfg.train.face_cropped_max_size_val
-    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
-        train_data_root = cfg.train.face_cropped_max_size_fps25_train
-        val_data_root = cfg.train.face_cropped_max_size_fps25_val
-    elif cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
+    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
         train_data_root = cfg.train.avhubert_preprocess_fps25_train
         val_data_root = cfg.train.avhubert_preprocess_fps25_val
 
@@ -94,7 +65,6 @@ def get_path_train(cfg, current_time):
         checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
         ckpt_time = checkpoint_path.parents[0].name
 
-    # check point
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
     if ckpt_time is not None:
         ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
@@ -102,7 +72,6 @@ def get_path_train(cfg, current_time):
         ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / current_time
     os.makedirs(ckpt_path, exist_ok=True)
 
-    # save
     save_path = Path(cfg.train.save_path).expanduser()
     if ckpt_time is not None:
         save_path = save_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time    
@@ -115,9 +84,9 @@ def get_path_train(cfg, current_time):
 
 def get_path_train_raw(cfg, current_time):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        video_dir = cfg.train.avhubert_preprocess_fps25_video_dir
+        video_dir = cfg.train.kablab.avhubert_preprocess_fps25_video_dir
     video_dir = Path(video_dir).expanduser()
-    audio_dir = Path(cfg.train.audio_dir).expanduser()
+    audio_dir = Path(cfg.train.kablab.audio_dir).expanduser()
 
     ckpt_time = None
     if cfg.train.check_point_start:
@@ -129,41 +98,20 @@ def get_path_train_raw(cfg, current_time):
         ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
     else:
         ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
+    ckpt_path.mkdir(parents=True, exist_ok=True)
 
     save_path = Path(cfg.train.save_path).expanduser()
     if ckpt_time is not None:
         save_path = save_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time    
     else:
         save_path = save_path / cfg.train.face_or_lip / cfg.model.name / current_time
-    os.makedirs(save_path, exist_ok=True)
+    save_path.mkdir(parents=True, exist_ok=True)
 
     return video_dir, audio_dir, ckpt_path, save_path, ckpt_time
 
 
 def get_path_test(cfg, model_path):
-    if cfg.train.face_or_lip == "lip_cropped_0.3_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_03_50_gray
-        test_data_root = cfg.test.lip_pre_loaded_path_03_50_gray
-    elif cfg.train.face_or_lip == "lip_cropped_0.8_50_gray":
-        train_data_root = cfg.train.lip_pre_loaded_path_train_08_50_gray
-        test_data_root = cfg.test.lip_pre_loaded_path_08_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50_gray":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50_gray
-        test_data_root = cfg.test.face_pre_loaded_path_0_50_gray
-    elif cfg.train.face_or_lip == "face_aligned_0_50":
-        train_data_root = cfg.train.face_pre_loaded_path_train_0_50
-        test_data_root = cfg.test.face_pre_loaded_path_0_50
-    elif cfg.train.face_or_lip == "lip_and_face":
-        train_data_root = cfg.train.lip_face_path_train
-        test_data_root = cfg.test.lip_face_path_test
-    elif cfg.train.face_or_lip == "face_cropped_max_size":
-        train_data_root = cfg.train.face_cropped_max_size_train
-        test_data_root = cfg.test.face_cropped_max_size_test
-    elif cfg.train.face_or_lip == "face_cropped_max_size_fps25":
-        train_data_root = cfg.train.face_cropped_max_size_fps25_train
-        test_data_root = cfg.test.face_cropped_max_size_fps25_test
-    elif cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
+    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
         train_data_root = cfg.train.avhubert_preprocess_fps25_train
         test_data_root = cfg.test.avhubert_preprocess_fps25_test
     
@@ -188,9 +136,9 @@ def get_path_test(cfg, model_path):
 
 def get_path_test_raw(cfg, model_path):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        video_dir = cfg.train.avhubert_preprocess_fps25_video_dir
+        video_dir = cfg.train.kablab.avhubert_preprocess_fps25_video_dir
     video_dir = Path(video_dir).expanduser()
-    audio_dir = Path(cfg.train.audio_dir).expanduser()
+    audio_dir = Path(cfg.train.kablab.audio_dir).expanduser()
 
     save_path = Path(cfg.test.save_path).expanduser()
     save_path = save_path / cfg.test.face_or_lip / cfg.model.name / model_path.parents[0].name / model_path.stem
@@ -199,6 +147,7 @@ def get_path_test_raw(cfg, model_path):
     test_save_path = save_path / "test_data" / "audio"
     train_save_path.mkdir(parents=True, exist_ok=True)
     test_save_path.mkdir(parents=True, exist_ok=True)
+
     return video_dir, audio_dir, test_save_path
 
 
@@ -219,7 +168,7 @@ def get_datasets(data_root, cfg):
 
 
 def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
-    df = pd.read_csv(str(Path(cfg.train.kablab_df_path).expanduser()))
+    df = pd.read_csv(str(Path(cfg.train.kablab.df_path).expanduser()))
     df = df.loc[df['speaker'].isin(cfg.train.speaker)]
     df = df.loc[df['corpus'].isin(cfg.train.corpus)]
     df = df.loc[df['data_split'] == data_split]
@@ -243,10 +192,25 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
 
 def get_datasets_external_data_raw(cfg, data_split):
     data_path_list = []
-    if cfg.train.use_hifi_captain:
-        df = pd.read_csv(str(Path(cfg.train.hifi_captain_df_path).expanduser()))
+    if cfg.train.tcd_timit.use:
+        df = pd.read_csv(str(Path(cfg.train.tcd_timit.df_path).expanduser()))
         df = df.loc[df['data_split'] == data_split]
-        audio_dir = Path(cfg.train.hifi_captain_data_dir).expanduser()
+        audio_dir = Path(cfg.train.tcd_timit.audio_dir).expanduser()
+        video_dir = Path(cfg.train.tcd_timit.avhubert_preprocess_fps25_video_dir).expanduser()
+        for i in range(df.shape[0]):
+            row = df.iloc[i]
+            data_path_list.append(
+                {
+                    'audio_path': audio_dir / row['speaker'] / 'straightcam' / f"{row['filename']}.wav",
+                    'video_path': video_dir / row['speaker'] / 'straightcam' / f"{row['filename']}.mp4",
+                    'speaker': row['speaker'],
+                    'filename': row['filename'], 
+                }
+            )
+    if cfg.train.hifi_captain.use:
+        df = pd.read_csv(str(Path(cfg.train.hifi_captain.df_path).expanduser()))
+        df = df.loc[df['data_split'] == data_split]
+        audio_dir = Path(cfg.train.hifi_captain.data_dir).expanduser()
         for i in range(df.shape[0]):
             row = df.iloc[i]
             data_path_list.append(
@@ -257,13 +221,13 @@ def get_datasets_external_data_raw(cfg, data_split):
                     'filename': row['filename'],
                 }
             )
-    if cfg.train.use_jvs_corpus:
-        df = pd.read_csv(str(Path(cfg.train.jvs_df_path).expanduser()))
+    if cfg.train.jvs.use:
+        df = pd.read_csv(str(Path(cfg.train.jvs.df_path).expanduser()))
         df = df.loc[
             (df['data'] == 'parallel100') | (df['data'] == 'nonpara30')
         ]
         df = df.loc[df['data_split'] == data_split]
-        audio_dir = Path(cfg.train.jvs_data_dir).expanduser()
+        audio_dir = Path(cfg.train.jvs.data_dir).expanduser()
         for i in range(df.shape[0]):
             row = df.iloc[i]
             data_path_list.append(
@@ -289,7 +253,7 @@ def get_datasets_test(data_root, cfg):
 
 
 def get_datasets_test_raw(cfg, video_dir, audio_dir):
-    df = pd.read_csv(str(Path(cfg.train.kablab_df_path).expanduser()))
+    df = pd.read_csv(str(Path(cfg.train.kablab.df_path).expanduser()))
     df = df.loc[df['data_split'] == 'test']
     df = df.loc[df['speaker'].isin(cfg.test.speaker)]
     data_path_list = []
@@ -324,7 +288,7 @@ def get_datasets_external_data(cfg):
         print(f"\n--- get datasets jsut ---")
         data_dir = Path(cfg.train.jsut_path_train).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-    if cfg.train.use_jvs_corpus:
+    if cfg.train.jvs.use:
         print(f"\n--- get datasets jvs ---")
         data_dir = Path(cfg.train.jvs_path_train).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
@@ -495,8 +459,8 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     val_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'val')
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     val_external_data_path_list = get_datasets_external_data_raw(cfg, 'val')
-    train_trans = TransformWithExternalData(cfg, "train")
-    val_trans = TransformWithExternalData(cfg, "val")
+    train_trans = TransformWithExternalDataRaw(cfg, "train")
+    val_trans = TransformWithExternalDataRaw(cfg, "val")
 
     if cfg.train.debug:
         train_data_path_list = train_data_path_list[:100]
@@ -504,7 +468,7 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         train_external_data_path_list = train_external_data_path_list[:100]
         val_external_data_path_list = val_external_data_path_list[:100]
 
-    if cfg.model.avhubert_audio_pretrain or cfg.train.name == 'pwg':
+    if cfg.train.name == 'pwg' or cfg.train.tcd_timit.use:
         train_dataset = DatasetWithExternalDataRaw(
             data_path=train_external_data_path_list,
             transform=train_trans,
@@ -638,9 +602,15 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')
     test_data_path_list = get_datasets_test_raw(cfg, video_dir, audio_dir)
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
+    test_external_data_path_list = get_datasets_external_data_raw(cfg, 'test')
+
+    if cfg.train.tcd_timit.use:
+        test_data_path_list = test_external_data_path_list
     
     if cfg.test.debug:
         train_data_path_list = train_data_path_list[:100]
+        train_external_data_path_list = train_external_data_path_list[:100]
+
         test_data_path_list_debug = []
         n_data_per_speaker = defaultdict(int)
         for data_path in test_data_path_list:
@@ -650,9 +620,8 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             test_data_path_list_debug.append(data_path)
             n_data_per_speaker[speaker] += 1
         test_data_path_list = test_data_path_list_debug
-        train_external_data_path_list = train_external_data_path_list[:100]
     
-    test_trans = TransformWithExternalData(cfg, 'test')
+    test_trans = TransformWithExternalDataRaw(cfg, 'test')
     test_dataset = DatasetWithExternalDataRaw(
         data_path=test_data_path_list,
         transform=test_trans,
@@ -1102,9 +1071,8 @@ def load_pretrained_model(model_path, model, model_name):
 
     pretrained_dict = fix_model_state_dict(pretrained_dict)
     match_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-    model_dict.update(match_dict)
+    # model_dict.update(match_dict)
     model.load_state_dict(match_dict)
-    # model.load_state_dict(pretrained_dict)
     return model
 
 
@@ -1237,3 +1205,20 @@ def load_avhubert(cfg):
         avhubert.load_state_dict(pretrained_dict, strict=True)
     
     return avhubert
+
+
+def load_ssl_ensemble(
+        model,
+        ckpt_path,
+        device,
+        ssl_model_name,
+):
+    '''
+    ssl_model_name: 'avhubert.', 'raven.', etc ...
+    '''
+    ckpt = torch.load(str(ckpt_path), map_location=device)['model']
+    ckpt = {name: param for name, param in ckpt.items() if ssl_model_name in name}
+    model_dict = model.state_dict()
+    match_dict = {name: param for name, param in ckpt.items() if name in model_dict}
+    model.load_state_dict(match_dict, strict=False)
+    return model

@@ -1487,20 +1487,20 @@ class MyVATLM(nn.Module):
         if video is not None and audio is None:
             features_video = self.feature_extractor_video(video)
             features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
-            feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
+            features_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
         elif video is None and audio is not None:
             features_audio = self.feature_extractor_audio(audio)
             features_video = features_audio.new_zeros(features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1))
-            feature_phone = features_audio.new_zeros(features_audio.size(0), features_audio.size(1), features_audio.size(-1))
+            features_phone = features_audio.new_zeros(features_audio.size(0), features_audio.size(1), features_audio.size(-1))
         elif video is not None and audio is not None:
             features_video = self.feature_extractor_video(video)
             features_audio = self.feature_extractor_audio(audio)
-            feature_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
+            features_phone = features_video.new_zeros(features_video.size(0), features_video.size(1), features_video.size(-1))
 
         if self.modality_fuse == 'concat':
-            features = torch.cat([features_audio, features_video, feature_phone], dim=1)
+            features = torch.cat([features_audio, features_video, features_phone], dim=1)
         elif self.modality_fuse == 'add':
-            features = features_audio + features_video + feature_phone
+            features = features_audio + features_video + features_phone
 
         features = features.transpose(1, 2)
         features = self.layer_norm(features)

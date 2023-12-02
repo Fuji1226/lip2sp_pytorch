@@ -71,10 +71,6 @@ mulaw_ignore_idx: -1
 in_channels: 1
 use_lip_and_face: False
 
-# ResNet3D parameter
-res_inner_channels: 32
-which_res: "avhubert"
-
 # speaker embedding
 spk_emb_dim: 256
 
@@ -101,16 +97,19 @@ pwg_which_disc: "normal"
 
 # decoder
 decoder:
-  n_conv_layers: 3
+  n_conv_layers: 2
   conv_kernel_size: 3
   dropout: 0.1
 
-# ssl
-use_ssl_model: 'ensemble'
+# model name
+model_name: 'ensemble'
+ckpt_path_avhubert: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-16-55/2.ckpt'
+ckpt_path_raven: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-18-17/2.ckpt'
+ckpt_path_vatlm: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-19-35/2.ckpt'
 
 # avhubert
 avhubert_config:
-  model_size: 'large'
+  model_size: 'base'
   load_pretrained_weight: True
   base:
     ckpt_path: '~/av_hubert_data/base_vox_iter5_torch.ckpt'
@@ -167,7 +166,7 @@ avhubert_config:
 
 # raven
 raven_config:
-  model_size: 'large'
+  model_size: 'base'
   load_pretrained_weight: True
   base:
     ckpt_path: '~/raven_data/raven_vox2lrs3_base_video.pth'
@@ -242,7 +241,7 @@ raven_config:
 
 # vatlm
 vatlm_config:
-  model_size: 'large'
+  model_size: 'base'
   load_pretrained_weight: True
   base:
     ckpt_path: '~/vatlm_data/pretrain_base_vox2_torch.ckpt'
@@ -460,3 +459,8 @@ vatlm_config:
       onlytext_manifest: 
       use_extra_audiodata: True
       onlyaudio_manifest: 
+
+# lightweight model
+lightweight: 
+  dropout: 0.1
+  lstm_n_layers: 2
