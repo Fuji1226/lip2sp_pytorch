@@ -17,7 +17,7 @@ from torch.autograd import detect_anomaly
 from synthesis import generate_for_train_check_vqvae_dict
 
 from utils import  make_train_val_loader_stop_token_all, get_path_train, save_loss, check_feat_add, check_mel_default, make_test_loader, check_att, make_test_loader_dict
-from model.vq_vae import VQVAE_Redu4
+from model.vq_vae import VQVAE_Redu4_AR
 from loss import MaskedLoss
 
 from utils import make_train_val_loader_redu4, make_test_loader_final
@@ -74,7 +74,7 @@ def make_pad_mask_stop_token(lengths, max_len):
     return mask
 
 def make_model(cfg, device):
-    model = VQVAE_Redu4(
+    model = VQVAE_Redu4_AR(
     )
     
     # multi GPU
@@ -90,6 +90,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     sum_loss['epoch_output_loss'] = 0
     sum_loss['epoch_vq_loss'] = 0
     sum_loss['epoch_ctc_loss'] = 0
+    sum_loss['epoch_stop_token_loss'] = 0
     
     grad_cnt = 0
     
@@ -109,6 +110,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         
         text_index = batch['text'].to(device)[:, 1:]
         text_len = batch['text_len'].to(device) -1 
+        target_stop_token = batch['stop_token'].to(device)
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
@@ -117,7 +119,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         output = all_output['output']
         vq_loss = all_output['vq_loss']
         ctc_output = all_output['ctc_output']
-
+        logit = all_output['logit']
         
         B, C, T = output.shape
 
@@ -126,13 +128,20 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
         input_lens = torch.full((feature.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
         ctc_loss = F.ctc_loss(ctc_output, text_index, input_lengths=input_lens, target_lengths=text_len, blank=IGNORE_INDEX)
-            
-        loss = output_loss + vq_loss + ctc_loss
+
+        logit_mask = 1.0 - make_pad_mask_stop_token(data_len, feature.shape[-1]).to(torch.float32)
+        logit_mask = logit_mask.to(torch.bool)
+        logit = torch.masked_select(logit, logit_mask)
+        stop_token = torch.masked_select(target_stop_token, logit_mask)
+        stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
+        
+        loss = output_loss + vq_loss + ctc_loss + stop_token_loss
         loss.backward()
         sum_loss['epoch_output_loss'] += output_loss.item()
 
         sum_loss['epoch_vq_loss'] += vq_loss.item()
         sum_loss['epoch_ctc_loss'] += ctc_loss.item()
+        sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
         
         clip_grad_norm_(model.parameters(), cfg.train.max_norm)
 
@@ -155,6 +164,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_vq_loss'] /= grad_cnt
     sum_loss['epoch_ctc_loss'] /= grad_cnt
+    sum_loss['epoch_stop_token_loss'] /= grad_cnt
     return sum_loss
 
 
@@ -163,6 +173,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
     sum_loss['epoch_output_loss'] = 0
     sum_loss['epoch_vq_loss'] = 0
     sum_loss['epoch_ctc_loss'] = 0
+    sum_loss['epoch_stop_token_loss'] = 0
 
     grad_cnt = 0
     
@@ -180,6 +191,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
 
             text_index = batch['text'].to(device)[:, 1:]
             text_len = batch['text_len'].to(device) -1 
+            target_stop_token = batch['stop_token'].to(device)
         
             # output : postnet後の出力
             # dec_output : postnet前の出力
@@ -188,6 +200,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             output = all_output['output']
             vq_loss = all_output['vq_loss']
             ctc_output = all_output['ctc_output']
+            logit = all_output['logit']
             B, C, T = output.shape
         
             output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
@@ -196,11 +209,18 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             input_lens = torch.full((feature.shape[0],), fill_value=ctc_output.shape[0], dtype=torch.int)
             ctc_loss = F.ctc_loss(ctc_output, text_index, input_lengths=input_lens, target_lengths=text_len, blank=IGNORE_INDEX)
                 
-            loss = output_loss + vq_loss 
+            logit_mask = 1.0 - make_pad_mask_stop_token(data_len, feature.shape[-1]).to(torch.float32)
+            logit_mask = logit_mask.to(torch.bool)
+            logit = torch.masked_select(logit, logit_mask)
+            stop_token = torch.masked_select(target_stop_token, logit_mask)
+            stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
+        
+            loss = output_loss + vq_loss + stop_token_loss
             sum_loss['epoch_output_loss'] += output_loss.item()
 
             sum_loss['epoch_vq_loss'] += vq_loss.item()
             sum_loss['epoch_ctc_loss'] += ctc_loss.item()
+            sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
             grad_cnt += 1
             if cfg.debug:
                 break
@@ -209,6 +229,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_vq_loss'] /= grad_cnt
     sum_loss['epoch_ctc_loss'] /= grad_cnt
+    sum_loss['epoch_stop_token_loss'] /= grad_cnt
     return sum_loss
 
 
@@ -275,11 +296,13 @@ def main(cfg):
     train_output_loss_list = []
     train_vq_loss_list = []
     train_ctc_loss_list = []
+    train_stop_token_loss_list = []
 
     
     val_output_loss_list = []
     val_vq_loss_list = []
     val_ctc_loss_list = []
+    val_stop_token_loss_list = []
     
     cfg.wandb_conf.setup.name = cfg.tag
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
@@ -390,6 +413,7 @@ def main(cfg):
             train_output_loss_list.append(train_sum_loss['epoch_output_loss'])
             train_vq_loss_list.append(train_sum_loss['epoch_vq_loss'])
             train_ctc_loss_list.append(train_sum_loss['epoch_ctc_loss'])
+            train_stop_token_loss_list.append(train_sum_loss['epoch_stop_token_loss'])
 
 
             # validation
@@ -406,6 +430,7 @@ def main(cfg):
             val_output_loss_list.append(val_sum_loss['epoch_output_loss'])
             val_vq_loss_list.append(val_sum_loss['epoch_vq_loss'])
             val_ctc_loss_list.append(val_sum_loss['epoch_ctc_loss'])
+            val_stop_token_loss_list.append(val_sum_loss['epoch_stop_token_loss'])
 
             #scheduler.step()
 
@@ -422,6 +447,7 @@ def main(cfg):
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_vq_loss_list, val_vq_loss_list, save_path, "vq_loss")
             save_loss(train_ctc_loss_list, val_ctc_loss_list, save_path, "ctc_loss")
+            save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token_loss")
       
 
             generate_for_train_check_vqvae_dict(

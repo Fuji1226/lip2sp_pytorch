@@ -627,11 +627,18 @@ def collate_time_redu4(batch, cfg):
     label = [sample['label'] for sample in batch]
     
     lip, lip_len, feature, data_len = check_redu4(lip, lip_len, feature, data_len)
+    
+    stop_token_list = []
+
+    for i in range(len(data_len)):
+        stop_token = torch.zeros(data_len[i])
+        stop_token[-4:] = 1.0
+        stop_token_list.append(stop_token) 
 
     lip = adjust_max_data_len(lip)
     feature = adjust_max_data_len(feature)
     text = adjust_max_data_len(text)
-    
+    stop_tokens = adjust_max_data_len(stop_token_list)
     
     lip = torch.stack(lip)
     feature = torch.stack(feature)
@@ -639,7 +646,7 @@ def collate_time_redu4(batch, cfg):
     text = torch.stack(text)
     lip_len = torch.stack(lip_len)
     text_len = torch.stack(text_len)
-
+    stop_token = torch.stack(stop_tokens)
     
     output = {}
     output['lip'] = lip
@@ -649,6 +656,7 @@ def collate_time_redu4(batch, cfg):
     output['text'] = text
     output['lip_len'] = lip_len
     output['text_len'] = text_len
+    output['stop_token'] = stop_token
 
     return output
 

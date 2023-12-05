@@ -415,6 +415,106 @@ class TacotronDecoder(nn.Module):
             return output, logit, att_w, logit_list
 
 
+class VAE_TacotronDecoder(nn.Module):
+    def __init__(
+        self, enc_channels, dec_channels,
+        rnn_n_layers, prenet_hidden_channels, prenet_n_layers, out_channels, reduction_factor, dropout):
+        super().__init__()
+        self.enc_channels = enc_channels
+        self.prenet_hidden_channels = prenet_hidden_channels
+        self.dec_channels = dec_channels
+        self.out_channels = out_channels
+        self.reduction_factor = reduction_factor
+
+        self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
+
+        lstm = []
+        for i in range(rnn_n_layers):
+            lstm.append(
+                ZoneOutCell(
+                    nn.LSTMCell(
+                        enc_channels + prenet_hidden_channels if i == 0 else dec_channels,
+                        dec_channels,
+                    ),
+                    zoneout=dropout
+                )
+            )
+        self.lstm = nn.ModuleList(lstm)
+        self.feat_out_layer = nn.Linear(enc_channels + dec_channels, int(out_channels * reduction_factor), bias=False)
+        self.prob_out_layer = nn.Linear(enc_channels + dec_channels, reduction_factor)
+
+
+    def _zero_state(self, hs, i):
+        init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
+        return init_hs
+
+    def forward(self, enc_output, feature_target=None):
+        """
+        enc_output : (B, T, C)
+        text_len : (B,)
+        feature_target : (B, C, T)
+        spk_emb : (B, C)
+        """
+        #print(f'text len: {text_len}')
+        if feature_target is not None:
+            B, C, T = feature_target.shape
+            feature_target = feature_target.permute(0, 2, 1)
+            feature_target = feature_target.reshape(B, T // self.reduction_factor, int(C * self.reduction_factor))
+        else:
+            B = enc_output.shape[0]
+            C = self.out_channels
+
+        max_decoder_time_step = enc_output.shape[1]
+        
+        h_list, c_list = [], []
+        for i in range(len(self.lstm)):
+            h_list.append(self._zero_state(enc_output, i))
+            c_list.append(self._zero_state(enc_output, i))
+
+        go_frame = enc_output.new_zeros(enc_output.size(0), int(self.out_channels * self.reduction_factor))
+        prev_out = go_frame
+
+
+        output_list = []
+        logit_list = []
+
+        t = 0
+        
+        while True:
+            prenet_out = self.prenet(prev_out)      # (B, C)
+            att_c = enc_output[:, t, :]
+            
+            xs = torch.cat([att_c, prenet_out], dim=1)      # (B, C)
+            h_list[0], c_list[0] = self.lstm[0](xs, (h_list[0], c_list[0]))
+            for i in range(1, len(self.lstm)):
+                h_list[i], c_list[i] = self.lstm[i](
+                    h_list[i - 1], (h_list[i], c_list[i])
+                )
+
+            hcs = torch.cat([h_list[-1], att_c], dim=1)     # (B, C)
+            output = self.feat_out_layer(hcs)   # (B, C)
+            logit = self.prob_out_layer(hcs)    # (B, reduction_factor)
+            output_list.append(output)
+            logit_list.append(logit)
+
+            if feature_target is not None:
+                prev_out = feature_target[:, t, :]
+            else:
+                prev_out = output
+
+
+            t += 1
+
+            if t > max_decoder_time_step - 1:
+                break
+
+        output = torch.cat(output_list, dim=1)  # (B, T, C)
+        output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)
+        logit = torch.cat(logit_list, dim=-1)   # (B, T)
+        
+        return output, logit
+        
+        
 class TacotronDecoderWithQuantizer(nn.Module):
     def __init__(
         self, enc_channels, dec_channels, atten_conv_channels, atten_conv_kernel_size, atten_hidden_channels,
