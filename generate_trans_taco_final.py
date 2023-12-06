@@ -71,6 +71,14 @@ def fix_model_state_dict(state_dict):
     #breakpoint()
     return new_state_dict
 
+def load_for_generate(model, path):
+    checkpoint = torch.load(str(path))['model']
+    
+    state_dict = fix_model_state_dict(checkpoint)
+    model.load_state_dict(state_dict)
+    
+    return model
+
 
 def generate(cfg, model, test_loader, dataset, device, save_path):
     print('start genearete')
@@ -130,74 +138,6 @@ def generate(cfg, model, test_loader, dataset, device, save_path):
     return process_times
 
 
-def generate_for_train_check(cfg, model, test_loader, dataset, device, save_path):
-    model.eval()
-
-    lip_mean = dataset.lip_mean.to(device)
-    lip_std = dataset.lip_std.to(device)
-    feat_mean = dataset.feat_mean.to(device)
-    feat_std = dataset.feat_std.to(device)
-    feat_add_mean = dataset.feat_add_mean.to(device)
-    feat_add_std = dataset.feat_add_std.to(device)
-
-    process_times = []
-
-    iter_cnt = 0
-    for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, feat_add, upsample, data_len, speaker, label = batch
-        lip, feature, feat_add, data_len = lip.to(device), feature.to(device), feat_add.to(device), data_len.to(device)
-
-        start_time = time.time()
-        with torch.no_grad():
-            output, dec_output, feat_add_out = model(lip)
-            #tf_output, _, _ = model(lip=lip, prev=feature)
-
-        breakpoint()
-        end_time = time.time()
-        process_time = end_time - start_time
-        process_times.append(process_time)
-
-        _save_path = save_path / label[0]
-
-        #_save_path_tf = save_path / label[0]+'_tf'
-        os.makedirs(_save_path, exist_ok=True)
-       
-        save_data(
-            cfg=cfg,
-            save_path=_save_path,
-            wav=wav,
-            lip=lip,
-            feature=feature,
-            feat_add=feat_add,
-            output=output,
-            lip_mean=lip_mean,
-            lip_std=lip_std,
-            feat_mean=feat_mean,
-            feat_std=feat_std,
-        )
-
-        # save_data(
-        #     cfg=cfg,
-        #     save_path=_save_path_tf,
-        #     wav=wav,
-        #     lip=lip,
-        #     feature=feature,
-        #     feat_add=feat_add,
-        #     output=tf_output,
-        #     lip_mean=lip_mean,
-        #     lip_std=lip_std,
-        #     feat_mean=feat_mean,
-        #     feat_std=feat_std,
-        # )
-
-
-        iter_cnt += 1
-        if iter_cnt == 53:
-            break
-
-    return process_times
-
-
 
 
 @hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
@@ -207,17 +147,17 @@ def main(cfg):
 
     model = make_model(cfg, device)
     
-    # path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/test/mspec80_330.ckpt'
-    # model_path = Path(path)
+    path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/from_tts/data1000_ctc/mspec80_410.ckpt'
+    model_path = Path(path)
     
     
-    if cfg.model_path is not None:
-        model_path = Path(cfg.model_path)
+    # if cfg.model_path is not None:
+    #     model_path = Path(cfg.model_path)
 
     
     # print('model path')
     # print(str(model_path))
-
+    model = load_for_generate(model, model_path)
     # path
     _, mean_std_path, ckpt_path, _, _ = get_path_train(cfg, current_time)
 
