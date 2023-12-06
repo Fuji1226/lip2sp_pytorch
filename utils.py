@@ -1522,7 +1522,6 @@ def make_train_val_loader_final(cfg, data_root, mean_std_path):
             cfg=cfg,
         )
         
-        path_test(data_path)
         data_path = random.sample(data_path, len(data_path))
         n_samples = len(data_path)
         train_size = int(n_samples * 0.8)

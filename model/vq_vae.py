@@ -846,7 +846,7 @@ class VectorQuantizerEMA(nn.Module):
         return mse_loss
 
 class VectorQuantizerForFineTune(nn.Module):
-    def __init__(self, num_embeddings, embedding_dim, commitment_cost, decay=0.8, epsilon=1e-5):
+    def __init__(self, num_embeddings, embedding_dim, commitment_cost, decay=0.8, epsilon=1e-5, reduction_factor=2.):
         super().__init__()
         
         self._embedding_dim = embedding_dim
@@ -862,6 +862,8 @@ class VectorQuantizerForFineTune(nn.Module):
         
         self._decay = decay
         self._epsilon = epsilon
+        
+        self.reduction_factor = reduction_factor
 
     
         """_summary_
@@ -875,7 +877,7 @@ class VectorQuantizerForFineTune(nn.Module):
 
     def forward(self, inputs, data_len):
         # convert inputs from BCHW -> BHWC
-        data_len =  torch.floor(torch.true_divide(data_len, torch.tensor(2.0))).to(torch.int)
+        data_len =  torch.floor(torch.true_divide(data_len, torch.tensor(self.reduction_factor))).to(torch.int)
         input_shape = inputs.shape
         
         # Flatten input
