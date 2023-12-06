@@ -146,6 +146,46 @@ class ResNet3D(nn.Module):
         # W, HについてAverage pooling
         out = torch.mean(out, dim=(2, 3))
         return out
+    
+class ResNet3D_redu2(nn.Module):
+    def __init__(self, in_channels, out_channels, inner_channels, layers, dropout, norm_type) -> None:
+        super().__init__()
+        # FrondEndを通した時点で(H, W)が(48, 48) -> (12, 12)になるので,層数を制限しています
+        assert layers <= 4
+
+        self.frontend = FrontEnd(in_channels, inner_channels, dropout, norm_type)
+
+        res_blocks = []
+        res_blocks.append(ResidualBlock3D(
+            inner_channels, inner_channels, stride=1, dropout=dropout, norm_type=norm_type
+        ))
+
+        # stride=2にすることで空間方向に圧縮する3次元畳み込み
+        for _ in range(layers - 1):
+            res_blocks.append(ResidualBlock3D(
+                inner_channels, inner_channels, stride=2, dropout=dropout, norm_type=norm_type
+            ))
+        self.res_layers = nn.ModuleList(res_blocks)
+
+        self.out_layer = nn.Conv3d(inner_channels, out_channels, kernel_size=1, stride=2)
+    
+    def forward(self, x):
+        """
+        x : (B, C, H, W, T)
+        out : (B, C, T)
+        """
+        # 3D convolution & MaxPooling
+        out = self.frontend(x)
+        
+        # residual layers
+        for layer in self.res_layers:
+            out = layer(out)
+
+        out = self.out_layer(out)
+
+        # W, HについてAverage pooling
+        out = torch.mean(out, dim=(2, 3))
+        return out
 
 
 # class ResBlock(nn.Module):
