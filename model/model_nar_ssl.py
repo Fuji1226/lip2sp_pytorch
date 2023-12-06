@@ -281,9 +281,9 @@ class Lip2SpeechLightWeight(nn.Module):
 #     spk_emb = spk_emb.to(device)
 #     model = model.to(device)
 
-#     ckpt_path_avhubert = Path('/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-16-55/2.ckpt')
-#     ckpt_path_raven = Path('/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-18-17/2.ckpt')
-#     ckpt_path_vatlm = Path('/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:11:25_19-19-35/2.ckpt')
+#     ckpt_path_avhubert = Path(cfg.model.ckpt_path_avhubert).expanduser()
+#     ckpt_path_raven = Path(cfg.model.ckpt_path_raven).expanduser()
+#     ckpt_path_vatlm = Path(cfg.model.ckpt_path_vatlm).expanduser()
 #     ckpt_avhubert = torch.load(str(ckpt_path_avhubert), map_location=device)['model']
 #     ckpt_avhubert = {name: param for name, param in ckpt_avhubert.items() if 'avhubert.' in name}
 #     ckpt_raven = torch.load(str(ckpt_path_raven), map_location=device)['model']
@@ -291,17 +291,9 @@ class Lip2SpeechLightWeight(nn.Module):
 #     ckpt_vatlm = torch.load(str(ckpt_path_vatlm), map_location=device)['model']
 #     ckpt_vatlm = {name: param for name, param in ckpt_vatlm.items() if 'vatlm.' in name}
 
-#     model_dict = model.state_dict()
-#     match_dict = {name: param for name, param in ckpt_avhubert.items() if name in model_dict}
-#     model.load_state_dict(match_dict, strict=False)
-
-#     model_dict = model.state_dict()
-#     match_dict = {name: param for name, param in ckpt_raven.items() if name in model_dict}
-#     model.load_state_dict(match_dict, strict=False)
-
-#     model_dict = model.state_dict()
-#     match_dict = {name: param for name, param in ckpt_vatlm.items() if name in model_dict}
-#     model.load_state_dict(match_dict, strict=False)
+#     model.load_state_dict(ckpt_avhubert, strict=False)
+#     model.load_state_dict(ckpt_raven, strict=False)
+#     model.load_state_dict(ckpt_vatlm, strict=False)
 
 #     for name, param in model.named_parameters():
 #         if name in ckpt_avhubert and not torch.equal(param, ckpt_avhubert[name]):
@@ -328,7 +320,6 @@ class Lip2SpeechLightWeight(nn.Module):
 
 #     print(cnt1, cnt2)
 
-    
 #     # model.train()
 #     # output = model(
 #     #     lip=lip,

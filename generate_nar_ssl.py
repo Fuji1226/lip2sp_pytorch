@@ -112,7 +112,7 @@ def main(cfg):
     model = make_model(cfg, device)
     model = load_pretrained_model(model_path, model, "model")
     cfg.train.face_or_lip = model_path.parents[2].name
-    cfg.test.face_or_lip = model_path.parents[2].name    
+    cfg.test.face_or_lip = model_path.parents[2].name
 
     video_dir, audio_dir, save_path = get_path_test_raw(cfg, model_path)
     test_loader, test_dataset = make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir)

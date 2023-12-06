@@ -293,6 +293,31 @@ def main(cfg):
                 checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["model"])
 
+        if cfg.model.model_name == 'ensemble':
+            ckpt_path_avhubert = Path(cfg.model.ckpt_path_avhubert).expanduser()
+            ckpt_path_raven = Path(cfg.model.ckpt_path_raven).expanduser()
+            ckpt_path_vatlm = Path(cfg.model.ckpt_path_vatlm).expanduser()
+            ckpt_avhubert = torch.load(str(ckpt_path_avhubert), map_location=device)['model']
+            ckpt_avhubert = {name: param for name, param in ckpt_avhubert.items() if 'avhubert.' in name}
+            ckpt_raven = torch.load(str(ckpt_path_raven), map_location=device)['model']
+            ckpt_raven = {name: param for name, param in ckpt_raven.items() if 'raven.' in name}
+            ckpt_vatlm = torch.load(str(ckpt_path_vatlm), map_location=device)['model']
+            ckpt_vatlm = {name: param for name, param in ckpt_vatlm.items() if 'vatlm.' in name}
+            model.load_state_dict(ckpt_avhubert, strict=False)
+            model.load_state_dict(ckpt_raven, strict=False)
+            model.load_state_dict(ckpt_vatlm, strict=False)
+
+            # 事前学習済みのencoderはあえて動かさない。動かしてしまうと結局一つのモデルとしてover fittingしてしまうから。
+            for name, param in model.named_parameters():
+                if 'avhubert.' in name or 'raven.' in name or 'vatlm.' in name:
+                    param.requires_grad = False
+            
+            cnt = 0
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    cnt += param.numel()
+            print(f'Number of Learnable Parameters: {cnt}')
+
         wandb.watch(model, **cfg.wandb_conf.watch)
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
