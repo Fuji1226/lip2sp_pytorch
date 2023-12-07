@@ -114,7 +114,7 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
         
         # output : postnet後の出力
         # dec_output : postnet前の出力
-        all_output = model(feature=feature, data_len=data_len)
+        all_output = model(feature=feature, data_len=data_len, mode='train')
     
         output = all_output['output']
         vq_loss = all_output['vq_loss']
@@ -195,7 +195,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
         
             # output : postnet後の出力
             # dec_output : postnet前の出力
-            all_output = model(feature=feature, data_len=data_len)
+            all_output = model(feature=feature, data_len=data_len, mode='train')
         
             output = all_output['output']
             vq_loss = all_output['vq_loss']

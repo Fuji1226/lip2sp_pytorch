@@ -223,11 +223,15 @@ class VQVAE_Redu4_AR(nn.Module):
         
         self.ctc_output_layer = nn.Linear(emb_dim, 53)
         
-    def forward(self, feature, data_len):
+    def forward(self, feature, data_len, mode='inference'):
 
         enc_output = self.content_enc(feature, data_len)
         loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
-        output, logit = self.decoder(vq, feature)
+        
+        if mode != 'inference':
+            output, logit = self.decoder(vq, feature)
+        else:
+            output, logit = self.decoder(vq, None)
         
         ctc_output = self.ctc_output_layer(vq)
         
