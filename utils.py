@@ -1453,7 +1453,7 @@ def make_train_val_loader_redu4(cfg, data_root, mean_std_path):
         
         data_path = random.sample(data_path, len(data_path))
         n_samples = len(data_path)
-        train_size = int(n_samples * 0.8)
+        train_size = int(n_samples * 0.9)
         train_data_path = data_path[:train_size]
         val_data_path = data_path[train_size:]
     else:
