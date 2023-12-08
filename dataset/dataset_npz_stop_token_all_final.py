@@ -136,9 +136,9 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         att_c = np.load(str(att_c_path))['att_c']
         att_c = torch.from_numpy(att_c)
         
-        vq_idx_path = self.vq_idx / f'{label}.npz'
-        encoding = np.load(str(vq_idx_path))['encoding_idx']
-        encoding = torch.from_numpy(encoding)
+        # vq_idx_path = self.vq_idx / f'{label}.npz'
+        # encoding = np.load(str(vq_idx_path))['encoding_idx']
+        # encoding = torch.from_numpy(encoding)
         
         
         npz_key = np.load(str(data_path))
@@ -186,7 +186,7 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         output['lip_len'] = lip_len
         #output['av_hubert'] = av_huvert
         output['att_c'] = att_c
-        output['vq_idx'] = encoding
+        #output['vq_idx'] = encoding
         
         return output
     
@@ -480,7 +480,7 @@ def collate_test_all_lipread_final(batch):
     label = [sample['label'] for sample in batch]
     #av_hubert = [sample['av_hubert'] for sample in batch]
     att_c = [sample['att_c'] for sample in batch]
-    vq_idx = [sample['vq_idx'] for sample in batch]
+    #vq_idx = [sample['vq_idx'] for sample in batch]
     
     wav = torch.stack(wav)
     lip = torch.stack(lip)
@@ -492,7 +492,7 @@ def collate_test_all_lipread_final(batch):
     text_len = torch.stack(text_len)
     #av_hubert = torch.stack(av_hubert)
     att_c = torch.stack(att_c)
-    vq_idx = torch.stack(vq_idx)
+    #vq_idx = torch.stack(vq_idx)
     
     output = {}
     output['wav'] = wav
