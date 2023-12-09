@@ -10,6 +10,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from .transformer_remake import EncoderLayer, make_pad_mask, posenc
 from .taco import PreNet, VAE_TacotronDecoder
 from .mlm import MLMTrainer
+from .pre_post import Postnet
 
 
 class VQVAE(nn.Module):
@@ -249,7 +250,7 @@ class VQVAE_Redu4_AR(nn.Module):
 class VQVAE_Redu2_AR(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        emb_dim = 80
+        emb_dim = 256
         
         self.content_enc = ContentEncoder(
             in_channels=80,
@@ -295,6 +296,66 @@ class VQVAE_Redu2_AR(nn.Module):
         all_out['vq'] = vq
         all_out['ctc_output'] = ctc_output
         all_out['logit'] = logit
+        
+        return all_out
+    
+class VQVAE_Redu2_AR_Post(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        emb_dim = 256
+        
+        self.content_enc = ContentEncoder(
+            in_channels=80,
+            out_channels=emb_dim,
+            n_attn_layer=2,
+            n_head=4,
+            reduction_factor=4,
+            norm_type='bn',
+        )
+    
+        self.vq = VectorQuantizerEMA(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
+
+        # decoder
+        self.decoder = VAE_TacotronDecoder(
+            enc_channels=emb_dim,
+            dec_channels=1024,
+            rnn_n_layers=2,
+            prenet_hidden_channels=256,
+            prenet_n_layers=2,
+            out_channels=80,
+            reduction_factor=2,
+            dropout=0.1,
+        )
+        
+        self.postnet = Postnet(
+            in_channels=80,
+            inner_channels=512,
+            out_channels=80
+        )
+        
+        self.ctc_output_layer = nn.Linear(emb_dim, 53)
+        
+    def forward(self, feature, data_len, mode='inference'):
+        enc_output = self.content_enc(feature, data_len)    
+        loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
+        
+        if mode != 'inference':
+            dec_output, logit = self.decoder(vq, feature)
+        else:
+            dec_output, logit = self.decoder(vq, None)
+        
+        output = self.postnet(dec_output)
+        ctc_output = self.ctc_output_layer(vq)
+        
+        all_out = {}
+        all_out['output'] = output
+        all_out['vq_loss'] = loss
+        all_out['perplexity'] = perplexity
+        all_out['encoding'] = encoding
+        all_out['vq'] = vq
+        all_out['ctc_output'] = ctc_output
+        all_out['logit'] = logit
+        all_out['dec_output'] = dec_output
         
         return all_out
     

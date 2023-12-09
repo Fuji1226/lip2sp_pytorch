@@ -151,7 +151,40 @@ def load_from_vqvae_ctc(model, ckpt_path):
     return model
 
 
-        
+def load_vqvae_decoder_from_taco(model, ckpt_path):
+    checkpoint = torch.load(str(ckpt_path))['model']
+    
+    save_module = ['decoder']
+    partial_state_dict = {}
+    for key, value in checkpoint.items():
+       for module in save_module:
+           if module in key and 'attention' not in key:
+               key = key.replace(f'{module}.', '')
+               partial_state_dict[key] = value
+               break
+
+    model.decoder.load_state_dict(partial_state_dict)
+
+    save_module = ['postnet']
+    partial_state_dict = {}
+    for key, value in checkpoint.items():
+       for module in save_module:
+           if module in key:
+               key = key.replace(f'{module}.', '')
+               partial_state_dict[key] = value
+               break
+           
+    model.postnet.load_state_dict(partial_state_dict)
+           
+    #model固定
+    for param in model.decoder.parameters():
+        param.requires_grad = False
+    for param in model.postnet.parameters():
+        param.requires_grad = False
+
+    return model
+
+
 def load_from_vqvae_mlm(model, vq_path, mlm_path):
     checkpoint = torch.load(str(vq_path))['model']
     
