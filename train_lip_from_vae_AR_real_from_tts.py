@@ -42,7 +42,7 @@ torch.manual_seed(777)
 torch.cuda.manual_seed_all(777)
 random.seed(777)
 
-GRAD_OK_EPOCH = 100
+GRAD_OK_EPOCH = 30
 
 def grad_ok_vqvae(model):
     for param in model.vq.parameters():
@@ -510,6 +510,8 @@ def main(cfg):
                 mixing_prob=mixing_prob
             )
         
+            if epoch >= GRAD_OK_EPOCH:
+                model = model_grad_ok(model)
             
             mem = psutil.virtual_memory() 
             print(f'cpu usage: {mem.percent}')
