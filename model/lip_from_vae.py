@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from .net import ResNet3D, ResNet3D_redu2
 from .transformer_remake import Encoder
+from .pre_post import Postnet
 
 from .vq_vae import ContentEncoder, VectorQuantizer, ResTCDecoder, VectorQuantizerEMA, VectorQuantizerForFineTune, VectorQuantizerForFineTuneWithMLM, ResTCDecoder_Redu4
 from .mlm import MLMTrainer
@@ -115,8 +116,9 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         emb_dim = 256
+        self.reduction_factor = 2
         
-        self.ResNet_GAP = ResNet3D_redu2(
+        self.ResNet_GAP = ResNet3D(
             in_channels=3, 
             out_channels=emb_dim, 
             inner_channels=128,
@@ -129,10 +131,10 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
             n_layers=2, 
             n_head=4, 
             d_model=emb_dim, 
-            reduction_factor=2,  
+            reduction_factor=self.reduction_factor,  
         )
 
-        self.vq = VectorQuantizerForFineTune(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
+        self.vq = VectorQuantizerForFineTune(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=self.reduction_factor)
 
         self.decoder = VAE_TacotronDecoder(
             enc_channels=emb_dim,
@@ -141,21 +143,27 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
             prenet_hidden_channels=256,
             prenet_n_layers=2,
             out_channels=80,
-            reduction_factor=2,
+            reduction_factor=self.reduction_factor,
             dropout=0.1,
         )
         
+        self.postnet = Postnet(
+            in_channels=80,
+            inner_channels=512,
+            out_channels=80
+        )
         self.ctc_output_layer = nn.Linear(emb_dim, 53)
         
         
-    def forward(self, lip, data_len, feature=None, mode='inference', refernece=None):
+    def forward(self, lip, data_len, feature=None, mode='inference', reference=None):
         all_out = {}
 
         lip_feature = self.ResNet_GAP(lip) #(B, C, T)
         enc_output = self.encoder(lip_feature, data_len)  
             
-        if refernece is not None:
-            breakpoint()
+        if reference is not None:
+            ref_loss = self.calc_ref_loss(enc_output, reference, data_len, enc_output.device)
+            all_out['ref_loss'] = ref_loss
             
         loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
 
@@ -209,6 +217,33 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
 
         loss = F.mse_loss(mask_enc, vq_list)
         return loss
+    
+    def calc_ref_loss(self, enc_output, reference, lengths, device):
+        mask = self.create_enc_mask(enc_output, lengths).to(device)
+
+        mask_enc = enc_output.masked_select(mask)
+        mask_ref = reference.masked_select(mask)
+        
+        loss = F.mse_loss(mask_enc, mask_ref)
+        return loss
+        
+    def create_enc_mask(self, enc_output, lengths):
+        device = lengths.device
+        lengths = torch.div(lengths, self.reduction_factor, rounding_mode='floor')
+        
+        if not isinstance(lengths, list):
+            lengths = lengths.tolist()
+        bs = int(len(lengths))
+        
+        max_len = int(max(lengths))
+            
+        seq_range = torch.arange(0, max_len, dtype=torch.int64)
+        seq_range_expand = seq_range.unsqueeze(0).expand(bs, max_len)
+        seq_length_expand = seq_range_expand.new(lengths).unsqueeze(-1)
+        mask = seq_range_expand < seq_length_expand
+        mask = mask.unsqueeze(-1).repeat(1, 1, enc_output.shape[-1])
+        
+        return mask
     
 class Lip2Sp_VQVAE_AR_Redu4(nn.Module):
     def __init__(self) -> None:
@@ -312,21 +347,22 @@ class Lip_VQENC(nn.Module):
         super().__init__()
         emb_dim = 256
         
-        self.content_enc = ContentEncoder(
+        self.encoder = ContentEncoder(
             in_channels=80,
             out_channels=emb_dim,
             n_attn_layer=2,
             n_head=4,
-            reduction_factor=4,
+            reduction_factor=2,
             norm_type='bn',
         )
     
-        self.vq = VectorQuantizerForFineTune(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
+        self.vq = VectorQuantizerForFineTune(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
         
     def forward(self, feature, data_len):
-        enc_output = self.content_enc(feature, data_len)    
+        enc_output = self.encoder(feature, data_len)    
         loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
         
+        all_out = {}
         all_out['vq'] = vq
         
         return all_out
