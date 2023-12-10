@@ -114,7 +114,7 @@ class Lip2Sp_VQVAE(nn.Module):
 class Lip2Sp_VQVAE_TacoAR(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        emb_dim = 52
+        emb_dim = 256
         
         self.ResNet_GAP = ResNet3D_redu2(
             in_channels=3, 
@@ -129,10 +129,10 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
             n_layers=2, 
             n_head=4, 
             d_model=emb_dim, 
-            reduction_factor=4,  
+            reduction_factor=2,  
         )
 
-        self.vq = VectorQuantizerForFineTune(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=4)
+        self.vq = VectorQuantizerForFineTune(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
 
         self.decoder = VAE_TacotronDecoder(
             enc_channels=emb_dim,
@@ -141,18 +141,21 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
             prenet_hidden_channels=256,
             prenet_n_layers=2,
             out_channels=80,
-            reduction_factor=4,
+            reduction_factor=2,
             dropout=0.1,
         )
         
         self.ctc_output_layer = nn.Linear(emb_dim, 53)
         
         
-    def forward(self, lip, data_len, feature=None, mode='inference'):
+    def forward(self, lip, data_len, feature=None, mode='inference', refernece=None):
         all_out = {}
 
         lip_feature = self.ResNet_GAP(lip) #(B, C, T)
         enc_output = self.encoder(lip_feature, data_len)  
+            
+        if refernece is not None:
+            breakpoint()
             
         loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
 
@@ -228,7 +231,7 @@ class Lip2Sp_VQVAE_AR_Redu4(nn.Module):
             reduction_factor=4,  
         )
 
-        self.vq = VectorQuantizerForFineTune(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=4)
+        self.vq = VectorQuantizerForFineTune(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
 
         self.decoder = ResTCDecoder_Redu4(
             cond_channels=emb_dim,
@@ -303,6 +306,30 @@ class Lip2Sp_VQVAE_AR_Redu4(nn.Module):
 
         loss = F.mse_loss(mask_enc, vq_list)
         return loss
+    
+class Lip_VQENC(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        emb_dim = 256
+        
+        self.content_enc = ContentEncoder(
+            in_channels=80,
+            out_channels=emb_dim,
+            n_attn_layer=2,
+            n_head=4,
+            reduction_factor=4,
+            norm_type='bn',
+        )
+    
+        self.vq = VectorQuantizerForFineTune(num_embeddings=80, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
+        
+    def forward(self, feature, data_len):
+        enc_output = self.content_enc(feature, data_len)    
+        loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
+        
+        all_out['vq'] = vq
+        
+        return all_out
     
     
 class Lip2Sp_VQVAE_MLM(nn.Module):
