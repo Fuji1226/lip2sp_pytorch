@@ -155,7 +155,7 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
         self.ctc_output_layer = nn.Linear(emb_dim, 53)
         
         
-    def forward(self, lip, data_len, feature=None, mode='inference', reference=None):
+    def forward(self, lip, data_len, feature=None, mode='inference', reference=None, only_ref=False):
         all_out = {}
 
         lip_feature = self.ResNet_GAP(lip) #(B, C, T)
@@ -164,6 +164,9 @@ class Lip2Sp_VQVAE_TacoAR(nn.Module):
         if reference is not None:
             ref_loss = self.calc_ref_loss(enc_output, reference, data_len, enc_output.device)
             all_out['ref_loss'] = ref_loss
+            
+        if only_ref:
+            return all_out
             
         loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
 
