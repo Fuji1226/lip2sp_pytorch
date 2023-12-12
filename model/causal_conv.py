@@ -142,7 +142,7 @@ class Conv3D(nn.Conv3d):
             input = input.data
             if self.input_buffer is None:
                 self.input_buffer = input.new(
-                    B, C, self.kernel_size[0] + (self.kernel_size[0] - 1) * (self.dilation[0] - 1), H, W
+                    B, C, self.kernel_size[0] + (self.kernel_size[0] - 1) * (self.dilation[0] - 1),H,W
                 )
                 self.input_buffer.zero_()
             else:
@@ -166,7 +166,8 @@ class CausalConv3D(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, dilation=1):
         super().__init__()
         self.padding = (kernel_size[0] - 1) * dilation
-        self.conv = Conv3D(in_channels, out_channels, kernel_size, padding=(self.padding, 1, 1), dilation=dilation, stride=(1, stride, stride))
+        self.psize = kernel_size[1]//2
+        self.conv = Conv3D(in_channels, out_channels, kernel_size, padding=(self.padding, self.psize,self.psize), dilation=dilation, stride=(1, stride, stride))
         
     def forward(self, x):
         return self._forward(x, False)
