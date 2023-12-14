@@ -291,6 +291,8 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         )
         self.ctc_output_layer = nn.Linear(emb_dim, 53)
         
+        self.temperature = 0.1
+        
         
     def forward(self, lip, data_len, feature=None, mode='inference', reference=None, only_ref=False, encoding_indices=None, code_book=None):
         all_out = {}
@@ -397,7 +399,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
     def calc_info_NCE_codebook(self, enc_output, encoding_indices, code_book, data_len):
         data_len = torch.div(data_len, self.reduction_factor, rounding_mode='floor')
         # データとコードブックのコサイン類似度の計算
-        cos_sim = F.cosine_similarity(enc_output.unsqueeze(2), code_book.unsqueeze(1), dim=-1) / 0.07
+        cos_sim = F.cosine_similarity(enc_output.unsqueeze(2), code_book.unsqueeze(1), dim=-1) / self.temperature
 
         # マスクの初期化
         mask = torch.zeros_like(cos_sim, dtype=torch.bool)
@@ -435,7 +437,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         
     def calc_info_NCE(self, enc_output, ref, data_len):
         data_len = torch.div(data_len, self.reduction_factor, rounding_mode='floor')
-        cos_sim = F.cosine_similarity(enc_output.unsqueeze(1), ref.unsqueeze(2), dim=-1) / 0.07
+        cos_sim = F.cosine_similarity(enc_output.unsqueeze(1), ref.unsqueeze(2), dim=-1) / self.temperature
         mask = torch.eye(cos_sim.shape[-1], dtype=torch.bool).unsqueeze(0).repeat(enc_output.shape[0], 1, 1).to(cos_sim.device)
         
         for i in range(mask.shape[0]):
