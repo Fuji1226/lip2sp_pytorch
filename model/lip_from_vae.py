@@ -292,7 +292,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         self.ctc_output_layer = nn.Linear(emb_dim, 53)
         
         
-    def forward(self, lip, data_len, feature=None, mode='inference', reference=None, only_ref=False):
+    def forward(self, lip, data_len, feature=None, mode='inference', reference=None, only_ref=False, encoding_indices=None, code_book=None):
         all_out = {}
 
         lip_feature = self.ResNet_GAP(lip) #(B, C, T)
@@ -303,8 +303,12 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
             all_out['ref_loss'] = ref_loss
 
         if reference is not None:
-            infoNCE_loss = self.calc_info_NCE(enc_output, reference, data_len)
-            all_out['infoNCE_loss'] = infoNCE_loss
+            if code_book is None:
+                infoNCE_loss = self.calc_info_NCE(enc_output, reference, data_len)
+                all_out['infoNCE_loss'] = infoNCE_loss
+            else:
+                infoNCE_loss = self.calc_info_NCE_codebook(enc_output, encoding_indices, code_book, data_len)
+                all_out['infoNCE_codebook_loss'] = infoNCE_loss
             
         if only_ref:
             return all_out
@@ -390,40 +394,48 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         
         return mask
     
-    def clac_infoNCE_codebook(self, enc_output, encoding_indices, code_book, data_len):
+    def calc_info_NCE_codebook(self, enc_output, encoding_indices, code_book, data_len):
         data_len = torch.div(data_len, self.reduction_factor, rounding_mode='floor')
         # データとコードブックのコサイン類似度の計算
-        similarity_matrix = torch.matmul(enc_output, code_book.transpose(1, 2))  # 行列の積を計算し、転置を取る
+        cos_sim = F.cosine_similarity(enc_output.unsqueeze(2), code_book.unsqueeze(1), dim=-1) / 0.07
 
         # マスクの初期化
-        mask = torch.zeros_like(similarity_matrix, dtype=torch.bool)
+        mask = torch.zeros_like(cos_sim, dtype=torch.bool)
+
+        # # 各バッチにおいて対応するインデックスをTrueに設定
+        for i in range(encoding_indices.shape[0]):
+            for j in range(data_len[i]):
+                mask[i, j, encoding_indices[i, j]] = True
+        
+        pos_sim = - cos_sim[mask]
+        # マスクの初期化
+        mask = torch.zeros_like(cos_sim, dtype=torch.bool)
 
         # # 各バッチにおいて対応するインデックスをTrueに設定
         for i in range(encoding_indices.shape[0]):
             for j in range(data_len[i]):
                 mask[i, j, encoding_indices[i, j]] = True
                 
-        pos = - similarity_matrix[mask]
-        breakpoint()
-        # マスクの初期化
-        data_len_mask = torch.zeros_like(similarity_matrix, dtype=torch.bool)
-
         # 各バッチにおいてデータの存在する位置をFalseに設定
         for i, length in enumerate(data_len):
-            data_len_mask[i, length:, :] = True
-            
+            mask[i, length:, :] = True
+
         
+        cos_sim = cos_sim.masked_fill_(mask, -9e15)
+        neg_sim = torch.logsumexp(cos_sim, dim=-1)
+
+        indices = torch.arange(max(data_len)).unsqueeze(0).expand(data_len.shape[0], -1).to(data_len.device)
+        mask = indices < data_len.unsqueeze(1)
+        neg_sim = neg_sim[mask]
         
-        similarity_matrix = similarity_matrix.masked_fill_(data_len_mask, -9e15)
-        similarity_matrix = similarity_matrix / 0.07
+        nll = pos_sim + neg_sim
+        nll = nll.mean()
         
-        nll = - similarity_matrix[mask].sum() + similarity_matrix
-        breakpoint()
+        return nll
         
     def calc_info_NCE(self, enc_output, ref, data_len):
         data_len = torch.div(data_len, self.reduction_factor, rounding_mode='floor')
         cos_sim = F.cosine_similarity(enc_output.unsqueeze(1), ref.unsqueeze(2), dim=-1) / 0.07
-        
         mask = torch.eye(cos_sim.shape[-1], dtype=torch.bool).unsqueeze(0).repeat(enc_output.shape[0], 1, 1).to(cos_sim.device)
         
         for i in range(mask.shape[0]):
