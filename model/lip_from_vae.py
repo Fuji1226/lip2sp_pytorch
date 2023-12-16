@@ -254,6 +254,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         super().__init__()
         emb_dim = 256
         self.reduction_factor = 2
+        self.num_embbedings = 512
         
         self.ResNet_GAP = ResNet3D(
             in_channels=3, 
@@ -271,7 +272,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
             reduction_factor=self.reduction_factor,  
         )
 
-        self.vq = VectorQuantizerForFineTune(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=self.reduction_factor)
+        self.vq = VectorQuantizerForFineTune(num_embeddings=self.num_embbedings, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=self.reduction_factor)
 
         self.decoder = VAE_TacotronDecoder(
             enc_channels=emb_dim,
@@ -292,6 +293,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         self.ctc_output_layer = nn.Linear(emb_dim, 53)
         
         self.temperature = 0.1
+        self.num_neg = 50
         
         
     def forward(self, lip, data_len, feature=None, mode='inference', reference=None, only_ref=False, encoding_indices=None, code_book=None):
@@ -411,18 +413,16 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         
         pos_sim = - cos_sim[mask]
         # マスクの初期化
-        mask = torch.zeros_like(cos_sim, dtype=torch.bool)
+        mask = torch.ones_like(cos_sim, dtype=torch.bool)
 
-        # # 各バッチにおいて対応するインデックスをTrueに設定
         for i in range(encoding_indices.shape[0]):
-            for j in range(data_len[i]):
-                mask[i, j, encoding_indices[i, j]] = True
-                
-        # 各バッチにおいてデータの存在する位置をFalseに設定
-        for i, length in enumerate(data_len):
-            mask[i, length:, :] = True
+            for j in range(encoding_indices.shape[1]):
+    
+                # 50個のランダムな位置を選択し、それをTrueにする
+                indices = torch.randint(0, self.num_embbedings, (self.num_neg,))
+                mask[i, j, indices] = False
+                mask[i, j, encoding_indices[i][j]] = True
 
-        
         cos_sim = cos_sim.masked_fill_(mask, -9e15)
         neg_sim = torch.logsumexp(cos_sim, dim=-1)
 
