@@ -250,7 +250,7 @@ class ResNet3DVTP(nn.Module):
 class CausalConv3DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
         super().__init__()
-        self.conv = CausalConv3D(in_channels, out_channels, kernel_size=(15,15,15), stride=stride)
+        self.conv = CausalConv3D(in_channels, out_channels, kernel_size=(5,3,3), stride=stride)
         self.bn = nn.BatchNorm3d(out_channels)
         self.relu = nn.ReLU()
         
@@ -276,6 +276,7 @@ class CausalConv3DBlock(nn.Module):
         return x
 
 
+#strideデフォルトは(1,2,2)画像空間情報を半分ずつにしていくための設定
 class CausalConvResBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
         super().__init__()

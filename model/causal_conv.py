@@ -128,8 +128,8 @@ class CausalConv1d(nn.Module):
 
     def clear_buffer(self):
         self.conv.clear_buffer()
-        
-        
+
+
 class Conv3D(nn.Conv3d):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
