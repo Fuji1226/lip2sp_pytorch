@@ -6,10 +6,10 @@ name : "pwg"
 random_seed : 42
 
 # デバッグ
-debug : False
+debug : True
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 10
+debug_iter : 50
 
 # checkpointから再開する場合
 check_point_start : False
@@ -22,7 +22,7 @@ gen_path : "~/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspe
 fine_tuning_pretrained_model_by_external_data : False
 
 # 固定するレイヤーを指定
-module_is_fixed : ['avhubert_resnet']
+module_is_fixed : []
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
@@ -64,7 +64,7 @@ tcd_timit:
 
 # jvs corpus
 jvs:
-  use: True
+  use: False
   data_dir: '~/dataset/jvs_ver1'
   df_path: '~/dataset/lip/data_split_csv/jvs.csv'
   path_train: "~/dataset/lip/np_files/jvs/train"

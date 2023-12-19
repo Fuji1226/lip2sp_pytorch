@@ -98,6 +98,33 @@ class Lip2SpeechSSL(nn.Module):
                 self.avhubert.encoder_embed_dim + self.raven.attention_dim + self.vatlm.encoder_embed_dim,
                 hidden_channels,
             )
+        elif cfg.model.model_name == 'ensemble_avhubert_vatlm':
+            self.avhubert = load_avhubert(cfg.model.avhubert_config)
+            self.vatlm = load_vatlm(cfg.model.vatlm_config)
+            hidden_channels = self.avhubert.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
+            self.fuse_layer = nn.Linear(
+                self.avhubert.encoder_embed_dim + self.vatlm.encoder_embed_dim,
+                hidden_channels,
+            )
+        elif cfg.model.model_name == 'ensemble_avhubert_raven':
+            self.avhubert = load_avhubert(cfg.model.avhubert_config)
+            self.raven = load_raven(cfg.model.raven_config)
+            hidden_channels = self.avhubert.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
+            self.fuse_layer = nn.Linear(
+                self.avhubert.encoder_embed_dim + self.raven.attention_dim,
+                hidden_channels,
+            )
+        elif cfg.model.model_name == 'ensemble_raven_vatlm':
+            self.raven = load_raven(cfg.model.raven_config)
+            self.vatlm = load_vatlm(cfg.model.vatlm_config)
+            hidden_channels = self.vatlm.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
+            self.fuse_layer = nn.Linear(
+                self.raven.attention_dim + self.vatlm.encoder_embed_dim,
+                hidden_channels,
+            )
         
         if cfg.train.use_spk_emb:
             self.spk_emb_layer = nn.Linear(
@@ -175,13 +202,38 @@ class Lip2SpeechSSL(nn.Module):
         elif self.cfg.model.model_name == 'vatlm':
             feature = self.extract_feature_vatlm(lip, lip_len, audio)
         elif self.cfg.model.model_name == 'ensemble':
-            feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
-            feature_raven = self.extract_feature_raven(lip, lip_len, audio)
-            feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
+            with torch.no_grad():
+                feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
+                feature_raven = self.extract_feature_raven(lip, lip_len, audio)
+                feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
             feature_avhubert = self.dropout(feature_avhubert)
             feature_raven = self.dropout(feature_raven)
             feature_vatlm = self.dropout(feature_vatlm)
             feature = torch.concat([feature_avhubert, feature_raven, feature_vatlm], dim=-1)
+            feature = self.fuse_layer(feature)
+        elif self.cfg.model.model_name == 'ensemble_avhubert_vatlm':
+            with torch.no_grad():
+                feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
+                feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
+            feature_avhubert = self.dropout(feature_avhubert)
+            feature_vatlm = self.dropout(feature_vatlm)
+            feature = torch.concat([feature_avhubert, feature_vatlm], dim=-1)
+            feature = self.fuse_layer(feature)
+        elif self.cfg.model.model_name == 'ensemble_avhubert_raven':
+            with torch.no_grad():
+                feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
+                feature_raven = self.extract_feature_raven(lip, lip_len, audio)
+            feature_avhubert = self.dropout(feature_avhubert)
+            feature_raven = self.dropout(feature_raven)
+            feature = torch.concat([feature_avhubert, feature_raven], dim=-1)
+            feature = self.fuse_layer(feature)
+        elif self.cfg.model.model_name == 'ensemble_raven_vatlm':
+            with torch.no_grad():
+                feature_raven = self.extract_feature_raven(lip, lip_len, audio)
+                feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
+            feature_raven = self.dropout(feature_raven)
+            feature_vatlm = self.dropout(feature_vatlm)
+            feature = torch.concat([feature_raven, feature_vatlm], dim=-1)
             feature = self.fuse_layer(feature)
 
         if self.cfg.train.use_spk_emb:

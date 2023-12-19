@@ -1,578 +1,397 @@
+import sys
 from pathlib import Path
+sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
+
 import subprocess
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import torch
-import numpy as np
 
 
-def clean_trash():
-    subprocess.run(['trash-empty'])
-
-
-def get_last_checkpoint_path(checkpoint_dir):
-    '''
-    checkpointが保存されるディレクトリから、一番最後の日付のところを取得
-    '''
-    checkpoint_dir_list = list(checkpoint_dir.glob('*'))
-    checkpoint_dir_list = sorted(checkpoint_dir_list, reverse=False)
-    required_checkpoint_dir = checkpoint_dir_list[-1]
-    checkpoint_path_list = list(required_checkpoint_dir.glob('*'))
-    checkpoint_path_list = sorted(
-        checkpoint_path_list, 
-        reverse=False, 
-        key=lambda x: int(x.stem)
-    )
-    checkpoint_path = checkpoint_path_list[-1]
-    return checkpoint_path
-
-
-def get_best_checkpoint_path(checkpoint_path_last, metric_for_select):
-    '''
-    ある日付のcheckpointディレクトリから、metric_for_selectの値が最も小さいファイルを取得
-    '''
-    checkpoint_dict_last = torch.load(str(checkpoint_path_last))
-    best_checkpoint = np.argmin(checkpoint_dict_last[metric_for_select]) + 1
-    filename_prev = checkpoint_path_last.stem + checkpoint_path_last.suffix
-    filename_new = str(best_checkpoint) + checkpoint_path_last.suffix
-    checkpoint_path = Path(str(checkpoint_path_last).replace(filename_prev, filename_new))
-    return checkpoint_path
-
-
-def get_result(result_dir):
-    result_dir_list = list(result_dir.glob('*'))
-    result_dir_list = sorted(result_dir_list, reverse=False)
-    required_result = result_dir_list[-1]
-    result_dir = list(required_result.glob('**/test_data'))[0]
-    result_path = result_dir / 'accuracy_griffinlim.txt'
-    with open(str(result_path), 'r') as f:
-        content = f.read()
-    return content
-
-
-def send_email(subject, body):
-    from_email = "tmnm13009@gmail.com"
-    password = "igumvwzbztowbigt"  # googleアカウントでアプリパスワードを取得し、それを利用する
-    to_email = "tmnm13009@gmail.com"
-    smtp_server = "smtp.gmail.com"
-    smtp_port = 587
-
-    msg = MIMEMultipart()
-    msg["From"] = from_email
-    msg["To"] = to_email
-    msg["Subject"] = subject
-
-    msg.attach(MIMEText(body, "plain"))
-
-    try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(from_email, password)
-        server.sendmail(from_email, to_email, msg.as_string())
-        server.quit()
-        print("メールが送信されました。")
-    except Exception as e:
-        print(f"エラーが発生しました: {e}")
-
-
-def run_program(script, subject, body):
-    subprocess.run(script)
-    send_email(subject, body)
-
-
-def run_nar(
-    checkpoint_dir, 
-    result_dir, 
-    run_filename_train, 
+def run_generate(
+    run_filename_train,
     run_filename_generate,
-    metric_for_select,
-    use_spatial_aug,
-    use_time_masking,
+    wandb_conf,
+    debug,
     module_is_fixed,
-    use_jsut_corpus,
-    use_jvs_corpus,
     corpus,
     speaker,
-    which_decoder,
-    lr,
-    # beta_1,
-    # beta_2,
-    # weight_decay,
-    # which_optim,
-    which_scheduler,
-    lr_decay_exp,
-    # warmup_t_rate,
-    # warmup_lr_init,
-    # warmup_lr_min,
-    max_epoch,
-    avhubert_return_res_output,
-    load_avhubert_pretrained_weight,
-    avhubert_layer_loaded,
-    use_avhubert_video_modality,
-    use_avhubert_audio_modality,
-    use_avhubert_encoder,
     check_point_start_separate_save_dir,
     start_ckpt_path_separate_save_dir,
-    avhubert_encoder_embed_dim,
-    avhubert_encoder_layers,
-    avhubert_encoder_ffn_embed_dim,
-    avhubert_encoder_attention_heads,
-    avhubert_audio_pretrain,
-    debug,
-    wandb_conf,
     subject,
     message,
+    checkpoint_dir,
+    metric_for_select,
+    result_dir,
+    model_name,
+    model_size,
+    kablab_use,
+    tcd_timit_use,
+    ssl_feature_dropout,
+    ckpt_path_avhubert,
+    ckpt_path_raven,
+    ckpt_path_vatlm,
     model_path,
 ):
-    run_program(
-        script=[
+    subprocess.run(
+        [
             'python',
             f'/home/minami/lip2sp_pytorch/{run_filename_generate}',
-            'model=mspec_avhubert',
+            'model=master',
             'train=nar',
             'test=nar',
             f'wandb_conf={wandb_conf}',
             f'train.debug={debug}',
             f'train.module_is_fixed={module_is_fixed}',
-            f'train.use_jsut_corpus={use_jsut_corpus}',
-            f'train.use_jvs_corpus={use_jvs_corpus}',
-            f'train.lr={lr}',
             f'train.corpus={corpus}',
             f'train.speaker={speaker}',
-            f'model.which_decoder={which_decoder}',
-            # f'train.beta_1={beta_1}',
-            # f'train.beta_2={beta_2}',
-            # f'train.weight_decay={weight_decay}',
-            # f'train.which_optim={which_optim}',
-            f'train.which_scheduler={which_scheduler}',
-            f'train.lr_decay_exp={lr_decay_exp}',
-            # f'train.warmup_t_rate={warmup_t_rate}',
-            # f'train.warmup_lr_init={warmup_lr_init}',
-            # f'train.warmup_lr_min={warmup_lr_min}',
-            f'train.max_epoch={max_epoch}',
-            f'train.use_horizontal_flip={use_spatial_aug}',
-            f'train.use_random_crop={use_spatial_aug}',
-            f'train.use_segment_masking={use_time_masking}',
             f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
             f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
-            f'model.avhubert_return_res_output={avhubert_return_res_output}',
-            f'model.avhubert_layer_loaded={avhubert_layer_loaded}',
-            f'model.load_avhubert_pretrained_weight={load_avhubert_pretrained_weight}',
-            f'model.use_avhubert_video_modality={use_avhubert_video_modality}',
-            f'model.use_avhubert_audio_modality={use_avhubert_audio_modality}',
-            f'model.use_avhubert_encoder={use_avhubert_encoder}',
-            f'model.avhubert_config.base.encoder_embed_dim={avhubert_encoder_embed_dim}',
-            f'model.avhubert_config.base.encoder_layers={avhubert_encoder_layers}',
-            f'model.avhubert_config.base.encoder_ffn_embed_dim={avhubert_encoder_ffn_embed_dim}',
-            f'model.avhubert_config.base.encoder_attention_heads={avhubert_encoder_attention_heads}',
-            f'model.avhubert_audio_pretrain={avhubert_audio_pretrain}',
+            f'train.kablab.use={kablab_use}',
+            f'train.tcd_timit.use={tcd_timit_use}',
             f'test.model_path={model_path}',
             f'test.metric_for_select={metric_for_select}',
             f'test.speaker={speaker}',
             f'test.debug={debug}',
-        ],
-        subject=subject,
-        body=f'finish {run_filename_generate}. {message}'
+            f'model.model_name={model_name}',
+            f'model.avhubert_config.model_size={model_size}',
+            f'model.raven_config.model_size={model_size}',
+            f'model.vatlm_config.model_size={model_size}',
+            f'model.ssl_feature_dropout={ssl_feature_dropout}',
+            f'model.ckpt_path_avhubert={ckpt_path_avhubert}',
+            f'model.ckpt_path_raven={ckpt_path_raven}',
+            f'model.ckpt_path_vatlm={ckpt_path_vatlm}',
+        ]
     )
-    send_email(subject=subject, body=get_result(result_dir))
-
-
-def run_ar(
-    checkpoint_dir, 
-    result_dir, 
-    run_filename_train, 
-    run_filename_generate,
-    metric_for_select,
-    use_spatial_aug,
-    use_time_masking,
-    module_is_fixed,
-    use_jsut_corpus,
-    use_jvs_corpus,
-    corpus,
-    speaker,
-    which_decoder,
-    lr,
-    # beta_1,
-    # beta_2,
-    # weight_decay,
-    # which_optim,
-    which_scheduler,
-    lr_decay_exp,
-    # warmup_t_rate,
-    # warmup_lr_init,
-    # warmup_lr_min,
-    max_epoch,
-    avhubert_return_res_output,
-    load_avhubert_pretrained_weight,
-    avhubert_layer_loaded,
-    use_avhubert_video_modality,
-    use_avhubert_audio_modality,
-    use_avhubert_encoder,
-    check_point_start_separate_save_dir,
-    start_ckpt_path_separate_save_dir,
-    training_method,
-    avhubert_encoder_embed_dim,
-    avhubert_encoder_layers,
-    avhubert_encoder_ffn_embed_dim,
-    avhubert_encoder_attention_heads,
-    avhubert_audio_pretrain,
-    debug,
-    wandb_conf,
-    subject,
-    message,
-    model_path,
-):
-    run_program(
-        script=[
-            'python',
-            f'/home/minami/lip2sp_pytorch/{run_filename_generate}',
-            'model=mspec_avhubert',
-            'train=ar',
-            'test=ar',
-            f'wandb_conf={wandb_conf}',
-            f'train.debug={debug}',
-            f'train.module_is_fixed={module_is_fixed}',
-            f'train.use_jsut_corpus={use_jsut_corpus}',
-            f'train.use_jvs_corpus={use_jvs_corpus}',
-            f'train.lr={lr}',
-            f'train.corpus={corpus}',
-            f'train.speaker={speaker}',
-            f'model.which_decoder={which_decoder}',
-            # f'train.beta_1={beta_1}',
-            # f'train.beta_2={beta_2}',
-            # f'train.weight_decay={weight_decay}',
-            # f'train.which_optim={which_optim}',
-            f'train.which_scheduler={which_scheduler}',
-            f'train.lr_decay_exp={lr_decay_exp}',
-            # f'train.warmup_t_rate={warmup_t_rate}',
-            # f'train.warmup_lr_init={warmup_lr_init}',
-            # f'train.warmup_lr_min={warmup_lr_min}',
-            f'train.max_epoch={max_epoch}',
-            f'train.use_horizontal_flip={use_spatial_aug}',
-            f'train.use_random_crop={use_spatial_aug}',
-            f'train.use_segment_masking={use_time_masking}',
-            f'train.check_point_start_separate_save_dir={check_point_start_separate_save_dir}',
-            f'train.start_ckpt_path_separate_save_dir={start_ckpt_path_separate_save_dir}',
-            f'train.training_method={training_method}',
-            f'model.avhubert_return_res_output={avhubert_return_res_output}',
-            f'model.avhubert_layer_loaded={avhubert_layer_loaded}',
-            f'model.load_avhubert_pretrained_weight={load_avhubert_pretrained_weight}',
-            f'model.use_avhubert_video_modality={use_avhubert_video_modality}',
-            f'model.use_avhubert_audio_modality={use_avhubert_audio_modality}',
-            f'model.use_avhubert_encoder={use_avhubert_encoder}',
-            f'model.avhubert_config.base.encoder_embed_dim={avhubert_encoder_embed_dim}',
-            f'model.avhubert_config.base.encoder_layers={avhubert_encoder_layers}',
-            f'model.avhubert_config.base.encoder_ffn_embed_dim={avhubert_encoder_ffn_embed_dim}',
-            f'model.avhubert_config.base.encoder_attention_heads={avhubert_encoder_attention_heads}',
-            f'model.avhubert_audio_pretrain={avhubert_audio_pretrain}',
-            f'test.model_path={model_path}',
-            f'test.metric_for_select={metric_for_select}',
-            f'test.speaker={speaker}',
-            f'test.debug={debug}',
-        ],
-        subject=subject,
-        body=f'finish {run_filename_generate}. {message}'
-    )
-
-
-def nar_generate_multi_run():
-    debug = False
-    wandb_conf = 'debug' if debug else 'nar'
-    subject = 'プログラム経過'
     
-    training_param_list = [
-        {
-            'which_scheduler': 'warmup',
-            'lr_decay_exp': 0.98,
-            'max_epoch': 30,
-        },
-    ]
-    avhubert_layer_loaded_list = ['all']
-    data_list = [
-        {
-            'corpus': ['ATR'],
-            'speaker': ["F01_kablab", "M01_kablab"],
-        },
-        {
-            'corpus': ['ATR', 'BASIC5000'],
-            'speaker': ["F01_kablab", "M01_kablab"],
-        },
-    ]
-    which_decoder_list = [
-        'restc',
-    ]
-    nar_checkpoint_path_list = [
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:12_16-35-43/29.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:12_17-34-44/30.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:12_18-35-47/30.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:12_19-34-33/29.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:13_05-02-50/27.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:13_08-03-51/28.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:13_11-24-13/30.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:13_14-30-46/29.ckpt',
-    ]
-    cnt = 0
-    for training_param in training_param_list:
-        for data in data_list:
-            for which_decoder in which_decoder_list:
-                # randomly initialized lightweight model
-                run_nar(
-                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
-                    run_filename_generate='generate_nar_with_ex_raw.py',
-                    metric_for_select='val_loss_list',
-                    use_spatial_aug=True,
-                    use_time_masking=True,
-                    module_is_fixed=[],
-                    use_jsut_corpus=False,
-                    use_jvs_corpus=False,
-                    lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
-                    corpus=data['corpus'],
-                    speaker=data['speaker'],
-                    which_decoder=which_decoder,
-                    which_scheduler=training_param['which_scheduler'],
-                    lr_decay_exp=training_param['lr_decay_exp'],
-                    max_epoch=training_param['max_epoch'],
-                    avhubert_return_res_output=False,
-                    load_avhubert_pretrained_weight=False,
-                    avhubert_layer_loaded='',
-                    use_avhubert_video_modality=True,
-                    use_avhubert_audio_modality=False,
-                    use_avhubert_encoder=False,
-                    check_point_start_separate_save_dir=False,
-                    start_ckpt_path_separate_save_dir='',
-                    avhubert_encoder_embed_dim=768,
-                    avhubert_encoder_layers=12,
-                    avhubert_encoder_ffn_embed_dim=3072,
-                    avhubert_encoder_attention_heads=12,
-                    avhubert_audio_pretrain=False,
-                    debug=debug,
-                    wandb_conf=wandb_conf,
-                    subject=subject,
-                    message='randomly initialized lightweight model.',
-                    model_path=nar_checkpoint_path_list[cnt],
-                )
-                cnt += 1
-                
-                # randomly initialized avhubert
-                run_nar(
-                    checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                    run_filename_train='train_nar_with_ex_avhubert_raw.py',
-                    run_filename_generate='generate_nar_with_ex_raw.py',
-                    metric_for_select='val_loss_list',
-                    use_spatial_aug=True,
-                    use_time_masking=True,
-                    module_is_fixed=[],
-                    use_jsut_corpus=False,
-                    use_jvs_corpus=False,
-                    lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
-                    corpus=data['corpus'],
-                    speaker=data['speaker'],
-                    which_decoder=which_decoder,
-                    which_scheduler=training_param['which_scheduler'],
-                    lr_decay_exp=training_param['lr_decay_exp'],
-                    max_epoch=training_param['max_epoch'],
-                    avhubert_return_res_output=False,
-                    load_avhubert_pretrained_weight=False,
-                    avhubert_layer_loaded='',
-                    use_avhubert_video_modality=True,
-                    use_avhubert_audio_modality=False,
-                    use_avhubert_encoder=True,
-                    check_point_start_separate_save_dir=False,
-                    start_ckpt_path_separate_save_dir='',
-                    avhubert_encoder_embed_dim=768,
-                    avhubert_encoder_layers=12,
-                    avhubert_encoder_ffn_embed_dim=3072,
-                    avhubert_encoder_attention_heads=12,
-                    avhubert_audio_pretrain=False,
-                    debug=debug,
-                    wandb_conf=wandb_conf,
-                    subject=subject,
-                    message='randomly initialzed avhubert.',
-                    model_path=nar_checkpoint_path_list[cnt],
-                )
-                cnt += 1
-
-                for avhubert_layer_loaded in avhubert_layer_loaded_list:
-                    if avhubert_layer_loaded == 'resnet':
-                        module_is_fixed = ['avhubert_resnet']
-                    elif avhubert_layer_loaded == 'transformer':
-                        module_is_fixed = ['avhubert_transformer']
-                    elif avhubert_layer_loaded == 'all':
-                        module_is_fixed = ['avhubert']
-
-                    # load pretrained avhubert. training only decoder.
-                    run_nar(
-                        checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                        result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                        run_filename_train='train_nar_with_ex_avhubert_raw.py',
-                        run_filename_generate='generate_nar_with_ex_raw.py',
-                        metric_for_select='val_loss_list',
-                        use_spatial_aug=True,
-                        use_time_masking=True,
-                        module_is_fixed=module_is_fixed,
-                        use_jsut_corpus=False,
-                        use_jvs_corpus=False,
-                        lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
-                        corpus=data['corpus'],
-                        speaker=data['speaker'],
-                        which_decoder=which_decoder,
-                        which_scheduler=training_param['which_scheduler'],
-                        lr_decay_exp=training_param['lr_decay_exp'],
-                        max_epoch=training_param['max_epoch'],
-                        avhubert_return_res_output=False,
-                        load_avhubert_pretrained_weight=True,
-                        avhubert_layer_loaded=avhubert_layer_loaded,
-                        use_avhubert_video_modality=True,
-                        use_avhubert_audio_modality=False,
-                        use_avhubert_encoder=True,
-                        check_point_start_separate_save_dir=False,
-                        start_ckpt_path_separate_save_dir='',
-                        avhubert_encoder_embed_dim=768,
-                        avhubert_encoder_layers=12,
-                        avhubert_encoder_ffn_embed_dim=3072,
-                        avhubert_encoder_attention_heads=12,
-                        avhubert_audio_pretrain=False,
-                        debug=debug,
-                        wandb_conf=wandb_conf,
-                        subject=subject,
-                        message='load pretrained avhubert. training only decoder.',
-                        model_path=nar_checkpoint_path_list[cnt],
-                    )
-                    cnt += 1 
-
-                    # load pretrained avhubert. finetuning all layers.
-                    run_nar(
-                        checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                        result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                        run_filename_train='train_nar_with_ex_avhubert_raw.py',
-                        run_filename_generate='generate_nar_with_ex_raw.py',
-                        metric_for_select='val_loss_list',
-                        use_spatial_aug=True,
-                        use_time_masking=True,
-                        module_is_fixed=[],
-                        use_jsut_corpus=False,
-                        use_jvs_corpus=False,
-                        lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
-                        corpus=data['corpus'],
-                        speaker=data['speaker'],
-                        which_decoder=which_decoder,
-                        which_scheduler=training_param['which_scheduler'],
-                        lr_decay_exp=training_param['lr_decay_exp'],
-                        max_epoch=training_param['max_epoch'],
-                        avhubert_return_res_output=False,
-                        load_avhubert_pretrained_weight=True,
-                        avhubert_layer_loaded=avhubert_layer_loaded,
-                        use_avhubert_video_modality=True,
-                        use_avhubert_audio_modality=False,
-                        use_avhubert_encoder=True,
-                        check_point_start_separate_save_dir=False,
-                        start_ckpt_path_separate_save_dir='',
-                        avhubert_encoder_embed_dim=768,
-                        avhubert_encoder_layers=12,
-                        avhubert_encoder_ffn_embed_dim=3072,
-                        avhubert_encoder_attention_heads=12,
-                        avhubert_audio_pretrain=False,
-                        debug=debug,
-                        wandb_conf=wandb_conf,
-                        subject=subject,
-                        message='load pretrained avhubert, finetuning all layers.',
-                        model_path=nar_checkpoint_path_list[cnt],
-                    )
-                    cnt +=1 
-
-
-def ar_generate_multi_run():
-    debug = False
-    wandb_conf = 'debug' if debug else 'ar'
-    subject = 'プログラム経過'
-
-    training_param_list = [
-        {
-            'which_scheduler': 'warmup',
-            'lr_decay_exp': 0.98,
-            'max_epoch': 30,
-        },
-    ]
-    avhubert_layer_loaded_list = ['all']
-    training_method_list =  [
-        'teacher_forcing',
-        'scheduled_sampling',
-    ]
-    data_list = [
-        {
-            'corpus': ['ATR'],
-            'speaker': ["F01_kablab", "M01_kablab"],
-        },
-        {
-            'corpus': ['ATR', 'BASIC5000'],
-            'speaker': ["F01_kablab", "M01_kablab"],
-        },
-    ]
-    which_decoder_list = [
-        'tacotron',
-    ]
-    ar_checkpoint_path_list = [
-        '/home/minami/lip2sp_pytorch/check_point/ar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:16_18-15-35/27.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/ar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:16_19-37-13/29.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/ar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:17_04-31-50/29.ckpt',
-        '/home/minami/lip2sp_pytorch/check_point/ar/avhubert_preprocess_fps25_gray/mspec_avhubert/2023:10:17_05-52-15/29.ckpt',
-    ]
-    cnt = 0
-    for training_param in training_param_list:
-        for training_method in training_method_list:
-            for data in data_list:
-                for which_decoder in which_decoder_list:
-                    for avhubert_layer_loaded in avhubert_layer_loaded_list:
-                        # load pretrained avhubert. finetuning all layers.
-                        run_ar(
-                            checkpoint_dir=Path('~/lip2sp_pytorch/check_point/ar/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                            result_dir=Path('~/lip2sp_pytorch/result/ar/generate/avhubert_preprocess_fps25_gray/mspec_avhubert').expanduser(),
-                            run_filename_train='train_ar_with_ex_avhubert_raw.py',
-                            run_filename_generate='generate_ar_with_ex_raw.py',
-                            metric_for_select='val_loss_list',
-                            use_spatial_aug=True,
-                            use_time_masking=True,
-                            module_is_fixed=[],
-                            use_jsut_corpus=False,
-                            use_jvs_corpus=False,
-                            lr=1.0e-4 if which_decoder == 'transformer' else 1.0e-3,
-                            corpus=data['corpus'],
-                            speaker=data['speaker'],
-                            which_decoder=which_decoder,
-                            which_scheduler=training_param['which_scheduler'],
-                            lr_decay_exp=training_param['lr_decay_exp'],
-                            max_epoch=training_param['max_epoch'],
-                            avhubert_return_res_output=False,
-                            load_avhubert_pretrained_weight=True,
-                            avhubert_layer_loaded=avhubert_layer_loaded,
-                            use_avhubert_video_modality=True,
-                            use_avhubert_audio_modality=False,
-                            use_avhubert_encoder=True,
-                            check_point_start_separate_save_dir=False,
-                            start_ckpt_path_separate_save_dir='',
-                            training_method=training_method,
-                            avhubert_encoder_embed_dim=768,
-                            avhubert_encoder_layers=12,
-                            avhubert_encoder_ffn_embed_dim=3072,
-                            avhubert_encoder_attention_heads=12,
-                            avhubert_audio_pretrain=False,
-                            debug=debug,
-                            wandb_conf=wandb_conf,
-                            subject=subject,
-                            message='load pretrained avhubert, finetuning all layers.',
-                            model_path=ar_checkpoint_path_list[cnt],
-                        )
-                        cnt += 1 
-
 
 def main():
-    nar_generate_multi_run()
-    ar_generate_multi_run()
-
-
+    condition_list = [
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'avhubert',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_03-47-15/50.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'raven',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_05-08-07/46.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'vatlm',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_06-28-58/48.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'avhubert',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_07-49-05/49.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'raven',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_09-24-17/44.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'vatlm',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_11-07-13/41.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'lightweight',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_12-42-34/47.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:06_22-38-46/48.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_vatlm',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:10_16-38-06/43.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_raven',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:10_17-59-59/40.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_raven_vatlm',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:10_19-20-26/45.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:08_12-44-50/47.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_vatlm',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:10_20-41-03/36.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_raven',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:10_22-17-48/48.ckpt',
+        },
+        {
+            'corpus': ['ATR'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_raven_vatlm',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:10_23-57-41/47.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'avhubert',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:11_01-37-46/49.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'raven',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:11_08-22-13/49.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'vatlm',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:11_15-26-19/50.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'avhubert',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:11_22-13-20/40.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'raven',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:12_06-44-11/50.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'vatlm',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:12_16-08-25/47.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'lightweight',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:13_00-40-17/48.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:13_15-32-33/50.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_vatlm',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:13_23-21-58/42.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_raven',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:14_05-55-31/46.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_raven_vatlm',
+            'model_size': 'base',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:14_12-38-25/47.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:14_19-18-11/47.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_vatlm',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:15_06-02-04/42.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_avhubert_raven',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:15_14-05-12/46.ckpt',
+        },
+        {
+            'corpus': ['ATR', 'BASIC5000'],
+            'speaker': ["F01_kablab", "M01_kablab"],
+            'kablab_use': True,
+            'tcd_timit_use': False,
+            'model_name': 'ensemble_raven_vatlm',
+            'model_size': 'large',
+            'ssl_feature_dropout': 0,
+            'model_path': '/home/minami/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:15_22-27-49/48.ckpt',
+        },
+    ]
+    for condition in condition_list:
+        run_generate(
+            run_filename_train='train_nar_ssl.py',
+                run_filename_generate='generate_nar_ssl.py',
+                wandb_conf='nar',
+                debug=False,
+                module_is_fixed='',
+                corpus=condition['corpus'],
+                speaker=condition['speaker'],
+                check_point_start_separate_save_dir=False,
+                start_ckpt_path_separate_save_dir='',
+                subject='generate',
+                message='',
+                checkpoint_dir=Path('~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master').expanduser(),
+                result_dir=Path('~/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master').expanduser(),
+                metric_for_select='val_loss_list',
+                model_name=condition['model_name'],
+                model_size=condition['model_size'],
+                kablab_use=condition['kablab_use'],
+                tcd_timit_use=condition['tcd_timit_use'],
+                ssl_feature_dropout=condition['ssl_feature_dropout'],
+                ckpt_path_avhubert='',
+                ckpt_path_raven='',
+                ckpt_path_vatlm='',
+                model_path=condition['model_path'],
+        )
+    
+    
 if __name__ == '__main__':
     main()

@@ -19,7 +19,7 @@ start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/
 fine_tuning_pretrained_model_by_external_data : False
 
 # 固定するレイヤーを指定
-module_is_fixed : ['avhubert_postnet']
+module_is_fixed : []
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False

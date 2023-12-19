@@ -66,20 +66,20 @@ def generate(
             int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
         )
 
-        _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
-        _save_path.mkdir(parents=True, exist_ok=True)
-        save_data(
-            cfg=cfg,
-            save_path=_save_path,
-            wav=wav,
-            lip=lip,
-            feature=feature,
-            output=output,
-            lip_mean=lip_mean,
-            lip_std=lip_std,
-            feat_mean=feat_mean,
-            feat_std=feat_std,
-        )
+        # _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
+        # _save_path.mkdir(parents=True, exist_ok=True)
+        # save_data(
+        #     cfg=cfg,
+        #     save_path=_save_path,
+        #     wav=wav,
+        #     lip=lip,
+        #     feature=feature,
+        #     output=output,
+        #     lip_mean=lip_mean,
+        #     lip_std=lip_std,
+        #     feat_mean=feat_mean,
+        #     feat_std=feat_std,
+        # )
         
         with torch.no_grad():
             noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
@@ -134,11 +134,12 @@ def main(cfg):
             calc_accuracy_en(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_en(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
         else:
+            print('calc_accuracy_japanese')
             calc_accuracy_new(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
     calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
     calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
-        
+    
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],
         checkpoint_dir=model_path.parents[1],

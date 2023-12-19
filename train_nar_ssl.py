@@ -293,7 +293,12 @@ def main(cfg):
                 checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
             model.load_state_dict(checkpoint["model"])
 
-        if cfg.model.model_name == 'ensemble':
+        if (
+            cfg.model.model_name == 'ensemble' or \
+                cfg.model.model_name == 'ensemble_avhubert_vatlm' or \
+                    cfg.model.model_name == 'ensemble_avhubert_raven' or \
+                        cfg.model.model_name == 'ensemble_raven_vatlm'
+        ):
             ckpt_path_avhubert = Path(cfg.model.ckpt_path_avhubert).expanduser()
             ckpt_path_raven = Path(cfg.model.ckpt_path_raven).expanduser()
             ckpt_path_vatlm = Path(cfg.model.ckpt_path_vatlm).expanduser()
@@ -307,7 +312,6 @@ def main(cfg):
             model.load_state_dict(ckpt_raven, strict=False)
             model.load_state_dict(ckpt_vatlm, strict=False)
 
-            # 事前学習済みのencoderはあえて動かさない。動かしてしまうと結局一つのモデルとしてover fittingしてしまうから。
             for name, param in model.named_parameters():
                 if 'avhubert.' in name or 'raven.' in name or 'vatlm.' in name:
                     param.requires_grad = False
@@ -316,6 +320,7 @@ def main(cfg):
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     cnt += param.numel()
+                    print(name)
             print(f'Number of Learnable Parameters: {cnt}')
 
         wandb.watch(model, **cfg.wandb_conf.watch)

@@ -16,6 +16,7 @@ from dataset.utils import (
     get_spk_emb_jvs,
     get_spk_emb_tcd_timit,
     get_spk_emb_vctk,
+    get_spk_emb_hifi_captain,
 )
 from data_process.transform import load_data
 
@@ -35,6 +36,7 @@ class DatasetWithExternalDataRaw(Dataset):
         self.embs.update(get_spk_emb_tcd_timit(cfg))
         self.embs.update(get_spk_emb_jvs(cfg))
         self.embs.update(get_spk_emb_vctk(cfg))
+        self.embs.update(get_spk_emb_hifi_captain(cfg))
 
         lip_mean = np.array([cfg.model.avhubert_lip_mean])
         lip_std = np.array([cfg.model.avhubert_lip_std])

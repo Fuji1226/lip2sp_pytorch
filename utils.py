@@ -488,7 +488,7 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         train_external_data_path_list = train_external_data_path_list[:100]
         val_external_data_path_list = val_external_data_path_list[:100]
 
-    if cfg.train.tcd_timit.use or cfg.train.vctk.use or cfg.train.jvs.use:
+    if cfg.train.tcd_timit.use or cfg.train.vctk.use or cfg.train.jvs.use or cfg.train.hifi_captain.use:
         train_dataset = DatasetWithExternalDataRaw(
             data_path=train_external_data_path_list,
             transform=train_trans,
