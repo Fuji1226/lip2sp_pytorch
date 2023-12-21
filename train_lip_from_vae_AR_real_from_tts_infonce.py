@@ -42,8 +42,8 @@ torch.manual_seed(777)
 torch.cuda.manual_seed_all(777)
 random.seed(777)
 
-GRAD_OK_EPOCH = 80
-only_infoNCE_EPOCH = 50
+GRAD_OK_EPOCH = 150
+only_infoNCE_EPOCH = 100
 
 def grad_ok_vqvae(model):
     for param in model.vq.parameters():
@@ -148,6 +148,7 @@ def train_one_epoch(model, ref_model, train_loader, optimizer, loss_f, device, c
             logit = all_output['logit']
             ref_loss = all_output['ref_loss']
             infoNCE_loss = all_output['infoNCE_loss']
+            post_output = all_output['post_output']
             
             B, C, T = output.shape
             output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
@@ -172,16 +173,16 @@ def train_one_epoch(model, ref_model, train_loader, optimizer, loss_f, device, c
 
             
             if epoch < only_infoNCE_EPOCH:
-                loss = infoNCE_loss
+                loss = infoNCE_loss + output_loss
             else:
-                loss = output_loss + vq_loss + ctc_loss + stop_token_loss + ref_loss
+                loss = output_loss + stop_token_loss + infoNCE_loss
             loss.backward()
             sum_loss['epoch_output_loss'] += output_loss.item()
             sum_loss['epoch_vq_loss'] += vq_loss.item()
             sum_loss['epoch_ctc_loss'] += ctc_loss.item()
             sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
             sum_loss['epoch_ref_loss'] += ref_loss.item()
-            
+            sum_loss['epoch_infoNCE_loss'] += infoNCE_loss.item()
             clip_grad_norm_(model.parameters(), cfg.train.max_norm)
 
             if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
@@ -309,7 +310,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
+@hydra.main(config_name="config_all_from_tts", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -375,7 +376,9 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
-        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae_from_tts/code512_dim256/mspec80_110.ckpt'
+        #vq_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:12:09_13-41-44__vqvae_layer2_2_code512_dim256_commit05_ARredu2_REAL_from_noramldata_grad100/mspec80_110.ckpt'
+        vq_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:12:09_21-18-15__vqvae_layer2_2_code256_dim256_commit025_ARredu2_REAL_from_noramldata_grad100/mspec80_270.ckpt'
+        #vq_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:12:09_13-41-44__vqvae_layer2_2_code512_dim256_commit05_ARredu2_REAL_from_noramldata_grad100/mspec80_170.ckpt'
         model = load_from_vqvae_ctc_from_taco(model, vq_path)
         
         ref_model = make_ref_model(cfg, device)
@@ -518,7 +521,7 @@ def main(cfg):
             save_loss(train_ctc_loss_list, val_ctc_loss_list, save_path, "ctc_loss")
             save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token_loss")
             save_loss(train_ref_loss_list, val_ref_loss_list, save_path, "ref_loss")
-      
+            save_loss(train_infoNCE_loss_list, val_infoNCE_loss_list, save_path, "infoNCE_loss")
 
             generate_for_train_check_lip_from_vqvae_dict(
                 cfg = cfg,

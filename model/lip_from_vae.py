@@ -254,7 +254,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         super().__init__()
         emb_dim = 256
         self.reduction_factor = 2
-        self.num_embbedings = 512
+        self.num_embbedings = 256
         
         self.ResNet_GAP = ResNet3D(
             in_channels=3, 
@@ -295,13 +295,16 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         self.temperature = 0.1
         self.num_neg = 50
         
-        
     def forward(self, lip, data_len, feature=None, mode='inference', reference=None, only_ref=False, encoding_indices=None, code_book=None):
         all_out = {}
 
         lip_feature = self.ResNet_GAP(lip) #(B, C, T)
-        enc_output = self.encoder(lip_feature, data_len)  
         
+        if hasattr(self, 'encoder'):
+            enc_output = self.encoder(lip_feature, data_len) 
+        else:
+            enc_output = lip_feature.transpose(1, 2)
+            
         if reference is not None:
             ref_loss = self.calc_ref_loss(enc_output, reference, data_len, enc_output.device)
             all_out['ref_loss'] = ref_loss
@@ -317,13 +320,14 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         if only_ref:
             return all_out
 
-            
         loss, vq, perplexity, encoding = self.vq(enc_output, data_len)
 
         if mode != 'inference':
             output, logit = self.decoder(vq, feature)
         else:
             output, logit = self.decoder(vq, None)
+            
+        post_output = self.postnet(output)
     
         ctc_output = self.ctc_output_layer(vq)
         
@@ -333,6 +337,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         all_out['encoding'] = encoding
         all_out['ctc_output'] = ctc_output
         all_out['logit'] = logit
+        all_out['post_output'] = post_output
 
         return all_out
     
@@ -413,16 +418,28 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         
         pos_sim = - cos_sim[mask]
         # マスクの初期化
-        mask = torch.ones_like(cos_sim, dtype=torch.bool)
+        # mask = torch.ones_like(cos_sim, dtype=torch.bool)
 
-        for i in range(encoding_indices.shape[0]):
-            for j in range(encoding_indices.shape[1]):
+        # for i in range(encoding_indices.shape[0]):
+        #     for j in range(encoding_indices.shape[1]):
     
-                # 50個のランダムな位置を選択し、それをTrueにする
-                indices = torch.randint(0, self.num_embbedings, (self.num_neg,))
-                mask[i, j, indices] = False
-                mask[i, j, encoding_indices[i][j]] = True
-
+        #         # 50個のランダムな位置を選択し、それをTrueにする
+        #         indices = torch.randint(0, self.num_embbedings, (self.num_neg,))
+        #         mask[i, j, indices] = False
+        #         mask[i, j, encoding_indices[i][j]] = True
+        mask = torch.ones_like(cos_sim, dtype=torch.bool)
+        # 各バッチごとにランダムにthreshold_value以下の値を選んでFalseに設定
+        for i in range(mask.shape[0]):
+            for j in range(mask.shape[1]):
+                # 対角成分の値はthreshold_valueより大きいものからランダムに選ぶ
+                false_values = torch.randperm(data_len[i] - 1)[:self.num_neg]
+                
+                if j in false_values:
+                    false_values = false_values[false_values != j]
+            
+                mask[i, j, false_values] = False
+                
+                
         cos_sim = cos_sim.masked_fill_(mask, -9e15)
         neg_sim = torch.logsumexp(cos_sim, dim=-1)
 
@@ -568,13 +585,13 @@ class Lip_VQENC(nn.Module):
         self.encoder = ContentEncoder(
             in_channels=80,
             out_channels=emb_dim,
-            n_attn_layer=2,
+            n_attn_layer=3,
             n_head=4,
             reduction_factor=2,
             norm_type='bn',
         )
     
-        self.vq = VectorQuantizerForFineTune(num_embeddings=512, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
+        self.vq = VectorQuantizerForFineTune(num_embeddings=256, embedding_dim=emb_dim, commitment_cost=0.25, reduction_factor=2)
         
     def forward(self, feature, data_len):
         enc_output = self.encoder(feature, data_len)    
