@@ -105,6 +105,7 @@ def make_ref_model(cfg, device):
 def train_one_epoch(model, ref_model, train_loader, optimizer, loss_f, device, cfg, training_method, mixing_prob, epoch, ckpt_time, scheduler):
     
     sum_loss = {}
+    sum_loss['epoch_dec_output_loss'] = 0
     sum_loss['epoch_output_loss'] = 0
     sum_loss['epoch_vq_loss'] = 0
     sum_loss['epoch_ctc_loss'] = 0
@@ -137,20 +138,19 @@ def train_one_epoch(model, ref_model, train_loader, optimizer, loss_f, device, c
             # dec_output : postnet前の出力
             ref_out = ref_model(feature, data_len)
             ref = ref_out['vq'].clone().detach()
-            encoding_indices = ref_out['encoding_indices'].clone().detach()
-            code_book = ref_out['code_book'].clone().detach().unsqueeze(0)
             
             all_output = model(lip, data_len, feature=feature, mode='train', reference=ref)
 
-            output = all_output['output']
+            dec_output = all_output['dec_output']
             vq_loss = all_output['vq_loss']
             ctc_output = all_output['ctc_output']
             logit = all_output['logit']
             ref_loss = all_output['ref_loss']
             infoNCE_loss = all_output['infoNCE_loss']
-            post_output = all_output['post_output']
+            output = all_output['output']
             
             B, C, T = output.shape
+            dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
             output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
             
             ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
@@ -164,18 +164,19 @@ def train_one_epoch(model, ref_model, train_loader, optimizer, loss_f, device, c
             stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
             
             if cfg.train.gradient_accumulation_steps > 1:
-                output_loss = output_loss / cfg.train.gradient_accumulation_steps
+                dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
                 vq_loss = vq_loss / cfg.train.gradient_accumulation_steps
                 ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
                 stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
                 ref_loss = ref_loss / cfg.train.gradient_accumulation_steps
                 infoNCE_loss = infoNCE_loss / cfg.train.gradient_accumulation_steps
+                output_loss = output_loss / cfg.train.gradient_accumulation_steps
 
             
             if epoch < only_infoNCE_EPOCH:
-                loss = infoNCE_loss + output_loss
+                loss = infoNCE_loss + output_loss + dec_output_loss
             else:
-                loss = output_loss + stop_token_loss + infoNCE_loss
+                loss = output_loss + dec_output_loss + stop_token_loss + infoNCE_loss
             loss.backward()
             sum_loss['epoch_output_loss'] += output_loss.item()
             sum_loss['epoch_vq_loss'] += vq_loss.item()
@@ -201,6 +202,7 @@ def train_one_epoch(model, ref_model, train_loader, optimizer, loss_f, device, c
             plt.clf()
             plt.close()
             
+    sum_loss['epoch_dec_output_loss'] /= grad_cnt
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_vq_loss'] /= grad_cnt
     sum_loss['epoch_ctc_loss'] /= grad_cnt
@@ -212,6 +214,7 @@ def train_one_epoch(model, ref_model, train_loader, optimizer, loss_f, device, c
 
 def calc_val_loss(model, ref_model, val_loader, loss_f, device, cfg, training_method, mixing_prob, ckpt_time):
     sum_loss = {}
+    sum_loss['epoch_dec_output_loss'] = 0
     sum_loss['epoch_output_loss'] = 0
     sum_loss['epoch_vq_loss'] = 0
     sum_loss['epoch_ctc_loss'] = 0
@@ -243,7 +246,8 @@ def calc_val_loss(model, ref_model, val_loader, loss_f, device, cfg, training_me
             ref = ref_model(feature, data_len)['vq']
             ref = ref.clone().detach()
             all_output = model(lip, data_len, feature=feature, mode='train', reference=ref)
-        
+            
+            dec_output = all_output['dec_output']
             output = all_output['output']
             vq_loss = all_output['vq_loss']
             ctc_output = all_output['ctc_output']
@@ -253,6 +257,7 @@ def calc_val_loss(model, ref_model, val_loader, loss_f, device, cfg, training_me
         
             B, C, T = output.shape
         
+            dec_output_loss = loss_f.mse_loss(dec_output, feature, data_len, max_len=T) 
             output_loss = loss_f.mse_loss(output, feature, data_len, max_len=T) 
             
             ctc_output = F.log_softmax(ctc_output, dim=-1).permute(1, 0, 2)     # (T, B, C)
@@ -266,13 +271,15 @@ def calc_val_loss(model, ref_model, val_loader, loss_f, device, cfg, training_me
             stop_token_loss = F.binary_cross_entropy_with_logits(logit, stop_token)
             
             if cfg.train.gradient_accumulation_steps > 1:
+                dec_output_loss = dec_output_loss / cfg.train.gradient_accumulation_steps
                 output_loss = output_loss / cfg.train.gradient_accumulation_steps
                 vq_loss = vq_loss / cfg.train.gradient_accumulation_steps
                 ctc_loss = ctc_loss / cfg.train.gradient_accumulation_steps
                 stop_token_loss = stop_token_loss / cfg.train.gradient_accumulation_steps
                 ref_loss = ref_loss / cfg.train.gradient_accumulation_steps
                 infoNCE_loss = infoNCE_loss / cfg.train.gradient_accumulation_steps
-                
+            
+            sum_loss['epoch_dec_output_loss'] += dec_output_loss.item()    
             sum_loss['epoch_output_loss'] += output_loss.item()
             sum_loss['epoch_vq_loss'] += vq_loss.item()
             sum_loss['epoch_ctc_loss'] += ctc_loss.item()
@@ -285,7 +292,7 @@ def calc_val_loss(model, ref_model, val_loader, loss_f, device, cfg, training_me
                 if cfg.debug:
                     break
                     
-                    
+    sum_loss['epoch_dec_output_loss'] /= grad_cnt                
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_vq_loss'] /= grad_cnt
     sum_loss['epoch_ctc_loss'] /= grad_cnt
@@ -310,7 +317,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_all_from_tts", config_path="conf")
+@hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -355,6 +362,7 @@ def main(cfg):
     
     # 損失関数
     loss_f = MaskedLoss()
+    train_dec_output_loss_list = []
     train_output_loss_list = []
     train_vq_loss_list = []
     train_ctc_loss_list = []
@@ -362,6 +370,7 @@ def main(cfg):
     train_ref_loss_list = []
     train_infoNCE_loss_list = []
     
+    val_dec_output_loss_list = []
     val_output_loss_list = []
     val_vq_loss_list = []
     val_ctc_loss_list = []
@@ -376,8 +385,12 @@ def main(cfg):
     with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
         # model
         model = make_model(cfg, device)
+        #desk
+        vq_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/vq_vae_from_tts/code512_dim256/mspec80_110.ckpt'
+        
+        #ito
         #vq_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:12:09_13-41-44__vqvae_layer2_2_code512_dim256_commit05_ARredu2_REAL_from_noramldata_grad100/mspec80_110.ckpt'
-        vq_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:12:09_21-18-15__vqvae_layer2_2_code256_dim256_commit025_ARredu2_REAL_from_noramldata_grad100/mspec80_270.ckpt'
+        #vq_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:12:09_21-18-15__vqvae_layer2_2_code256_dim256_commit025_ARredu2_REAL_from_noramldata_grad100/mspec80_270.ckpt'
         #vq_path = '/home/usr1/q70261a/lip2sp_pytorch_all/lip2sp_920_re/check_point/default/face/2023:12:09_13-41-44__vqvae_layer2_2_code512_dim256_commit05_ARredu2_REAL_from_noramldata_grad100/mspec80_170.ckpt'
         model = load_from_vqvae_ctc_from_taco(model, vq_path)
         
@@ -477,6 +490,7 @@ def main(cfg):
                 ckpt_time=ckpt_time,
                 scheduler=scheduler
             )
+            train_dec_output_loss_list.append(train_sum_loss['epoch_dec_output_loss'])
             train_output_loss_list.append(train_sum_loss['epoch_output_loss'])
             train_vq_loss_list.append(train_sum_loss['epoch_vq_loss'])
             train_ctc_loss_list.append(train_sum_loss['epoch_ctc_loss'])
@@ -497,6 +511,7 @@ def main(cfg):
                 mixing_prob=mixing_prob,
                 ckpt_time=ckpt_time,
             )
+            val_dec_output_loss_list.append(val_sum_loss['epoch_dec_output_loss'])
             val_output_loss_list.append(val_sum_loss['epoch_output_loss'])
             val_vq_loss_list.append(val_sum_loss['epoch_vq_loss'])
             val_ctc_loss_list.append(val_sum_loss['epoch_ctc_loss'])
@@ -516,6 +531,7 @@ def main(cfg):
                     ckpt_path=os.path.join(ckpt_path, f"{cfg.model.name}_{current_epoch}.ckpt")
                 )
             
+            save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
             save_loss(train_output_loss_list, val_output_loss_list, save_path, "output_loss")
             save_loss(train_vq_loss_list, val_vq_loss_list, save_path, "vq_loss")
             save_loss(train_ctc_loss_list, val_ctc_loss_list, save_path, "ctc_loss")
