@@ -188,17 +188,6 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             grad_cnt += 1
             
         
-        if cfg.train.debug:
-            if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
-                break
-        
-       
-        if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_train", current_time, ckpt_time)
-        
         del lip, feature, data_len, output, dec_output
         gc.collect()
         torch.cuda.empty_cache()
@@ -538,7 +527,7 @@ def main(cfg):
                 mixing_prob=mixing_prob
             )
             
-            if epoch > 150:
+            if epoch > 300:
                 model_grad_ok(model)
             
             mem = psutil.virtual_memory() 
