@@ -295,6 +295,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         self.temperature = 0.1
         self.num_neg = 50
         
+        self.use_ref = False
         
     def forward(self, lip, data_len, feature=None, mode='inference', reference=None, only_ref=False, encoding_indices=None, code_book=None):
         all_out = {}
@@ -302,7 +303,8 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         lip_feature = self.ResNet_GAP(lip) #(B, C, T)
         
         enc_output = self.encoder(lip_feature, data_len) 
-        if reference is not None:
+        
+        if self.use_ref:
             ref_loss = self.calc_ref_loss(enc_output, reference, data_len, enc_output.device)
             all_out['ref_loss'] = ref_loss
 
@@ -440,7 +442,7 @@ class Lip2Sp_VQVAE_TacoAR_InfoNCE(nn.Module):
         
     def calc_info_NCE(self, enc_output, ref, data_len):
         data_len = torch.div(data_len, self.reduction_factor, rounding_mode='floor')
-        cos_sim = F.cosine_similarity(enc_output.unsqueeze(1), ref.unsqueeze(2), dim=-1) / self.temperature
+        cos_sim = F.cosine_similarity(enc_output.unsqueeze(2), ref.unsqueeze(1), dim=-1) / self.temperature
         mask = torch.eye(cos_sim.shape[-1], dtype=torch.bool).unsqueeze(0).repeat(enc_output.shape[0], 1, 1).to(cos_sim.device)
         
         for i in range(mask.shape[0]):
