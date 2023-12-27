@@ -187,6 +187,9 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             scheduler.step()
             grad_cnt += 1
             
+            if cfg.debug:
+                break
+            
         
         del lip, feature, data_len, output, dec_output
         gc.collect()
@@ -261,19 +264,12 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             sum_loss['epoch_dec_output_loss'] += dec_output_loss.item()
             sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
             sum_loss['epoch_ctc_loss'] += ctc_loss.item()
+            
+            grad_cnt += 1
+            
+            if cfg.debug:
+                break
 
-            if cfg.train.debug:
-                if iter_cnt > cfg.train.debug_iter:
-                    if cfg.model.name == "mspec80":
-                        check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                    break
-            # if iter_cnt % cfg.train.gradient_accumulation_steps == 0:
-            #     break
-            if iter_cnt % (all_iter - 1) == 0:
-                if cfg.model.name == "mspec80":
-                    check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                    
-    grad_cnt = int(iter_cnt/cfg.train.gradient_accumulation_steps)
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_dec_output_loss'] /= grad_cnt
     sum_loss['epoch_stop_token_loss'] /= grad_cnt
@@ -296,7 +292,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_all_from_tts", config_path="conf")
+@hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4
@@ -358,13 +354,10 @@ def main(cfg):
         # model
         model = make_model(cfg, device)
         
-        
-        if cfg.from_tts.tts_name is not None:
-            name = cfg.from_tts.tts_name
-            tts_path = cfg.from_tts[name]
-            model = load_from_tts(model, tts_path)
+        #desk
+        tts_path = '/home/naoaki/lip2sp_pytorch_all/lip2sp_920_re/check_point/taco/mspec80_362.ckpt'
+        model = load_from_tts(model, tts_path)
             
-            print(f'load ckpt: {name}')
 
         # optimizer
         optimizer = torch.optim.Adam(
@@ -499,23 +492,6 @@ def main(cfg):
             save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token_loss")
             save_loss(train_ctc_loss_list, val_ctc_loss_list, save_path, "ctc_loss")
 
-            # epoch_output_loss_FR_train, epoch_dec_output_loss_FR_train = generate_for_FR_train_loss(
-            #     cfg = cfg,
-            #     model = model,
-            #     train_loader = train_loader,
-            #     dataset=train_dataset,
-            #     device=device,
-            #     save_path=save_path,
-            #     epoch=epoch,
-            #     loss_f=loss_f
-            # )
-            # train_output_loss_list_FR.append(epoch_output_loss_FR_train)
-            # train_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_train)
-            # val_output_loss_list_FR.append(epoch_output_loss_FR_val)
-            # val_dec_output_loss_list_FR.append(epoch_dec_output_loss_FR_val)  
-            # save_loss(train_output_loss_list_FR, val_output_loss_list_FR, save_path, "FR_output_loss")
-            # save_loss(train_dec_output_loss_list_FR, val_dec_output_loss_list_FR, save_path, "FR_dec_output_loss")
-            
             generate_for_train_check_taco_dict(
                 cfg = cfg,
                 model = model,
@@ -527,7 +503,7 @@ def main(cfg):
                 mixing_prob=mixing_prob
             )
             
-            if epoch > 300:
+            if epoch > 30:
                 model_grad_ok(model)
             
             mem = psutil.virtual_memory() 
