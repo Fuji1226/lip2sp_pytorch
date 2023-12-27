@@ -186,6 +186,9 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg, trainin
             optimizer.zero_grad()
             scheduler.step()
             grad_cnt += 1
+        
+            if cfg.debug:
+                break
             
         
         del lip, feature, data_len, output, dec_output
@@ -262,6 +265,9 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             sum_loss['epoch_stop_token_loss'] += stop_token_loss.item()
             sum_loss['epoch_ctc_loss'] += ctc_loss.item()
 
+            grad_cnt += 1
+            if cfg.debug:
+                break
             if cfg.train.debug:
                 if iter_cnt > cfg.train.debug_iter:
                     if cfg.model.name == "mspec80":
@@ -272,8 +278,7 @@ def calc_val_loss(model, val_loader, loss_f, device, cfg, training_method, mixin
             if iter_cnt % (all_iter - 1) == 0:
                 if cfg.model.name == "mspec80":
                     check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_validation", current_time, ckpt_time)
-                    
-    grad_cnt = int(iter_cnt/cfg.train.gradient_accumulation_steps)
+
     sum_loss['epoch_output_loss'] /= grad_cnt
     sum_loss['epoch_dec_output_loss'] /= grad_cnt
     sum_loss['epoch_stop_token_loss'] /= grad_cnt
@@ -296,7 +301,7 @@ def mixing_prob_controller(mixing_prob, epoch, mixing_prob_change_step):
         return mixing_prob
 
 
-@hydra.main(config_name="config_all_from_tts", config_path="conf")
+@hydra.main(config_name="config_all_from_tts_desk", config_path="conf")
 def main(cfg):
     if cfg.train.debug:
         cfg.train.batch_size = 4

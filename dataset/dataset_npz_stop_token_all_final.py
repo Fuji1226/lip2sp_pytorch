@@ -424,7 +424,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     label = [sample['label'] for sample in batch]
     #av_hubert = [sample['av_hubert'] for sample in batch]
     att_c = [sample['att_c'] for sample in batch]
-    vq_idx = [sample['vq_idx'] for sample in batch]
+    #vq_idx = [sample['vq_idx'] for sample in batch]
     
     wav = adjust_max_data_len(wav)
     lip = adjust_max_data_len(lip)
@@ -433,7 +433,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     stop_tokens = adjust_max_data_len(stop_tokens)
     #av_hubert = adjust_max_data_len_avhubert(av_hubert)
     att_c = adjust_max_data_len_avhubert(att_c)
-    vq_idx = adjust_max_data_len_vq_idx(vq_idx)
+    #vq_idx = adjust_max_data_len_vq_idx(vq_idx)
     
     
     wav = torch.stack(wav)
@@ -446,7 +446,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     text_len = torch.stack(text_len)
     #av_hubert = torch.stack(av_hubert)
     att_c = torch.stack(att_c)
-    vq_idx = torch.stack(vq_idx)
+    #vq_idx = torch.stack(vq_idx)
 
 
     output = {}
@@ -462,7 +462,7 @@ def collate_time_adjust_stop_token_all_lipread_final(batch, cfg):
     output['text_len'] = text_len
     #output['av_hubert'] = av_hubert
     output['att_c'] = att_c
-    output['vq_idx'] = vq_idx
+    #output['vq_idx'] = vq_idx
 
     return output
 
