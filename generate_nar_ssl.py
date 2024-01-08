@@ -134,7 +134,6 @@ def main(cfg):
             calc_accuracy_en(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_en(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
         else:
-            print('calc_accuracy_japanese')
             calc_accuracy_new(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
     calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')

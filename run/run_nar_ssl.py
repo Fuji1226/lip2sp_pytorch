@@ -105,7 +105,7 @@ def run_nar(
 
 
 def experiments():
-    debug = True
+    debug = False
     wandb_conf = 'debug' if debug else 'nar'
     subject = 'プログラム経過'
 
