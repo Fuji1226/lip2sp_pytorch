@@ -16,6 +16,8 @@ def main():
     path_dict_author = defaultdict(list)
     cnt_dict_end = defaultdict(int)
     path_dict_end = defaultdict(list)
+    result_list = []
+    
     for txt_file_path in tqdm(txt_file_path_list):
         try:
             with open(str(txt_file_path), 'r', encoding='cp932') as f:
@@ -35,28 +37,29 @@ def main():
                 author_name = author_elem.text
                 break
         
-        line_list = [line.strip() for line in    line_list]
-        head_list = []
-        author_list = []
-        end_list = []
+        if author_name is None:
+            print(txt_file_path)
         
-        for i, line in enumerate(line_list):
-            if re.match('^-+$', line):
-                head_list.append((i, line))
-            elif re.match(author_name, line):
-                author_list.append((i, author_name))
-            elif re.match('^底本：', line):
-                end_list.append((i, line))
+        # line_list = [line.strip() for line in    line_list]
+        # head_list = []
+        # author_list = []
+        # end_list = []
+        
+        # for i, line in enumerate(line_list):
+        #     if re.match('^-+$', line):
+        #         head_list.append((i, line))
+        #     elif re.match(author_name, line):
+        #         author_list.append((i, author_name))
+        #     elif re.match('^底本：', line):
+        #         end_list.append((i, line))
                 
-        cnt_dict_head[len(head_list)] += 1
-        path_dict_head[len(head_list)].append(txt_file_path)
-        cnt_dict_author[len(author_list)] += 1
-        path_dict_author[len(author_list)].append(txt_file_path)
-        cnt_dict_end[len(end_list)] += 1
-        path_dict_end[len(end_list)].append(txt_file_path)
+        # cnt_dict_head[len(head_list)] += 1
+        # path_dict_head[len(head_list)].append(txt_file_path)
+        # cnt_dict_author[len(author_list)] += 1
+        # path_dict_author[len(author_list)].append(txt_file_path)
+        # cnt_dict_end[len(end_list)] += 1
+        # path_dict_end[len(end_list)].append(txt_file_path)
         
-    breakpoint()
-    
     
     
 if __name__ == "__main__":
