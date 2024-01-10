@@ -8,9 +8,11 @@ import onnxruntime
 import numpy as np
 import face_alignment
 import av
+from torchlm.tools import faceboxesv2
+from torchlm.models import pipnet
+from torchlm.runtime import faceboxesv2_ort, pipnet_ort
 
 sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
-
 from train_nar_with_ex_avhubert_raw import make_model
 from parallelwavegan.pwg_train import make_model as make_pwg
 
@@ -76,78 +78,38 @@ def convert_pwg(cfg):
 
 
 def convert_landmark_detector():
-    pass
+    face_detector = faceboxesv2(device="cpu")
+    face_detector.apply_exporting(
+        onnx_path="./face_detector.onnx",
+        opset=12, 
+        simplify=True,
+        output_names=None,
+    )
 
-
-class LandMarkDetector(nn.Module):
-    def __init__(self, device):
-        super().__init__()
-        self.fa = face_alignment.FaceAlignment(
-            face_alignment.LandmarksType.TWO_D, 
-            device=device, 
-            flip_input=False
-        )
-
-    def forward(self, frame):
-        '''
-        frame : (H, W, C)
-        '''
-        landmarks, landmark_scores, bboxes = self.fa.get_landmarks(
-            frame,
-            return_bboxes=True,
-            return_landmark_score=True
-        )
-
-        max_mean = 0
-        max_score_idx = 0
-        for i, score in enumerate(landmark_scores):
-            score_mean = np.mean(score)
-            if score_mean > max_mean:
-                max_mean = score_mean
-                max_score_idx = i
-
-        landmark = landmarks[max_score_idx]
-        bbox = bboxes[max_score_idx][:-1]
-
-        coords_list = []
-        for coords in landmark:
-            coords_list.append(coords[0])
-            coords_list.append(coords[1])
-
-        return coords_list, bbox
+    landmark_detector = pipnet(
+        backbone="resnet101",
+        pretrained=True,
+        num_nb=10,
+        num_lms=68,
+        net_stride=32,
+        input_size=256,
+        meanface_type="300w",
+        map_location="cpu",
+        checkpoint=None,
+    )
+    landmark_detector.apply_exporting(
+        onnx_path="./landmark_detector_resnet101.onnx",
+        opset=12, 
+        simplify=True,
+        output_names=None,
+    )
 
 
 @hydra.main(version_base=None, config_name="config", config_path="../conf")
 def main(cfg):
-    model = LandMarkDetector('cpu').eval()
-    frame = torch.rand(256, 256, 3)
-    # torch.onnx.export(
-    #     model,
-    #     (frame),
-    #     'landmark_detector.onnx',
-    #     input_names=['frame'],
-    #     dynamic_axes={
-    #         'frame': {0: 'height', 1: 'width'}
-    #     }
-    # )
-    # frame = torch.rand(1024, 1024, 3)
-    # model = onnxruntime.InferenceSession('landmark_detector.onnx')
-    # coords_list, bbox = model.run(
-    #     None,
-    #     {
-    #         'frame': frame.numpy(),
-    #     }
-    # )
-
-    # breakpoint()
-
-    path = '/home/minami/dataset/lip/cropped_fps25/F01_kablab/BASIC5000_0278.mp4'
-    container = av.open(str(path))
-    for frame in container.decode(video=0):
-        img = frame.to_image()
-        arr = np.asarray(img)
-        arr = torch.from_numpy(arr)
-        model(arr)
+    convert_lip2sp(cfg)
+    convert_pwg(cfg)
+    convert_landmark_detector()
 
 
 if __name__ == '__main__':
