@@ -123,7 +123,7 @@ def main(cfg):
     for phoneme in class_to_id.keys():
         class_phoneme_dict[phoneme] = [phoneme]
         
-    while len(class_to_id) < vocab_size:
+    for i in tqdm(range(vocab_size)):
         pair_freqs = compute_pair_freqs(splits, word_freqs)
         best_pair = ""
         max_freq = None
@@ -137,7 +137,6 @@ def main(cfg):
         id_to_class[last_id + 1] = best_pair[0] + best_pair[1]
         class_phoneme_dict[best_pair[0] + best_pair[1]] = class_phoneme_dict[best_pair[0]] + class_phoneme_dict[best_pair[1]]
         last_id += 1
-        print(last_id)
 
     text_parsed_list = []
     for text in tqdm(text_list[:50]):
@@ -184,6 +183,7 @@ def main(cfg):
             sub_phoneme_seq_list.append(sub_phoneme_seq)
         text_parsed["sub_phoneme_seq"] = sub_phoneme_seq_list
         text_parsed_list.append(text_parsed)
+        print(len(text_parsed_list))
         
         
         
