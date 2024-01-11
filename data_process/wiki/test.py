@@ -9,7 +9,6 @@ import pandas as pd
 import demoji
 import neologdn
 import random
-import warnings
 
 
 class CustomMeCabTagger(MeCab.Tagger):
