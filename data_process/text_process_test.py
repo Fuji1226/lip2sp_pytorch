@@ -30,7 +30,10 @@ class CustomMeCabTagger(MeCab.Tagger):
         return pd.DataFrame(results, columns=type(self).COLUMNS)
     
     
-def compute_pair_freqs(splits, word_freqs):
+def compute_pair_freqs(
+    splits: dict[tuple[str, str], list],
+    word_freqs: dict[tuple[str, str], int],
+) -> dict[tuple[str, str], int]:
     pair_freqs = defaultdict(int)
     for word, freq in word_freqs.items():
         split = splits[word]
@@ -42,7 +45,12 @@ def compute_pair_freqs(splits, word_freqs):
     return pair_freqs
 
 
-def merge_pair(a, b, splits, word_freqs):
+def merge_pair(
+    a: int,
+    b: int,
+    splits: dict[tuple[str, str], list],
+    word_freqs: dict[tuple[str, str], int],
+) -> dict[tuple[str, str], list]:
     for word in word_freqs:
         split = splits[word]
         if len(split) == 1:
@@ -57,7 +65,10 @@ def merge_pair(a, b, splits, word_freqs):
     return splits
 
 
-def tokenize(text_parsed, merges):
+def tokenize(
+    text_parsed: pd.DataFrame,
+    merges: dict[str, str],
+) -> pd.DataFrame:
     text_parsed = text_parsed.reset_index(drop=True)
     text_parsed["sub_phoneme"] = text_parsed["phoneme"]
     for pair, merge in merges.items():
@@ -183,8 +194,6 @@ def main(cfg):
             sub_phoneme_seq_list.append(sub_phoneme_seq)
         text_parsed["sub_phoneme_seq"] = sub_phoneme_seq_list
         text_parsed_list.append(text_parsed)
-        print(len(text_parsed_list))
-        
         
         
 if __name__ == "__main__":
