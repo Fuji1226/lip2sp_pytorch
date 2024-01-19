@@ -50,6 +50,7 @@ def classes2index_tts(cfg):
         "w",
         "y",
         "z",
+        'kw',
         "pau",
         "sil",
     ]
@@ -71,8 +72,8 @@ def classes2index_tts(cfg):
         ]
 
     _pad = "~"
-
-    class_list = [_pad] + extra_symbols + phonemes
+    mask = 'mask'
+    class_list = [_pad] + extra_symbols + phonemes + [mask]
     class_to_id = {s: i for i, s in enumerate(class_list)}
     id_to_class = {i: s for i, s in enumerate(class_list)}
     return class_to_id, id_to_class

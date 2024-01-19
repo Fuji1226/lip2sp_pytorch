@@ -9,7 +9,7 @@ random_seed : 42
 debug : True
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 50
+debug_iter : 500
 
 # checkpointから再開する場合
 check_point_start : False
@@ -83,6 +83,14 @@ vctk:
   df_path: '~/dataset/lip/data_split_csv/vctk.csv'
   stat_path: '~/dataset/lip/stat/vctk.npz'
   emb_dir: '~/VCTK-Corpus/emb'
+
+wiki:
+  use: True
+  df_path: '~/wiki_ja/data_split.csv'
+
+aozora:
+  use: True
+  df_path: '~/aozorabunko_text/data_split.csv'
 
 # 外部データの指定
 which_external_data : ""
@@ -164,8 +172,8 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 2
-num_workers : 2
+batch_size : 8
+num_workers : 24
 iters_to_accumulate : 16
 
 # dropout

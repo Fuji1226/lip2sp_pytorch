@@ -12,6 +12,7 @@ import hydra
 import sys
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 from data_process.phoneme_encode import classes2index_tts
+from typing import Dict, List, Tuple
 
 
 class CustomMeCabTagger(MeCab.Tagger):
@@ -31,9 +32,9 @@ class CustomMeCabTagger(MeCab.Tagger):
     
     
 def compute_pair_freqs(
-    splits: dict[tuple[str, str], list],
-    word_freqs: dict[tuple[str, str], int],
-) -> dict[tuple[str, str], int]:
+    splits: Dict[Tuple[str, str], list],
+    word_freqs: Dict[Tuple[str, str], int],
+) -> Dict[Tuple[str, str], int]:
     pair_freqs = defaultdict(int)
     for word, freq in word_freqs.items():
         split = splits[word]
@@ -48,9 +49,9 @@ def compute_pair_freqs(
 def merge_pair(
     a: int,
     b: int,
-    splits: dict[tuple[str, str], list],
-    word_freqs: dict[tuple[str, str], int],
-) -> dict[tuple[str, str], list]:
+    splits: Dict[Tuple[str, str], list],
+    word_freqs: Dict[Tuple[str, str], int],
+) -> Dict[Tuple[str, str], list]:
     for word in word_freqs:
         split = splits[word]
         if len(split) == 1:
@@ -67,7 +68,7 @@ def merge_pair(
 
 def tokenize(
     text_parsed: pd.DataFrame,
-    merges: dict[str, str],
+    merges: Dict[str, str],
 ) -> pd.DataFrame:
     text_parsed = text_parsed.reset_index(drop=True)
     text_parsed["sub_phoneme"] = text_parsed["phoneme"]
@@ -87,7 +88,7 @@ def tokenize(
     
 @hydra.main(version_base=None, config_name="config", config_path="../conf")
 def main(cfg):
-    mecab = CustomMeCabTagger('-r /dev/null -d /opt/homebrew/lib/mecab/dic/mecab-ipadic-neologd')
+    mecab = CustomMeCabTagger('-d /usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd')
     data_dir = Path("~/lip2sp_pytorch/csv").expanduser()
     data_path_list = list(data_dir.glob("*.csv"))
     text_list = []

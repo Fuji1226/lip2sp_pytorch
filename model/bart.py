@@ -35,40 +35,40 @@ class BART(nn.Module):
     ):
         super().__init__()
         self.cfg = cfg
-        self.embedding = nn.Embedding(1000, 512, padding_idx=0)
+        self.embedding = nn.Embedding(cfg.model.bart.n_vocab, cfg.model.bart.d_model, padding_idx=cfg.model.bart.padding_idx)
         self.posenc = PositionalEncoding(
-            d_model=512,
-            dropout=0.1,
-            max_len=1000,
+            d_model=cfg.model.bart.d_model,
+            dropout=cfg.model.bart.dropout,
+            max_len=cfg.model.bart.n_vocab,
         )
         self.encoder = nn.TransformerEncoder(
             encoder_layer=nn.TransformerEncoderLayer(
-                d_model=512,
-                nhead=8,
-                dim_feedforward=512 * 4,
-                dropout=0.1,
-                activation='relu',
+                d_model=cfg.model.bart.d_model,
+                nhead=cfg.model.bart.nhead,
+                dim_feedforward=cfg.model.bart.d_model * 4,
+                dropout=cfg.model.bart.dropout,
+                activation=cfg.model.bart.activation,
             ),
-            num_layers=6,
+            num_layers=cfg.model.bart.num_layers,
         )
         self.decoder = nn.TransformerDecoder(
             decoder_layer=nn.TransformerDecoderLayer(
-                d_model=512,
-                nhead=8,
-                dim_feedforward=512 * 4,
-                dropout=0.1,
-                activation='relu',
+                d_model=cfg.model.bart.d_model,
+                nhead=cfg.model.bart.nhead,
+                dim_feedforward=cfg.model.bart.d_model * 4,
+                dropout=cfg.model.bart.dropout,
+                activation=cfg.model.bart.activation,
             ),
-            num_layers=6,
+            num_layers=cfg.model.bart.num_layers,
         )
-        self.output_layer = nn.Linear(512, 1000)
+        self.output_layer = nn.Linear(cfg.model.bart.d_model, cfg.model.bart.n_vocab)
         
     def forward(
         self,
         src_text: torch.Tensor,
         src_text_len: torch.Tensor,
-        tgt_text: Optional[torch.Tensor],
-        tgt_text_len: Optional[torch.Tensor],
+        tgt_text: torch.Tensor,
+        tgt_text_len: torch.Tensor,
     ) -> torch.Tensor:
         '''
         Arguments:
@@ -87,9 +87,9 @@ class BART(nn.Module):
         tgt_text = self.posenc(tgt_text)
         tgt_text = tgt_text.permute(1, 0, 2)    # (T, B, C)
         
-        src_padding_mask = torch.arange(src_text.shape[0]).unsqueeze(0).expand(src_text.shape[1], -1)
+        src_padding_mask = torch.arange(src_text.shape[0]).unsqueeze(0).expand(src_text.shape[1], -1).to(device=src_text.device)
         src_padding_mask = src_padding_mask > src_text_len.unsqueeze(-1)
-        tgt_padding_mask = torch.arange(tgt_text.shape[0]).unsqueeze(0).expand(tgt_text.shape[1], -1)
+        tgt_padding_mask = torch.arange(tgt_text.shape[0]).unsqueeze(0).expand(tgt_text.shape[1], -1).to(device=src_text.device)
         tgt_padding_mask = tgt_padding_mask > tgt_text_len.unsqueeze(-1)
         causal_mask = torch.triu(torch.full((tgt_text.shape[0], tgt_text.shape[0]), True, device=tgt_text.device), diagonal=1)
         
@@ -107,43 +107,47 @@ class BART(nn.Module):
         output = self.output_layer(decoder_output)
         return output
     
-    
-import hydra
-import random
-@hydra.main(version_base=None, config_name="config", config_path="../conf")
-def main(cfg):
-    bart = BART(cfg)
-    batch_size = 16
-    min_len = 25
-    enc_max_len = 100
-    dec_max_len = 150
-    
-    src_text_list = []
-    src_text_len_list = []
-    tgt_text_list = []
-    tgt_text_len_list = []
-    for i in range(batch_size):
-        src_text = torch.randint(1, 1000, (random.randint(min_len, enc_max_len),))
-        src_text_len_list.append(src_text.shape[0])
-        tgt_text = torch.randint(1, 1000, (random.randint(min_len, dec_max_len),))
-        tgt_text_len_list.append(tgt_text.shape[0])
-        src_text = F.pad(src_text, (0, enc_max_len - src_text.shape[0]), 'constant', 0)
-        tgt_text = F.pad(tgt_text, (0, dec_max_len - tgt_text.shape[0]), 'constant', 0)
-        src_text_list.append(src_text)
-        tgt_text_list.append(tgt_text)
-    
-    src_text = torch.stack(src_text_list, dim=0)
-    src_text_len = torch.tensor(src_text_len_list)
-    tgt_text = torch.stack(tgt_text_list, dim=0)
-    tgt_text_len = torch.tensor(tgt_text_len_list)
-    
-    tgt_text_pred = bart(
-        src_text=src_text,
-        src_text_len=src_text_len,
-        tgt_text=tgt_text,
-        tgt_text_len=tgt_text_len,
-    )
+    def inference_greedy_search():
+        
+        return
     
     
-if __name__ == '__main__':
-    main()
+# import hydra
+# import random
+# @hydra.main(version_base=None, config_name="config", config_path="../conf")
+# def main(cfg):
+#     bart = BART(cfg)
+#     batch_size = 16
+#     min_len = 25
+#     enc_max_len = 100
+#     dec_max_len = 150
+    
+#     src_text_list = []
+#     src_text_len_list = []
+#     tgt_text_list = []
+#     tgt_text_len_list = []
+#     for i in range(batch_size):
+#         src_text = torch.randint(1, 1000, (random.randint(min_len, enc_max_len),))
+#         src_text_len_list.append(src_text.shape[0])
+#         tgt_text = torch.randint(1, 1000, (random.randint(min_len, dec_max_len),))
+#         tgt_text_len_list.append(tgt_text.shape[0])
+#         src_text = F.pad(src_text, (0, enc_max_len - src_text.shape[0]), 'constant', 0)
+#         tgt_text = F.pad(tgt_text, (0, dec_max_len - tgt_text.shape[0]), 'constant', 0)
+#         src_text_list.append(src_text)
+#         tgt_text_list.append(tgt_text)
+    
+#     src_text = torch.stack(src_text_list, dim=0)
+#     src_text_len = torch.tensor(src_text_len_list)
+#     tgt_text = torch.stack(tgt_text_list, dim=0)
+#     tgt_text_len = torch.tensor(tgt_text_len_list)
+    
+#     tgt_text_pred = bart(
+#         src_text=src_text,
+#         src_text_len=src_text_len,
+#         tgt_text=tgt_text,
+#         tgt_text_len=tgt_text_len,
+#     )
+    
+    
+# if __name__ == '__main__':
+#     main()

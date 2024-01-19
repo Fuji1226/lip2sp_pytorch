@@ -21,6 +21,7 @@ import copy
 from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 from dataset.dataset_npz_with_ex import DatasetWithExternalData, TransformWithExternalData, collate_time_adjust_with_external_data
 from dataset.dataset import DatasetWithExternalDataRaw, TransformWithExternalDataRaw
+from dataset.dataset_bart import DatasetBART, TransformBART, collate_time_adjust_bart
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
 from model.raven import E2E as MyRAVEN
@@ -82,17 +83,15 @@ def get_path_train(cfg, current_time):
     return train_data_root, val_data_root, ckpt_path, save_path, ckpt_time
 
 
-def get_path_train_raw(cfg, current_time):
-    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        video_dir = cfg.train.kablab.avhubert_preprocess_fps25_video_dir
-    video_dir = Path(video_dir).expanduser()
-    audio_dir = Path(cfg.train.kablab.audio_dir).expanduser()
-
+def get_save_and_ckpt_path(
+    cfg,
+    current_time,
+):
     ckpt_time = None
     if cfg.train.check_point_start:
         checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
         ckpt_time = checkpoint_path.parents[0].name
-
+        
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
     if ckpt_time is not None:
         ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
@@ -106,6 +105,16 @@ def get_path_train_raw(cfg, current_time):
     else:
         save_path = save_path / cfg.train.face_or_lip / cfg.model.name / current_time
     save_path.mkdir(parents=True, exist_ok=True)
+    return ckpt_path, save_path, ckpt_time
+
+
+def get_path_train_raw(cfg, current_time):
+    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
+        video_dir = cfg.train.kablab.avhubert_preprocess_fps25_video_dir
+    video_dir = Path(video_dir).expanduser()
+    audio_dir = Path(cfg.train.kablab.audio_dir).expanduser()
+
+    ckpt_path, save_path, ckpt_time= get_save_and_ckpt_path(cfg, current_time)
 
     return video_dir, audio_dir, ckpt_path, save_path, ckpt_time
 
@@ -528,6 +537,44 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         pin_memory=True,
         drop_last=True,
         collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
+
+def make_train_val_loader_text(cfg):
+    df = []
+    if cfg.train.wiki.use:
+        df_wiki = pd.read_csv(str(Path(cfg.train.wiki.df_path).expanduser()))
+        df.append(df_wiki)
+    if cfg.train.aozora.use:
+        df_aozora = pd.read_csv(str(Path(cfg.train.aozora.df_path).expanduser()))
+        df.append(df_aozora)
+    df = pd.concat(df, axis=0, ignore_index=True)
+    train_data_path_list = df.loc[df['data_split'] == 'train', 'data_path'].values
+    val_data_path_list = df.loc[df['data_split'] == 'val', 'data_path'].values
+    
+    train_trans = TransformBART(cfg, 'train')
+    val_trans = TransformBART(cfg, 'val')
+    train_dataset = DatasetBART(train_data_path_list, cfg, train_trans)
+    val_dataset = DatasetBART(val_data_path_list, cfg, val_trans)
+    
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_bart, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,
+        shuffle=True,
+        num_workers=cfg.train.num_workers,
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_bart, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
 

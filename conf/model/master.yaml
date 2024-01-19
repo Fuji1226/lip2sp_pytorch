@@ -465,3 +465,14 @@ vatlm_config:
 lightweight: 
   dropout: 0.1
   lstm_n_layers: 2
+
+bart:
+  n_vocab: 49
+  phoneme_max_len: 500
+  padding_idx: 0
+  d_model: 768
+  nhead: 8
+  num_layers: 12
+  activation: 'relu'
+  dropout: 0.1
+  masking_rate: 15
