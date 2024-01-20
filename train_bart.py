@@ -70,6 +70,7 @@ def train_one_epoch(
     device,
     cfg,
     ckpt_time,
+    id_to_class,
 ):
     print('training')
     epoch_loss = 0
@@ -105,6 +106,24 @@ def train_one_epoch(
         iter_cnt += 1
         if cfg.train.debug and iter_cnt > cfg.train.debug_iter:
             break
+        
+    phoneme_pred = torch.argmax(phoneme_pred, dim=1)
+    phoneme_pred = torch.nn.functional.pad(phoneme_pred, (1, 0), mode='constant', value=0)
+    data_list = []
+    for i in range(phoneme_target.shape[0]):
+        p_masked = phoneme_masked[i].tolist()
+        p_target = phoneme_target[i].tolist()
+        p_pred = phoneme_pred[i].tolist()
+        p_masked = [id_to_class[i] for i in p_masked]
+        p_target = [id_to_class[i] for i in p_target]
+        p_pred = [id_to_class[i] for i in p_pred]
+        p_masked = ' '.join(p_masked)
+        p_target = ' '.join(p_target)
+        p_pred = ' '.join(p_pred)
+        data_list.append([p_masked, p_target, p_pred])
+    columns = ['phoneme_masked', 'phoneme_target', 'phoneme_pred']
+    table = wandb.Table(data=data_list, columns=columns)
+    wandb.log({'train_examples': table})
     
     epoch_loss /= iter_cnt
     return epoch_loss
@@ -117,6 +136,7 @@ def val_one_epoch(
     device,
     cfg,
     ckpt_time,
+    id_to_class,
 ):
     print('validation')
     epoch_loss = 0
@@ -150,6 +170,24 @@ def val_one_epoch(
             break
         if iter_cnt > cfg.model.bart.num_validation:
             break
+        
+    phoneme_pred = torch.argmax(phoneme_pred, dim=1)
+    phoneme_pred = torch.nn.functional.pad(phoneme_pred, (1, 0), mode='constant', value=0)
+    data_list = []
+    for i in range(phoneme_target.shape[0]):
+        p_masked = phoneme_masked[i].tolist()
+        p_target = phoneme_target[i].tolist()
+        p_pred = phoneme_pred[i].tolist()
+        p_masked = [id_to_class[i] for i in p_masked]
+        p_target = [id_to_class[i] for i in p_target]
+        p_pred = [id_to_class[i] for i in p_pred]
+        p_masked = ' '.join(p_masked)
+        p_target = ' '.join(p_target)
+        p_pred = ' '.join(p_pred)
+        data_list.append([p_masked, p_target, p_pred])
+    columns = ['phoneme_masked', 'phoneme_target', 'phoneme_pred']
+    table = wandb.Table(data=data_list, columns=columns)
+    wandb.log({'val_examples': table})
     
     epoch_loss /= iter_cnt
     return epoch_loss
@@ -242,6 +280,7 @@ def main(cfg):
                 device=device, 
                 cfg=cfg, 
                 ckpt_time=ckpt_time,
+                id_to_class=train_dataset.id_to_class,
             )
             train_loss_list.append(epoch_loss)
             
@@ -252,6 +291,7 @@ def main(cfg):
                 device=device, 
                 cfg=cfg,
                 ckpt_time=ckpt_time,
+                id_to_class=train_dataset.id_to_class,
             )
             val_loss_list.append(epoch_loss)
             
