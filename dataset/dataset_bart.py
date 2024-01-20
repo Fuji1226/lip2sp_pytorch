@@ -97,43 +97,64 @@ class TransformBART:
         df['phoneme'] = df['phoneme'].str.replace('[', '').replace(']', '').replace("'", '').replace(' ', '')
         phoneme_target = []
         phoneme_masked = []
-        masking_rate = 25
+        
+        phoneme_len_list = []
         for p in df['phoneme'].values:
+            p = p.replace('[', '').replace(']', '').replace("'", '').replace(' ', '')
+            p = p.split(',')
+            phoneme_len_list.append(len(p))
+
+        start_index = 0
+        if sum(phoneme_len_list) > (self.cfg.model.bart.phoneme_max_len - 2):
+            start_index += random.randint(0, sum(phoneme_len_list) - (self.cfg.model.bart.phoneme_max_len - 2))
+            
+        cnt = 0
+        for i, row in df.iterrows():
+            p = row['phoneme']
+            p_len = phoneme_len_list[i]
+            if cnt < start_index:
+                cnt += p_len
+                continue
+            if cnt + p_len > start_index + (self.cfg.model.bart.phoneme_max_len - 2):
+                continue
+            cnt += p_len
+            
             p = p.replace('[', '').replace(']', '').replace("'", '').replace(' ', '')
             p = p.split(',')
             if len(p) == 1 and p[0] == '':
                 continue
+            
             if self.train_val_test == 'train':
-                mask_flag = random.randint(0, 99) < masking_rate
+                mask_flag = random.randint(0, 99) < self.cfg.model.bart.masking_rate
                 phoneme_target += p
                 if mask_flag:
-                    for i in range(len(p)):
+                    for j in range(len(p)):
                         mask_method_flag = random.randint(0, 99)
                         if mask_method_flag < 80:
                             phoneme_masked += ['mask']
                         elif mask_method_flag < 90:
                             phoneme_masked += random.sample(self.phoneme_list, 1)
                         else:
-                            phoneme_masked += [p[i]]
+                            phoneme_masked += [p[j]]
                 else:
                     phoneme_masked += p
             else:
                 phoneme_target += p
                 phoneme_masked += p
-        phoneme_masked.insert(0, '^')
-        phoneme_masked.append('$')
+                
         phoneme_target.insert(0, '^')
         phoneme_target.append('$')
-        try:
-            phoneme_target = [class_to_id[p] for p in phoneme_target]
-            phoneme_masked = [class_to_id[p] for p in phoneme_masked]
-        except KeyError:
-            print(data_path)
-        try:
-            assert len(phoneme_target) == len(phoneme_masked)
-        except AssertionError:
-            print(data_path)
+        phoneme_masked.insert(0, '^')
+        phoneme_masked.append('$')
         
+        phoneme_target = [class_to_id[p] for p in phoneme_target]
+        phoneme_masked = [class_to_id[p] for p in phoneme_masked]
+        
+        if len(phoneme_target) != len(phoneme_masked):
+            raise ValueError(f'phoneme_target_len and phoneme_masked_len should be equal. {data_path}')
+        if len(phoneme_target) > self.cfg.model.bart.phoneme_max_len or len(phoneme_masked) > self.cfg.model.bart.phoneme_max_len:
+            raise ValueError(f'phoneme_target_len and phoneme_masked_len should be smaller than self.cfg.model.bart.phoneme_max_len. {data_path}')
+
         phoneme_target = torch.tensor(phoneme_target, dtype=torch.long)
         phoneme_masked = torch.tensor(phoneme_masked, dtype=torch.long)
         phoneme_len = phoneme_target.shape[0]
@@ -150,9 +171,10 @@ def collate_time_adjust_bart(batch, cfg):
     phoneme_masked_pad_list = []
     for phoneme_target, phoneme_masked in zip(phoneme_target_list, phoneme_masked_list):
         if len(phoneme_target) > cfg.model.bart.phoneme_max_len:
-            start_idx = random.randint(0, len(phoneme_target) - cfg.model.bart.phoneme_max_len)
-            phoneme_target = phoneme_target[start_idx:start_idx + cfg.model.bart.phoneme_max_len]
-            phoneme_masked = phoneme_masked[start_idx:start_idx + cfg.model.bart.phoneme_max_len]
+            # start_idx = random.randint(0, len(phoneme_target) - cfg.model.bart.phoneme_max_len)
+            # phoneme_target = phoneme_target[start_idx:start_idx + cfg.model.bart.phoneme_max_len]
+            # phoneme_masked = phoneme_masked[start_idx:start_idx + cfg.model.bart.phoneme_max_len]
+            pass
         else:
             padding_len = cfg.model.bart.phoneme_max_len - len(phoneme_target)
             phoneme_target = torch.nn.functional.pad(phoneme_target, (0, padding_len), value=0)

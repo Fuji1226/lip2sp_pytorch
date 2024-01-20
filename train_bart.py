@@ -82,18 +82,16 @@ def train_one_epoch(
         phoneme_target = phoneme_target.to(device)
         phoneme_masked = phoneme_masked.to(device)
         phoneme_len = phoneme_len.to(device)
-        print(phoneme_target.shape, phoneme_masked.shape, phoneme_len.shape)
-        breakpoint()
         
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             phoneme_pred = model(
                 src_text=phoneme_masked,
                 src_text_len=phoneme_len,
-                tgt_text=phoneme_target[:, 1:],
+                tgt_text=phoneme_target[:, :-1],
                 tgt_text_len=phoneme_len - 1,
-            )   # (T, B, C)
-            phoneme_pred = phoneme_pred.permute(1, 2, 0)    # (B, C, T
-            loss = loss_f(phoneme_pred, phoneme_target)
+            )
+            phoneme_pred = phoneme_pred.permute(1, 2, 0)
+            loss = loss_f(phoneme_pred, phoneme_target[:, 1:])
             epoch_loss += loss.item()
             wandb.log({'train_loss': loss})
             loss = loss / cfg.train.iters_to_accumulate
@@ -135,19 +133,22 @@ def val_one_epoch(
         
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             with torch.no_grad():
-                phoneme_pred = model(
+                phoneme_pred = model.greedy_search_validation(
                     src_text=phoneme_masked,
                     src_text_len=phoneme_len,
-                    tgt_text=phoneme_target,
-                    tgt_text_len=phoneme_len,
-                )   # (T, B, C)
-            phoneme_pred = phoneme_pred.permute(1, 2, 0)    # (B, C, T)
-            loss = loss_f(phoneme_pred, phoneme_target)
+                    iter_limit=phoneme_target.shape[1] - 1,
+                    tgt_text=None,
+                    tgt_text_len=None,
+                )
+            phoneme_pred = phoneme_pred.permute(1, 2, 0)
+            loss = loss_f(phoneme_pred, phoneme_target[:, 1:])
             epoch_loss += loss.item()
             wandb.log({'val_loss': loss})
             
         iter_cnt += 1
         if cfg.train.debug and iter_cnt > cfg.train.debug_iter:
+            break
+        if iter_cnt > cfg.model.bart.num_validation:
             break
     
     epoch_loss /= iter_cnt

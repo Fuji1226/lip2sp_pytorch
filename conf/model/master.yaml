@@ -470,9 +470,10 @@ bart:
   n_vocab: 49
   phoneme_max_len: 500
   padding_idx: 0
-  d_model: 768
+  masking_rate: 25
+  num_validation: 100
+  d_model: 512
   nhead: 8
-  num_layers: 12
-  activation: 'relu'
+  num_layers: 6
+  activation: 'gelu'
   dropout: 0.1
-  masking_rate: 15

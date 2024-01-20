@@ -6,10 +6,10 @@ name : "nar"
 random_seed : 42
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
-debug_iter : 500
+debug_iter : 50
 
 # checkpointから再開する場合
 check_point_start : False

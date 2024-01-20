@@ -31,7 +31,7 @@ class PositionalEncoding(nn.Module):
 class BART(nn.Module):
     def __init__(
         self,
-        cfg: omegaconf.dictconfig.DictConfig,
+        cfg,
     ):
         super().__init__()
         self.cfg = cfg
@@ -39,7 +39,7 @@ class BART(nn.Module):
         self.posenc = PositionalEncoding(
             d_model=cfg.model.bart.d_model,
             dropout=cfg.model.bart.dropout,
-            max_len=cfg.model.bart.n_vocab,
+            max_len=cfg.model.bart.phoneme_max_len * 4,
         )
         self.encoder = nn.TransformerEncoder(
             encoder_layer=nn.TransformerEncoderLayer(
@@ -74,9 +74,8 @@ class BART(nn.Module):
         Arguments:
             src_text: (B, T)
             src_text_len: (B,)
-            tgt_text: (B, T), target text must be shifted during training.
+            tgt_text: (B, T)
             tgt_text_len: (B,)
-            
         Returns:
             decoder_output: (T, B, C)
         '''
@@ -107,47 +106,53 @@ class BART(nn.Module):
         output = self.output_layer(decoder_output)
         return output
     
-    def inference_greedy_search():
+    def greedy_search_validation(
+        self,
+        src_text: torch.Tensor,
+        src_text_len: torch.Tensor,
+        iter_limit: int,
+        tgt_text: Optional[torch.Tensor],
+        tgt_text_len: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        '''
+        Arguments:
+            src_text: (B, T)
+            src_text_len: (B,)
+            tgt_text: (B, T)
+            tgt_text_len: (B,)
+        Returns:
+            decoder_output: (T, B, C)
+        '''
+        src_text = self.embedding(src_text) * math.sqrt(512)
+        src_text = self.posenc(src_text)
+        src_text = src_text.permute(1, 0, 2)    # (T, B, C)
+        # tgt_text = self.embedding(tgt_text) * math.sqrt(512)
+        # tgt_text = self.posenc(tgt_text)
+        # tgt_text = tgt_text.permute(1, 0, 2)    # (T, B, C)
         
-        return
-    
-    
-# import hydra
-# import random
-# @hydra.main(version_base=None, config_name="config", config_path="../conf")
-# def main(cfg):
-#     bart = BART(cfg)
-#     batch_size = 16
-#     min_len = 25
-#     enc_max_len = 100
-#     dec_max_len = 150
-    
-#     src_text_list = []
-#     src_text_len_list = []
-#     tgt_text_list = []
-#     tgt_text_len_list = []
-#     for i in range(batch_size):
-#         src_text = torch.randint(1, 1000, (random.randint(min_len, enc_max_len),))
-#         src_text_len_list.append(src_text.shape[0])
-#         tgt_text = torch.randint(1, 1000, (random.randint(min_len, dec_max_len),))
-#         tgt_text_len_list.append(tgt_text.shape[0])
-#         src_text = F.pad(src_text, (0, enc_max_len - src_text.shape[0]), 'constant', 0)
-#         tgt_text = F.pad(tgt_text, (0, dec_max_len - tgt_text.shape[0]), 'constant', 0)
-#         src_text_list.append(src_text)
-#         tgt_text_list.append(tgt_text)
-    
-#     src_text = torch.stack(src_text_list, dim=0)
-#     src_text_len = torch.tensor(src_text_len_list)
-#     tgt_text = torch.stack(tgt_text_list, dim=0)
-#     tgt_text_len = torch.tensor(tgt_text_len_list)
-    
-#     tgt_text_pred = bart(
-#         src_text=src_text,
-#         src_text_len=src_text_len,
-#         tgt_text=tgt_text,
-#         tgt_text_len=tgt_text_len,
-#     )
-    
-    
-# if __name__ == '__main__':
-#     main()
+        src_padding_mask = torch.arange(src_text.shape[0]).unsqueeze(0).expand(src_text.shape[1], -1).to(device=src_text.device)
+        src_padding_mask = src_padding_mask > src_text_len.unsqueeze(-1)
+        # tgt_padding_mask = torch.arange(tgt_text.shape[0]).unsqueeze(0).expand(tgt_text.shape[1], -1).to(device=src_text.device)
+        # tgt_padding_mask = tgt_padding_mask > tgt_text_len.unsqueeze(-1)
+        
+        encoder_output = self.encoder(
+            src=src_text,
+            src_key_padding_mask=src_padding_mask,
+        )
+        
+        text_pred = torch.zeros(1, src_text.shape[1], src_text.shape[2]).to(src_text.device)
+        for i in range(iter_limit):
+            causal_mask = torch.triu(torch.full((text_pred.shape[0], text_pred.shape[0]), True, device=text_pred.device), diagonal=1)
+            decoder_output = self.decoder(
+                tgt=text_pred,
+                memory=encoder_output,
+                tgt_mask=causal_mask,
+                # tgt_key_padding_mask=tgt_padding_mask[:, :i + 1],
+                tgt_key_padding_mask=None,
+                memory_key_padding_mask=src_padding_mask,
+            )
+            decoder_output_future = decoder_output[-1, :, :].unsqueeze(0)
+            text_pred = torch.cat((text_pred, decoder_output_future), dim=0)
+        text_pred = text_pred[1:, :, :]
+        text_pred = self.output_layer(text_pred)
+        return text_pred
