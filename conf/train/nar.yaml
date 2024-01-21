@@ -183,14 +183,14 @@ rnn_dropout : 0.1
 lm_enc_dropout : 0.1
 
 # optimizer
-lr : 1.0e-3
+lr : 1.0e-4
 beta_1 : 0.9
 # beta_2 : 0.999
 # weight_decay : 1.0e-6
 beta_2 : 0.98
 weight_decay : 1.0e-2
 which_optim : 'adamw'
-which_scheduler : 'warmup'
+which_scheduler : 'exp'
 
 # scheduler
 lr_decay_rate : 0.5
