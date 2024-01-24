@@ -19,8 +19,8 @@ import torch.nn.functional as F
 from model.tts_taco import TTSTacotron
 from loss import MaskedLossTTS
 
-from utils import get_path_tts_train, make_train_val_loader_tts, make_pad_mask_tts, check_mel_default, check_attention_weight, save_loss, make_test_loader_tts
-from synthesis_tts import generate_for_tts
+from utils import get_path_train, make_train_val_loader_final, make_pad_mask_tts, check_mel_default, check_attention_weight, save_loss, make_test_loader_final
+from synthesis_tts import generate_for_tts_dict
 
 # 現在時刻を取得
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
@@ -93,7 +93,12 @@ def train_one_epoch(model, train_loader, optimizer, loss_f, device, cfg):
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
-        wav, feature, text, stop_token, feature_len, text_len, filename = batch
+        text = batch['text'].to(device)
+        feature = batch['feature'].to(device)
+        stop_token = batch['stop_tokens'].to(device)
+        text_len = batch['text_len'].to(device)
+        feature_len = batch['data_len'].to(device)
+
         
         text = text.to(device)
         feature = feature.to(device)
@@ -153,13 +158,11 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg):
     model.eval()
 
     for batch in val_loader:
-        wav, feature, text, stop_token, feature_len, text_len, filename = batch
-        text = text.to(device)
-        feature = feature.to(device)
-        stop_token = stop_token.to(device)
-        text_len = text_len.to(device)
-        feature_len = feature_len.to(device)
-
+        text = batch['text'].to(device)
+        feature = batch['feature'].to(device)
+        stop_token = batch['stop_tokens'].to(device)
+        text_len = batch['text_len'].to(device)
+        feature_len = batch['data_len'].to(device)
 
         with torch.no_grad():
             dec_output, output, logit, att_w = model(text, text_len, feature_target=feature)
@@ -182,18 +185,6 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg):
 
         iter_cnt += 1
 
-        if cfg.train.debug:
-            if iter_cnt > cfg.train.debug_iter:
-                if cfg.model.name == "mspec80":
-                    check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_val", current_time)
-                check_attention_weight(att_w[0], cfg, "att_w_val", current_time)
-                break
-
-        if iter_cnt % (all_iter - 1) == 0:
-            if cfg.model.name == "mspec80":
-                check_mel_default(feature[0], output[0], dec_output[0], cfg, "mel_val", current_time)
-            check_attention_weight(att_w[0], cfg, "att_w_val", current_time)
-
     epoch_loss /= iter_cnt
     epoch_output_loss /= iter_cnt
     epoch_dec_output_loss /= iter_cnt
@@ -202,7 +193,7 @@ def val_one_epoch(model, val_loader, loss_f, device, cfg):
 
 
 
-@hydra.main(config_name="config_tts_finetune", config_path="conf")
+@hydra.main(config_name="config_tts_finetune_desk", config_path="conf")
 def main(cfg):
     print(f'tag: {cfg.tag}')
     #breakpoint()
@@ -220,18 +211,18 @@ def main(cfg):
     current_time += f'_{cfg.tag}'
     
     # path
-    data_root, save_path, ckpt_path = get_path_tts_train(cfg, current_time)
+    data_root, mean_std_path, ckpt_path, save_path, ckpt_time = get_path_train(cfg, current_time)
     print("\n--- data directory check ---")
     print(f"data_root = {data_root}")
     print(f"ckpt_path = {ckpt_path}")
     print(f"save_path = {save_path}")
     
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_tts(cfg, data_root)
-    
-    test_root = Path(cfg.test.tts_pre_loaded_path).expanduser()
-    test_loader, test_dataset = make_test_loader_tts(cfg, test_root, data_root)
-    loss_f = MaskedLossTTS()    
+    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_final(cfg, data_root, mean_std_path)
 
+    test_data_root = [Path(cfg.test.face_pre_loaded_path).expanduser()]
+    test_loader, test_dataset = make_test_loader_final(cfg, test_data_root, mean_std_path)
+    loss_f = MaskedLossTTS()    
+  
     train_loss_list = []
     train_output_loss_list = []
     train_dec_output_loss_list = []
@@ -241,10 +232,9 @@ def main(cfg):
     val_dec_output_loss_list = []
     val_stop_token_loss_list = []
     
-    
     #model
     model = make_model(cfg, device)
-    model = load_checkpoint(cfg, model)
+    #model = load_checkpoint(cfg, model)
     
 
     optimizer = torch.optim.Adam(
@@ -273,6 +263,7 @@ def main(cfg):
             device=device,
             cfg=cfg
         )
+        
         train_loss_list.append(epoch_loss)
         train_output_loss_list.append(epoch_output_loss)
         train_dec_output_loss_list.append(epoch_dec_output_loss)
@@ -313,7 +304,7 @@ def main(cfg):
         save_loss(train_dec_output_loss_list, val_dec_output_loss_list, save_path, "dec_output_loss")
         save_loss(train_stop_token_loss_list, val_stop_token_loss_list, save_path, "stop_token_loss")
         
-        generate_for_tts(
+        generate_for_tts_dict(
             cfg = cfg,
             model = model,
             test_loader = test_loader,

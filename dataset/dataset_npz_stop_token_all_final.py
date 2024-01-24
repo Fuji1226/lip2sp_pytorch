@@ -108,11 +108,11 @@ class KablabDatasetStopTokenAllFinal(Dataset):
         self.class_to_id, self.id_to_class = classes2index_tts()
         self.path_text_label_list = get_utt_label(data_path, cfg)
         
-        self.av_huvert_path = Path(cfg.train.avhubert_path)
+        #self.av_huvert_path = Path(cfg.train.avhubert_path)
         self.att_c_path = Path(cfg.train.att_c_path)
         self.vq_idx = Path(cfg.train.vq_idx)
         print(f"n = {self.__len__()}")
-    
+
     def __len__(self):
         return len(self.data_path)
 
