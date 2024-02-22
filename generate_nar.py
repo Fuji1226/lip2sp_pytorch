@@ -39,6 +39,7 @@ def generate(
     feat_mean = dataset.feat_mean.to(device)
     feat_std = dataset.feat_std.to(device)
     begin_time=time.time()
+
     for batch in tqdm(test_loader, total=len(test_loader)):
         wav, lip, feature, text, stop_token, spk_emb, feature_len, lip_len, text_len, speaker, speaker_idx, filename = batch
         lip = lip.to(device)
@@ -76,7 +77,7 @@ def generate(
         )
     finish_time=time.time()
     dif_time=finish_time-begin_time
-    print("合計生成時間",dif_time,"[s]")
+    print("生成時間",dif_time,"[s]")
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
