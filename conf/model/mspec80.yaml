@@ -295,7 +295,7 @@ ae_detector_n_rnn_layers : 2
 
 # real time
 n_gru_layers : 2 #最初は2
-zoneout : 0.1
+zoneout : 0.1 #最初は0.1
 
 # asr transformer
 asr_hidden_channels : 512

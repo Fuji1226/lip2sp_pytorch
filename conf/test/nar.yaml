@@ -8,9 +8,8 @@ debug_data_len : 1
 face_or_lip : "face"
 
 # 合成するチェックポイントについて、一番最後のパス 逐一確認！！！
-model_path : '/home/usr3/a72243a/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2023:11:28_13-32-42/92.ckpt'
+model_path : '/home/usr3/a72243a/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2024:01:08_14-37-40/31.ckpt'
 
-# モデルパスを検証データの結果から選択するための指標
 metric_for_select : 'val_loss_list'
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
