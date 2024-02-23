@@ -273,7 +273,7 @@ class TacotronDecoder(nn.Module):
         init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
         return init_hs
 
-    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False, mode='lip', vq=None):
+    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False, mode='lip', vq=None, xvecotr=None):
         """
         enc_output : (B, T, C)
         text_len : (B,)
@@ -332,7 +332,7 @@ class TacotronDecoder(nn.Module):
             step_perplexity = 0
 
         no_att = True
-        
+    
         if mode=='tts':
             no_att = False
         while True:
@@ -406,9 +406,199 @@ class TacotronDecoder(nn.Module):
         att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
         att_c = torch.stack(att_c_list, dim=1) # (B, T, C)
         
+
         if not use_stop_token:
             if vq is None:
-                return output, logit, att_w, att_c #(B, mel, T) (B, T)
+                return output, logit, att_w #(B, mel, T) (B, T)
+            else:
+                return output, logit, att_w, step_vq_loss, step_perplexity 
+        else:
+            return output, logit, att_w, logit_list
+        
+class JVSDecoder(nn.Module):
+    def __init__(
+        self, enc_channels, dec_channels, atten_conv_channels, atten_conv_kernel_size, atten_hidden_channels,
+        rnn_n_layers, prenet_hidden_channels, prenet_n_layers, out_channels, reduction_factor, dropout, use_gc):
+        super().__init__()
+        self.enc_channels = enc_channels
+        self.prenet_hidden_channels = prenet_hidden_channels
+        self.dec_channels = dec_channels
+        self.out_channels = out_channels
+        self.reduction_factor = reduction_factor
+        xvector_dim = 512
+
+        self.attention = Attention(
+            enc_channels=enc_channels,
+            dec_channels=dec_channels,
+            conv_channels=atten_conv_channels,
+            conv_kernel_size=atten_conv_kernel_size,
+            hidden_channels=atten_hidden_channels,
+        )
+
+        self.prenet = PreNet(int(out_channels * reduction_factor), prenet_hidden_channels, prenet_n_layers)
+        #self.prenet = PrenetForLip2SP(int(out_channels * reduction_factor), prenet_hidden_channels)
+
+
+        lstm = []
+        for i in range(rnn_n_layers):
+            lstm.append(
+                ZoneOutCell(
+                    nn.LSTMCell(
+                        enc_channels + prenet_hidden_channels + xvector_dim if i == 0 else dec_channels,
+                        dec_channels,
+                    ),
+                    zoneout=dropout
+                )
+            )
+        self.lstm = nn.ModuleList(lstm)
+        self.feat_out_layer = nn.Linear(enc_channels + dec_channels, int(out_channels * reduction_factor), bias=False)
+        self.prob_out_layer = nn.Linear(enc_channels + dec_channels, reduction_factor)
+
+
+    def _zero_state(self, hs, i):
+        init_hs = hs.new_zeros(hs.size(0), self.dec_channels)
+        return init_hs
+
+    def forward(self, enc_output, text_len=None, feature_target=None, training_method=None, mixing_prob=None, use_stop_token=False, mode='lip', vq=None, xvector=None):
+        """
+        enc_output : (B, T, C)
+        text_len : (B,)
+        feature_target : (B, C, T)
+        spk_emb : (B, C)
+        """
+        #print(f'text len: {text_len}')
+        if feature_target is not None:
+            B, C, T = feature_target.shape
+            feature_target = feature_target.permute(0, 2, 1)
+            feature_target = feature_target.reshape(B, T // self.reduction_factor, int(C * self.reduction_factor))
+        else:
+            B = enc_output.shape[0]
+            C = self.out_channels
+
+
+        if feature_target is not None:
+            max_decoder_time_step = feature_target.shape[1]
+        else:
+            if mode=='lip':
+                max_decoder_time_step = enc_output.shape[1]
+            else:
+                max_decoder_time_step = 1000
+        
+        if feature_target is not None:
+            print(f'max step: {max_decoder_time_step} enc_ouput: {enc_output.shape}, feature:{feature_target.shape} ')
+        else:
+            print(f'max step: {max_decoder_time_step} enc_ouput: {enc_output.shape}, feature: None')
+
+
+        mask = make_pad_mask(text_len, enc_output.shape[1]).squeeze(1)      # (B, T)
+
+        h_list, c_list = [], []
+        for i in range(len(self.lstm)):
+            h_list.append(self._zero_state(enc_output, i))
+            c_list.append(self._zero_state(enc_output, i))
+
+        go_frame = enc_output.new_zeros(enc_output.size(0), int(self.out_channels * self.reduction_factor))
+        prev_out = go_frame
+
+        prev_att_w = None
+        self.attention.reset()
+
+        output_list = []
+        logit_list = []
+        att_w_list = []
+        att_c_list = []
+        t = 0
+
+        # if feature_target is not None:
+        #     print(f'featue target: {feature_target.shape}')
+        #     print(f'training method: {training_method}')
+        
+        if vq is not None:
+            step_vq_loss = 0
+            step_perplexity = 0
+
+        no_att = True
+    
+        if mode=='tts':
+            no_att = False
+        while True:
+            att_c, att_w = self.attention(enc_output, text_len, h_list[0], prev_att_w, mask=mask)
+            
+            if vq is not None:
+                vq_loss, att_c, perplexity, _ = vq(att_c)
+                step_vq_loss += vq_loss
+                step_perplexity += perplexity
+
+            if no_att:
+                enc_idx = int(t//2)
+                att_c = enc_output[:, enc_idx, :]
+
+
+            prenet_out = self.prenet(prev_out)      # (B, C)
+
+
+            xs = torch.cat([att_c, prenet_out], dim=1)      # (B, C)
+            xs = torch.cat([xvector, xs], dim=1)
+            
+            h_list[0], c_list[0] = self.lstm[0](xs, (h_list[0], c_list[0]))
+            for i in range(1, len(self.lstm)):
+                h_list[i], c_list[i] = self.lstm[i](
+                    h_list[i - 1], (h_list[i], c_list[i])
+                )
+
+            hcs = torch.cat([h_list[-1], att_c], dim=1)     # (B, C)
+            output = self.feat_out_layer(hcs)   # (B, C)
+            logit = self.prob_out_layer(hcs)    # (B, reduction_factor)
+            output_list.append(output)
+            logit_list.append(logit)
+            att_w_list.append(att_w)
+            att_c_list.append(att_c)
+
+            # if feature_target is not None:
+            #     prev_out = feature_target[:, t, :]
+            # else:
+            #     prev_out = output
+            if feature_target is not None:
+                if training_method == "tf":
+                    prev_out = feature_target[:, t, :]
+
+                elif training_method == "ss":
+                    """
+                    mixing_prob = 1 : teacher forcing
+                    mixing_prob = 0 : using decoder prediction completely
+                    """
+                    judge = torch.bernoulli(torch.tensor(mixing_prob))
+                    if judge:
+                        prev_out = feature_target[:, t, :]
+                    else:
+                        #prev_out = output.clone().detach()
+                        prev_out = output.clone().detach()
+            else:
+                prev_out = output
+
+            prev_att_w = att_w if prev_att_w is None else prev_att_w + att_w
+
+            t += 1
+
+            if t > max_decoder_time_step - 1:
+                break
+            if mode=='tts':
+                if feature_target is None and (torch.sigmoid(logit) >= 0.5).any():
+                    print('stop for logit')
+                    print(f'logit shape: {logit.shape}')
+                    break
+
+        output = torch.cat(output_list, dim=1)  # (B, T, C)
+        output = output.reshape(B, -1, C).permute(0, 2, 1)  # (B, C, T)
+        logit = torch.cat(logit_list, dim=-1)   # (B, T)
+
+        att_w = torch.stack(att_w_list, dim=1)  # (B, T, C)
+        att_c = torch.stack(att_c_list, dim=1) # (B, T, C)
+        
+
+        if not use_stop_token:
+            if vq is None:
+                return output, logit, att_w #(B, mel, T) (B, T)
             else:
                 return output, logit, att_w, step_vq_loss, step_perplexity 
         else:

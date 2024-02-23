@@ -70,7 +70,7 @@ def get_path_train(cfg, current_time):
     elif cfg.train.face_or_lip == "lip":
         data_root = cfg.train.lip_pre_loaded_path
         mean_std_path = cfg.train.lip_mean_std_path
-    
+
     for path in data_root:
         data_root_all.append(Path(path).expanduser())
     
@@ -129,6 +129,41 @@ def get_path_tts_train(cfg, current_time):
         save_path = save_path / cfg.train.face_or_lip / ckpt_time    
     else:
         save_path = save_path / cfg.train.face_or_lip / current_time
+    os.makedirs(save_path, exist_ok=True)
+
+    from omegaconf import DictConfig, OmegaConf
+    wandb_cfg = OmegaConf.to_container(
+        cfg, resolve=True, throw_on_missing=True,
+    )
+    
+    save_path_json = os.path.join(save_path, 'config.json')
+    config_save = open(save_path_json, mode='w')
+    json.dump(wandb_cfg, config_save, indent=4)
+
+    return data_root, save_path, ckpt_path
+
+def get_path_jvs_train(cfg, current_time):
+    data_root = []
+    if cfg.train.face_or_lip == "jvs":
+        data = cfg.train.jvs_path
+    
+    for tmp in data:
+        data_root.append(Path(tmp).expanduser())
+        
+    ckpt_time = None
+    ckpt_path = cfg.train.ckpt_path
+    ckpt_path = Path(ckpt_path).expanduser()
+    ckpt_path = ckpt_path / cfg.train.face_or_lip / current_time
+    os.makedirs(ckpt_path, exist_ok=True)
+    
+    # save
+    save_path = Path(cfg.train.save_path).expanduser()
+    
+    if ckpt_time is not None:
+        save_path = save_path / cfg.train.face_or_lip / ckpt_time    
+    else:
+        save_path = save_path / cfg.train.face_or_lip / current_time
+
     os.makedirs(save_path, exist_ok=True)
 
     from omegaconf import DictConfig, OmegaConf
@@ -232,7 +267,7 @@ def get_path_test_tts(cfg, model_path):
 
         #test_data_root = cfg.train.lip_pre_loaded_path
     
-    train_data_root = Path(train_data_root).expanduser()
+    train_data_root = Path(train_data_root[0]).expanduser()
     test_data_root = Path(test_data_root).expanduser()
     
     save_path = Path(cfg.test.save_path).expanduser()
@@ -413,7 +448,8 @@ def make_train_val_loader(cfg, data_root, mean_std_path):
         train_size = int(len(data_path)//2)
         train_data_path = data_path[:train_size]
         val_data_path = data_path[train_size:]
-        
+    
+    breakpoint()
     # 学習用，検証用それぞれに対してtransformを作成
     train_trans = KablabTransform(
         cfg=cfg,
@@ -467,7 +503,7 @@ def make_train_val_loader_tts(cfg, data_root):
         data_root=data_root,
         cfg=cfg,
     )
-    
+    breakpoint()
 
     data_path = random.sample(data_path, len(data_path))
     n_samples = len(data_path)
@@ -629,6 +665,73 @@ def make_all_loader_tts_final(cfg, data_root):
     )
     
     return train_loader, train_dataset
+
+def make_train_val_loader_jvs(cfg, data_root):
+    # パスを取得
+    # ひとつ下のディレクトリを取得
+    from dataset.dataset_tts import JVSDataset, JVSTransform, collate_time_adjust_jvs
+    
+    data_root = data_root[0]
+    train_data_root = data_root / 'train'
+    speakers = [sub_dir for sub_dir in train_data_root.iterdir() if sub_dir.is_dir()]
+    
+    train_data_path = []
+    val_data_path = []
+    
+    for speaker in speakers:
+        speaker_name = speaker.stem
+        
+        np_paths =  list(speaker.glob('*.npz'))
+
+        sli = int(len(np_paths) * 0.9)
+        tmp_train = np_paths[:sli]
+        tmp_val = np_paths[sli:]
+        
+        train_data_path.extend(tmp_train)
+        val_data_path.extend(tmp_val)
+    
+    if False:
+        train_data_path = train_data_path[:100]
+        val_data_path = train_data_path
+    
+    train_trans = JVSTransform(cfg, "train", cfg.train.jvs_mean_std_path)
+    val_trans = JVSTransform(cfg, "val", cfg.train.jvs_mean_std_path)
+
+    print("\n--- make train dataset ---")
+
+    train_dataset = JVSDataset(
+        data_path=train_data_path,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    print("\n--- make validation dataset ---")
+
+    val_dataset = JVSDataset(
+        data_path=val_data_path,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_jvs, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=0,      # 0じゃないとバグることがあります
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_jvs, cfg=cfg),
+    )
+    
+    return train_loader, val_loader, train_dataset, val_dataset
 
 def make_train_val_loader_tts_multi(cfg, data_root):
     # パスを取得
@@ -1090,7 +1193,7 @@ def make_test_loader_tts(cfg, data_root, train_data_root):
     test_data_path = get_datasets_test(data_root, cfg)
     test_data_path = sorted(test_data_path)
 
-    if True:
+    if False:
         train_data_path = train_data_path[:100]
     if len(test_data_path)>100:
         test_data_path = test_data_path[:100]
@@ -1099,6 +1202,45 @@ def make_test_loader_tts(cfg, data_root, train_data_root):
     test_dataset = KablabTTSDataset(
         data_path=test_data_path,
         train_data_path=train_data_path,
+        transform=test_trans,
+        cfg=cfg,
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=1,   
+        shuffle=False,
+        num_workers=0,      
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=None
+        #collate_fn=partial(collate_time_adjust_tts, cfg=cfg),
+    )
+    return test_loader, test_dataset
+
+def make_test_loader_jvs(cfg, data_root, train_data_root):
+    from dataset.dataset_tts import JVSDataset, JVSTransform, collate_time_adjust_jvs
+    print(f'test data root: {data_root}')
+
+    test_data_root = data_root / 'test'
+    speakers = [sub_dir for sub_dir in test_data_root.iterdir() if sub_dir.is_dir()]
+    
+    test_data_path = []
+    
+    for speaker in speakers:
+        speaker_name = speaker.stem
+        
+        np_paths =  list(speaker.glob('*.npz'))
+        test_data_path.extend(np_paths)
+        
+        
+    if False:
+        train_data_path = train_data_path[:100]
+    if len(test_data_path)>100:
+        test_data_path = test_data_path[:100]
+    
+    test_trans = JVSTransform(cfg, "test", cfg.train.jvs_mean_std_path)
+    test_dataset = JVSDataset(
+        data_path=test_data_path,
         transform=test_trans,
         cfg=cfg,
     )
