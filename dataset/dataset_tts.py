@@ -320,15 +320,10 @@ class JVSTransform:
         feat_mean, feat_std, feat_add_mean, feat_add_std : (C,)
         landmark_mean, landmark_std : (2,)
         """
-        
         npz = np.load(self.mean_std_path)
 
         feat_mean = npz['feat_mean']
         feat_std = npz['feat_std']
-        train_cnt = npz['train_cnt']
-        
-        feat_mean /= train_cnt
-        feat_std /= train_cnt
         
         feat_mean = feat_mean.reshape(-1, 1)     # (C, 1)
         feat_std = feat_std.reshape(-1, 1)      # (C, 1)
