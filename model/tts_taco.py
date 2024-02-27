@@ -145,6 +145,63 @@ class JVSTacotron(nn.Module):
         
         return dec_output, output, logit, att_w
 
+class JVSTacotronSpkid(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+      
+        self.encoder = TTSEncoder(
+            n_vocab=52,
+            hidden_channels=256,
+            conv_n_layers=3,
+            conv_kernel_size=5,
+            rnn_n_layers=1,
+            dropout=0.5
+        )
+        
+        self.decoder = TacotronDecoder(
+            enc_channels=256+64,
+            dec_channels=1024,
+            atten_conv_channels=32,
+            atten_conv_kernel_size=31,
+            atten_hidden_channels=128,
+            rnn_n_layers=2,
+            prenet_hidden_channels=256,
+            prenet_n_layers=2,
+            out_channels=80,
+            reduction_factor=2,
+            dropout=0.1,
+            use_gc=False
+        )
+        
+        self.postnet = Postnet(
+            in_channels=80,
+            inner_channels=cfg.model.post_hidden_channels,
+            out_channels=80
+        )
+        
+        self.spk_embed = nn.Embedding(100, 64)
+
+    def forward(self, text, text_len, spk_ids, feature_target=None):
+        """
+        text : (B, len_text)
+        text_len : (B,)
+        feature_target : (B, 80, T)
+        """
+        enc_output = self.encoder(text, text_len) #(B, len_text, 512)
+
+        spk_emb = self.spk_embed(spk_ids).unsqueeze(1)
+
+        # 話者埋め込みを時間方向にexpandする
+        spk_emb = spk_emb.expand(spk_emb.shape[0], text.shape[1], spk_emb.shape[-1])
+
+        # 話者埋め込みとエンコーダの出力を結合
+        decoder_inp = torch.cat((enc_output, spk_emb), dim=-1)
+        
+        dec_output, logit, att_w  = self.decoder(decoder_inp, text_len, feature_target, training_method='tf', mode='tts')
+        output = self.postnet(dec_output)
+        
+        return dec_output, output, logit, att_w
+    
 class TTSTacotronVq(nn.Module):
     def __init__(self, cfg):
         super().__init__()

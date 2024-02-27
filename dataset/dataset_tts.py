@@ -101,8 +101,11 @@ class JVSDataset(Dataset):
         self.class_to_id, self.id_to_class = classes2index_tts()
      
         self.path_text_label_list = self.get_utt_label(data_path, cfg)
+        
+        self.speaker_to_ids_dict = self.speaker_to_ids(data_path)
 
         self.xvector_path = Path(cfg.train.xvector_path)
+
         print(f"n = {self.__len__()}")
     
     def __len__(self):
@@ -115,6 +118,7 @@ class JVSDataset(Dataset):
         label = torch.tensor([label]).to(torch.float)
         filename = data_path.stem
 
+        spk_ids = self.speaker_to_ids_dict[speaker]
   
         npz_key = np.load(str(data_path))
         wav = torch.from_numpy(npz_key['wav'])
@@ -142,6 +146,8 @@ class JVSDataset(Dataset):
         xvector = np.load(xvector_path)
         xvector = torch.tensor(xvector)
         
+        spk_ids = torch.tensor(spk_ids)
+        
         output = {}
         output["wav"] = wav
         output["feature"] = feature
@@ -151,6 +157,7 @@ class JVSDataset(Dataset):
         output["text_len"] = text_len
         output["filename"] = filename
         output["xvector"] = xvector
+        output["spk_ids"] = spk_ids
         
         return output
     
@@ -167,6 +174,21 @@ class JVSDataset(Dataset):
             label = get_recorded_synth_label(path)
             path_text_label_list.append([path, text, label])
         return path_text_label_list
+    
+    def speaker_to_ids(self, data_path):
+        print("--- get spaker_ids ---")
+        
+        data_path = sorted(data_path)
+        speaker_dict = {}
+        for idx in tqdm(range(len(data_path))):
+            path = data_path[idx]
+            speaker = path.parts[-2]
+            
+            if speaker not in speaker_dict:
+                speaker_dict[speaker] = len(speaker_dict)
+                
+        return speaker_dict
+
 
     
 class HIFIDataset(Dataset):
@@ -374,6 +396,7 @@ def collate_time_adjust_jvs(batch, cfg):
     text_len = [sample['text_len'] for sample in batch]
     filename = [sample['filename'] for sample in batch]
     xvector = [sample['xvector'] for sample in batch]
+    spk_ids = [sample['spk_ids'] for sample in batch]
     
     wav = adjust_max_data_len(wav)
     feature = adjust_max_data_len(feature)
@@ -387,6 +410,7 @@ def collate_time_adjust_jvs(batch, cfg):
     feature_len = torch.stack(feature_len)
     text_len = torch.stack(text_len)
     xvector = torch.stack(xvector)
+    spk_ids = torch.stack(spk_ids)
 
     output = {}
     output["wav"] = wav
@@ -397,5 +421,6 @@ def collate_time_adjust_jvs(batch, cfg):
     output["text_len"] = text_len
     output["filename"] = filename
     output["xvector"] = xvector
+    output["spk_ids"] = spk_ids
 
     return output
