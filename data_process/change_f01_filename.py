@@ -1,13 +1,12 @@
-from pathlib import Path
 import os
+from pathlib import Path
+
 from tqdm import tqdm
-import pandas as pd
-import csv
-import shutil
+
 
 def main():
     # dirname_list = [
-    #     "cropped_fps25", "cropped", "bbox", "bbox_aligned", "bbox_fps25", 
+    #     "cropped_fps25", "cropped", "bbox", "bbox_aligned", "bbox_fps25",
     #     "face_aligned", "landmark", "landmark_aligned", "landmark_fps25",
     # ]
     # speaker_list = ["F01_kablab_20220930", "F01_kablab_all"]
@@ -24,10 +23,13 @@ def main():
     #                 source_path = path.parents[0] / f"{prename}{path.suffix}"
     #                 dist_path = path.parents[0] / f"{postname}{path.suffix}"
     #                 os.rename(source_path, dist_path)
-                    
+
     dir_list = ["train", "val", "test"]
+
     for dir in dir_list:
-        data_dir = Path(f"~/dataset/lip/np_files/face_aligned_0_50_gray/{dir}/F01_kablab_all/mspec80").expanduser()
+        data_dir = Path(
+            f"~/dataset/lip/np_files/face_aligned_0_50_gray/{dir}/F01_kablab_all/mspec80"
+        ).expanduser()
         data_path = list(data_dir.glob("*"))
         for path in tqdm(data_path):
             if "BASIC5000_BASIC5000_" in path.stem:
@@ -37,7 +39,7 @@ def main():
                 source_path = path.parents[0] / f"{prename}{path.suffix}"
                 dist_path = path.parents[0] / f"{postname}{path.suffix}"
                 os.rename(source_path, dist_path)
-        
+
 
 if __name__ == "__main__":
     main()

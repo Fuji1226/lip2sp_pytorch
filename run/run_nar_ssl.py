@@ -1,13 +1,14 @@
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
 
 import subprocess
+
 from run.utils import (
     clean_trash,
-    get_last_checkpoint_path,
     get_best_checkpoint_path,
-    run_program,
+    get_last_checkpoint_path,
 )
 
 

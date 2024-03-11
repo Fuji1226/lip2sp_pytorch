@@ -16,3 +16,4 @@ try_face_detect/
 .venv_debug
 .python-version
 *.onnx
+make_dataset/

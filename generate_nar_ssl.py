@@ -1,22 +1,24 @@
-import hydra
-from pathlib import Path
 from datetime import datetime
-from tqdm import tqdm
+from pathlib import Path
+
+import hydra
 import torch
-from data_check import save_data, save_data_pwg
-from train_nar_ssl import make_model
+from tqdm import tqdm
+
+from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean
+from data_check import save_data_pwg
 from parallelwavegan.pwg_train import make_model as make_pwg
+from train_nar_ssl import make_model
 from utils import (
-    make_test_loader_with_external_data_raw,
+    delete_unnecessary_checkpoint,
+    fix_random_seed,
+    gen_data_concat,
+    gen_data_separate,
     get_path_test_raw,
     load_pretrained_model,
-    gen_data_separate,
-    gen_data_concat,
+    make_test_loader_with_external_data_raw,
     select_checkpoint,
-    fix_random_seed,
-    delete_unnecessary_checkpoint,
 )
-from calc_accuracy import calc_accuracy_new, calc_mean, calc_accuracy_en
 
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 

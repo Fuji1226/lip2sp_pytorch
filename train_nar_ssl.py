@@ -1,100 +1,114 @@
-from omegaconf import OmegaConf
-import hydra
-import wandb
-from pathlib import Path
 import os
-from datetime import datetime
-import numpy as np
 import random
+from datetime import datetime
+from pathlib import Path
+
+import hydra
+import numpy as np
 import torch
+from omegaconf import OmegaConf
 from timm.scheduler import CosineLRScheduler
 
+import wandb
+from loss import MaskedLoss
+from model.model_nar_ssl import Lip2SpeechLightWeight, Lip2SpeechSSL
 from utils import (
-    count_params,
-    set_config,
-    save_loss,
     check_mel_nar,
+    count_params,
     fix_random_seed,
     get_path_train_raw,
     make_train_val_loader_with_external_data_raw,
+    save_loss,
+    set_config,
 )
-from model.model_nar_ssl import Lip2SpeechSSL, Lip2SpeechLightWeight
-from loss import MaskedLoss
 
 wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
-current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
+current_time = datetime.now().strftime("%Y:%m:%d_%H-%M-%S")
 
 
 def save_checkpoint(
-        model,
-        optimizer,
-        scheduler,
-        scaler,
-        train_loss_list,
-        train_mae_loss_list,
-        train_mse_loss_list,
-        val_loss_list,
-        val_mae_loss_list,
-        val_mse_loss_list,
-        epoch,
-        ckpt_path,
+    model,
+    optimizer,
+    scheduler,
+    scaler,
+    train_loss_list,
+    train_mae_loss_list,
+    train_mse_loss_list,
+    val_loss_list,
+    val_mae_loss_list,
+    val_mse_loss_list,
+    epoch,
+    ckpt_path,
 ):
     torch.save(
         {
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'scheduler': scheduler.state_dict(),
-            'scaler': scaler.state_dict(),
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict(),
+            "scaler": scaler.state_dict(),
             "random": random.getstate(),
-            "np_random": np.random.get_state(), 
+            "np_random": np.random.get_state(),
             "torch": torch.get_rng_state(),
             "torch_random": torch.random.get_rng_state(),
-            'cuda_random' : torch.cuda.get_rng_state(),
-            'train_loss_list': train_loss_list,
-            'train_mae_loss_list': train_mae_loss_list,
-            'train_mse_loss_list': train_mse_loss_list,
-            'val_loss_list': val_loss_list,
-            'val_mae_loss_list': val_mae_loss_list,
-            'val_mse_loss_list': val_mse_loss_list,
-            'epoch': epoch,
-        }, 
+            "cuda_random": torch.cuda.get_rng_state(),
+            "train_loss_list": train_loss_list,
+            "train_mae_loss_list": train_mae_loss_list,
+            "train_mse_loss_list": train_mse_loss_list,
+            "val_loss_list": val_loss_list,
+            "val_mae_loss_list": val_mae_loss_list,
+            "val_mse_loss_list": val_mse_loss_list,
+            "epoch": epoch,
+        },
         ckpt_path,
     )
 
 
 def make_model(
-        cfg,
-        device,
+    cfg,
+    device,
 ):
-    if cfg.model.model_name == 'lightweight':
+    if cfg.model.model_name == "lightweight":
         model = Lip2SpeechLightWeight(cfg)
     else:
         model = Lip2SpeechSSL(cfg)
-    count_params(model, 'model')
+    count_params(model, "model")
     return model.to(device)
 
 
 def train_one_epoch(
-        model,
-        train_loader,
-        optimizer,
-        scaler,
-        loss_f,
-        device,
-        cfg,
-        ckpt_time,
+    model,
+    train_loader,
+    optimizer,
+    scaler,
+    loss_f,
+    device,
+    cfg,
+    ckpt_time,
 ):
     epoch_loss = 0
     epoch_mae_loss = 0
     epoch_mse_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
-    print("training") 
+    print("training")
     model.train()
 
     for batch in train_loader:
-        print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        print(f"iter {iter_cnt}/{all_iter}")
+        (
+            wav,
+            lip,
+            feature,
+            feature_avhubert,
+            spk_emb,
+            feature_len,
+            lip_len,
+            speaker,
+            speaker_idx,
+            filename,
+            lang_id,
+            is_video,
+        ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
         feature_avhubert = feature_avhubert.to(device)
@@ -103,15 +117,19 @@ def train_one_epoch(
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
 
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
+        with torch.autocast(device_type="cuda", dtype=torch.float16):
             output = model(
                 lip=lip,
                 audio=None,
                 lip_len=lip_len,
                 spk_emb=spk_emb,
             )
-            mae_loss = loss_f.mae_loss(output, feature, feature_len, max_len=output.shape[-1])
-            mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
+            mae_loss = loss_f.mae_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
+            )
+            mse_loss = loss_f.mse_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
+            )
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()
@@ -122,19 +140,25 @@ def train_one_epoch(
             loss = loss / cfg.train.iters_to_accumulate
 
         scaler.scale(loss).backward()
-        if (iter_cnt + 1) % cfg.train.iters_to_accumulate == 0 or (iter_cnt + 1) % (all_iter - 1) == 0:
+        if (iter_cnt + 1) % cfg.train.iters_to_accumulate == 0 or (iter_cnt + 1) % (
+            all_iter - 1
+        ) == 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
-        
+
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
+                check_mel_nar(
+                    feature[0], output[0], cfg, "mel_train", current_time, ckpt_time
+                )
                 break
-        
+
         if iter_cnt % (all_iter - 1) == 0:
-            check_mel_nar(feature[0], output[0], cfg, "mel_train", current_time, ckpt_time)
+            check_mel_nar(
+                feature[0], output[0], cfg, "mel_train", current_time, ckpt_time
+            )
 
     epoch_loss /= iter_cnt
     epoch_mae_loss /= iter_cnt
@@ -143,12 +167,12 @@ def train_one_epoch(
 
 
 def val_one_epoch(
-        model,
-        val_loader,
-        loss_f,
-        device,
-        cfg,
-        ckpt_time,
+    model,
+    val_loader,
+    loss_f,
+    device,
+    cfg,
+    ckpt_time,
 ):
     epoch_loss = 0
     epoch_mae_loss = 0
@@ -159,8 +183,21 @@ def val_one_epoch(
     model.eval()
 
     for batch in val_loader:
-        print(f'iter {iter_cnt}/{all_iter}')
-        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        print(f"iter {iter_cnt}/{all_iter}")
+        (
+            wav,
+            lip,
+            feature,
+            feature_avhubert,
+            spk_emb,
+            feature_len,
+            lip_len,
+            speaker,
+            speaker_idx,
+            filename,
+            lang_id,
+            is_video,
+        ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
         feature_avhubert = feature_avhubert.to(device)
@@ -168,8 +205,8 @@ def val_one_epoch(
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
-        
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
+
+        with torch.autocast(device_type="cuda", dtype=torch.float16):
             with torch.no_grad():
                 output = model(
                     lip=lip,
@@ -177,8 +214,12 @@ def val_one_epoch(
                     lip_len=lip_len,
                     spk_emb=spk_emb,
                 )
-            mae_loss = loss_f.mae_loss(output, feature, feature_len, max_len=output.shape[-1])
-            mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
+            mae_loss = loss_f.mae_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
+            )
+            mse_loss = loss_f.mse_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
+            )
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()
@@ -186,19 +227,35 @@ def val_one_epoch(
             wandb.log({"val_mae_loss": mae_loss})
             wandb.log({"val_mse_loss": mse_loss})
             wandb.log({"val_loss": loss})
-            
+
         iter_cnt += 1
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
-                check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
+                check_mel_nar(
+                    feature[0],
+                    output[0],
+                    cfg,
+                    "mel_validation",
+                    current_time,
+                    ckpt_time,
+                )
                 break
 
         if all_iter - 1 > 0:
             if iter_cnt % (all_iter - 1) == 0:
-                check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
+                check_mel_nar(
+                    feature[0],
+                    output[0],
+                    cfg,
+                    "mel_validation",
+                    current_time,
+                    ckpt_time,
+                )
         else:
-            check_mel_nar(feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time)
-            
+            check_mel_nar(
+                feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time
+            )
+
     epoch_loss /= iter_cnt
     epoch_mae_loss /= iter_cnt
     epoch_mse_loss /= iter_cnt
@@ -209,19 +266,25 @@ def val_one_epoch(
 def main(cfg):
     set_config(cfg)
     fix_random_seed(cfg.train.random_seed)
-    
+
     wandb_cfg = OmegaConf.to_container(
-        cfg, resolve=True, throw_on_missing=True,
+        cfg,
+        resolve=True,
+        throw_on_missing=True,
     )
-    
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device = {device}")
     print(f"cpu_num = {os.cpu_count()}")
     print(f"gpu_num = {torch.cuda.device_count()}")
 
-    video_dir, audio_dir, ckpt_path, save_path, ckpt_time= get_path_train_raw(cfg, current_time)
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir)
-    
+    video_dir, audio_dir, ckpt_path, save_path, ckpt_time = get_path_train_raw(
+        cfg, current_time
+    )
+    train_loader, val_loader, train_dataset, val_dataset = (
+        make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir)
+    )
+
     loss_f = MaskedLoss()
     train_loss_list = []
     train_mae_loss_list = []
@@ -231,29 +294,34 @@ def main(cfg):
     val_mse_loss_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
-    with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
+    with wandb.init(
+        **cfg.wandb_conf.setup,
+        config=wandb_cfg,
+        settings=wandb.Settings(start_method="fork"),
+    ) as run:
         model = make_model(cfg, device)
-        
-        if cfg.train.which_optim == 'adam':
+
+        if cfg.train.which_optim == "adam":
             optimizer = torch.optim.Adam(
                 params=model.parameters(),
-                lr=cfg.train.lr, 
+                lr=cfg.train.lr,
                 betas=(cfg.train.beta_1, cfg.train.beta_2),
-                weight_decay=cfg.train.weight_decay,    
+                weight_decay=cfg.train.weight_decay,
             )
-        elif cfg.train.which_optim == 'adamw':
+        elif cfg.train.which_optim == "adamw":
             optimizer = torch.optim.AdamW(
                 params=model.parameters(),
-                lr=cfg.train.lr, 
+                lr=cfg.train.lr,
                 betas=(cfg.train.beta_1, cfg.train.beta_2),
-                weight_decay=cfg.train.weight_decay,    
+                weight_decay=cfg.train.weight_decay,
             )
 
-        if cfg.train.which_scheduler == 'exp':
+        if cfg.train.which_scheduler == "exp":
             scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, gamma=cfg.train.lr_decay_exp,
+                optimizer,
+                gamma=cfg.train.lr_decay_exp,
             )
-        elif cfg.train.which_scheduler == 'warmup':
+        elif cfg.train.which_scheduler == "warmup":
             scheduler = CosineLRScheduler(
                 optimizer=optimizer,
                 t_initial=cfg.train.max_epoch,
@@ -264,7 +332,7 @@ def main(cfg):
             )
 
         scaler = torch.cuda.amp.GradScaler()
-        
+
         last_epoch = 0
         if cfg.train.check_point_start:
             print("load check point")
@@ -272,7 +340,9 @@ def main(cfg):
             if torch.cuda.is_available():
                 checkpoint = torch.load(checkpoint_path)
             else:
-                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+                checkpoint = torch.load(
+                    checkpoint_path, map_location=torch.device("cpu")
+                )
             model.load_state_dict(checkpoint["model"])
             optimizer.load_state_dict(checkpoint["optimizer"])
             scheduler.load_state_dict(checkpoint["scheduler"])
@@ -286,56 +356,70 @@ def main(cfg):
 
         if cfg.train.check_point_start_separate_save_dir:
             print("load check point (separate save dir)")
-            checkpoint_path = Path(cfg.train.start_ckpt_path_separate_save_dir).expanduser()
+            checkpoint_path = Path(
+                cfg.train.start_ckpt_path_separate_save_dir
+            ).expanduser()
             if torch.cuda.is_available():
                 checkpoint = torch.load(checkpoint_path)
             else:
-                checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+                checkpoint = torch.load(
+                    checkpoint_path, map_location=torch.device("cpu")
+                )
             model.load_state_dict(checkpoint["model"])
 
         if (
-            cfg.model.model_name == 'ensemble' or \
-                cfg.model.model_name == 'ensemble_avhubert_vatlm' or \
-                    cfg.model.model_name == 'ensemble_avhubert_raven' or \
-                        cfg.model.model_name == 'ensemble_raven_vatlm'
+            cfg.model.model_name == "ensemble"
+            or cfg.model.model_name == "ensemble_avhubert_vatlm"
+            or cfg.model.model_name == "ensemble_avhubert_raven"
+            or cfg.model.model_name == "ensemble_raven_vatlm"
         ):
             ckpt_path_avhubert = Path(cfg.model.ckpt_path_avhubert).expanduser()
             ckpt_path_raven = Path(cfg.model.ckpt_path_raven).expanduser()
             ckpt_path_vatlm = Path(cfg.model.ckpt_path_vatlm).expanduser()
-            ckpt_avhubert = torch.load(str(ckpt_path_avhubert), map_location=device)['model']
-            ckpt_avhubert = {name: param for name, param in ckpt_avhubert.items() if 'avhubert.' in name}
-            ckpt_raven = torch.load(str(ckpt_path_raven), map_location=device)['model']
-            ckpt_raven = {name: param for name, param in ckpt_raven.items() if 'raven.' in name}
-            ckpt_vatlm = torch.load(str(ckpt_path_vatlm), map_location=device)['model']
-            ckpt_vatlm = {name: param for name, param in ckpt_vatlm.items() if 'vatlm.' in name}
+            ckpt_avhubert = torch.load(str(ckpt_path_avhubert), map_location=device)[
+                "model"
+            ]
+            ckpt_avhubert = {
+                name: param
+                for name, param in ckpt_avhubert.items()
+                if "avhubert." in name
+            }
+            ckpt_raven = torch.load(str(ckpt_path_raven), map_location=device)["model"]
+            ckpt_raven = {
+                name: param for name, param in ckpt_raven.items() if "raven." in name
+            }
+            ckpt_vatlm = torch.load(str(ckpt_path_vatlm), map_location=device)["model"]
+            ckpt_vatlm = {
+                name: param for name, param in ckpt_vatlm.items() if "vatlm." in name
+            }
             model.load_state_dict(ckpt_avhubert, strict=False)
             model.load_state_dict(ckpt_raven, strict=False)
             model.load_state_dict(ckpt_vatlm, strict=False)
 
             for name, param in model.named_parameters():
-                if 'avhubert.' in name or 'raven.' in name or 'vatlm.' in name:
+                if "avhubert." in name or "raven." in name or "vatlm." in name:
                     param.requires_grad = False
-            
+
             cnt = 0
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     cnt += param.numel()
                     print(name)
-            print(f'Number of Learnable Parameters: {cnt}')
+            print(f"Number of Learnable Parameters: {cnt}")
 
         wandb.watch(model, **cfg.wandb_conf.watch)
 
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-            epoch_loss, epoch_mae_loss, epoch_mse_loss = train_one_epoch( 
-                model=model, 
-                train_loader=train_loader, 
-                optimizer=optimizer, 
+            epoch_loss, epoch_mae_loss, epoch_mse_loss = train_one_epoch(
+                model=model,
+                train_loader=train_loader,
+                optimizer=optimizer,
                 scaler=scaler,
-                loss_f=loss_f, 
-                device=device, 
-                cfg=cfg, 
+                loss_f=loss_f,
+                device=device,
+                cfg=cfg,
                 ckpt_time=ckpt_time,
             )
             train_loss_list.append(epoch_loss)
@@ -343,10 +427,10 @@ def main(cfg):
             train_mse_loss_list.append(epoch_mse_loss)
 
             epoch_loss, epoch_mae_loss, epoch_mse_loss = val_one_epoch(
-                model=model, 
-                val_loader=val_loader, 
-                loss_f=loss_f, 
-                device=device, 
+                model=model,
+                val_loader=val_loader,
+                loss_f=loss_f,
+                device=device,
                 cfg=cfg,
                 ckpt_time=ckpt_time,
             )
@@ -354,13 +438,13 @@ def main(cfg):
             val_mae_loss_list.append(epoch_mae_loss)
             val_mse_loss_list.append(epoch_mse_loss)
 
-            if cfg.train.which_scheduler == 'exp':
+            if cfg.train.which_scheduler == "exp":
                 wandb.log({"learning_rate": scheduler.get_last_lr()[0]})
                 scheduler.step()
-            elif cfg.train.which_scheduler == 'warmup':
-                wandb.log({"learning_rate": scheduler.optimizer.param_groups[0]['lr']})
+            elif cfg.train.which_scheduler == "warmup":
+                wandb.log({"learning_rate": scheduler.optimizer.param_groups[0]["lr"]})
                 scheduler.step(epoch)
-            
+
             if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(
                     model=model,
@@ -374,15 +458,15 @@ def main(cfg):
                     val_mae_loss_list=val_mae_loss_list,
                     val_mse_loss_list=val_mse_loss_list,
                     epoch=current_epoch,
-                    ckpt_path=str(ckpt_path / f"{current_epoch}.ckpt")
+                    ckpt_path=str(ckpt_path / f"{current_epoch}.ckpt"),
                 )
 
             save_loss(train_loss_list, val_loss_list, save_path, "loss")
             save_loss(train_mae_loss_list, val_mae_loss_list, save_path, "mae_loss")
             save_loss(train_mse_loss_list, val_mse_loss_list, save_path, "mse_loss")
-            
+
     wandb.finish()
-    
-    
+
+
 if __name__ == "__main__":
     main()
