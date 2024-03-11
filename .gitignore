@@ -17,3 +17,6 @@ try_face_detect/
 .python-version
 *.onnx
 make_dataset/
+.venv-3-11-4/
+.env
+.gitignore
