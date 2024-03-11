@@ -1,16 +1,18 @@
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+from model.avhubert import ResEncoder
 from utils import (
     load_avhubert,
     load_raven,
     load_vatlm,
 )
-from model.avhubert import ResEncoder
 
 
 class ResBlock(nn.Module):

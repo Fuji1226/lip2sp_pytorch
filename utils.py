@@ -6,7 +6,6 @@ import matplotlib
 import numpy as np
 
 matplotlib.use('Agg')
-import copy
 import random
 from collections import OrderedDict, defaultdict
 from functools import partial
@@ -23,11 +22,7 @@ import wandb
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
 from dataset.dataset import DatasetWithExternalDataRaw, TransformWithExternalDataRaw
-from dataset.dataset_bart import DatasetBART, TransformBART, collate_time_adjust_bart
-from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
 from dataset.dataset_npz_with_ex import (
-    DatasetWithExternalData,
-    TransformWithExternalData,
     collate_time_adjust_with_external_data,
 )
 from model.avhubert import MyAVHubertModel
@@ -57,36 +52,6 @@ def set_config(cfg):
         cfg.model.is_large = True
     elif cfg.model.imsize_cropped == 48:
         cfg.model.is_large = False
-
-
-def get_path_train(cfg, current_time):
-    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        train_data_root = cfg.train.avhubert_preprocess_fps25_train
-        val_data_root = cfg.train.avhubert_preprocess_fps25_val
-
-    train_data_root = Path(train_data_root).expanduser()
-    val_data_root = Path(val_data_root).expanduser()
-
-    ckpt_time = None
-    if cfg.train.check_point_start:
-        checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
-        ckpt_time = checkpoint_path.parents[0].name
-
-    ckpt_path = Path(cfg.train.ckpt_path).expanduser()
-    if ckpt_time is not None:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
-    else:
-        ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / current_time
-    os.makedirs(ckpt_path, exist_ok=True)
-
-    save_path = Path(cfg.train.save_path).expanduser()
-    if ckpt_time is not None:
-        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time    
-    else:
-        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / current_time
-    os.makedirs(save_path, exist_ok=True)
-
-    return train_data_root, val_data_root, ckpt_path, save_path, ckpt_time
 
 
 def get_save_and_ckpt_path(
@@ -123,30 +88,6 @@ def get_path_train_raw(cfg, current_time):
     ckpt_path, save_path, ckpt_time= get_save_and_ckpt_path(cfg, current_time)
 
     return video_dir, audio_dir, ckpt_path, save_path, ckpt_time
-
-
-def get_path_test(cfg, model_path):
-    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        train_data_root = cfg.train.avhubert_preprocess_fps25_train
-        test_data_root = cfg.test.avhubert_preprocess_fps25_test
-    
-    train_data_root = Path(train_data_root).expanduser()
-    test_data_root = Path(test_data_root).expanduser()
-
-    save_path = Path(cfg.test.save_path).expanduser()
-    save_path = save_path / cfg.test.face_or_lip / cfg.model.name / model_path.parents[0].name / model_path.stem
-
-    train_save_path = save_path / "train_data" / "audio"
-    test_save_path = save_path / "test_data" / "audio"
-    train_save_path.mkdir(parents=True, exist_ok=True)
-    test_save_path.mkdir(parents=True, exist_ok=True)
-
-    data_root_list = [test_data_root]
-    save_path_list = [test_save_path]
-    # data_root_list = [train_data_root]
-    # save_path_list = [train_save_path]
-
-    return data_root_list, save_path_list, train_data_root
 
 
 def get_path_test_raw(cfg, model_path):
@@ -330,165 +271,6 @@ def get_datasets_external_data(cfg):
     return items
 
 
-def make_train_val_loader(cfg, train_data_root, val_data_root):
-    # パスを取得
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-
-    if cfg.train.debug:
-        train_data_path = train_data_path[:100]
-        val_data_path = val_data_path[:100]
-
-    # 学習用，検証用それぞれに対してtransformを作成
-    train_trans = KablabTransform(cfg, "train")
-    val_trans = KablabTransform(cfg, "val")
-
-    # dataset作成
-    print("\n--- make train dataset ---")
-    if cfg.train.use_synth_corpus:
-        train_data_path_synth = train_data_path
-        train_dataset = KablabDataset(
-            data_path=train_data_path_synth,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-    else:
-        train_dataset = KablabDataset(
-            data_path=train_data_path,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-    print("\n--- make validation dataset ---")
-    val_dataset = KablabDataset(
-        data_path=val_data_path,
-        train_data_path=train_data_path,
-        transform=val_trans,
-        cfg=cfg,
-    )
-
-    # それぞれのdata loaderを作成
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def data_upsampling(data_path, upsamling_factor):
-    data_path = copy.deepcopy(data_path)
-    data_path *= upsamling_factor
-    return data_path
-
-
-def make_train_val_loader_with_external_data(cfg, train_data_root, val_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    val_data_path = get_datasets(val_data_root, cfg)
-    external_data_path = get_datasets_external_data(cfg)
-    train_trans = TransformWithExternalData(cfg, "train")
-    val_trans = TransformWithExternalData(cfg, "val")
-
-    if cfg.train.debug:
-        train_data_path = train_data_path[:100]
-        val_data_path = val_data_path[:100]
-        external_data_path = external_data_path[:100]
-
-    if cfg.train.apply_upsampling:
-        upsampling_factor = len(external_data_path) // len(train_data_path)
-        train_dataset = DatasetWithExternalData(
-            data_path=data_upsampling(train_data_path, upsampling_factor) + external_data_path,
-            train_data_path=train_data_path,
-            transform=train_trans,
-            cfg=cfg,
-        )
-        val_dataset = DatasetWithExternalData(
-            data_path=val_data_path,
-            train_data_path=train_data_path,
-            transform=val_trans,
-            cfg=cfg,
-        )
-    else:
-        if cfg.model.avhubert_audio_pretrain:
-            # jsutで事前学習したときに統計量を揃えるための分岐
-            if len(val_data_path) == 0:
-                # jsutだけで事前学習するときは検証データもjsutを使う
-                val_data_dir = Path(cfg.train.jsut_path_val).expanduser()
-                val_data_path = list(val_data_dir.glob(f"*/{cfg.model.name}/*.npz"))
-                train_dataset = DatasetWithExternalData(
-                    data_path=external_data_path,
-                    train_data_path=external_data_path,
-                    transform=train_trans,
-                    cfg=cfg,
-                )
-                val_dataset = DatasetWithExternalData(
-                    data_path=val_data_path,
-                    train_data_path=external_data_path,
-                    transform=val_trans,
-                    cfg=cfg,
-                )
-            else:
-                train_dataset = DatasetWithExternalData(
-                    data_path=train_data_path,
-                    train_data_path=external_data_path,
-                    transform=train_trans,
-                    cfg=cfg,
-                )
-                val_dataset = DatasetWithExternalData(
-                    data_path=val_data_path,
-                    train_data_path=external_data_path,
-                    transform=val_trans,
-                    cfg=cfg,
-                )
-        else:
-            train_dataset = DatasetWithExternalData(
-                data_path=train_data_path + external_data_path,
-                train_data_path=train_data_path,
-                transform=train_trans,
-                cfg=cfg,
-            )
-            val_dataset = DatasetWithExternalData(
-                data_path=val_data_path,
-                train_data_path=train_data_path,
-                transform=val_trans,
-                cfg=cfg,
-            )
-    
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,      # 0じゃないとバグることがあります
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
 def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')
     val_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'val')
@@ -545,130 +327,6 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
     )
     return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_train_val_loader_text(cfg):
-    df = []
-    if cfg.train.wiki.use:
-        df_wiki = pd.read_csv(str(Path(cfg.train.wiki.df_path).expanduser()))
-        df.append(df_wiki)
-    if cfg.train.aozora.use:
-        df_aozora = pd.read_csv(str(Path(cfg.train.aozora.df_path).expanduser()))
-        df.append(df_aozora)
-    df = pd.concat(df, axis=0, ignore_index=True)
-    train_data_path_list = df.loc[df['data_split'] == 'train', 'data_path'].values
-    val_data_path_list = df.loc[df['data_split'] == 'val', 'data_path'].values
-    
-    train_trans = TransformBART(cfg, 'train')
-    val_trans = TransformBART(cfg, 'val')
-    train_dataset = DatasetBART(train_data_path_list, cfg, train_trans)
-    val_dataset = DatasetBART(val_data_path_list, cfg, val_trans)
-    
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_bart, cfg=cfg),
-    )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,
-        shuffle=True,
-        num_workers=cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_bart, cfg=cfg),
-    )
-    return train_loader, val_loader, train_dataset, val_dataset
-
-
-def make_test_loader(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-
-    if cfg.test.debug:
-        train_data_path = train_data_path[:100]
-
-        test_data_path_for_debug = []
-        n_data_per_speaker =  defaultdict(int)
-        for data_path in test_data_path:
-            speaker = data_path.parents[1].name
-            if n_data_per_speaker[speaker] >= 1:
-                continue
-            test_data_path_for_debug.append(data_path)
-            n_data_per_speaker[speaker] += 1
-
-        test_data_path = test_data_path_for_debug
-
-    test_trans = KablabTransform(cfg, "test")
-    test_dataset = KablabDataset(
-        data_path=test_data_path,
-        train_data_path=train_data_path,
-        transform=test_trans,
-        cfg=cfg,
-    )
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
-
-
-def make_test_loader_with_external_data(cfg, data_root, train_data_root):
-    train_data_path = get_datasets(train_data_root, cfg)
-    test_data_path = get_datasets_test(data_root, cfg)
-    test_data_path = sorted(test_data_path)
-    external_data_path = get_datasets_external_data(cfg)
-
-    if cfg.test.debug:
-        train_data_path = train_data_path[:100]
-        test_data_path_for_debug = []
-        n_data_per_speaker =  defaultdict(int)
-        for data_path in test_data_path:
-            speaker = data_path.parents[1].name
-            if n_data_per_speaker[speaker] >= 1:
-                continue
-            test_data_path_for_debug.append(data_path)
-            n_data_per_speaker[speaker] += 1
-        test_data_path = test_data_path_for_debug
-        external_data_path = external_data_path[:100]
-
-    test_trans = TransformWithExternalData(cfg, 'test')
-
-    if cfg.model.avhubert_audio_pretrain:
-        test_dataset = DatasetWithExternalData(
-            data_path=test_data_path,
-            train_data_path=external_data_path,
-            transform=test_trans,
-            cfg=cfg,
-        )
-    else:
-        test_dataset = DatasetWithExternalData(
-            data_path=test_data_path,
-            train_data_path=train_data_path,
-            transform=test_trans,
-            cfg=cfg,
-        )
-
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,   
-        shuffle=False,
-        num_workers=0,      
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=None,
-    )
-    return test_loader, test_dataset
 
 
 def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):

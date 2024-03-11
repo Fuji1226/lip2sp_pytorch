@@ -102,7 +102,7 @@ decoder:
   dropout: 0.1
 
 # ssl
-model_name: 'ensemble'
+model_name: 'avhubert'
 ckpt_path_avhubert: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_03-47-15/50.ckpt'
 ckpt_path_raven: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_05-08-07/46.ckpt'
 ckpt_path_vatlm: '~/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2023:12:03_06-28-58/48.ckpt'

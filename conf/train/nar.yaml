@@ -6,7 +6,7 @@ name : "nar"
 random_seed : 42
 
 # デバッグ
-debug : False
+debug : True
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 50
@@ -43,7 +43,7 @@ avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps2
 
 # kablab
 kablab:
-  use: False
+  use: True
   audio_dir: '~/dataset/lip/wav'
   avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
   df_path: '~/dataset/lip/data_split_csv/kablab.csv'

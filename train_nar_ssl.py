@@ -3,6 +3,7 @@ import random
 from datetime import datetime
 from pathlib import Path
 
+import dotenv
 import hydra
 import numpy as np
 import torch
@@ -22,7 +23,8 @@ from utils import (
     set_config,
 )
 
-wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
+dotenv.load_dotenv()
+wandb.login(key=os.environ['WANDB_API_KEY'])
 current_time = datetime.now().strftime("%Y:%m:%d_%H-%M-%S")
 
 
