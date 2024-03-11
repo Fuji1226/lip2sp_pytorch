@@ -1,32 +1,38 @@
-import re
 import os
+import re
 from pathlib import Path
-import numpy as np
+
 import matplotlib
+import numpy as np
+
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import wandb
-import random
-from functools import partial
-from librosa.display import specshow
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from jiwer import wer
-import seaborn as sns
-from torch.utils.data.distributed import DistributedSampler
-from collections import OrderedDict, defaultdict
-import pandas as pd
 import copy
-from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
-from dataset.dataset_npz_with_ex import DatasetWithExternalData, TransformWithExternalData, collate_time_adjust_with_external_data
-from dataset.dataset import DatasetWithExternalDataRaw, TransformWithExternalDataRaw
-from dataset.dataset_bart import DatasetBART, TransformBART, collate_time_adjust_bart
+import random
+from collections import OrderedDict, defaultdict
+from functools import partial
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+import torch
+from jiwer import wer
+from librosa.display import specshow
+from torch.utils.data import DataLoader
+
+import wandb
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
+from dataset.dataset import DatasetWithExternalDataRaw, TransformWithExternalDataRaw
+from dataset.dataset_bart import DatasetBART, TransformBART, collate_time_adjust_bart
+from dataset.dataset_npz import KablabDataset, KablabTransform, collate_time_adjust
+from dataset.dataset_npz_with_ex import (
+    DatasetWithExternalData,
+    TransformWithExternalData,
+    collate_time_adjust_with_external_data,
+)
+from model.avhubert import MyAVHubertModel
 from model.raven import E2E as MyRAVEN
 from model.vatlm import MyVATLM
-from model.avhubert import MyAVHubertModel
 
 
 def fix_random_seed(seed):
@@ -302,23 +308,23 @@ def get_datasets_test_raw(cfg, video_dir, audio_dir):
 def get_datasets_external_data(cfg):
     items = []
     if cfg.train.which_external_data == "lrs2_main":
-        print(f"\n--- get datasets lrs2_main ---")
+        print("\n--- get datasets lrs2_main ---")
         data_dir = Path(cfg.train.lrs2_npz_path).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
     if cfg.train.which_external_data == "lrs2_pretrain":
-        print(f"\n--- get datasets lrs2_pretrain ---")
+        print("\n--- get datasets lrs2_pretrain ---")
         data_dir = Path(cfg.train.lrs2_pretrain_npz_path).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
     if cfg.train.which_external_data == "lip2wav":
-        print(f"\n--- get datasets lip2wav ---")
+        print("\n--- get datasets lip2wav ---")
         data_dir = Path(cfg.train.lip2wav_npz_path).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
     if cfg.train.use_jsut_corpus:
-        print(f"\n--- get datasets jsut ---")
+        print("\n--- get datasets jsut ---")
         data_dir = Path(cfg.train.jsut_path_train).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
     if cfg.train.jvs.use:
-        print(f"\n--- get datasets jvs ---")
+        print("\n--- get datasets jvs ---")
         data_dir = Path(cfg.train.jvs_path_train).expanduser()
         items += list(data_dir.glob(f"*/{cfg.model.name}/*.npz"))
     return items

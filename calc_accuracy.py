@@ -1,28 +1,26 @@
 import os
+import re
+from collections import defaultdict
 from pathlib import Path
-import hydra
+from subprocess import run
 
+import librosa
+import MeCab
+import numpy as np
+import pandas as pd
+import pyopenjtalk
+import pysptk
+import pyworld
+import speech_recognition as sr
+import torch
+import torchaudio
+import whisper
+from jiwer import wer
+from nnmnkwii.metrics import melcd
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
-import torchaudio
-import matplotlib.pyplot as plt
-import numpy as np
-import librosa
-from data_process.transform import fill_nan
-from nnmnkwii.metrics import melcd
-import pyworld
-import pysptk
-import speech_recognition as sr
-from subprocess import run
-from jiwer import wer, cer
-import MeCab
-import pyopenjtalk
-import pandas as pd
-from collections import defaultdict
-import re
-import whisper
-import torch
 
+from data_process.transform import fill_nan
 
 debug = False
 abs_or_gen = "generate"

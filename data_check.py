@@ -2,25 +2,25 @@
 データの保存を行う処理
 口唇動画,音響特徴量,合成音声などを保存します
 """
+import os
 import sys
 from pathlib import Path
-import os
+
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
+import librosa
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+import pyworld
+import seaborn as sns
 import torch
 import torchvision
-from data_process.feature import mel2wav, world2wav, wav2mel, wav2world, wav2spec
-from scipy.io.wavfile import write
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import librosa
-from librosa.display import specshow
-import numpy as np
-import seaborn as sns
-import pyworld
-import cv2
 from jiwer import wer
+from librosa.display import specshow
+from scipy.io.wavfile import write
 
+from data_process.feature import mel2wav, wav2mel, wav2spec, wav2world, world2wav
 from data_process.phoneme_encode import get_keys_from_value
 
 
