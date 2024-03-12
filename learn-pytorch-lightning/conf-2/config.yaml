@@ -1,0 +1,16 @@
+defaults:
+  - db: mysql
+  - app: main
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  sweeper:
+    params:
+      db: mysql,postgresql
+      db.name: name1,name2

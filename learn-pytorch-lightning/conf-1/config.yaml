@@ -1,0 +1,10 @@
+---
+db:
+  driver: mysql
+  pass: secret
+  user: omry
+node:
+  do: oompa ${node.loompa}
+  loompa: 10
+  waldo: "???"
+  zippity: ${node.loompa}

@@ -1,0 +1,32 @@
+# sweep初期化
+# wandb sweep <sweep.yaml>
+# <sweep.yaml>: sweep構成ファイルまでのパス
+
+# sweep agent開始
+# sweep初期化コマンドを実行した後に下記のようなコマンドを指定される
+# wandb: Run sweep agent with: wandb agent minami373/pytorch-lightning-test/midfddve
+# 上記の例でいうところの
+# wandb agent minami373/pytorch-lightning-test/midfddve
+# を実行すれば良い
+
+program: test.py
+project: pytorch-lightning-test
+name: sweep-test-1
+run_cap: 20
+method: bayes
+parameters:
+  app.learning_rate:
+    distribution: uniform
+    min: 1.0e-6
+    max: 1.0e-2
+  app.batch_size:
+    values: [256, 512, 1024]
+  app.hidden_channels:
+    values: [64, 128, 256, 512, 1024]
+metric:
+  name: val_loss
+  goal: minimize
+command:
+  - python
+  - ${program}
+  - ${args_no_hyphens}

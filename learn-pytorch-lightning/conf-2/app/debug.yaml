@@ -1,0 +1,3 @@
+name: 'debug'
+max_epoch: 3
+batch_size: 16
