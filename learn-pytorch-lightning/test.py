@@ -17,8 +17,8 @@ from torchvision import datasets, transforms
 
 import wandb
 
-wandb.login(key=os.environ["WANDB_API_KEY"])
 dotenv.load_dotenv(dotenv_path="../.env")
+wandb.login(key=os.environ["WANDB_API_KEY"])
 now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
