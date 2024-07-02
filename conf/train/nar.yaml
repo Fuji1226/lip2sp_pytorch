@@ -30,8 +30,8 @@ ckpt_step : 1
 npz_process_speaker_list : []
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
-face_cropped_max_size_fps25_train : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
-face_cropped_max_size_fps25_val : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
+face_cropped_max_size_fps25_train : "~/media/user/"T7 Touch"/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train"
+face_cropped_max_size_fps25_val : "~/media/user/"T7 Touch"/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/val"
 
 # 使用するコーパス
 corpus : ["ATR", "BASIC5000", "balanced"]
