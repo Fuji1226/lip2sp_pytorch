@@ -1,5 +1,7 @@
+# @package _group_
+
 defaults:
   - model: mspec80
   - train: nar
   - test : nar
-  - wandb_conf : debug
+  - wandb_conf : nar

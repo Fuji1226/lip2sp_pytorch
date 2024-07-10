@@ -233,13 +233,13 @@ def val_one_epoch(
     epoch_classifier_loss /= iter_cnt
     return epoch_loss, epoch_mse_loss, epoch_classifier_loss
 
-
-@hydra.main(version_base=None, config_name="config", config_path="conf")
+#version_base=None, hydra.mainに入ってるやつ
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     fix_random_seed(cfg.train.random_seed)
-        
+
     wandb_cfg = OmegaConf.to_container(
-        cfg, resolve=True, throw_on_missing=True,
+        cfg, resolve=True, enum_to_str=True,
     )
 
     # device
