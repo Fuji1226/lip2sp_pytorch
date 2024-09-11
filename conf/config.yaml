@@ -5,3 +5,4 @@ defaults:
   - train: nar
   - test : nar
   - wandb_conf : nar
+  - avhubert : base

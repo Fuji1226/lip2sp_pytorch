@@ -1,0 +1,23 @@
+#@package _group_
+
+load_pretrained_weight: True
+ckpt_path: "/home/user/avhubert/base_vox_iter5_torch.ckpt"
+resnet_relu_type: "prelu"
+resnet_weights:
+audio_feat_dim: 104
+encoder_embed_dim: 768
+dropout_input: 0.1
+dropout_features: 0.1
+modality_fuse: "concat"
+encoder_layers: 12
+sub_encoder_layers: 0
+dropout: 0.1
+conv_pos: 128
+conv_pos_groups: 16
+encoder_ffn_embed_dim: 3072
+encoder_attention_heads: 12
+attention_dropout: 0.1
+activation_dropout: 0.0
+activation_fn: "gelu"
+layer_norm_first: True
+encoder_layerdrop: 0.05
