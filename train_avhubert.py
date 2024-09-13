@@ -78,36 +78,9 @@ def save_checkpoint(
         save_dict["cuda_random"] = torch.cuda.get_rng_state()
     torch.save(save_dict, ckpt_path)
 
-#!要編集--------------------------------------------------------------↓!!
+
 def make_model(cfg, device):
-    model = AVHuBERT(
-        in_channels=cfg.model.in_channels,
-        out_channels=cfg.model.out_channels,
-        res_inner_channels=cfg.model.res_inner_channels,
-        which_res=cfg.model.which_res,
-        rnn_n_layers=cfg.model.rnn_n_layers,
-        rnn_which_norm=cfg.model.rnn_which_norm,
-        trans_n_layers=cfg.model.trans_enc_n_layers,
-        trans_n_head=cfg.model.trans_enc_n_head,
-        trans_pos_max_len=int(cfg.model.fps * cfg.model.input_lip_sec),
-        conf_n_layers=cfg.model.conf_n_layers,
-        conf_n_head=cfg.model.conf_n_head,
-        conf_feedforward_expansion_factor=cfg.model.conf_feed_forward_expansion_factor,
-        dec_n_layers=cfg.model.tc_n_layers,
-        dec_kernel_size=cfg.model.tc_kernel_size,
-        n_speaker=len(cfg.train.speaker),
-        spk_emb_dim=cfg.model.spk_emb_dim,
-        which_encoder=cfg.model.which_encoder,
-        which_decoder=cfg.model.which_decoder,
-        where_spk_emb=cfg.train.where_spk_emb,
-        use_spk_emb=cfg.train.use_spk_emb,
-        dec_dropout=cfg.train.dec_dropout,
-        res_dropout=cfg.train.res_dropout,
-        rnn_dropout=cfg.train.rnn_dropout,
-        is_large=cfg.model.is_large,
-        adversarial_learning=cfg.train.adversarial_learning,
-        reduction_factor=cfg.model.reduction_factor,
-    )
+    model = AVHuBERT(cfg)
 
     count_params(model, "model")
     # multi GPU
@@ -131,7 +104,7 @@ def train_one_epoch(
     epoch_classifier_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
-    print("start training") 
+    print("start training")
     model.train()
 
     for batch in train_loader:

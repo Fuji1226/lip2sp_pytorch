@@ -1,7 +1,7 @@
 #@package _group_
 
 load_pretrained_weight: True
-ckpt_path: "/home/user/avhubert/base_vox_iter5_torch.ckpt"
+ckpt_path: "/home/user/lip2sp_pytorch/model/avhubert/base_vox_iter5_torch.ckpt"
 resnet_relu_type: "prelu"
 resnet_weights:
 audio_feat_dim: 104
