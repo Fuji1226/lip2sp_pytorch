@@ -20,7 +20,7 @@ from utils import (
     fix_random_seed,
 )
 
-from model.avhubert.avhubert import(
+from model.avhubert import(
     Config,
     SELayer,
     DepthwiseSeparableConv,
