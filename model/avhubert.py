@@ -101,11 +101,13 @@ class SELayer(nn.Module):
         """
         x : (B * T, C, H, W)
         """
+        #print("SELayer前x形状",x.shape)
         z = torch.mean(x, dim=(2, 3))
         s = torch.relu(self.fc1(z))
         s = torch.sigmoid(self.fc2(s))
         s = s.unsqueeze(-1).unsqueeze(-1)
         x = x * s
+        #print("SELayer後x形状",x.shape)
         return x
 
 
@@ -135,11 +137,13 @@ class DepthwiseSeparableConv(nn.Module):
         """
         x : (B * T, C, H, W)
         """
+        #print("DepthwiseSeparableConv前x形状",x.shape)
         x = self.pointwise_conv1(x)
         x = self.depthwise_conv(x)
         x = self.se_layer(x)
         x = self.pointwise_conv2(x)
         x = x * self.scale
+        #print("DepthwiseSeparableConv後x形状",x.shape)
         return x
 
 
@@ -174,6 +178,7 @@ class BasicBlock(nn.Module):
         """
         x : (B * T, C, H, W)
         """
+        #print("BasicBlock前x形状",x.shape)
         residual = x
         out = self.conv1(x)
         out = self.bn1(out)
@@ -185,6 +190,7 @@ class BasicBlock(nn.Module):
             residual = self.downsample(x)
         out += residual
         out = self.relu2(out)
+        #print("BasicBlock後x形状",x.shape)
         return out
 
 
@@ -256,13 +262,21 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        print("resnet入力前形状",x.shape)
         x = self.layer1(x)
+        print("resnet1層後形状",x.shape)
         x = self.layer2(x)
+        print("resnet2層後形状",x.shape)
         x = self.layer3(x)
+        print("resnet3層後形状",x.shape)
         x = self.layer4(x)
+        print("resnet4層後形状",x.shape)
         x = self.avgpool(x)
+        print("resnetプーリング後形状",x.shape)
         x = x.view(x.size(0), -1)
+        print("resnet最終形状",x.shape)
         return x
+
 
 
 class ResEncoder(nn.Module):
@@ -1265,11 +1279,13 @@ class SubModel(nn.Module):
 
     def forward(self, x):
         if self.resnet is not None:
+            print("resnet前入力されるxの形",x.shape)
             x = self.resnet(x)
-        print("次元の形ぃは",x.shape)
+            print("resnet後の次元の形",x.shape)
+        print("その後の形状",x.shape)
         x = self.proj(x.transpose(1,2))
         if self.encoder is not None:
-            x = self.encoder(x)[0].transpose(1,2)
+            x = self.encoder(x.transpose(1,2))[0]
         else:
             x = x.transpose(1,2)
         return x
@@ -1338,16 +1354,19 @@ class AVHuBERT(nn.Module):
         padding_mask (padding elements are indicated by 1.) : (B, T)
         """
         if video is not None and audio is None:
+            print("パターン1")
             features_video = self.feature_extractor_video(video)
             features_audio = features_video.new_zeros(
                 features_video.size(0), self.encoder_embed_dim, features_video.size(-1)
             )
         elif video is None and audio is not None:
+            print("パターン2")
             features_audio = self.feature_extractor_audio(audio)
             features_video = features_audio.new_zeros(
                 features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1)
             )
         elif video is not None and audio is not None:
+            print("パターン3")
             features_video = self.feature_extractor_video(video)
             features_audio = self.feature_extractor_audio(audio)
 
