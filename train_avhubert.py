@@ -116,8 +116,12 @@ def train_one_epoch(
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
+        print("lip_len",lip_len,"lip.shape",lip.shape)
+        padding_mask = torch.arange(0, lip.shape[4]).unsqueeze(0).repeat(lip.shape[0], 1).to(device)
+        padding_mask = padding_mask.cuda() >= lip_len.unsqueeze(1)
+        print(f"{padding_mask.shape=}")
 
-        output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
+        output, classifier_out, fmaps = model(lip, None, False, padding_mask)
 
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 

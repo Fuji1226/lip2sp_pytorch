@@ -1353,6 +1353,9 @@ class AVHuBERT(nn.Module):
         audio : (B, C, T)
         padding_mask (padding elements are indicated by 1.) : (B, T)
         """
+        video = video.transpose(2, 4) 
+        print(video.shape)
+        print(f"{padding_mask.shape=}")
         if video is not None and audio is None:
             print("パターン1")
             features_video = self.feature_extractor_video(video)
@@ -1394,3 +1397,4 @@ class AVHuBERT(nn.Module):
                 layer=None if output_layer is None else output_layer - 1,
             )  # (B, T, C)
             return features
+#!特徴量のみ出力する。メルスペクトログラムにするなら、全結合層デコーダなど作成する
