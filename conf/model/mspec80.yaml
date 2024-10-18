@@ -127,7 +127,7 @@ taco_use_attention : True
 which_encoder : "gru"
 
 # 使用するdecoder
-which_decoder : "restc"
+which_decoder : "linear"
 
 # audio encoder
 ae_emb_dim : 16

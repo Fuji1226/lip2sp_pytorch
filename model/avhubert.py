@@ -1323,6 +1323,8 @@ class AVHuBERT(nn.Module):
         self.dropout_features = nn.Dropout(cfg.avhubert.dropout_features)
         self.encoder = TransformerEncoder(cfg.avhubert)
         self.layer_norm = LayerNorm(self.embed)
+        #以下train_avhubertでの使用を想定した全結合層デコーダ
+        self.decoder_layer = nn.Linear#?(enoder.featuresエンコーダ出力,outputfeaturesメルスペクトログラム出力)
 
     def forward_padding_mask(
         self,
@@ -1353,7 +1355,7 @@ class AVHuBERT(nn.Module):
         audio : (B, C, T)
         padding_mask (padding elements are indicated by 1.) : (B, T)
         """
-        video = video.transpose(2, 4) 
+        video = video.transpose(2, 4)
         print(video.shape)
         print(f"{padding_mask.shape=}")
         if video is not None and audio is None:
@@ -1382,14 +1384,18 @@ class AVHuBERT(nn.Module):
         features = self.layer_norm(features)
 
         if padding_mask is not None:
+            print("padding_mask使用")
             padding_mask = self.forward_padding_mask(features, padding_mask)
 
         if self.post_extract_proj is not None:
+            print("post_extract_proj使用")
             features = self.post_extract_proj(features)
 
         if return_res_output:
+            print("resoutputサイズ変更なし")
             return features
         else:
+            print("resoutputサイズ変更あり")
             features = self.dropout_input(features)
             features, _ = self.encoder(
                 features,

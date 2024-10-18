@@ -61,7 +61,8 @@ class Lip2SP_NAR(nn.Module):
                 hidden_channels=res_inner_channels,
                 dropout=res_dropout,
             )
-        #!elif which_res == "avhubert" :
+        elif which_res == "avhubert" :
+            self.Resnet_GAP =None #!要挙動確認!!!!!
 
 
         #?エンコーダの選択
