@@ -262,19 +262,19 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        print("resnet入力前形状",x.shape)
+        #print("resnet入力前形状",x.shape)
         x = self.layer1(x)
-        print("resnet1層後形状",x.shape)
+        #print("resnet1層後形状",x.shape)
         x = self.layer2(x)
-        print("resnet2層後形状",x.shape)
+        #print("resnet2層後形状",x.shape)
         x = self.layer3(x)
-        print("resnet3層後形状",x.shape)
+        #print("resnet3層後形状",x.shape)
         x = self.layer4(x)
-        print("resnet4層後形状",x.shape)
+        #print("resnet4層後形状",x.shape)
         x = self.avgpool(x)
-        print("resnetプーリング後形状",x.shape)
+        #print("resnetプーリング後形状",x.shape)
         x = x.view(x.size(0), -1)
-        print("resnet最終形状",x.shape)
+        #print("resnet最終形状",x.shape)
         return x
 
 
@@ -1279,10 +1279,10 @@ class SubModel(nn.Module):
 
     def forward(self, x):
         if self.resnet is not None:
-            print("resnet前入力されるxの形",x.shape)
+            #print("resnet前入力されるxの形",x.shape)
             x = self.resnet(x)
-            print("resnet後の次元の形",x.shape)
-        print("その後の形状",x.shape)
+            #print("resnet後の次元の形",x.shape)
+        #print("その後の形状",x.shape)
         x = self.proj(x.transpose(1,2))
         if self.encoder is not None:
             x = self.encoder(x.transpose(1,2))[0]
@@ -1324,7 +1324,7 @@ class AVHuBERT(nn.Module):
         self.encoder = TransformerEncoder(cfg.avhubert)
         self.layer_norm = LayerNorm(self.embed)
         #以下train_avhubertでの使用を想定した全結合層デコーダ
-        self.decoder_layer = nn.Linear#?(enoder.featuresエンコーダ出力,outputfeaturesメルスペクトログラム出力)
+        self.decoder_layer = nn.Linear(768,320)#!限定的にパラメータ設定してる,割と強引なことに注意
 
     def forward_padding_mask(
         self,
@@ -1356,22 +1356,22 @@ class AVHuBERT(nn.Module):
         padding_mask (padding elements are indicated by 1.) : (B, T)
         """
         video = video.transpose(2, 4)
-        print(video.shape)
-        print(f"{padding_mask.shape=}")
+        #print(video.shape)
+        #print(f"{padding_mask.shape=}")
         if video is not None and audio is None:
-            print("パターン1")
+            #print("パターン1")
             features_video = self.feature_extractor_video(video)
             features_audio = features_video.new_zeros(
                 features_video.size(0), self.encoder_embed_dim, features_video.size(-1)
             )
         elif video is None and audio is not None:
-            print("パターン2")
+            #print("パターン2")
             features_audio = self.feature_extractor_audio(audio)
             features_video = features_audio.new_zeros(
                 features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1)
             )
         elif video is not None and audio is not None:
-            print("パターン3")
+            #print("パターン3")
             features_video = self.feature_extractor_video(video)
             features_audio = self.feature_extractor_audio(audio)
 
@@ -1384,23 +1384,30 @@ class AVHuBERT(nn.Module):
         features = self.layer_norm(features)
 
         if padding_mask is not None:
-            print("padding_mask使用")
+            #print("padding_mask使用")
             padding_mask = self.forward_padding_mask(features, padding_mask)
 
         if self.post_extract_proj is not None:
-            print("post_extract_proj使用")
+            #print("post_extract_proj使用")
             features = self.post_extract_proj(features)
 
         if return_res_output:
-            print("resoutputサイズ変更なし")
+            #print("resoutputサイズ変更なし")
             return features
         else:
-            print("resoutputサイズ変更あり")
+            #print("resoutputサイズ変更あり")
             features = self.dropout_input(features)
             features, _ = self.encoder(
                 features,
                 padding_mask=padding_mask,
                 layer=None if output_layer is None else output_layer - 1,
             )  # (B, T, C)
-            return features
+            #print( 'エンコーダー後',features.shape)
+        features = self.decoder_layer(features)
+        #print("線形層出力",features.shape)#[32,75,320]
+        features = torch.reshape(features,(32,80,300))
+        #print("デコーダー後",features.shape)
+        #(B,T,C)[32,80,300]
+
+        return features
 #!特徴量のみ出力する。メルスペクトログラムにするなら、全結合層デコーダなど作成する
