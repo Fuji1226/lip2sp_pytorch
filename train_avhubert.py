@@ -187,7 +187,7 @@ def val_one_epoch(
         speaker_idx = speaker_idx.to(device)
         
         with torch.no_grad():
-            output, classifier_out, fmaps = model(lip, lip_len, spk_emb)
+            output = model(lip, None, False,)
 
         mse_loss = loss_f.mse_loss(output, feature, feature_len, max_len=output.shape[-1])
 
