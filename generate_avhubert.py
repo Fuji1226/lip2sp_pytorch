@@ -9,7 +9,7 @@ from tqdm import tqdm
 import torch
 
 from data_check import save_data
-from train_nar import make_model
+from train_avhubert import make_model
 from utils import (
     make_test_loader,
     get_path_test,
@@ -64,13 +64,14 @@ def generate(
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
-
+        print("lip_len",lip_len,"lip.shape",lip.shape)
+        #breakpoint()
         lip_sep = gen_data_separate(lip, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
         lip_len = lip_len.expand(lip_sep.shape[0])
         spk_emb = spk_emb.expand(lip_sep.shape[0], -1)
 
         with torch.no_grad():
-            output, classifier_out, fmaps = model(lip_sep, lip_len, spk_emb)
+            output, classifier_out, fmaps = model(lip, None, False, None)#lip_sep, lip_len, spk_emb
 
         output = gen_data_concat(
             output, 

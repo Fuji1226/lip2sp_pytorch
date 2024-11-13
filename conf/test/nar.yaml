@@ -8,8 +8,8 @@ debug_data_len : 1
 # face or lip
 face_or_lip : "face"
 
-# 合成するチェックポイントについて、一番最後のパス 逐一確認！！！
-model_path :  '/home/user/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2024:09:04_16-17-40/47.ckpt'
+#! 合成するチェックポイントについて、一番最後のパス 逐一確認！！！
+model_path : '/home/user/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/mspec80/2024:11:11_13-40-41/43.ckpt'
 
 metric_for_select : 'val_loss_list'
 
