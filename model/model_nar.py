@@ -24,7 +24,6 @@ class Lip2SP_NAR(nn.Module):
         conf_n_layers, conf_n_head, conf_feedforward_expansion_factor,
         dec_n_layers, dec_kernel_size,
         n_speaker, spk_emb_dim,
-        cfg,
         which_encoder, which_decoder, where_spk_emb, use_spk_emb,
         dec_dropout, res_dropout, rnn_dropout, is_large, adversarial_learning, reduction_factor):
         super().__init__()

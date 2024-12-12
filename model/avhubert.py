@@ -101,13 +101,13 @@ class SELayer(nn.Module):
         """
         x : (B * T, C, H, W)
         """
-        print("SELayer前x形状",x.shape)
+        #print("SELayer前x形状",x.shape)
         z = torch.mean(x, dim=(2, 3))
         s = torch.relu(self.fc1(z))
         s = torch.sigmoid(self.fc2(s))
         s = s.unsqueeze(-1).unsqueeze(-1)
         x = x * s
-        print("SELayer後x形状",x.shape)
+        #print("SELayer後x形状",x.shape)
         return x
 
 
@@ -137,13 +137,13 @@ class DepthwiseSeparableConv(nn.Module):
         """
         x : (B * T, C, H, W)
         """
-        print("DepthwiseSeparableConv前x形状",x.shape)
+        #print("DepthwiseSeparableConv前x形状",x.shape)
         x = self.pointwise_conv1(x)
         x = self.depthwise_conv(x)
         x = self.se_layer(x)
         x = self.pointwise_conv2(x)
         x = x * self.scale
-        print("DepthwiseSeparableConv後x形状",x.shape)
+        #print("DepthwiseSeparableConv後x形状",x.shape)
         return x
 
 
@@ -190,7 +190,7 @@ class BasicBlock(nn.Module):
             residual = self.downsample(x)
         out += residual
         out = self.relu2(out)
-        print("BasicBlock後x形状",x.shape)
+        #print("BasicBlock後x形状",x.shape)
         return out
 
 
@@ -1279,10 +1279,10 @@ class SubModel(nn.Module):
 
     def forward(self, x):
         if self.resnet is not None:
-            print("resnet前入力されるxの形",x.shape)
+            #print("resnet前入力されるxの形",x.shape)
             x = self.resnet(x)
-            print("resnet後の次元の形",x.shape)
-        print("その後の形状",x.shape)
+            #print("resnet後の次元の形",x.shape)
+        #print("その後の形状",x.shape)
         x = self.proj(x.transpose(1,2))
         if self.encoder is not None:
             x = self.encoder(x.transpose(1,2))[0]
@@ -1356,48 +1356,48 @@ class AVHuBERT(nn.Module):
         padding_mask (padding elements are indicated by 1.) : (B, T)
         """
         video = video.transpose(2, 4)
-        print(video.shape)
+        #print(video.shape)
         #print(f"{padding_mask.shape=}")
         if video is not None and audio is None:
-            print("パターン1")
+            #print("パターン1")
             features_video = self.feature_extractor_video(video)
             features_audio = features_video.new_zeros(
                 features_video.size(0), self.encoder_embed_dim, features_video.size(-1)
             )
         elif video is None and audio is not None:
-            print("パターン2")
+            #print("パターン2")
             features_audio = self.feature_extractor_audio(audio)
             features_video = features_audio.new_zeros(
                 features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1)
             )
         elif video is not None and audio is not None:
-            print("パターン3")
+            #print("パターン3")
             features_video = self.feature_extractor_video(video)
             features_audio = self.feature_extractor_audio(audio)
 
         if self.modality_fuse == "concat":
             features = torch.cat([features_audio, features_video], dim=1)
-            print("ver.concat",f"{features.shape=}")
+            #print("ver.concat",f"{features.shape=}")
         elif self.modality_fuse == "add":
             features = features_audio + features_video
-            print("ver.add",f"{features.shape=}")
+            #print("ver.add",f"{features.shape=}")
 
         features = features.transpose(1, 2)  # (B, T, C)
         features = self.layer_norm(features)
 
         if padding_mask is not None:
-            print("padding_mask使用")
+            #print("padding_mask使用")
             padding_mask = self.forward_padding_mask(features, padding_mask)
 
         if self.post_extract_proj is not None:
-            print("post_extract_proj使用")
+            #print("post_extract_proj使用")
             features = self.post_extract_proj(features)
 
         if return_res_output:
-            print("resoutputサイズ変更なし")
+            #print("resoutputサイズ変更なし")
             return features
         else:
-            print("resoutputサイズ変更あり")
+            #print("resoutputサイズ変更あり")
             features = self.dropout_input(features)
             features, _ = self.encoder(
                 features,
@@ -1407,8 +1407,8 @@ class AVHuBERT(nn.Module):
             print( 'エンコーダー後',features.shape)
         features = self.decoder_layer(features)
         print("線形層出力",features.shape)#[32,75,320]
-        features = torch.reshape(features,(32,80,300))
-        print("デコーダー後",features.shape)
+        features = torch.reshape(features,(features.shape[0],80,300))
+        #print("デコーダー後",features.shape)
 
         #(B,T,C)[32,80,300]
 
