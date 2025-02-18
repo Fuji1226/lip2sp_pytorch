@@ -10,13 +10,19 @@ import time
 from tqdm import tqdm
 import numpy as np
 
+#print(dir(face_alignment.LandmarksType))
+#breakpoint()
 
 debug = False
 debug_iter = 5
 
-speaker = "M04_kablab"
-data_root = Path(f"~/dataset/lip/cropped_max_size_fps25/{speaker}").expanduser()
+speaker = "F1"
+data_root = Path(f"~/2HEAVD/{speaker}/video/fps/front/val").expanduser()
+dir_name_landmark = "landmark"
+dir_name_bbox = "bbox"
 
+"""
+#?クロップの仕方で分類していた名残
 if data_root.parents[0].name == "cropped":
     dir_name_landmark = "landmark"
     dir_name_bbox = "bbox"
@@ -32,6 +38,7 @@ elif data_root.parents[0].name == "cropped_max_size":
 elif data_root.parents[0].name == "cropped_max_size_fps25":
     dir_name_landmark = "landmark_cropped_max_size_fps25"
     dir_name_bbox = "bbox_cropped_max_size_fps25"
+"""
 
 if debug:
     save_dir_landmark = Path(f"~/dataset/lip/{dir_name_landmark}_debug/{speaker}").expanduser()
@@ -49,7 +56,7 @@ def main():
     data_path = sorted(list(data_root.glob("*.mp4")))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device=device, flip_input=False)
 
     iter_cnt = 0
     for path in tqdm(data_path):

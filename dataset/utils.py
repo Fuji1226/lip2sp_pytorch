@@ -11,8 +11,8 @@ from functools import partial
 import torch
 import pickle
 
-text_dir = Path("~/dataset/lip/utt").expanduser()
-emb_dir = Path("~/dataset/lip/emb").expanduser()
+text_dir = Path("/media/user/T7 Touch/dataset/lip/utt").expanduser()
+emb_dir = Path("/media/user/T7 Touch/dataset/lip/emb").expanduser()
 
 
 def get_speaker_idx(data_path):
@@ -57,7 +57,7 @@ def get_stat_load_data(train_data_path):
         feat_mean_list.append(np.mean(feature, axis=0))
         feat_var_list.append(np.var(feature, axis=0))
         feat_len_list.append(feature.shape[0])
-        
+
     return (
         lip_mean_list,
         lip_var_list,
@@ -66,7 +66,7 @@ def get_stat_load_data(train_data_path):
         feat_var_list,
         feat_len_list,
     )
-                
+
 
 def calc_mean_var_std(mean_list, var_list, len_list):
     mean_square_list = list(np.square(mean_list))
@@ -132,5 +132,5 @@ def adjust_max_data_len(data):
             d_padded[..., t] = d[..., t]
 
         new_data.append(d_padded)
-    
+
     return new_data

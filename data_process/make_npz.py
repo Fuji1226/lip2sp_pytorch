@@ -17,14 +17,14 @@ import argparse
 
 from transform import load_data_for_npz
 
-debug = False
+debug = True
 
 
-def read_csv(csv_path, which_data, data_dir, landmark_dir):
+def read_csv(csv_path, which_data, video_dir, audio_dir, landmark_dir):
     df = pd.read_csv(str(csv_path / f'{which_data}.csv'))
     filename_list = df['filename'].to_list()
     data_list = [
-        [data_dir / f'{filename}.mp4', data_dir / f'{filename}.wav', landmark_dir / f'{filename}.csv'] 
+        [video_dir / f'{filename}_front.mp4', audio_dir / f'{filename}.wav', landmark_dir / f'{filename}.csv'] 
         for filename in filename_list
     ]
     return data_list
@@ -56,7 +56,7 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
                 assert feature.shape[1] == 32
             
             # データの保存
-            _data_save_path = data_save_path / speaker / cfg.model.name
+            _data_save_path = data_save_path / cfg.model.name
             _data_save_path.mkdir(parents=True, exist_ok=True)
             np.savez(
                 str(_data_save_path / audio_path.stem),
@@ -69,8 +69,8 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
                 data_len=data_len,
             )
 
-        except:
-            print(f"error : {audio_path.stem}")
+        except Exception as e:
+            print(f"予期しないエラーが発生しました: {e}")
         
         if debug:
             break
@@ -78,15 +78,16 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
 
 @hydra.main(config_name="config", config_path="../conf")
 def main(cfg):
-    for speaker in cfg.train.npz_process_speaker_list:
+    #for speaker in cfg.train.npz_process_speaker_list:
         margin = 0
         fps = 25
         gray = True
 
-        csv_path = Path(f"~/dataset/lip/data_split_csv_fix").expanduser()
-        data_dir = Path(f"~/dataset/lip/avhubert_preprocess_fps25/{speaker}").expanduser()
-        landmark_dir = Path(f"~/dataset/lip/landmark_avhubert_preprocess_fps25/{speaker}").expanduser()
-        dir_name = f"avhubert_preprocess_fps25"
+        csv_path = Path(f"~/2HEAVD/F1").expanduser()
+        video_dir = Path(f"~/dataset/lip/cropped_max_size/F1").expanduser()
+        audio_dir = Path(f"~/2HEAVD/F1/audio/alldata").expanduser()
+        landmark_dir = Path(f"~/dataset/lip/landmark").expanduser()
+        dir_name = f"GRU_preprocess_fps25"
 
         if gray:
             dir_name = f"{dir_name}_gray"
@@ -96,13 +97,13 @@ def main(cfg):
         lip_train_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/train").expanduser()
         lip_val_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/val").expanduser()
         lip_test_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/test").expanduser()
-            
-        cfg.model.gray = gray
-        print(f"speaker = {speaker}, mode = {cfg.model.name}, gray = {cfg.model.gray}")
 
-        train_data_list = read_csv(csv_path, "train", data_dir, landmark_dir)
-        val_data_list = read_csv(csv_path, "val", data_dir, landmark_dir)
-        test_data_list = read_csv(csv_path, "test", data_dir, landmark_dir)
+        cfg.model.gray = gray
+        print(f"mode = {cfg.model.name}, gray = {cfg.model.gray}")
+
+        train_data_list = read_csv(csv_path, "train", video_dir, audio_dir, landmark_dir)
+        val_data_list = read_csv(csv_path, "val", video_dir, audio_dir, landmark_dir)
+        test_data_list = read_csv(csv_path, "test", video_dir, audio_dir, landmark_dir)
         
         print(f"\nall data ratio")
         print(f"train_data : {len(train_data_list)}, val_data : {len(val_data_list)}, test_data : {len(test_data_list)}")

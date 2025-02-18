@@ -23,9 +23,9 @@ def get_crop_info(bbox_path):
     return coords_list
 
 
-speaker_list = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+speaker_list = ["F1"]
 for speaker in speaker_list:
-    data_dir = Path(f"~/dataset/lip/cropped/{speaker}").expanduser()
+    data_dir = Path(f"~/2HEAVD/F1/video/fps/front/alldata").expanduser()
     bbox_dir = Path(f"~/dataset/lip/bbox/{speaker}").expanduser()
     landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
     save_dir = Path(f"~/dataset/lip/cropped_max_size/{speaker}").expanduser()
