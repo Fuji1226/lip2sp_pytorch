@@ -118,7 +118,7 @@ def load_args(default_config=None):
     # parser.add_argument('--filename-path', help='list of detected video and its subject ID')
     # parser.add_argument('--save-direc', default=None, help='the directory of saving mouth ROIs')
     # -- mean face utils
-    # parser.add_argument('--mean-face', type=str, help='reference mean face (download from: https://github.com/mpc001/Lipreading_using_Temporal_Convolutional_Networks/blob/master/preprocessing/20words_mean_face.npy)')
+    parser.add_argument('--mean-face', type=str, help='reference mean face (download from: https://github.com/mpc001/Lipreading_using_Temporal_Convolutional_Networks/blob/master/preprocessing/20words_mean_face.npy)')
     # -- mouthROIs utils
     # parser.add_argument('--speaker', nargs="*", type=str, required=True)
     parser.add_argument('--crop-width', default=96, type=int, help='the width of mouth ROIs')
@@ -224,32 +224,34 @@ def get_landmark(landmark_path):
 
 def main():
     args = load_args()
-    
+
     # -- mean face utils
     STD_SIZE = (256, 256)
-    mean_face_path = Path('~/dataset/lip/20words_mean_face.npy').expanduser()
-    mean_face_landmarks = np.load(str(mean_face_path))
+    #mean_face_path = Path('~/dataset/lip/20words_mean_face.npy').expanduser()
+    #mean_face_landmarks = np.load(str(mean_face_path))
     stablePntsIDs = [33, 36, 39, 42, 45]
     ffmpeg_path = '/usr/bin/ffmpeg'
-    
-    video_dir = Path('~/dataset/lip/cropped_fps25').expanduser()
-    landmark_dir = Path('~/dataset/lip/landmark_fps25').expanduser()
+
+    #!データパスの指定!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    video_dir = Path('/home/user/2HEAVD/F1/video/fps25/front/alldata').expanduser()
+    landmark_dir = Path('/home/user/dataset/lip/landmark').expanduser()
     save_dir = Path('~/dataset/lip/avhubert_preprocess_fps25').expanduser()
-    
+    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     video_dir_list = list(video_dir.glob('*'))
     for video_dir_spk in video_dir_list:
         speaker = video_dir_spk.stem
         if speaker == 'F01_kablab_20220930':
             continue
-        print(f'speaker = {speaker}')
-        
+        #print(f'speaker = {speaker}')
+
         video_path_list = list(video_dir_spk.glob('*.mp4'))
         for video_path in tqdm(video_path_list):
             landmark_path = landmark_dir / video_path.parents[0].name / f'{video_path.stem}.csv'
-            
+
             if (not video_path.exists()) or (not landmark_path.exists()):
                 continue
-            
+
             save_path = save_dir / video_path.parents[0].name / f'{video_path.stem}.mp4'
             if save_path.exists():
                 continue
