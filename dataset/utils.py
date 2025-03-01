@@ -1,15 +1,16 @@
-from pathlib import Path
 import sys
+from pathlib import Path
+
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
-import pandas as pd
-import numpy as np
-from tqdm import tqdm
 import re
-import joblib
 from functools import partial
+
+import joblib
+import numpy as np
+import pandas as pd
 import torch
-import pickle
+from tqdm import tqdm
 
 from data_process.transform import load_data
 
@@ -23,7 +24,7 @@ emb_lip2wav_dir = Path("~/Lip2Wav/emb").expanduser()
 
 
 def select_data(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
-    print(f"\nselect existing data")
+    print("\nselect existing data")
     data_path_list = []
     for speaker in cfg.train.speaker:
         for i in tqdm(range(len(data_df))):
@@ -35,17 +36,33 @@ def select_data(data_root, data_bbox_root, data_landmark_root, data_df, cfg):
                     bbox_path = data_bbox_root / speaker / f"{filename}.csv"
                     landmark_path = data_landmark_root / speaker / f"{filename}.csv"
                     text_path = text_dir / f"{filename}.csv"
-                    if video_path.exists() and audio_path.exists() and bbox_path.exists() and landmark_path.exists() and text_path.exists():
-                        data_path_list.append([video_path, audio_path, bbox_path, landmark_path, text_path])
-                        
+                    if (
+                        video_path.exists()
+                        and audio_path.exists()
+                        and bbox_path.exists()
+                        and landmark_path.exists()
+                        and text_path.exists()
+                    ):
+                        data_path_list.append(
+                            [
+                                video_path,
+                                audio_path,
+                                bbox_path,
+                                landmark_path,
+                                text_path,
+                            ]
+                        )
+
     return data_path_list
 
 
-def select_data_lrs2(data_root, data_bbox_root, data_landmark_root, data_df, cfg, which_data):
-    print(f"\nselect existing data")
+def select_data_lrs2(
+    data_root, data_bbox_root, data_landmark_root, data_df, cfg, which_data
+):
+    print("\nselect existing data")
     data_df = data_df.rename(columns={0: "filename"})
     data_df["id"] = data_df["filename"].apply(lambda x: str(x.split("/")[0]))
-    
+
     # 学習データが多すぎるので削る
     if which_data == "train":
         if data_root.stem == "main":
@@ -56,10 +73,10 @@ def select_data_lrs2(data_root, data_bbox_root, data_landmark_root, data_df, cfg
         info_df = info_df.tail(cfg.train.lrs2_n_train_speaker_used)
         info_df["id"] = info_df["id"].astype(str)
         data_df = data_df.loc[data_df["id"].isin(info_df["id"].to_list())]
-        
+
     if cfg.train.debug:
         data_df = data_df.iloc[:1000]
-    
+
     data_path_list = []
     for i in tqdm(range(len(data_df))):
         filename = data_df.iloc[i]["filename"]
@@ -76,11 +93,11 @@ def get_speaker_idx(data_path):
     print("\nget speaker idx")
     speaker_idx = {}
     idx_dict = {
-        "F01_kablab" : 0,
-        "F02_kablab" : 1,
-        "M01_kablab" : 2,
-        "M04_kablab" : 3,
-        "F01_kablab_all" : 4,
+        "F01_kablab": 0,
+        "F02_kablab": 1,
+        "M01_kablab": 2,
+        "M04_kablab": 3,
+        "F01_kablab_all": 4,
     }
     for path in data_path:
         speaker = path.parents[1].name
@@ -94,16 +111,18 @@ def get_speaker_idx(data_path):
 
 
 def get_speaker_idx_lrs2(data_path, cfg):
-    print(f"\nget speaker idx lrs2")
+    print("\nget speaker idx lrs2")
     speaker_idx = {}
     if cfg.train.which_external_data == "lrs2_main":
         train_df_path = Path("~/lrs2/train.txt")
     elif cfg.train.which_external_data == "lrs2_pretrain":
         train_df_path = Path("~/lrs2/pretrain.txt")
-        
+
     train_data_df = pd.read_csv(str(train_df_path), header=None)
     train_data_df = train_data_df.rename(columns={0: "filename_all"})
-    train_data_df["id"] = train_data_df["filename_all"].apply(lambda x: str(x.split("/")[0]))
+    train_data_df["id"] = train_data_df["filename_all"].apply(
+        lambda x: str(x.split("/")[0])
+    )
     idx_list = train_data_df["id"].unique()
     idx_dict = dict([[x, i + 100000] for i, x in enumerate(idx_list)])
     for path in data_path:
@@ -118,14 +137,14 @@ def get_speaker_idx_lrs2(data_path, cfg):
 
 
 def get_speaker_idx_lip2wav(data_path):
-    print(f"\nget speaker idx lip2wav")
+    print("\nget speaker idx lip2wav")
     speaker_idx = {}
     idx_dict = {
-        "chem" : 200000,
-        "chess" : 200001,
-        "dl" : 200002,
-        "eh" : 200003,
-        "hs" : 200004,
+        "chem": 200000,
+        "chess": 200001,
+        "dl": 200002,
+        "eh": 200003,
+        "hs": 200004,
     }
     for path in data_path:
         speaker = path.parents[1].name
@@ -139,14 +158,14 @@ def get_speaker_idx_lip2wav(data_path):
 
 
 def get_speaker_idx_jsut():
-    print(f"\nget speaker idx jsut")
+    print("\nget speaker idx jsut")
     speaker_idx = {"female": 300000}
     print(f"speaker_idx = {speaker_idx}")
     return speaker_idx
 
 
 def get_speaker_idx_jvs():
-    print(f"\nget speaker idx jvs")
+    print("\nget speaker idx jvs")
     speaker_idx = dict([[f"jvs{i:03d}", 400000 + i] for i in range(1, 101)])
     print(f"speaker_idx = {speaker_idx}")
     return speaker_idx
@@ -163,8 +182,8 @@ def get_stat_load_data(train_data_path):
 
     for path in tqdm(train_data_path):
         npz_key = np.load(str(path))
-        lip = npz_key['lip']
-        feature = npz_key['feature']
+        lip = npz_key["lip"]
+        feature = npz_key["feature"]
 
         lip_mean_list.append(np.mean(lip, axis=(1, 2, 3)))
         lip_var_list.append(np.var(lip, axis=(1, 2, 3)))
@@ -173,7 +192,7 @@ def get_stat_load_data(train_data_path):
         feat_mean_list.append(np.mean(feature, axis=0))
         feat_var_list.append(np.var(feature, axis=0))
         feat_len_list.append(feature.shape[0])
-        
+
     return (
         lip_mean_list,
         lip_var_list,
@@ -196,7 +215,7 @@ def load_and_calc_mean_var(audio_path, video_path, cfg):
 
 
 def get_stat_load_data_raw(data_path_list, cfg):
-    print(f"\nget stat")
+    print("\nget stat")
     lip_mean_list = []
     lip_var_list = []
     lip_len_list = []
@@ -207,8 +226,9 @@ def get_stat_load_data_raw(data_path_list, cfg):
     print("multi processing")
     res = joblib.Parallel(n_jobs=-1)(
         joblib.delayed(partial(load_and_calc_mean_var, cfg=cfg))(
-            data_path['audio_path'], data_path['video_path']
-        ) for data_path in tqdm(data_path_list)
+            data_path["audio_path"], data_path["video_path"]
+        )
+        for data_path in tqdm(data_path_list)
     )
     for lip_mean, lip_var, lip_len, feat_mean, feat_var, feat_len in res:
         lip_mean_list.append(lip_mean)
@@ -218,7 +238,14 @@ def get_stat_load_data_raw(data_path_list, cfg):
         feat_var_list.append(feat_var)
         feat_len_list.append(feat_len)
 
-    return lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list
+    return (
+        lip_mean_list,
+        lip_var_list,
+        lip_len_list,
+        feat_mean_list,
+        feat_var_list,
+        feat_len_list,
+    )
 
 
 def calc_mean_var_std(mean_list, var_list, len_list):
@@ -235,7 +262,7 @@ def calc_mean_var_std(mean_list, var_list, len_list):
         square_mean_len_list.append(square_mean * len)
 
     mean = sum(mean_len_list) / sum(len_list)
-    var = sum(square_mean_len_list) / sum(len_list) - mean ** 2
+    var = sum(square_mean_len_list) / sum(len_list) - mean**2
     std = np.sqrt(var)
     return mean, var, std
 
@@ -282,7 +309,7 @@ def get_utt_wiki(data_path, cfg):
     for i in tqdm(range(len(wiki_data))):
         text = wiki_data.iloc[i].pronounce
         path_text_pair_list.append([cfg.train.wiki_path, text])
-        
+
         if cfg.train.debug:
             if len(path_text_pair_list) > 10000:
                 break
@@ -293,7 +320,7 @@ def get_utt_wiki(data_path, cfg):
 def get_spk_emb(cfg):
     spk_emb_dict = {}
     emb_dir = Path(cfg.train.kablab.emb_dir).expanduser()
-    data_path_list = emb_dir.glob('**/*.npy')
+    data_path_list = emb_dir.glob("**/*.npy")
     for data_path in data_path_list:
         speaker = data_path.parents[0].name
         data_path = emb_dir / speaker / "emb.npy"
@@ -306,7 +333,7 @@ def get_spk_emb(cfg):
 def get_spk_emb_tcd_timit(cfg):
     spk_emb_dict = {}
     emb_dir = Path(cfg.train.tcd_timit.emb_dir).expanduser()
-    data_path_list = emb_dir.glob('**/emb.npy')
+    data_path_list = emb_dir.glob("**/emb.npy")
     for data_path in data_path_list:
         speaker = data_path.parents[0].name
         emb = np.load(str(data_path))
@@ -318,8 +345,8 @@ def get_spk_emb_tcd_timit(cfg):
 def get_spk_emb_hifi_captain(cfg):
     spk_emb_dict = {}
     data_dir = Path(cfg.train.hifi_captain.emb_dir).expanduser()
-    for speaker in ['female', 'male']:
-        data_path = data_dir / speaker /'emb.npy'
+    for speaker in ["female", "male"]:
+        data_path = data_dir / speaker / "emb.npy"
         emb = np.load(str(data_path))
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker] = emb
@@ -344,7 +371,7 @@ def get_spk_emb_lrs2():
         emb = np.load(str(data_path))
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker.stem] = emb
-        
+
     return spk_emb_dict
 
 
@@ -380,7 +407,7 @@ def get_spk_emb_jvs(cfg):
 
 def get_spk_emb_vctk(cfg):
     data_dir = Path(cfg.train.vctk.emb_dir).expanduser()
-    data_path_list = data_dir.glob('**/*.npy')
+    data_path_list = data_dir.glob("**/*.npy")
     spk_emb_dict = {}
     for data_path in data_path_list:
         speaker = data_path.parents[0].name
@@ -414,5 +441,5 @@ def adjust_max_data_len(data):
             d_padded[..., t] = d[..., t]
 
         new_data.append(d_padded)
-    
+
     return new_data

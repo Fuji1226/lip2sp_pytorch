@@ -1,16 +1,26 @@
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import logging
 import math
 
+import torch
+import torch.nn as nn
+
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels, out_channels, inner_channels, n_layers, kernel_size, use_weight_norm, dropout):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        inner_channels,
+        n_layers,
+        kernel_size,
+        use_weight_norm,
+        dropout,
+    ):
         super().__init__()
         convs = []
         for i in range(n_layers - 1):
@@ -24,13 +34,21 @@ class Discriminator(nn.Module):
             padding = (kernel_size - 1) // 2 * dilation
             convs.append(
                 nn.Sequential(
-                    nn.Conv1d(conv_in_channels, inner_channels, kernel_size=kernel_size, dilation=dilation, padding=padding),
+                    nn.Conv1d(
+                        conv_in_channels,
+                        inner_channels,
+                        kernel_size=kernel_size,
+                        dilation=dilation,
+                        padding=padding,
+                    ),
                     nn.LeakyReLU(0.2),
                     nn.Dropout(dropout),
                 )
             )
         convs.append(
-            nn.Conv1d(inner_channels, out_channels, kernel_size=kernel_size, padding=padding)
+            nn.Conv1d(
+                inner_channels, out_channels, kernel_size=kernel_size, padding=padding
+            )
         )
         self.convs = nn.ModuleList(convs)
 
@@ -72,7 +90,13 @@ class WaveNetResBlock(nn.Module):
     def __init__(self, inner_channels, kernel_size, dilation, dropout):
         super().__init__()
         padding = (kernel_size - 1) // 2 * dilation
-        self.conv = nn.Conv1d(inner_channels, inner_channels, kernel_size=kernel_size, dilation=dilation, padding=padding)
+        self.conv = nn.Conv1d(
+            inner_channels,
+            inner_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
+            padding=padding,
+        )
         self.out_layer = nn.Conv1d(inner_channels, inner_channels, kernel_size=1)
         self.skip_layer = nn.Conv1d(inner_channels, inner_channels, kernel_size=1)
         self.dropout = nn.Dropout(dropout)
@@ -89,7 +113,16 @@ class WaveNetResBlock(nn.Module):
 
 
 class WaveNetLikeDiscriminator(nn.Module):
-    def __init__(self, n_layers, n_stacks, in_channels, inner_channels, out_channels, kernel_size, dropout):
+    def __init__(
+        self,
+        n_layers,
+        n_stacks,
+        in_channels,
+        inner_channels,
+        out_channels,
+        kernel_size,
+        dropout,
+    ):
         super().__init__()
         self.first_layer = nn.Conv1d(in_channels, inner_channels, kernel_size=1)
         layers_per_stack = n_layers // n_stacks
@@ -101,7 +134,7 @@ class WaveNetLikeDiscriminator(nn.Module):
                 WaveNetResBlock(
                     inner_channels=inner_channels,
                     kernel_size=kernel_size,
-                    dilation=dilation, 
+                    dilation=dilation,
                     dropout=dropout,
                 )
             )
@@ -113,7 +146,7 @@ class WaveNetLikeDiscriminator(nn.Module):
             nn.Conv1d(inner_channels, inner_channels, kernel_size=1),
             nn.BatchNorm1d(inner_channels),
             nn.LeakyReLU(0.2),
-            nn.Conv1d(inner_channels, out_channels, kernel_size=1)
+            nn.Conv1d(inner_channels, out_channels, kernel_size=1),
         )
 
     def forward(self, x):

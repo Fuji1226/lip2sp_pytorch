@@ -1,8 +1,9 @@
+import logging
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-import logging
 
 
 class UpSampleNet(nn.Module):
@@ -16,7 +17,9 @@ class UpSampleNet(nn.Module):
             padding = (0, (kernel_size[1] - 1) // 2)
             convs.append(
                 nn.Sequential(
-                    nn.Conv2d(1, 1, kernel_size=kernel_size, padding=padding, bias=False),
+                    nn.Conv2d(
+                        1, 1, kernel_size=kernel_size, padding=padding, bias=False
+                    ),
                     # nn.BatchNorm2d(1),
                     # nn.ReLU(),
                 )
@@ -40,7 +43,7 @@ class ConvinUpSampleNet(nn.Module):
         self.conv_in = nn.Sequential(
             nn.Conv1d(in_channels, in_channels, kernel_size=3, padding=1, bias=False),
             # nn.BatchNorm1d(in_channels),
-            # nn.ReLU(),   
+            # nn.ReLU(),
         )
         self.upsample_layers = UpSampleNet(upsample_scales)
 
@@ -54,8 +57,16 @@ class WaveNetResBlock(nn.Module):
     def __init__(self, inner_channels, cond_channels, kernel_size, dilation, dropout):
         super().__init__()
         padding = (kernel_size - 1) // 2 * dilation
-        self.conv = nn.Conv1d(inner_channels, int(inner_channels * 2), kernel_size=kernel_size, dilation=dilation, padding=padding)
-        self.cond_layer = nn.Conv1d(cond_channels, int(inner_channels * 2), kernel_size=1)
+        self.conv = nn.Conv1d(
+            inner_channels,
+            int(inner_channels * 2),
+            kernel_size=kernel_size,
+            dilation=dilation,
+            padding=padding,
+        )
+        self.cond_layer = nn.Conv1d(
+            cond_channels, int(inner_channels * 2), kernel_size=1
+        )
         self.out_layer = nn.Conv1d(inner_channels, inner_channels, kernel_size=1)
         self.skip_layer = nn.Conv1d(inner_channels, inner_channels, kernel_size=1)
         self.dropout = nn.Dropout(dropout)
@@ -83,7 +94,19 @@ class WaveNetResBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, in_channels, out_channels, inner_channels, cond_channels, upsample_scales, n_layers, n_stacks, dropout, kernel_size, use_weight_norm):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        inner_channels,
+        cond_channels,
+        upsample_scales,
+        n_layers,
+        n_stacks,
+        dropout,
+        kernel_size,
+        use_weight_norm,
+    ):
         super().__init__()
         layers_per_stack = n_layers // n_stacks
         self.first_conv = nn.Conv1d(in_channels, inner_channels, kernel_size=1)
@@ -97,7 +120,7 @@ class Generator(nn.Module):
                     inner_channels=inner_channels,
                     cond_channels=cond_channels,
                     kernel_size=kernel_size,
-                    dilation=dilation, 
+                    dilation=dilation,
                     dropout=dropout,
                 )
             )
@@ -109,12 +132,12 @@ class Generator(nn.Module):
             nn.Conv1d(inner_channels, inner_channels, kernel_size=1),
             nn.BatchNorm1d(inner_channels),
             nn.ReLU(),
-            nn.Conv1d(inner_channels, out_channels, kernel_size=1)
+            nn.Conv1d(inner_channels, out_channels, kernel_size=1),
         )
 
         if use_weight_norm:
             self.apply_weight_norm()
-    
+
     def forward(self, x, c):
         """
         x, c : (B, C, T)
