@@ -1,4 +1,4 @@
----
+#package _global_
 
 setup:
     project: lip2sp_audio_ae

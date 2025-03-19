@@ -1,3 +1,5 @@
+# @package _group_
+
 defaults:
   - model: master
   - train: nar
