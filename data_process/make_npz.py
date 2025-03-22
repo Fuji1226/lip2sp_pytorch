@@ -11,15 +11,15 @@ import pickle
 
 from transform import load_data_for_npz
 
-debug = False
-speaker = "M04_kablab"
+debug = True
+speaker = "F1"
 margin = 0
 fps = 25
 gray = True
 
-csv_path = Path(f"~/dataset/lip/data_split_csv").expanduser()
-data_dir = Path(f"~/dataset/lip/cropped_max_size_fps25/{speaker}").expanduser()
-landmark_dir = Path(f"~/dataset/lip/landmark_cropped_max_size_fps25/{speaker}").expanduser()
+csv_path = Path(f"~/2HEAVD/F1").expanduser()
+data_dir = Path(f"~/2HEAVD/F1").expanduser()
+landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
 dir_name = f"face_cropped_max_size_fps25_{margin}_{fps}"
 
 if gray:
@@ -36,9 +36,10 @@ lip_test_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/test").expanduser(
 def read_csv(csv_path, which_data):
     with open(str(csv_path / f"{which_data}.csv"), "r") as f:
         reader = csv.reader(f)
-        data_list = [[data_dir / f"{row[0]}.mp4", data_dir / f"{row[0]}.wav", landmark_dir / f"{row[0]}.csv"] for row in reader]
+        print(reader)
+        data_list = [[data_dir/"video/fps25/front/alldata"/f"{row[0]}.mp4", data_dir/"audio/alldata"/f"{row[0]}.wav", landmark_dir / f"{row[0]}.csv"] for row in reader]
     return data_list
-    
+
 
 def save_data(data_list, len, cfg, data_save_path, which_data):
     """
@@ -91,10 +92,11 @@ def main(cfg):
     """
     顔をやるか口唇切り取ったやつをやるかでpathを変更してください
     """
+
     cfg.model.gray = gray
     print(f"speaker = {speaker}, mode = {cfg.model.name}, gray = {cfg.model.gray}")
 
-    train_data_list = read_csv(csv_path, "train_all")
+    train_data_list = read_csv(csv_path, "train")
     val_data_list = read_csv(csv_path, "val")
     test_data_list = read_csv(csv_path, "test")
     
