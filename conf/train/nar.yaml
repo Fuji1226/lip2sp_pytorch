@@ -37,13 +37,13 @@ save_path : "~/lip2sp_pytorch/result/nar/train"
 ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 1
 
-# 口唇動画、音響特徴量ディレクトリまでのパス
-avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
-avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
+#! 口唇動画、音響特徴量ディレクトリまでのパス
+avhubert_preprocess_fps25_train : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/train/mspec80"
+avhubert_preprocess_fps25_val : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/val/mspec80'"
 
 # kablab
 kablab:
-  use: True
+  use: False
   audio_dir: '~/dataset/lip/wav'
   avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
   df_path: '~/dataset/lip/data_split_csv/kablab.csv'
@@ -85,11 +85,11 @@ vctk:
   emb_dir: '~/VCTK-Corpus/emb'
 
 wiki:
-  use: True
+  use: False
   df_path: '~/wiki_ja/data_split.csv'
 
 aozora:
-  use: True
+  use: False
   df_path: '~/aozorabunko_text/data_split.csv'
 
 # 外部データの指定

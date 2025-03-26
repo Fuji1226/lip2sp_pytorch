@@ -264,7 +264,7 @@ def val_one_epoch(
     return epoch_loss, epoch_mae_loss, epoch_mse_loss
 
 
-@hydra.main(version_base=None, config_name="config", config_path="conf")
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     set_config(cfg)
     fix_random_seed(cfg.train.random_seed)
@@ -272,7 +272,7 @@ def main(cfg):
     wandb_cfg = OmegaConf.to_container(
         cfg,
         resolve=True,
-        throw_on_missing=True,
+        throw_on_missing=True, #!throw_on_missingがないぜって言われてる。バージョンも互換性も確認済み
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
