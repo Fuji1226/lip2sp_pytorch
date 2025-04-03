@@ -81,9 +81,9 @@ def get_save_and_ckpt_path(
 
 def get_path_train_raw(cfg, current_time):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        video_dir = cfg.train.kablab.avhubert_preprocess_fps25_video_dir
+        video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir
     video_dir = Path(video_dir).expanduser()
-    audio_dir = Path(cfg.train.kablab.audio_dir).expanduser()
+    audio_dir = Path(cfg.train.katsurada.audio_dir).expanduser()
 
     ckpt_path, save_path, ckpt_time= get_save_and_ckpt_path(cfg, current_time)
 
@@ -92,9 +92,9 @@ def get_path_train_raw(cfg, current_time):
 
 def get_path_test_raw(cfg, model_path):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        video_dir = cfg.train.kablab.avhubert_preprocess_fps25_video_dir
+        video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir
     video_dir = Path(video_dir).expanduser()
-    audio_dir = Path(cfg.train.kablab.audio_dir).expanduser()
+    audio_dir = Path(cfg.train.katsurada.audio_dir).expanduser()
 
     save_path = Path(cfg.test.save_path).expanduser()
     save_path = save_path / cfg.test.face_or_lip / cfg.model.name / model_path.parents[0].name / model_path.stem
@@ -125,16 +125,16 @@ def get_datasets(data_root, cfg):
 
 def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
     data_path_list = []
-    if cfg.train.kablab.use:
-        print('load kablab')
-        df = pd.read_csv(str(Path(cfg.train.kablab.df_path).expanduser()))
+    if cfg.train.katsurada.use:
+        print('load katsurada')
+        df = pd.read_csv(str(Path(cfg.train.kasturada.df_path).expanduser()))
         df = df.loc[df['speaker'].isin(cfg.train.speaker)]
-        df = df.loc[df['corpus'].isin(cfg.train.corpus)]
+        #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
         df = df.loc[df['data_split'] == data_split]
         for i in range(df.shape[0]):
             row = df.iloc[i]
             audio_path = audio_dir / row['speaker'] / f'{row["filename"]}.wav'
-            video_path = video_dir / row['speaker'] / f'{row["filename"]}.mp4'
+            video_path = video_dir / row['speaker'] / f'{row["filename"]}_front.mp4'
             if (not audio_path.exists()) or (not video_path.exists()):
                 continue
             data_path_list.append(

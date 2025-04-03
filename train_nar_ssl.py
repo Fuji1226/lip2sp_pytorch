@@ -271,8 +271,8 @@ def main(cfg):
 
     wandb_cfg = OmegaConf.to_container(
         cfg,
-        resolve=True,
-        throw_on_missing=True, #!throw_on_missingがないぜって言われてる。バージョンも互換性も確認済み
+        #resolve=True,
+        #throw_on_missing=True, #?throw_on_missingがないぜって言われてる。バージョンも互換性も確認済みーーーコメントアウトによりスルー
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

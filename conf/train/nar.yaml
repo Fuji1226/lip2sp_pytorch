@@ -41,6 +41,16 @@ ckpt_step : 1
 avhubert_preprocess_fps25_train : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/train/mspec80"
 avhubert_preprocess_fps25_val : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/val/mspec80'"
 
+#!桂田先生データセット_要更新
+katsurada:
+  use: True
+  audio_dir: '/home/user/2HEAVD/F1/audio/alldata'
+  avhubert_preprocess_fps25_video_dir: '/home/user/2HEAVD/F1/video/fps25/front/alldata'
+  df_path: '/home/user/2HEAVD/data_split.csv'
+  video_data_path:
+  npz_path:
+
+
 # kablab
 kablab:
   use: False
@@ -129,8 +139,8 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : ['F01_kablab', 'M01_kablab']
-use_spk_emb : True
+speaker : ['F1']
+use_spk_emb : False
 finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False
