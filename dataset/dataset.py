@@ -33,16 +33,109 @@ class DatasetWithExternalDataRaw(Dataset):
         self.transform = transform
         self.cfg = cfg
         self.embs = get_spk_emb(cfg)
-        self.embs.update(get_spk_emb_tcd_timit(cfg))
-        self.embs.update(get_spk_emb_jvs(cfg))
-        self.embs.update(get_spk_emb_vctk(cfg))
-        self.embs.update(get_spk_emb_hifi_captain(cfg))
+        #self.embs.update(get_spk_emb_tcd_timit(cfg))
+        #self.embs.update(get_spk_emb_jvs(cfg))
+        #self.embs.update(get_spk_emb_vctk(cfg))
+        #self.embs.update(get_spk_emb_hifi_captain(cfg))
 
         lip_mean = np.array([cfg.model.avhubert_lip_mean])
         lip_std = np.array([cfg.model.avhubert_lip_std])
-        feat_mean_var_std = np.load(str(Path(cfg.train.vctk.stat_path).expanduser()))
-        feat_mean = feat_mean_var_std['feat_mean']
-        feat_std = feat_mean_var_std['feat_std']
+        #feat_mean_var_std = np.load(str(Path(cfg.train.vctk.stat_path).expanduser()))
+        #feat_mean = feat_mean_var_std['feat_mean']
+        #feat_std = feat_mean_var_std['feat_std']
+        self.lip_mean = torch.from_numpy(lip_mean)
+        self.lip_std = torch.from_numpy(lip_std)
+        #self.feat_mean = torch.from_numpy(feat_mean)
+        #self.feat_std = torch.from_numpy(feat_std)
+
+    def __len__(self):
+        return len(self.data_path)
+    
+    def __getitem__(self, index):
+        audio_path = self.data_path[index]['audio_path']
+        video_path = self.data_path[index]['video_path']
+        speaker = self.data_path[index]['speaker']
+        filename = self.data_path[index]['filename']
+        spk_emb = torch.from_numpy(self.embs[speaker])
+
+        # 使わないので適当に
+        speaker_idx = torch.tensor(0)
+        lang_id = torch.tensor(0)
+        is_video = torch.tensor(0)
+
+        wav, feature, feature_avhubert, lip = load_data(audio_path, video_path, self.cfg)
+        wav = torch.from_numpy(wav)
+        feature = torch.from_numpy(feature).permute(1, 0)   # (T, C)
+        feature_avhubert = torch.from_numpy(feature_avhubert).permute(1, 0)     # (T, C)
+        lip = torch.from_numpy(lip).permute(1, 2, 3, 0)     # (C, H, W, T)
+        
+        lip, feature, feature_avhubert = self.transform(
+            lip=lip, 
+            feature=feature, 
+            feature_avhubert=feature_avhubert,
+            lip_mean=self.lip_mean, 
+            lip_std=self.lip_std, 
+            feat_mean=self.feat_mean, 
+            feat_std=self.feat_std
+        )
+        feature_len = torch.tensor(feature.shape[-1])
+        lip_len = torch.tensor(lip.shape[-1])
+
+        return (
+            wav,
+            lip,
+            feature,
+            feature_avhubert,
+            spk_emb,
+            feature_len,
+            lip_len,
+            speaker,
+            speaker_idx,
+            filename,
+            lang_id,
+            is_video,
+        )
+
+
+class DatasetWithExternalDataRawRE(Dataset):
+    def __init__(
+        self,
+        data_path,
+        transform,
+        cfg,
+        use_datasets=None  # ← 追加
+    ):
+        super().__init__()
+        self.data_path = data_path
+        self.transform = transform
+        self.cfg = cfg
+
+        if use_datasets is None:
+            use_datasets = ["default"]
+
+        self.embs = {}
+        if "default" in use_datasets:
+            self.embs.update(get_spk_emb(cfg))
+        if "tcd_timit" in use_datasets:
+            self.embs.update(get_spk_emb_tcd_timit(cfg))
+        if "jvs" in use_datasets:
+            self.embs.update(get_spk_emb_jvs(cfg))
+        if "vctk" in use_datasets:
+            self.embs.update(get_spk_emb_vctk(cfg))
+        if "hifi_captain" in use_datasets:
+            self.embs.update(get_spk_emb_hifi_captain(cfg))
+
+        lip_mean = np.array([cfg.model.avhubert_lip_mean])
+        lip_std = np.array([cfg.model.avhubert_lip_std])
+        if "vctk" in use_datasets:
+            feat_mean_var_std = np.load(str(Path(cfg.train.vctk.stat_path).expanduser()))
+            feat_mean = feat_mean_var_std['feat_mean']
+            feat_std = feat_mean_var_std['feat_std']
+        else:
+            # VCTKが使えないとき用にダミー値を設定（プロジェクトに応じて調整）
+            feat_mean = np.zeros((80,), dtype=np.float32)  # 例: 80次元の特徴
+            feat_std = np.ones((80,), dtype=np.float32)
+
         self.lip_mean = torch.from_numpy(lip_mean)
         self.lip_std = torch.from_numpy(lip_std)
         self.feat_mean = torch.from_numpy(feat_mean)
@@ -95,7 +188,6 @@ class DatasetWithExternalDataRaw(Dataset):
             lang_id,
             is_video,
         )
-    
 
 class TransformWithExternalDataRaw:
     def __init__(self, cfg, train_val_test):

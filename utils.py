@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 import wandb
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
-from dataset.dataset import DatasetWithExternalDataRaw, TransformWithExternalDataRaw
+from dataset.dataset import DatasetWithExternalDataRawRE, TransformWithExternalDataRaw
 from dataset.dataset_npz_with_ex import (
     collate_time_adjust_with_external_data,
 )
@@ -127,7 +127,7 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
     data_path_list = []
     if cfg.train.katsurada.use:
         print('load katsurada')
-        df = pd.read_csv(str(Path(cfg.train.kasturada.df_path).expanduser()))
+        df = pd.read_csv(str(Path(cfg.train.katsurada.df_path).expanduser()))
         df = df.loc[df['speaker'].isin(cfg.train.speaker)]
         #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
         df = df.loc[df['data_split'] == data_split]
@@ -279,6 +279,15 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     train_trans = TransformWithExternalDataRaw(cfg, "train")
     val_trans = TransformWithExternalDataRaw(cfg, "val")
 
+    """
+    print("tcd_timit",cfg.train.tcd_timit.use)
+    print("vctk=",cfg.train.vctk.use)
+    print("jvs=",cfg.train.jvs.use)
+    print("hifi_captain=",cfg.train.hifi_captain.use)
+    print("debug=",cfg.train.debug)
+    breakpoint()
+    """
+
     if cfg.train.debug:
         train_data_path_list = train_data_path_list[:100]
         val_data_path_list = val_data_path_list[:100]
@@ -297,12 +306,12 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             cfg=cfg,
         )
     else:
-        train_dataset = DatasetWithExternalDataRaw(
+        train_dataset = DatasetWithExternalDataRawRE(
             data_path=train_data_path_list,
             transform=train_trans,
             cfg=cfg,
         )
-        val_dataset = DatasetWithExternalDataRaw(
+        val_dataset = DatasetWithExternalDataRawRE(
             data_path=val_data_path_list,
             transform=val_trans,
             cfg=cfg,
