@@ -46,7 +46,7 @@ katsurada:
   use: True
   audio_dir: '/home/user/2HEAVD/F1/audio/alldata'
   avhubert_preprocess_fps25_video_dir: '/home/user/2HEAVD/F1/video/fps25/front/alldata'
-  df_path: '/home/user/2HEAVD/data_split.csv'
+  df_path: '/home/user/2HEAVD/F1/data_split.csv'
   video_data_path:
   npz_path:
 

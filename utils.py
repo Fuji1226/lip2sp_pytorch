@@ -133,8 +133,9 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
         df = df.loc[df['data_split'] == data_split]
         for i in range(df.shape[0]):
             row = df.iloc[i]
-            audio_path = audio_dir / row['speaker'] / f'{row["filename"]}.wav'
-            video_path = video_dir / row['speaker'] / f'{row["filename"]}_front.mp4'
+            #?単一話者用のゴリ押しコーディング、複数話者利用の場合は見直し！
+            audio_path = audio_dir / f'{row["filename"]}.wav'
+            video_path = video_dir / f'{row["filename"]}_front.mp4'
             if (not audio_path.exists()) or (not video_path.exists()):
                 continue
             data_path_list.append(
@@ -145,6 +146,9 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
                     'filename': row['filename'],
                 }
             )
+
+        print(data_path_list)
+        breakpoint()
     return data_path_list
 
 
@@ -316,7 +320,12 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             transform=val_trans,
             cfg=cfg,
         )
-    
+
+    """
+    print("train_data-",train_dataset)
+    breakpoint()
+    """
+
     train_loader = DataLoader(
         dataset=train_dataset,
         batch_size=cfg.train.batch_size,   

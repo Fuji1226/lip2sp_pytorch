@@ -11,7 +11,7 @@ import pickle
 
 from transform import load_data_for_npz
 
-debug = True
+debug = False
 speaker = "F1"
 margin = 0
 fps = 25
@@ -36,8 +36,7 @@ lip_test_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/test").expanduser(
 def read_csv(csv_path, which_data):
     with open(str(csv_path / f"{which_data}.csv"), "r") as f:
         reader = csv.reader(f)
-        print(reader)
-        data_list = [[data_dir/"video/fps25/front/alldata"/f"{row[0]}.mp4", data_dir/"audio/alldata"/f"{row[0]}.wav", landmark_dir / f"{row[0]}.csv"] for row in reader]
+        data_list = [[data_dir/"video/fps25/front/alldata"/f"{row[0]}_front.mp4", data_dir/"audio/alldata"/f"{row[0]}.wav", landmark_dir / f"{row[0]}_front.csv"] for row in reader]
     return data_list
 
 
@@ -50,9 +49,10 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
     for i in tqdm(range(len)):
         try:
             video_path, audio_path, landmark_path = data_list[i]
+            #print(video_path)
 
             # 話者ラベル(F01_kablabとかです)
-            speaker = audio_path.parents[0].name
+            speaker = "F1" #audio_path.parents[0].name
 
             wav, lip, feature, feat_add, upsample, data_len, landmark = load_data_for_npz(
                 video_path=video_path,
@@ -80,9 +80,13 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
                 data_len=data_len,
             )
 
-        except:
+        except Exception as e: #例外処理-エラー出力
             print(f"error : {audio_path.stem}")
-        
+            print(e.__class__.__name__)
+            print(e.args)
+            print(e)
+            print(f"{e.__class__.__name__}: {e}")
+
         if debug:
             break
 

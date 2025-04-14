@@ -35,16 +35,16 @@ def calc_sp(wav, cfg):
     """
     y : (T, C)
     """
-    if cfg.model.name == "mspec80":
+    if cfg.model.n_mel_channels == 80:
         # 対数メルスペクトログラム
-        y = wav2mel(wav, cfg, ref_max=False).T
+        sp_y = wav2mel(wav, cfg, ref_max=False).T
 
     elif cfg.model.name == "world_melfb":
         # WORLD特徴量
         mcep, clf0, vuv, cap, fbin, _ = wav2world(
             wav, cfg.model.sampling_rate, frame_period=cfg.model.frame_period, cfg=cfg)
-        y = np.hstack([mcep, clf0.reshape(-1, 1), vuv.reshape(-1, 1), cap])
-    return y
+        sp_y = np.hstack([mcep, clf0.reshape(-1, 1), vuv.reshape(-1, 1), cap])
+    return sp_y
 
 
 def fill_nan(x):
