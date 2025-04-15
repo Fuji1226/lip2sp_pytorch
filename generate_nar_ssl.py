@@ -47,7 +47,7 @@ def generate(
         feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        spk_emb = spk_emb.to(device)
+        #spk_emb = spk_emb.to(device)
 
         lip_sep = gen_data_separate(lip, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
         feature_avhubert_sep = gen_data_separate(feature_avhubert, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
@@ -99,7 +99,7 @@ def generate(
         )
 
 
-@hydra.main(config_name="config", config_path="conf", version_base=None)
+@hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     fix_random_seed(cfg.train.random_seed)
     

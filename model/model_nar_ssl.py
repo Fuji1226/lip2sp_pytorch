@@ -187,7 +187,7 @@ class Lip2SpeechSSL(nn.Module):
             lip,
             audio,
             lip_len,
-            spk_emb,
+            spk_emb=None,
     ):
         '''
         lip : (B, C, H, W, T)

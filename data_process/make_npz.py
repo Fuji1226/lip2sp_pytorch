@@ -106,7 +106,7 @@ def main(cfg):
     
     print(f"\nall data ratio")
     print(f"train_data : {len(train_data_list)}, val_data : {len(val_data_list)}, test_data : {len(test_data_list)}")
-
+    """
     save_data(
         data_list=train_data_list,
         len=len(train_data_list),
@@ -122,7 +122,7 @@ def main(cfg):
         data_save_path=lip_val_data_path,
         which_data="val",
     )
-
+    """
     save_data(
         data_list=test_data_list,
         len=len(test_data_list),

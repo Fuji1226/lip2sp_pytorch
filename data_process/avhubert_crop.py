@@ -107,6 +107,8 @@ def write_video_ffmpeg(rois, target_path, ffmpeg):
         os.remove(target_path)
     cmd = [ffmpeg, "-f", "concat", "-safe", "0", "-i", list_fn, "-q:v", "1", "-r", str(fps), '-y', '-crf', '20', target_path]
     pipe = subprocess.run(cmd, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+    #print(pipe.stdout.decode())
+
     # rm tmp dir
     shutil.rmtree(tmp_dir)
     return
@@ -221,38 +223,48 @@ def get_landmark(landmark_path):
         coords_list.append(df.iloc[i].values.reshape(68, 2))
     return coords_list
 
+"""
 
 def main():
     args = load_args()
 
     # -- mean face utils
     STD_SIZE = (256, 256)
-    #mean_face_path = Path('~/dataset/lip/20words_mean_face.npy').expanduser()
-    #mean_face_landmarks = np.load(str(mean_face_path))
+    mean_face_path = Path('~/dataset/lip/20words_mean_face.npy').expanduser()#https://github.com/mpc001/Lipreading_using_Temporal_Convolutional_Networks/tree/master/preprocessing 左からダウンロード
+    mean_face_landmarks = np.load(str(mean_face_path))
     stablePntsIDs = [33, 36, 39, 42, 45]
     ffmpeg_path = '/usr/bin/ffmpeg'
 
     #!データパスの指定!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     video_dir = Path('/home/user/2HEAVD/F1/video/fps25/front/alldata').expanduser()
     landmark_dir = Path('/home/user/dataset/lip/landmark').expanduser()
-    save_dir = Path('~/dataset/lip/avhubert_preprocess_fps25').expanduser()
+    save_dir = Path('/home/user/avhubert_preprocess_fps25').expanduser()#dataset_lip
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     video_dir_list = list(video_dir.glob('*'))
+    #print(video_dir_list)
+    
+    debug = True
+    if debug == True :
+        video_dir_list = video_dir_list[1:4]
+    print(video_dir_list)
+    #breakpoint()
     for video_dir_spk in video_dir_list:
         speaker = video_dir_spk.stem
-        if speaker == 'F01_kablab_20220930':
-            continue
+        #if speaker == 'F01_kablab_20220930':
+         #   continue
         #print(f'speaker = {speaker}')
-
-        video_path_list = list(video_dir_spk.glob('*.mp4'))
+        video_path_list = list(video_dir.glob('*.mp4'))
+        #print("path=",video_path_list)
         for video_path in tqdm(video_path_list):
-            landmark_path = landmark_dir / video_path.parents[0].name / f'{video_path.stem}.csv'
+            #print(video_path)
+            landmark_path = landmark_dir / f'{video_path.stem}.csv'
+            #print(landmark_path)
 
             if (not video_path.exists()) or (not landmark_path.exists()):
                 continue
 
-            save_path = save_dir / video_path.parents[0].name / f'{video_path.stem}.mp4'
+            save_path = save_dir / f'{video_path.stem}.mp4'
             if save_path.exists():
                 continue
             save_path.parents[0].mkdir(parents=True, exist_ok=True)
@@ -277,8 +289,82 @@ def main():
                 crop_height=args.crop_height,
                 crop_width=args.crop_width
             )
+            print(sequence)
+            breakpoint()
             write_video_ffmpeg(sequence, save_path, str(ffmpeg_path))
         
+"""
+
+def main():
+    args = load_args()
+
+    # -- mean face utils
+    STD_SIZE = (256, 256)
+    mean_face_path = Path('~/dataset/lip/20words_mean_face.npy').expanduser()
+    mean_face_landmarks = np.load(str(mean_face_path))
+    stablePntsIDs = [33, 36, 39, 42, 45]
+    ffmpeg_path = '/usr/bin/ffmpeg'
+
+    #! データパスの指定 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    video_dir = Path('/home/user/2HEAVD/F1/video/fps25/front/alldata').expanduser()
+    landmark_dir = Path('/home/user/dataset/lip/landmark/F1').expanduser()
+    save_dir = Path('/home/user/dataset/lip/avhubert_preprocess_fps25').expanduser()
+    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    video_path_list = list(video_dir.glob('*.mp4'))  # ← 直下の動画のみ
+    #print(f"Found {len(video_path_list)} videos")
+
+    debug = False
+    if debug:
+        video_path_list = video_path_list[1:4]
+
+    for video_path in tqdm(video_path_list):
+        landmark_path = landmark_dir / f'{video_path.stem}.csv'
+        save_path = save_dir / f'{video_path.stem}.mp4'
+
+        if not video_path.exists():
+            print(f"Video not found: {video_path}")
+        if not landmark_path.exists():
+            print(f"Landmark not found: {landmark_path}")
+
+
+        if not video_path.exists() or not landmark_path.exists():
+            continue
+
+        #print(f"Checking if {save_path} exists")
+        if save_path.exists():
+            print("Already exists. Skipping.")
+            continue
+
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        landmarks = get_landmark(str(landmark_path))
+        preprocessed_landmarks = landmarks_interpolate(landmarks)
+
+        if not preprocessed_landmarks:
+            frame_gen = read_video(str(video_path))
+            frames = [cv2.resize(x, (args.crop_width, args.crop_height)) for x in frame_gen]
+            write_video_ffmpeg(frames, save_path, str(ffmpeg_path))
+            print("Landmark interpolation failed")
+            continue  # 忘れずに continue
+
+        sequence = crop_patch(
+            str(video_path),
+            preprocessed_landmarks,
+            mean_face_landmarks,
+            stablePntsIDs,
+            STD_SIZE,
+            window_margin=args.window_margin,
+            start_idx=args.start_idx,
+            stop_idx=args.stop_idx,
+            crop_height=args.crop_height,
+            crop_width=args.crop_width
+        )
+        #print(sequence.shape)
+        
+        write_video_ffmpeg(sequence, save_path, str(ffmpeg_path))
+        #print("Writing video to", save_path)
+
 
 if __name__ == '__main__':
     main()

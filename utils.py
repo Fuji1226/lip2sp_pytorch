@@ -147,8 +147,8 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
                 }
             )
 
-        print(data_path_list)
-        breakpoint()
+        #print(data_path_list)
+        #breakpoint()
     return data_path_list
 
 

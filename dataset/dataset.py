@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 import torchvision
 from torchvision import transforms as T
+from collections import defaultdict
 
 from dataset.utils import (
     get_spk_emb, 
@@ -113,7 +114,7 @@ class DatasetWithExternalDataRawRE(Dataset):
         if use_datasets is None:
             use_datasets = ["default"]
 
-        self.embs = {}
+        self.embs = defaultdict(lambda: np.zeros(256))#ダミーの0ベクトル辞書を返す
         if "default" in use_datasets:
             self.embs.update(get_spk_emb(cfg))
         if "tcd_timit" in use_datasets:
