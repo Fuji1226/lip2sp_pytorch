@@ -356,7 +356,7 @@ def val_one_epoch_gan(
     return epoch_loss_disc, epoch_loss_gen_stft, epoch_loss_gen_gan, epoch_loss_gen_all
 
 
-@hydra.main(version_base=None, config_name="config", config_path="../conf")
+@hydra.main(config_name="config", config_path="../conf")
 def main(cfg):
     cfg.model.input_lip_sec = 1.0
     set_config(cfg)
