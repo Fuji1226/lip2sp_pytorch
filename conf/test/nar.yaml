@@ -23,7 +23,7 @@ face_pre_loaded_path_0_50_gray : "~/dataset/lip/np_files/face_aligned_0_50_gray/
 face_pre_loaded_path_0_50 : "~/dataset/lip/np_files/face_aligned_0_50/test"
 face_cropped_max_size_test : "~/dataset/lip/np_files/face_cropped_max_size_0_50_gray/test"
 face_cropped_max_size_fps25_test : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/test"
-avhubert_preprocess_fps25_test : /home/user/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/test/F1/master'
+avhubert_preprocess_fps25_test : "/home/user/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/test/F1/master"
 
 test_df_path : '/home/user/2HEAVD/F1/test.csv'
 
