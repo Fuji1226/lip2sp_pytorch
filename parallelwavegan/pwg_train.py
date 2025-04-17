@@ -363,7 +363,7 @@ def main(cfg):
     fix_random_seed(cfg.train.random_seed)
 
     wandb_cfg = OmegaConf.to_container(
-        cfg, resolve=True, throw_on_missing=True,
+        cfg#, resolve=True, throw_on_missing=True,
     )
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

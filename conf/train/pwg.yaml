@@ -6,7 +6,7 @@ name : "pwg"
 random_seed : 42
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 50
@@ -40,9 +40,18 @@ save_path : "~/lip2sp_pytorch/result/pwg/train"
 ckpt_path : "~/lip2sp_pytorch/check_point/pwg"
 ckpt_step : 1
 
-# 口唇動画、音響特徴量ディレクトリまでのパス
-avhubert_preprocess_fps25_train : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/train"
-avhubert_preprocess_fps25_val : "~/dataset/lip/np_files/avhubert_preprocess_fps25_gray/val"
+#! 口唇動画、音響特徴量ディレクトリまでのパス
+avhubert_preprocess_fps25_train : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/train/mspec80"
+avhubert_preprocess_fps25_val : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/val/mspec80'"
+
+#!桂田先生データセット_要更新
+katsurada:
+  use: True
+  audio_dir: '/home/user/2HEAVD/F1/audio/alldata'
+  avhubert_preprocess_fps25_video_dir: '/home/user/dataset/lip/avhubert_preprocess_fps25'
+  df_path: '/home/user/2HEAVD/F1/data_split.csv'
+  video_data_path:
+  npz_path:
 
 # kablab
 kablab:
@@ -124,8 +133,8 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : []
-use_spk_emb : True
+speaker : [F1]
+use_spk_emb : False
 finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False

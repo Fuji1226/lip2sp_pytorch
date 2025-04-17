@@ -233,7 +233,7 @@ def get_datasets_test(data_root, cfg):
 
 
 def get_datasets_test_raw(cfg, video_dir, audio_dir):
-    df = pd.read_csv(str(Path(cfg.train.kablab.df_path).expanduser()))
+    df = pd.read_csv(str(Path(cfg.train.katsurada.df_path).expanduser()))
     df = df.loc[df['data_split'] == 'test']
     df = df.loc[df['speaker'].isin(cfg.test.speaker)]
     data_path_list = []
@@ -241,8 +241,8 @@ def get_datasets_test_raw(cfg, video_dir, audio_dir):
         row = df.iloc[i]
         data_path_list.append(
             {
-                'audio_path': audio_dir / row['speaker'] / f'{row["filename"]}.wav',
-                'video_path': video_dir / row['speaker'] / f'{row["filename"]}.mp4',
+                'audio_path': audio_dir / f'{row["filename"]}.wav',
+                'video_path': video_dir / f'{row["filename"]}_front.mp4',
                 'speaker': row['speaker'],
                 'filename': row['filename'],
             }
@@ -299,6 +299,7 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         val_external_data_path_list = val_external_data_path_list[:100]
 
     if cfg.train.tcd_timit.use or cfg.train.vctk.use or cfg.train.jvs.use or cfg.train.hifi_captain.use:
+        print("Use Dataset def")
         train_dataset = DatasetWithExternalDataRaw(
             data_path=train_external_data_path_list,
             transform=train_trans,
@@ -310,11 +311,13 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             cfg=cfg,
         )
     else:
+        print("Use DatasetRE")
         train_dataset = DatasetWithExternalDataRawRE(
             data_path=train_data_path_list,
             transform=train_trans,
             cfg=cfg,
         )
+        #print(train_data_path_list)
         val_dataset = DatasetWithExternalDataRawRE(
             data_path=val_data_path_list,
             transform=val_trans,
@@ -371,7 +374,7 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         test_data_path_list = test_data_path_list_debug
     
     test_trans = TransformWithExternalDataRaw(cfg, 'test')
-    test_dataset = DatasetWithExternalDataRaw(
+    test_dataset = DatasetWithExternalDataRawRE(
         data_path=test_data_path_list,
         transform=test_trans,
         cfg=cfg,
@@ -797,6 +800,7 @@ def select_checkpoint(cfg):
     '''
     checkpoint_path_last = Path(cfg.test.model_path).expanduser()
     checkpoint_dict_last = torch.load(str(checkpoint_path_last))
+    #print(f"使えるキー: {list(checkpoint_dict_last.keys())}")
     best_checkpoint = np.argmin(checkpoint_dict_last[cfg.test.metric_for_select]) + 1
     filename_prev = checkpoint_path_last.stem + checkpoint_path_last.suffix
     filename_new = str(best_checkpoint) + checkpoint_path_last.suffix
