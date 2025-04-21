@@ -51,6 +51,12 @@ def load_utt():
     df = df.values[-53:]
     return df
 
+def load_text_ITA():#!要検討！途中！！！
+    csv_path = Path("~/2HEAVD/F1/all_text.csv").expanduser()
+    df = pd.read_csv(str(csv_path))
+    df = df.values[-424:]
+    return df
+
 
 def calc_error_rate(utt, utt_pred):
     try:
@@ -62,7 +68,7 @@ def calc_error_rate(utt, utt_pred):
 
 def calc_accuracy_new(data_dir, save_path, cfg, filename):
     speaker = data_dir.stem
-    df = load_utt()
+    df = load_text_ITA()
     wb_pesq_evaluator = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
     stoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
     estoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=True)
@@ -97,8 +103,8 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         wav_abs = torch.from_numpy(wav_abs)
         wav_generate = torch.from_numpy(wav_generate)
 
-        for j in range(53):
-            utt_num = df[j][2]
+        for j in range(424):
+            utt_num = df[j][1]
             if utt_num in gt_data_path.parents[0].name:
                 utt = df[j][3]
                 utt = utt.replace("。", "").replace("、", "")

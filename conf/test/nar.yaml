@@ -1,7 +1,7 @@
 # @package _group_
 
 # debug
-debug : True
+debug : False
 debug_data_len : 1
 
 # face or lip
