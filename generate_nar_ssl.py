@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 
 from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean
-from data_check import save_data_pwg
+from data_check import save_data_pwg, save_data
 from parallelwavegan.pwg_train import make_model as make_pwg
 from train_nar_ssl import make_model
 from utils import (
@@ -68,20 +68,20 @@ def generate(
             int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
         )
 
-        # _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
-        # _save_path.mkdir(parents=True, exist_ok=True)
-        # save_data(
-        #     cfg=cfg,
-        #     save_path=_save_path,
-        #     wav=wav,
-        #     lip=lip,
-        #     feature=feature,
-        #     output=output,
-        #     lip_mean=lip_mean,
-        #     lip_std=lip_std,
-        #     feat_mean=feat_mean,
-        #     feat_std=feat_std,
-        # )
+        _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
+        _save_path.mkdir(parents=True, exist_ok=True)
+        save_data(
+             cfg=cfg,
+             save_path=_save_path,
+             wav=wav,
+             lip=lip,
+             feature=feature,
+             output=output,
+             lip_mean=lip_mean,
+             lip_std=lip_std,
+             feat_mean=feat_mean,
+             feat_std=feat_std,
+         )
         
         with torch.no_grad():
             noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)

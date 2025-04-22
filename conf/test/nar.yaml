@@ -8,7 +8,7 @@ debug_data_len : 1
 face_or_lip : "avhubert_preprocess_fps25_gray"
 
 # 合成するモデルのパス
-model_path : "/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:04:15_12-48-33/15.ckpt"
+model_path : "/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:04:22_14-08-30/10.ckpt"
 
 # モデルパスを検証データの結果から選択するための指標
 #?使えるキー: ['model', 'optimizer', 'scheduler', 'scaler', 'random', 'np_random',
@@ -34,4 +34,4 @@ test_df_path : '/home/user/2HEAVD/F1/test.csv'
 speaker : [F1] #["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
 # parallelwavegan
-pwg_path : "/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/master/2025:04:17_16-55-33/15.ckpt"
+pwg_path : "/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/master/2025:04:21_16-22-58/20.ckpt"

@@ -182,8 +182,8 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 8
-num_workers : 16
+batch_size : 2
+num_workers : 8
 iters_to_accumulate : 16
 
 # dropout
