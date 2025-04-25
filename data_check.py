@@ -437,11 +437,6 @@ def plot_f0(cfg, save_path, f0_input, f0_AbS, f0_gen):
     基本周波数のプロット
     """
     time = np.arange(0, f0_input.shape[0]) / 100
-
-    plt.close("all")
-    plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
-
-    plt.plot(time, f0_input, label="input")
     plt.plot(time, f0_AbS, label="Analysis by Synthesis")
     plt.plot(time, f0_gen, label="Synthesis")
     plt.legend(bbox_to_anchor=(1, 0), loc='lower right', borderaxespad=0.2)
@@ -699,10 +694,13 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
     write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=wav_gen)
 
     # プロット
-    # plot_wav(cfg, save_path, wav, wav_AbS, wav_gen)
-    plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
+    if cfg.test.waveform :
+        plot_wav(cfg, save_path, wav, wav_AbS, wav_gen)
+    if cfg.test.melspectrogram :
+        plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
     # plot_spec(cfg, save_path, wav, wav_AbS, wav_gen)
-    # plot_f0_from_wav(cfg, save_path, wav, wav_AbS, wav_gen)
+    if cfg.test.f0_form :
+        plot_f0_from_wav(cfg, save_path, wav, wav_AbS, wav_gen)
 
     
 def save_data_lipreading(cfg, save_path, target, output, classes_index):

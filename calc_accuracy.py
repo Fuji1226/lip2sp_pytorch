@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from subprocess import run
+import matplotlib.pyplot as plt
 
 import librosa
 import MeCab
@@ -425,7 +426,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                     wav_in = wav_in.astype(np.float64)
 
                     # rmse f0 & vuv accuracy by world
-                    f0_gen, timeaxis_gen = pyworld.harvest(wav_gen, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)#!f0_genが生成されたピッチの推定値のはず！　これをプロットしたい！
+                    f0_gen, timeaxis_gen = pyworld.harvest(wav_gen, fs, frame_period=5.0, f0_floor=71.0, f0_ceil=800.0)
                     ap_gen = pyworld.d4c(wav_gen, f0_gen, timeaxis_gen, fs, threshold=0.85)
                     vuv_flag_gen = (ap_gen[:, 0] < 0.5) * (f0_gen > 1.0)
                     vuv_gen = vuv_flag_gen.astype('int')

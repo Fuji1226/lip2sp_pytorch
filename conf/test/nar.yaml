@@ -35,3 +35,9 @@ speaker : [F1] #["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
 # parallelwavegan
 pwg_path : "/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/master/2025:04:21_16-22-58/20.ckpt"
+
+#保存する図
+waveform : False #合成音声の音声波形
+f0_form : True #ピッチ遷移
+melspectrogram : True #メルスペクトログラム
+
