@@ -4,4 +4,4 @@ defaults:
   - model: master
   - train: nar
   - test : nar
-  - wandb_conf : default
+  - wandb_conf : debug

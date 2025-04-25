@@ -6,7 +6,7 @@ name : "nar"
 random_seed : 42
 
 # デバッグ
-debug : False
+debug : True
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 50
@@ -47,8 +47,6 @@ katsurada:
   audio_dir: '/home/user/2HEAVD/F1/audio/alldata'
   avhubert_preprocess_fps25_video_dir: '/home/user/dataset/lip/avhubert_preprocess_fps25'
   df_path: '/home/user/2HEAVD/F1/data_split.csv'
-  video_data_path:
-  npz_path:
 
 
 # kablab
@@ -182,7 +180,7 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 2
+batch_size : 16
 num_workers : 8
 iters_to_accumulate : 16
 

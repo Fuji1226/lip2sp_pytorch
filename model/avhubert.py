@@ -1072,7 +1072,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
             x = self.final_layer_norm(x)
 
         return x, attn
-    
+
 
 class SamePad(nn.Module):
     def __init__(self, kernel_size, causal=False):
@@ -1247,7 +1247,7 @@ class TransformerEncoder(nn.Module):
         x = x.transpose(0, 1)
         if self.args.use_soft_prompt:
             x = x[:, :-self.args.n_prompt_tokens, :]
-        
+
         return x, layer_results
 
     def max_positions(self):
@@ -1257,7 +1257,7 @@ class TransformerEncoder(nn.Module):
     def upgrade_state_dict_named(self, state_dict, name):
         """Upgrade a (possibly old) state dict for new versions of fairseq."""
         return state_dict
-    
+
 
 class SubModel(nn.Module):
     def __init__(self, resnet=None, input_dim=None, cfg=None):
@@ -1283,29 +1283,33 @@ class MyAVHubertModel(nn.Module):
         cfg,
     ):
         super().__init__()
+        #データ入力ネットワーク↓
         sub_cfg = deepcopy(cfg)
         sub_cfg.encoder_layers = sub_cfg.sub_encoder_layers
         resnet = ResEncoder(relu_type=cfg.resnet_relu_type, weights=cfg.resnet_weights, cfg=cfg)
         self.feature_extractor_audio = SubModel(resnet=None, input_dim=cfg.audio_feat_dim, cfg=sub_cfg)
         self.feature_extractor_video = SubModel(resnet=resnet, input_dim=resnet.backend_out, cfg=sub_cfg)
+        #音声と映像の特徴量の扱い方↓
         self.modality_fuse = cfg.modality_fuse
         self.encoder_embed_dim = cfg.encoder_embed_dim
-        if self.modality_fuse == 'concat':
+        if self.modality_fuse == 'concat':#次元的に増やす、特徴量を並列に並べる
             self.embed = cfg.encoder_embed_dim * 2
-        elif self.modality_fuse == 'add':
+        elif self.modality_fuse == 'add':#単純に加算する。次元数は変わらない。
             self.embed = cfg.encoder_embed_dim
+        #特徴量の次元数調整(線形層で調整)↓
         self.post_extract_proj = (
             nn.Linear(self.embed, cfg.encoder_embed_dim)
             if self.embed != cfg.encoder_embed_dim
             else None
         )
+
         self.dropout_input = nn.Dropout(cfg.dropout_input)
         self.dropout_features = nn.Dropout(cfg.dropout_features)
-        self.encoder = TransformerEncoder(cfg)
+        self.encoder = TransformerEncoder(cfg)#時系列エンコーディング
         self.layer_norm = LayerNorm(self.embed)
 
     def forward_padding_mask(
-        self, 
+        self,
         features: torch.Tensor,
         padding_mask: torch.Tensor,
     ) -> torch.Tensor:
@@ -1316,6 +1320,7 @@ class MyAVHubertModel(nn.Module):
         # extra = padding_mask.size(1) % features.size(1)
         # if extra > 0:
         #     padding_mask = padding_mask[:, :-extra]
+        #3Dマスクを2Dマスクに圧縮しているような操作
         padding_mask = padding_mask.view(
             padding_mask.size(0), features.size(1), -1
         )
@@ -1335,33 +1340,48 @@ class MyAVHubertModel(nn.Module):
         audio : (B, C, T)
         padding_mask (padding elements are indicated by 1.) : (B, T)
         '''
+
+        #↓特徴抽出
         if video is not None and audio is None:
+            #print("読み込みデータ/video") #?デフォルト学習時video
             features_video = self.feature_extractor_video(video)
             features_audio = features_video.new_zeros(features_video.size(0), self.encoder_embed_dim, features_video.size(-1))
         elif video is None and audio is not None:
+            #print("読み込みデータ/audio")
             features_audio = self.feature_extractor_audio(audio)
             features_video = features_audio.new_zeros(features_audio.size(0), self.encoder_embed_dim, features_audio.size(-1))
         elif video is not None and audio is not None:
+            #print("読み込みデータ/video,audio")
             features_video = self.feature_extractor_video(video)
             features_audio = self.feature_extractor_audio(audio)
 
+        #↓特徴量の結合
         if self.modality_fuse == 'concat':
+            #print(f"{self.modality_fuse=}") #?デフォルト学習時concat
             features = torch.cat([features_audio, features_video], dim=1)
         elif self.modality_fuse == 'add':
+            #print(f"{self.modality_fuse=}")
             features = features_audio + features_video
 
+        #↓特徴量の並べ替えと正規化？(表現が正しいかわからん)
         features = features.transpose(1, 2)     # (B, T, C)
         features = self.layer_norm(features)
 
+        #↓学習に使うマスク
         if padding_mask is not None:
+            #print("padding_mask: 使うよー") #?デフォルト学習時使う
             padding_mask = self.forward_padding_mask(features, padding_mask)
 
+        #↓特徴量の次元調整
         if self.post_extract_proj is not None:
+            #print("post_extract_proj: 使うよー") #?デフォルト学習時使う
             features = self.post_extract_proj(features)
 
         if return_res_output:
+            #print("output= resnet")
             return features
         else:
+            #print("output= else") #?デフォルト学習時else
             features = self.dropout_input(features)
             features, _ = self.encoder(
                 features,
