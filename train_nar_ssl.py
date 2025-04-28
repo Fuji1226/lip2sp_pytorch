@@ -304,6 +304,10 @@ def main(cfg):
         settings=wandb.Settings(start_method="fork"),
     ) as run:
         model = make_model(cfg, device)
+        print(f"{cfg.model.master.avhubert_config.model_size=}")
+        print("-----------------------以下モデル構造--------------------------")
+        print(model)
+        print("----------------------------以上-------------------------------")
 
         if cfg.train.which_optim == "adam":
             optimizer = torch.optim.Adam(
