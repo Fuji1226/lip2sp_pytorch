@@ -19,12 +19,12 @@ from conformer.encoder import ConformerEncoder
 class Lip2SP_NAR(nn.Module):
     def __init__(
         self, in_channels, out_channels, res_inner_channels, which_res,
-        rnn_n_layers, rnn_which_norm, trans_n_layers, trans_n_head, trans_pos_max_len,
-        conf_n_layers, conf_n_head, conf_feedforward_expansion_factor,
+        rnn_n_layers, rnn_which_norm, trans_enc_n_layers, trans_enc_n_head, trans_pos_max_len,
+        conf_n_layers, conf_n_head, audio_dec_conf_feedforward_expansion_factor,
         dec_n_layers, dec_kernel_size,
         n_speaker, spk_emb_dim,
         which_encoder, which_decoder, where_spk_emb, use_spk_emb,
-        dec_dropout, res_dropout, rnn_dropout, is_large, adversarial_learning, reduction_factor):
+        dec_dropout, res_dropout, audio_enc_rnn_dropout, is_large, adversarial_learning, reduction_factor):
         super().__init__()
         self.where_spk_emb = where_spk_emb
         self.adversarial_learning = adversarial_learning
@@ -61,8 +61,8 @@ class Lip2SP_NAR(nn.Module):
 
         if which_encoder == "transformer":
             self.encoder = Encoder(
-                n_layers=trans_n_layers, 
-                n_head=trans_n_head, 
+                n_layers=trans_enc_n_layers, 
+                n_head=trans_enc_n_head, 
                 d_model=inner_channels, 
                 reduction_factor=reduction_factor,  
                 pos_max_len=trans_pos_max_len,
@@ -71,7 +71,7 @@ class Lip2SP_NAR(nn.Module):
             self.encoder = GRUEncoder(
                 hidden_channels=inner_channels,
                 n_layers=rnn_n_layers,
-                dropout=rnn_dropout,
+                dropout=audio_enc_rnn_dropout,
                 reduction_factor=reduction_factor,
                 which_norm=rnn_which_norm,
             )
@@ -80,7 +80,7 @@ class Lip2SP_NAR(nn.Module):
                 encoder_dim=inner_channels,
                 num_layers=conf_n_layers,
                 num_attention_heads=conf_n_head,
-                feed_forward_expansion_factor=conf_feedforward_expansion_factor,
+                feed_forward_expansion_factor=audio_dec_conf_feedforward_expansion_factor,
             )
 
         if use_spk_emb:

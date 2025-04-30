@@ -43,6 +43,9 @@ comp_mode : 'default'
 # 学習に使用する口唇動画の秒数
 input_lip_sec : 10
 
+#話者数
+n_speaker : 1
+
 # 動画
 mov_preprocess_method : "bbox_crop"
 align_desired_left_eye : 0.35
@@ -61,6 +64,8 @@ sharp : False
 # mulaw量子化の学習中においてパディングを無視するためのインデックス
 mulaw_ignore_idx : -1
 
+adversarial_learning : False
+
 #################################
 # model_info
 #################################
@@ -71,6 +76,7 @@ use_lip_and_face : False
 # ResNet3D parameter
 res_inner_channels : 32
 which_res : "avhubert"
+res_dropout : 0.1
 
 # landmark encoder
 use_landmark : False
@@ -83,6 +89,8 @@ astt_gcn_n_head : 2
 lm_enc_n_nodes : 68
 
 # speaker embedding
+use_spk_emb : False
+where_spk_emb : "after_res"
 spk_emb_dim : 256
 
 # f0
@@ -103,6 +111,7 @@ trans_enc_n_layers : 4    # 1, 2 or 4
 trans_enc_n_head : 4    # 2 or 4
 trans_dec_n_layers : 4
 trans_dec_n_head : 4
+trans_pos_max_len : 10
 
 # conformer
 conf_n_layers : 6
@@ -129,6 +138,10 @@ which_encoder : "gru"
 
 # 使用するdecoder
 which_decoder : "restc"
+
+dec_n_layers : 4
+dec_kernel_size : 5
+dec_dropout : 0.1
 
 # audio encoder
 ae_emb_dim : 16
