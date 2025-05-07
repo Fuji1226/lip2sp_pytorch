@@ -29,7 +29,7 @@ class Lip2SP_NAR(nn.Module):
         self.where_spk_emb = where_spk_emb
         self.adversarial_learning = adversarial_learning
         inner_channels = int(res_inner_channels * 8)
-
+        #?resnet選択
         if which_res == "default":
             self.ResNet_GAP = ResNet3D(
                 in_channels=in_channels, 
@@ -59,6 +59,7 @@ class Lip2SP_NAR(nn.Module):
                 dropout=res_dropout,
             )
 
+        #?encoder選択
         if which_encoder == "transformer":
             self.encoder = Encoder(
                 n_layers=trans_enc_n_layers, 
@@ -83,6 +84,7 @@ class Lip2SP_NAR(nn.Module):
                 feed_forward_expansion_factor=audio_dec_conf_feedforward_expansion_factor,
             )
 
+        #?話者特徴量
         if use_spk_emb:
             self.gr_layer = GradientReversal(1.0)
             self.classfier = SpeakerClassifier(
@@ -92,6 +94,7 @@ class Lip2SP_NAR(nn.Module):
             )
             self.spk_emb_layer = nn.Conv1d(inner_channels + spk_emb_dim, inner_channels, kernel_size=1)
 
+        #?decoder選択
         if which_decoder == 'restc':
             self.decoder = ResTCDecoder(
                 cond_channels=inner_channels,

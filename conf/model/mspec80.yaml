@@ -11,13 +11,18 @@ fps : 25
 
 # audio parameter
 sampling_rate : 16000
-n_fft : 640
+n_fft : 512
 hop_length : 160
-win_length : 640
+hop_length_sec : 0.01
+win_length : 400
+win_length_sec : 0.025
 f_min : 0
 f_max : 8000
 n_mel_channels : 80
 mcep_order : 25
+avhubert_nfilt: 26
+avhubert_preemph: 0.97
+feature_normalize: 'all_stat'
 
 # input grayscale（グレースケールかRGBか）
 gray : True
@@ -75,7 +80,7 @@ use_lip_and_face : False
 
 # ResNet3D parameter
 res_inner_channels : 32
-which_res : "avhubert"
+which_res : "resnet18"
 res_dropout : 0.1
 
 # landmark encoder

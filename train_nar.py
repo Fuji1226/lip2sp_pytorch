@@ -139,7 +139,7 @@ def train_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        feature_avhubert = feature_avhubert.to(device)
+        #feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         #spk_emb = spk_emb.to(device)
@@ -228,7 +228,7 @@ def val_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        feature_avhubert = feature_avhubert.to(device)
+        #feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         #spk_emb = spk_emb.to(device)
