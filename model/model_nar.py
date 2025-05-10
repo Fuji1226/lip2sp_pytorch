@@ -154,6 +154,8 @@ class Lip2SP_NAR(nn.Module):
             else:
                 classifier_out = None
 
+        #classifier_out = None
+        #fmaps = None
         output = self.decoder(enc_output)
 
-        return output, classifier_out, fmaps
+        return output#, classifier_out, fmaps

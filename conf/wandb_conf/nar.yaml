@@ -1,10 +1,10 @@
 # @package _group_
 
 setup:
-    project: lip2sp_nar
+    project: lip2sp_nar_gru
     entity:
     mode: online
-    name : nar
+    name : 
 watch:
     log: all
     log_freq: 100

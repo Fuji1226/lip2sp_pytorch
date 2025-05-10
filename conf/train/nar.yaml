@@ -6,7 +6,7 @@ name : "nar"
 random_seed : 42
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 50
@@ -144,7 +144,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # max_epoch
-max_epoch : 20
+max_epoch : 300
 
 # テキスト処理
 for_tts : False
@@ -180,7 +180,7 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 8
+batch_size : 32
 num_workers : 8
 iters_to_accumulate : 16
 
