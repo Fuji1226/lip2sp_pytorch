@@ -4,6 +4,7 @@ from pathlib import Path
 import hydra
 import torch
 from tqdm import tqdm
+import qppwg
 
 from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean
 from data_check import save_data_pwg, save_data
@@ -97,7 +98,7 @@ def generate(
             output=wav_pred,
             ana_syn=wav_abs,
         )
-
+#pwgの代わり？に学習済みqppwgを使いたい　必要なのはメルスペクトログラムとworld特徴量だからできるはず、多分
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):

@@ -78,7 +78,7 @@ def get_save_and_ckpt_path(
     save_path.mkdir(parents=True, exist_ok=True)
     return ckpt_path, save_path, ckpt_time
 
-
+#!parralel wave gan を学習する時に変更する必要。。。下調べ中
 def get_path_train_raw(cfg, current_time):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
         video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir

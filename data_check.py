@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
+import subprocess
 import librosa
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -191,6 +192,56 @@ def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
         # 正規化
         wav /= np.max(np.abs(wav))
 
+#!qppwgでwav合成！ 作成するプログラム！！
+def calc_wav_qppwg(cfg, save_path, file_name, feature, feat_mean, feat_std):
+    """
+    音響特徴量から音声波形を生成し、wavファイルを保存
+    sharpを使用するとちょっと合成音声が綺麗になります
+    feature : (C, T)
+    feat_mean, feat_std : (C,)
+    """
+    # world特徴量
+    if cfg.model.feature_type == "world":
+        feature = feature.to('cpu').numpy()
+        feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
+        feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
+        
+        # 標準化したので元のスケールに直す
+        feature *= feat_std
+        feature += feat_mean
+
+        feature = feature.T
+        mcep = feature[:, :26]
+        clf0 = feature[:, 26]
+        vuv = feature[:, 27]
+        cap = feature[:, 28:]
+
+        wav = world2wav(
+            sp=mcep,
+            clf0=clf0,
+            vuv=vuv,
+            cap=cap,
+            fs=cfg.model.sampling_rate,
+            fbin=513,
+            frame_period=cfg.model.frame_period,
+            mcep_postfilter=True,
+            cfg=cfg,
+        )
+        # 正規化
+        wav /= np.max(np.abs(wav))
+
+        #!サブプロセスを使ってデコードをする
+        cmd = [
+        "qppwg-decode",
+        "--eval_feat", "data/scp/sample.list", #?合成データのリスト→リストを引っ張ってくる必要
+        "--stats", "data/stats/vcc18_train_22kHz.joblib",#?事前学習パラメータ→vcc20のものに変更する必要
+        "--indir", "data/hdf5/",#?特徴量ディレクトリ→world特徴量、メルスペクトログラムをh5ファイルにしなきゃ
+        "--outdir", "hdf5",#?出力ディレクトリ→いい感じに設定する必要あり
+        "--checkpoint", ""#?pwgのチェックポイント、書かなくても良くない？っておもてる
+            ]
+
+        subprocess.run(cmd, check=True)
+
     # メルスペクトログラム
     if cfg.model.feature_type == "mspec":
         feature = feature.to('cpu').numpy()
@@ -208,6 +259,29 @@ def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
 
     return wav
 
+"""
+#!python化するならこれでも行けそうってやつ、こっちのほうが何かと便利な気がしている。
+import sys
+from qppwg.bin.preprocess import main
+
+def run_qppwg_preprocess(audio_scp, indir, outdir, config_yml):
+    sys.argv = [
+        "qppwg-preprocess",
+        "--audio", audio_scp,
+        "--indir", indir,
+        "--outdir", outdir,
+        "--config", config_yml
+    ]
+    main()
+
+# 呼び出し例
+run_qppwg_preprocess(
+    audio_scp="data/scp/sample.scp",
+    indir="wav",
+    outdir="hdf5",
+    config_yml="exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/config.yml"
+)
+"""
 
 def plot_wav(cfg, save_path, wav_input, wav_AbS, wav_gen):
     """

@@ -277,6 +277,7 @@ def main(cfg):
         #throw_on_missing=True, #?throw_on_missingがないぜって言われてる。バージョンも互換性も確認済みーーーコメントアウトによりスルー
     )
 
+    #print(OmegaConf.to_yaml(cfg.model))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device = {device}")
     print(f"cpu_num = {os.cpu_count()}")
@@ -304,7 +305,8 @@ def main(cfg):
         settings=wandb.Settings(start_method="fork"),
     ) as run:
         model = make_model(cfg, device)
-        print(f"{cfg.model.master.avhubert_config.model_size=}")
+        #print(f"{cfg.model.master.avhubert_config.model_size=}")
+        #breakpoint()
         print("-----------------------以下モデル構造--------------------------")
         print(model)
         print("----------------------------以上-------------------------------")

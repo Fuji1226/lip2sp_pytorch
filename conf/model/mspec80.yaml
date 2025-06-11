@@ -139,7 +139,7 @@ taco_dec_conv_kernel_size : 31
 taco_use_attention : True
 
 # 使用するencoder
-which_encoder : "gru"
+which_encoder : "transformer"
 
 # 使用するdecoder
 which_decoder : "restc"
