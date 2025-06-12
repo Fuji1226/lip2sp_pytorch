@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.append(str(Path("~/lip2sp_pytorch").expanduser()))
 
-import subprocess
+from qppwg.bin.decode import decode_qppwg
 import librosa
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -193,7 +193,7 @@ def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
         wav /= np.max(np.abs(wav))
 
 #!qppwgでwav合成！ 作成するプログラム！！
-def calc_wav_qppwg(cfg, save_path, file_name, feature, feat_mean, feat_std):
+def calc_wav_qppwg(cfg, save_path, file_name, feature, feat_mean, feat_std, eval_feat, indir, outdir):
     """
     音響特徴量から音声波形を生成し、wavファイルを保存
     sharpを使用するとちょっと合成音声が綺麗になります
@@ -201,87 +201,50 @@ def calc_wav_qppwg(cfg, save_path, file_name, feature, feat_mean, feat_std):
     feat_mean, feat_std : (C,)
     """
     # world特徴量
-    if cfg.model.feature_type == "world":
-        feature = feature.to('cpu').numpy()
-        feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
-        feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
+    if cfg.model.feature_type == "world_mspec":
+        w_feature = feature.to('cpu').numpy()
+        w_feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
+        w_feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
         
         # 標準化したので元のスケールに直す
-        feature *= feat_std
-        feature += feat_mean
+        w_feature *= w_feat_std
+        w_feature += w_feat_mean
 
-        feature = feature.T
-        mcep = feature[:, :26]
-        clf0 = feature[:, 26]
-        vuv = feature[:, 27]
-        cap = feature[:, 28:]
+        w_feature = w_feature.T
+        mcep = w_feature[:, :26]
+        clf0 = w_feature[:, 26]
+        vuv = w_feature[:, 27]
+        cap = w_feature[:, 28:]
 
-        wav = world2wav(
-            sp=mcep,
-            clf0=clf0,
-            vuv=vuv,
-            cap=cap,
-            fs=cfg.model.sampling_rate,
-            fbin=513,
-            frame_period=cfg.model.frame_period,
-            mcep_postfilter=True,
-            cfg=cfg,
-        )
-        # 正規化
-        wav /= np.max(np.abs(wav))
-
-        #!サブプロセスを使ってデコードをする
-        cmd = [
-        "qppwg-decode",
-        "--eval_feat", "data/scp/sample.list", #?合成データのリスト→リストを引っ張ってくる必要
-        "--stats", "data/stats/vcc18_train_22kHz.joblib",#?事前学習パラメータ→vcc20のものに変更する必要
-        "--indir", "data/hdf5/",#?特徴量ディレクトリ→world特徴量、メルスペクトログラムをh5ファイルにしなきゃ
-        "--outdir", "hdf5",#?出力ディレクトリ→いい感じに設定する必要あり
-        "--checkpoint", ""#?pwgのチェックポイント、書かなくても良くない？っておもてる
-            ]
-
-        subprocess.run(cmd, check=True)
-
-    # メルスペクトログラム
-    if cfg.model.feature_type == "mspec":
-        feature = feature.to('cpu').numpy()
-        feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
-        feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
+        # メルスペクトログラム
+        m_feature = feature.to('cpu').numpy()
+        m_feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
+        m_feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
 
         # 標準化したので元のスケールに直す
-        feature *= feat_std
-        feature += feat_mean
+        m_feature *= m_feat_std
+        m_feature += m_feat_mean
 
-        wav = mel2wav(feature, cfg)
+        #!ここで特徴量のh5ファイルを作成
+
+        #!qppwgでメルスペクトログラムを音声化
+        wav=decode_qppwg(
+            eval_feat=eval_feat, #"data/eval_feat.scp",#合成データのリスト、リストを作成する必要
+            stats="home/user/vcc18/data/stats/vcc18_train_22kHz.joblib",#事前学習パラメータ
+            indir=indir, #"dump/eval/",#合成データの特徴量フォルダ h5ファイルに収めたもののフォルダを提示
+            outdir=outdir, #"exp/generated/",#出力ディレクトリ
+            checkpoint="home/user/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/checkpoint-400000steps.pkl",
+            config= "~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/config.yml",
+            verbose=1,
+            seed=42,
+            f0_factor=1.0,
+            )
 
         # 正規化
         wav /= np.max(np.abs(wav))
 
     return wav
 
-"""
-#!python化するならこれでも行けそうってやつ、こっちのほうが何かと便利な気がしている。
-import sys
-from qppwg.bin.preprocess import main
-
-def run_qppwg_preprocess(audio_scp, indir, outdir, config_yml):
-    sys.argv = [
-        "qppwg-preprocess",
-        "--audio", audio_scp,
-        "--indir", indir,
-        "--outdir", outdir,
-        "--config", config_yml
-    ]
-    main()
-
-# 呼び出し例
-run_qppwg_preprocess(
-    audio_scp="data/scp/sample.scp",
-    indir="wav",
-    outdir="hdf5",
-    config_yml="exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/config.yml"
-)
-"""
 
 def plot_wav(cfg, save_path, wav_input, wav_AbS, wav_gen):
     """
@@ -739,22 +702,28 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
     #     lip_std=lip_std
     # )
 
-    wav_AbS = calc_wav(
+    wav_AbS = calc_wav_qppwg(
         cfg=cfg,
         save_path=save_path,
         file_name="AbS",
         feature=feature,
         feat_mean=feat_mean,
         feat_std=feat_std,
+        eval_feat="~/vcc18/data/scp/sample.list ",#!デバッグのための引数、実際はテストデータを参照するように変形
+        indir="~/vcc18/data/hdf5/",
+        outdir="~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/wav/400000",
     )
 
-    wav_gen = calc_wav(
+    wav_gen = calc_wav_qppwg(
         cfg=cfg,
         save_path=save_path,
         file_name="generate",
         feature=output,
         feat_mean=feat_mean,
         feat_std=feat_std,
+        eval_feat="~/vcc18/data/scp/sample.list ",#!同上
+        indir="~/vcc18/data/hdf5/",
+        outdir="~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/wav/400000",
     )
 
     # サンプル数を合わせるための微調整
@@ -882,7 +851,7 @@ def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std):
 
     wav = wav.to('cpu').numpy()
 
-    wav_AbS = calc_wav(
+    wav_AbS = calc_wav_qppwg(
         cfg=cfg,
         save_path=save_path,
         file_name="AbS",
@@ -891,7 +860,7 @@ def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std):
         feat_std=feat_std,
     )
 
-    wav_gen = calc_wav(
+    wav_gen = calc_wav_qppwg(
         cfg=cfg,
         save_path=save_path,
         file_name="generate",
