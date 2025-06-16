@@ -230,10 +230,10 @@ def calc_wav_qppwg(cfg, save_path, file_name, feature, feat_mean, feat_std, eval
         #!qppwgでメルスペクトログラムを音声化
         wav=decode_qppwg(
             eval_feat=eval_feat, #"data/eval_feat.scp",#合成データのリスト、リストを作成する必要
-            stats="home/user/vcc18/data/stats/vcc18_train_22kHz.joblib",#事前学習パラメータ
+            stats="/home/user/vcc18/data/stats/vcc18_train_22kHz.joblib",#事前学習パラメータ
             indir=indir, #"dump/eval/",#合成データの特徴量フォルダ h5ファイルに収めたもののフォルダを提示
             outdir=outdir, #"exp/generated/",#出力ディレクトリ
-            checkpoint="home/user/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/checkpoint-400000steps.pkl",
+            checkpoint="/home/user/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/checkpoint-400000steps.pkl",
             config= "~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/config.yml",
             verbose=1,
             seed=42,
@@ -709,9 +709,9 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
         feature=feature,
         feat_mean=feat_mean,
         feat_std=feat_std,
-        eval_feat="~/vcc18/data/scp/sample.list ",#!デバッグのための引数、実際はテストデータを参照するように変形
-        indir="~/vcc18/data/hdf5/",
-        outdir="~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/wav/400000",
+        eval_feat="/home/user/vcc18/data/scp/sample.list",#!デバッグのための引数、実際はテストデータを参照するように変形
+        indir="/home/user/vcc18/data/hdf5/",
+        outdir="/home/user/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/wav/400000",
     )
 
     wav_gen = calc_wav_qppwg(
@@ -721,7 +721,7 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
         feature=output,
         feat_mean=feat_mean,
         feat_std=feat_std,
-        eval_feat="~/vcc18/data/scp/sample.list ",#!同上
+        eval_feat="~/vcc18/data/scp/sample.list",#!同上
         indir="~/vcc18/data/hdf5/",
         outdir="~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/wav/400000",
     )
