@@ -180,16 +180,25 @@ def data_split_vctk():
 
 def main():
     save_dir = Path('~/dataset/lip/data_split_csv').expanduser()
+    #?kablab使用の場合
     # df = data_split_kablab()
     # df.to_csv(str(save_dir / 'kablab.csv'), index=False)
+
+    #?hifi-captain使用の場合
     # df = data_split_hifi_captain()
     # df.to_csv(str(save_dir / 'hifi_captain.csv'), index=False)
+
+    #?jsut使用の場合
     # df = data_split_jsut()
     # df.to_csv(str(save_dir / 'jsut.csv'), index=False)
+
+    #?jvs使用の場合
     # df = data_split_jvs()
-    # df.to_csv(str(save_dir / 'jvs.csv'), index=False)\
-    df = data_split_vctk()
-    df.to_csv(str(save_dir / 'vctk.csv'), index=False)
+    # df.to_csv(str(save_dir / 'jvs.csv'), index=False)
+
+    #?vctk使用の場合
+    # df = data_split_vctk()
+    # df.to_csv(str(save_dir / 'vctk.csv'), index=False)
 
 
 if __name__ == '__main__':

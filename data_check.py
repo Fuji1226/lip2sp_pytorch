@@ -192,59 +192,6 @@ def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
         # 正規化
         wav /= np.max(np.abs(wav))
 
-#!qppwgでwav合成！ 作成するプログラム！！
-def calc_wav_qppwg(cfg, save_path, file_name, feature, feat_mean, feat_std, eval_feat, indir, outdir):
-    """
-    音響特徴量から音声波形を生成し、wavファイルを保存
-    sharpを使用するとちょっと合成音声が綺麗になります
-    feature : (C, T)
-    feat_mean, feat_std : (C,)
-    """
-    # world特徴量
-    if cfg.model.feature_type == "world_mspec":
-        w_feature = feature.to('cpu').numpy()
-        w_feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
-        w_feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
-        
-        # 標準化したので元のスケールに直す
-        w_feature *= w_feat_std
-        w_feature += w_feat_mean
-
-        w_feature = w_feature.T
-        mcep = w_feature[:, :26]
-        clf0 = w_feature[:, 26]
-        vuv = w_feature[:, 27]
-        cap = w_feature[:, 28:]
-
-        # メルスペクトログラム
-        m_feature = feature.to('cpu').numpy()
-        m_feat_mean = feat_mean.unsqueeze(1).to('cpu').numpy()
-        m_feat_std = feat_std.unsqueeze(1).to('cpu').numpy()
-
-        # 標準化したので元のスケールに直す
-        m_feature *= m_feat_std
-        m_feature += m_feat_mean
-
-        #!ここで特徴量のh5ファイルを作成
-
-        #!qppwgでメルスペクトログラムを音声化
-        wav=decode_qppwg(
-            eval_feat=eval_feat, #"data/eval_feat.scp",#合成データのリスト、リストを作成する必要
-            stats="/home/user/vcc18/data/stats/vcc18_train_22kHz.joblib",#事前学習パラメータ
-            indir=indir, #"dump/eval/",#合成データの特徴量フォルダ h5ファイルに収めたもののフォルダを提示
-            outdir=outdir, #"exp/generated/",#出力ディレクトリ
-            checkpoint="/home/user/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/checkpoint-400000steps.pkl",
-            config= "~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/config.yml",
-            verbose=1,
-            seed=42,
-            f0_factor=1.0,
-            )
-
-        # 正規化
-        wav /= np.max(np.abs(wav))
-
-    return wav
-
 
 def plot_wav(cfg, save_path, wav_input, wav_AbS, wav_gen):
     """
@@ -702,28 +649,22 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
     #     lip_std=lip_std
     # )
 
-    wav_AbS = calc_wav_qppwg(
+    wav_AbS = calc_wav(
         cfg=cfg,
         save_path=save_path,
         file_name="AbS",
         feature=feature,
         feat_mean=feat_mean,
         feat_std=feat_std,
-        eval_feat="/home/user/vcc18/data/scp/sample.list",#!デバッグのための引数、実際はテストデータを参照するように変形
-        indir="/home/user/vcc18/data/hdf5/",
-        outdir="/home/user/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/wav/400000",
     )
 
-    wav_gen = calc_wav_qppwg(
+    wav_gen = calc_wav(
         cfg=cfg,
         save_path=save_path,
         file_name="generate",
         feature=output,
         feat_mean=feat_mean,
         feat_std=feat_std,
-        eval_feat="~/vcc18/data/scp/sample.list",#!同上
-        indir="~/vcc18/data/hdf5/",
-        outdir="~/vcc18/exp/qppwg_vcc18_train_22kHz_QPPWGaf_20/wav/400000",
     )
 
     # サンプル数を合わせるための微調整

@@ -184,6 +184,30 @@ def load_data_for_npz(video_path, audio_path, landmark_path, cfg):
     lip = lip.numpy()
     return wav, lip, feature, feat_add, upsample, data_len, landmark
 
+def load_data_for_npz_audio(audio_path, cfg):
+    """
+    lip : (C, H, W, T)
+    feature, feat_add : (T, C)
+    """
+
+
+    # 音声処理
+    wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
+    wav = wav / np.max(np.abs(wav), axis=0)
+    upsample = get_upsample(cfg)
+
+
+    # 音響特徴量への変換
+    feature = calc_sp(wav, cfg)
+    feat_add, T = calc_feat_add(wav, feature, cfg)
+    feature = feature[:T]
+
+    data_len = min(len(feature) // upsample * upsample, 250 * upsample)
+    feature = feature[:data_len]
+
+    return wav,feature
+
+
 
 def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
     lip, _, _ = torchvision.io.read_video(str(video_path), pts_unit="sec")    # (T, W, H, C)

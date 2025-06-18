@@ -38,8 +38,8 @@ phoneme_length: 30
 # reduction factor
 reduction_factor: 4
 
-# "world" or "mspec" or "world_mspec"（音響特徴量の選択）
-feature_type: "world_mspec"
+# "world" or "mspec"（音響特徴量の選択）
+feature_type: "mspec"
 
 # 非周期性指標の圧縮方法
 comp_mode: 'default'

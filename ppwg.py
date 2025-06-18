@@ -1,3 +1,0 @@
-import qppwg
-
-qppwg-decode

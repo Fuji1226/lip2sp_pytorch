@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 import wandb
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
-from dataset.dataset import DatasetWithExternalDataRawRE, TransformWithExternalDataRaw
+from dataset.dataset import DatasetWithExternalDataRaw, DatasetWithExternalDataRawRE, TransformWithExternalDataRaw
 from dataset.dataset_npz_with_ex import (
     collate_time_adjust_with_external_data,
 )
@@ -78,7 +78,7 @@ def get_save_and_ckpt_path(
     save_path.mkdir(parents=True, exist_ok=True)
     return ckpt_path, save_path, ckpt_time
 
-#!parralel wave gan を学習する時に変更する必要。。。下調べ中
+
 def get_path_train_raw(cfg, current_time):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
         video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir
@@ -89,6 +89,16 @@ def get_path_train_raw(cfg, current_time):
 
     return video_dir, audio_dir, ckpt_path, save_path, ckpt_time
 
+
+def get_path_pwg_train_raw(cfg, current_time):
+    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
+        video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir
+    video_dir = Path(video_dir).expanduser()
+    audio_dir = Path(cfg.train.jvs.data_dir).expanduser()#!ここ修正！
+
+    ckpt_path, save_path, ckpt_time= get_save_and_ckpt_path(cfg, current_time)
+
+    return video_dir, audio_dir, ckpt_path, save_path, ckpt_time
 
 def get_path_test_raw(cfg, model_path):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':

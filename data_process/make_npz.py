@@ -9,16 +9,16 @@ from tqdm import tqdm
 import csv
 import pickle
 
-from transform import load_data_for_npz
+from transform import load_data_for_npz_audio
 
 debug = False
-speaker = "F1"
+speaker = "F1" #これ挙動わからん
 margin = 0
 fps = 25
 gray = True
 
-csv_path = Path(f"~/2HEAVD/F1").expanduser()
-data_dir = Path(f"~/2HEAVD/F1").expanduser()
+csv_path = Path(f"/home/user/dataset/lip/data_split_csv/jvs.csv").expanduser()#!この辺バグる説ある
+data_dir = Path(f"/home/user/dataset/jvs_ver1").expanduser()#!この辺バグる説有る
 landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
 dir_name = f"face_cropped_max_size_fps25_{margin}_{fps}"
 
@@ -36,7 +36,22 @@ lip_test_data_path = Path(f"~/dataset/lip/np_files/{dir_name}/test").expanduser(
 def read_csv(csv_path, which_data):
     with open(str(csv_path / f"{which_data}.csv"), "r") as f:
         reader = csv.reader(f)
-        data_list = [[data_dir/"video/fps25/front/alldata"/f"{row[0]}_front.mp4", data_dir/"audio/alldata"/f"{row[0]}.wav", landmark_dir / f"{row[0]}_front.csv"] for row in reader]
+        data_list = [[data_dir/"video/fps25/front/alldata"/f"{row[0]}.mp4", data_dir/"audio"/f"{row[0]}.wav", landmark_dir / f"{row[0]}.csv"] for row in reader]
+    return data_list
+
+
+def read_csv_gpt(csv_path, which_data):
+    with open(str(csv_path), "r") as f:
+        reader = csv.reader(f)
+        header = next(reader)  # ヘッダー行をスキップ
+        data_list = [
+            [
+                data_dir / "video/fps25/front/alldata" / f"{row[2]}.mp4",
+                data_dir /f"{row[0]}"/ f"{row[1]}" /"wav24kHz16bit"/ f"{row[2]}.wav",
+                landmark_dir / f"{row[2]}_front.csv"
+            ]
+            for row in reader if row[3] == which_data
+        ]
     return data_list
 
 
@@ -52,12 +67,10 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
             #print(video_path)
 
             # 話者ラベル(F01_kablabとかです)
-            speaker = "F1" #audio_path.parents[0].name
+            audio_path.parents[0].name
 
-            wav, lip, feature, feat_add, upsample, data_len, landmark = load_data_for_npz(
-                video_path=video_path,
+            wav, feature = load_data_for_npz_audio(
                 audio_path=audio_path,
-                landmark_path=landmark_path,
                 cfg=cfg,
             )
 
@@ -72,12 +85,7 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
             np.savez(
                 str(_data_save_path / audio_path.stem),
                 wav=wav,
-                lip=lip,
                 feature=feature,
-                feat_add=feat_add,
-                landmark=landmark,
-                upsample=upsample,
-                data_len=data_len,
             )
 
         except Exception as e: #例外処理-エラー出力
@@ -100,13 +108,14 @@ def main(cfg):
     cfg.model.gray = gray
     print(f"speaker = {speaker}, mode = {cfg.model.name}, gray = {cfg.model.gray}")
 
-    train_data_list = read_csv(csv_path, "train")
-    val_data_list = read_csv(csv_path, "val")
-    test_data_list = read_csv(csv_path, "test")
-    
+    train_data_list = read_csv_gpt(csv_path, "train")
+    val_data_list = read_csv_gpt(csv_path, "val")
+    test_data_list = read_csv_gpt(csv_path, "test")
+
     print(f"\nall data ratio")
     print(f"train_data : {len(train_data_list)}, val_data : {len(val_data_list)}, test_data : {len(test_data_list)}")
-    """
+
+
     save_data(
         data_list=train_data_list,
         len=len(train_data_list),
@@ -122,7 +131,7 @@ def main(cfg):
         data_save_path=lip_val_data_path,
         which_data="val",
     )
-    """
+
     save_data(
         data_list=test_data_list,
         len=len(test_data_list),

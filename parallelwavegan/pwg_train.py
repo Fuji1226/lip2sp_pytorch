@@ -17,7 +17,7 @@ from timm.scheduler import CosineLRScheduler
 
 from utils import (
     count_params,
-    get_path_train_raw,
+    get_path_pwg_train_raw,
     save_loss,
     make_train_val_loader_with_external_data_raw,
     set_config,
@@ -235,6 +235,7 @@ def train_one_epoch_gan(
 
     for batch in train_loader:
         print(f'iter {iter_cnt}/{all_iter}')
+        #wav,featureのみ利用
         wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
@@ -314,6 +315,7 @@ def val_one_epoch_gan(
 
     for batch in val_loader:
         print(f'iter {iter_cnt}/{all_iter}')
+        #wav,featureのみ利用
         wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
@@ -371,7 +373,7 @@ def main(cfg):
     print(f"cpu_num = {os.cpu_count()}")
     print(f"gpu_num = {torch.cuda.device_count()}")
 
-    video_dir, audio_dir, ckpt_path, save_path, ckpt_time= get_path_train_raw(cfg, current_time)
+    video_dir, audio_dir, ckpt_path, save_path, ckpt_time= get_path_pwg_train_raw(cfg, current_time)
     train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir)
 
     loss_f = MultiResolutionSTFTLoss(
