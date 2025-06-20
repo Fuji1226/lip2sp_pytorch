@@ -35,7 +35,7 @@ class DatasetWithExternalDataRaw(Dataset):
         self.cfg = cfg
         self.embs = get_spk_emb(cfg)
         #self.embs.update(get_spk_emb_tcd_timit(cfg))
-        #self.embs.update(get_spk_emb_jvs(cfg))
+        self.embs.update(get_spk_emb_jvs(cfg))
         #self.embs.update(get_spk_emb_vctk(cfg))
         #self.embs.update(get_spk_emb_hifi_captain(cfg))
 
@@ -76,8 +76,8 @@ class DatasetWithExternalDataRaw(Dataset):
             feature_avhubert=feature_avhubert,
             lip_mean=self.lip_mean, 
             lip_std=self.lip_std, 
-            feat_mean=self.feat_mean, 
-            feat_std=self.feat_std
+            feat_mean=self.feat_mean, #!ないって言われてる、エラー元
+            feat_std=self.feat_std #!どうしようかなって感じ
         )
         feature_len = torch.tensor(feature.shape[-1])
         lip_len = torch.tensor(lip.shape[-1])

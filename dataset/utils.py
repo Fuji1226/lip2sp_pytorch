@@ -372,7 +372,7 @@ def get_spk_emb_jvs(cfg):
     speaker_list = [f"jvs{i:03d}" for i in range(1, 101)]
     spk_emb_dict = {}
     for speaker in speaker_list:
-        emb = np.load(str(data_path / speaker / "emb.npy"))
+        emb = np.load(str(data_path / f"{speaker}.npy"))
         emb = emb / np.linalg.norm(emb)
         spk_emb_dict[speaker] = emb
     return spk_emb_dict
