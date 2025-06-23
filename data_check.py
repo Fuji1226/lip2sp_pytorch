@@ -177,7 +177,7 @@ def calc_wav(cfg, save_path, file_name, feature, feat_mean, feat_std):
         clf0 = feature[:, 26]
         vuv = feature[:, 27]
         cap = feature[:, 28:]
-
+        #ここにmel2wav(griffin-lim)を使ってたはずでは？　なんで？
         wav = world2wav(
             sp=mcep,
             clf0=clf0,
@@ -668,7 +668,7 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
     )
 
     # サンプル数を合わせるための微調整
-    n_sample = min(wav.shape[0], wav_AbS.shape[0], wav_gen.shape[0])
+    n_sample = min(wav.shape[0], wav_AbS.shape[0], wav_gen.shape[0])#!Noneが渡されていることによるエラー
     wav = wav[:n_sample]
     wav_AbS = wav_AbS[:n_sample]
     wav_gen = wav_gen[:n_sample]

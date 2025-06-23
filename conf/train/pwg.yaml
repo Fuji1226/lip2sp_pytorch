@@ -6,7 +6,7 @@ name : "pwg"
 random_seed : 42
 
 # デバッグ
-debug : True
+debug : False
 debug_data_len : 1000
 debug_max_epoch : 200
 debug_iter : 50
@@ -77,8 +77,8 @@ jvs:
   data_dir: '~/dataset/jvs_ver1'
   df_path: '~/dataset/lip/data_split_csv/jvs.csv'
   path_train: "~/dataset/lip/np_files/jvs/train"
-  emb_dir: '~/dataset/jvs_ver1/emb'
-  stat_path: "/home/user/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/train/F1/master" #もともと単一のnpzファイルとして読み込んでいた
+  emb_dir: '~/dataset/jvs_ver1/emb' #lip2sp_pytorch/data_process/make_spk_emb.pyにより作成
+  stat_path: '/home/user/dataset/lip/stat/master.npz' #lip2sp_pytorch/data_process/compute_stat.pyにより作成
 
 # hifi-captain
 hifi_captain:

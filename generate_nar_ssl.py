@@ -47,7 +47,7 @@ def generate(
         feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        #spk_emb = spk_emb.to(device)
+        #?spk_emb = spk_emb.to(device) ここ入れるべきかどうかって感じ
 
         lip_sep = gen_data_separate(lip, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
         feature_avhubert_sep = gen_data_separate(feature_avhubert, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
@@ -67,7 +67,8 @@ def generate(
             int(cfg.model.fps * cfg.model.reduction_factor), 
             int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
         )
-
+        """
+        #!なんかworld特徴量使う音声デコーダだった、よくわからんな ちなグリフィンリム使う関数は data_process/feature.py/mel2wav(mel, cfg):
         _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
         save_data(
@@ -82,7 +83,7 @@ def generate(
              feat_mean=feat_mean,
              feat_std=feat_std,
          )
-        
+        """
         with torch.no_grad():
             noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
             wav_pred = pwg(noise, output)
@@ -97,7 +98,6 @@ def generate(
             output=wav_pred,
             ana_syn=wav_abs,
         )
-#pwgの代わり？に学習済みqppwgを使いたい　必要なのはメルスペクトログラムとworld特徴量だからできるはず、多分
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):

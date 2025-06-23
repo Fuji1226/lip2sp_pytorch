@@ -13,9 +13,9 @@ from dataset.utils import (
 )
 
 
-@hydra.main(version_base=None, config_name="config", config_path="../conf")
+@hydra.main(config_name="config", config_path="../conf")
 def main(cfg):
-    save_path = Path(cfg.train.vctk.stat_path).expanduser()
+    save_path = Path(cfg.train.jvs.stat_path).expanduser()
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     lip_mean_list, lip_var_list, lip_len_list, feat_mean_list, feat_var_list, feat_len_list = get_stat_load_data_raw(
         train_external_data_path_list, cfg

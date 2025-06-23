@@ -1,14 +1,14 @@
 # @package _group_
 
 # debug
-debug : True
+debug : False
 debug_data_len : 1
 
 # face or lip
 face_or_lip : "avhubert_preprocess_fps25_gray"
 
 # 合成するモデルのパス
-model_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:05:14_11-36-06/10.ckpt'
+model_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:05:14_11-36-06/9.ckpt'
 
 # モデルパスを検証データの結果から選択するための指標
 #?使えるキー: ['model', 'optimizer', 'scheduler', 'scaler', 'random', 'np_random',
@@ -28,13 +28,13 @@ face_cropped_max_size_test : "~/dataset/lip/np_files/face_cropped_max_size_0_50_
 face_cropped_max_size_fps25_test : "~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/test"
 avhubert_preprocess_fps25_test : "/home/user/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/test/F1/master"
 
-test_df_path : '/home/user/2HEAVD/F1/test.csv'
+test_df_path : '/home/user/2HEAVD/ITA_text/F1/test.csv'
 
 # speaker : ["F01_kablab"]
 speaker : [F1] #["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
 # parallelwavegan
-pwg_path : "/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/master/2025:04:21_16-22-58/20.ckpt"
+pwg_path :  '/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/master/2025:06:22_14-17-25/30.ckpt'
 
 #保存する図
 waveform : False #合成音声の音声波形

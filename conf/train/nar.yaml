@@ -44,9 +44,9 @@ avhubert_preprocess_fps25_val : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray
 #!桂田先生データセット_要更新
 katsurada:
   use: True
-  audio_dir: '/home/user/2HEAVD/F1/audio/alldata'
+  audio_dir: '/home/user/2HEAVD/ITA_text/F1/audio/alldata'
   avhubert_preprocess_fps25_video_dir: '/home/user/dataset/lip/avhubert_preprocess_fps25'
-  df_path: '/home/user/2HEAVD/F1/data_split.csv'
+  df_path: '/home/user/2HEAVD/ITA_text/F1/data_split.csv'
 
 
 # kablab

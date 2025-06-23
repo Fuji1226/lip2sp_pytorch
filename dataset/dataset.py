@@ -41,13 +41,13 @@ class DatasetWithExternalDataRaw(Dataset):
 
         lip_mean = np.array([cfg.model.avhubert_lip_mean])
         lip_std = np.array([cfg.model.avhubert_lip_std])
-        #feat_mean_var_std = np.load(str(Path(cfg.train.vctk.stat_path).expanduser()))
-        #feat_mean = feat_mean_var_std['feat_mean']
-        #feat_std = feat_mean_var_std['feat_std']
+        feat_mean_var_std = np.load(str(Path(cfg.train.jvs.stat_path).expanduser()))#!jvsコーパスのみのものに変更
+        feat_mean = feat_mean_var_std['feat_mean']
+        feat_std = feat_mean_var_std['feat_std']
         self.lip_mean = torch.from_numpy(lip_mean)
         self.lip_std = torch.from_numpy(lip_std)
-        #self.feat_mean = torch.from_numpy(feat_mean)
-        #self.feat_std = torch.from_numpy(feat_std)
+        self.feat_mean = torch.from_numpy(feat_mean)
+        self.feat_std = torch.from_numpy(feat_std)
 
     def __len__(self):
         return len(self.data_path)

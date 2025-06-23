@@ -53,7 +53,7 @@ def load_utt():
     return df
 
 def load_text_ITA():#いけてそう
-    csv_path = Path("~/2HEAVD/F1/all_text.csv").expanduser()
+    csv_path = Path("~/2HEAVD/ITA_text/F1/all_text.csv").expanduser()
     df = pd.read_csv(str(csv_path))
     df = df.values[-424:]
     return df
