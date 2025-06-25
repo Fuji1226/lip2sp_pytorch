@@ -111,7 +111,7 @@ ssl_feature_dropout: 0.3
 # avhubert
 avhubert_config:
   model_size: 'base'
-  load_pretrained_weight: False
+  load_pretrained_weight: True
   base:
     ckpt_path: '~/av_hubert_data/base_vox_iter5_torch.ckpt'
     resnet_relu_type: 'prelu'

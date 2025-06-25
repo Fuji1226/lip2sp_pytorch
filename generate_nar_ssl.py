@@ -67,7 +67,7 @@ def generate(
             int(cfg.model.fps * cfg.model.reduction_factor), 
             int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
         )
-        """
+
         #!なんかworld特徴量使う音声デコーダだった、よくわからんな ちなグリフィンリム使う関数は data_process/feature.py/mel2wav(mel, cfg):
         _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
@@ -83,7 +83,7 @@ def generate(
              feat_mean=feat_mean,
              feat_std=feat_std,
          )
-        """
+
         with torch.no_grad():
             noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
             wav_pred = pwg(noise, output)

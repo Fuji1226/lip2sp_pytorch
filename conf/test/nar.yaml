@@ -8,7 +8,7 @@ debug_data_len : 1
 face_or_lip : "avhubert_preprocess_fps25_gray"
 
 # 合成するモデルのパス
-model_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:05:14_11-36-06/9.ckpt'
+model_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:06:25_16-07-09/12.ckpt'
 
 # モデルパスを検証データの結果から選択するための指標
 #?使えるキー: ['model', 'optimizer', 'scheduler', 'scaler', 'random', 'np_random',

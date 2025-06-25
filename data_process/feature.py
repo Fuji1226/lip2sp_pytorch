@@ -155,6 +155,7 @@ def mel2wav(mel, cfg):
     """
     対数メルスペクトログラムからgriffin limによる音声合成
     """
+    #print("mel2wavはおｋ")
     # 振幅スペクトログラムへの変換
     mel = 10 ** mel
     mel = np.where(mel > EPS, mel, 0)

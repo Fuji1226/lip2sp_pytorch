@@ -47,6 +47,7 @@ katsurada:
   audio_dir: '/home/user/2HEAVD/ITA_text/F1/audio/alldata'
   avhubert_preprocess_fps25_video_dir: '/home/user/dataset/lip/avhubert_preprocess_fps25'
   df_path: '/home/user/2HEAVD/ITA_text/F1/data_split.csv'
+  emb_dir: '/home/user/2HEAVD/ITA_text/F1/audio/train_emb'
 
 
 # kablab

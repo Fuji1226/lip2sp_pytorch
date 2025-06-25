@@ -116,7 +116,7 @@ def train_one_epoch(
         feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        #spk_emb = spk_emb.to(device)
+        spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
 
         with torch.autocast(device_type="cuda", dtype=torch.float16):
@@ -124,7 +124,7 @@ def train_one_epoch(
                 lip=lip,
                 audio=None,
                 lip_len=lip_len,
-                #spk_emb=spk_emb,
+                spk_emb=spk_emb,
             )
             mae_loss = loss_f.mae_loss(
                 output, feature, feature_len, max_len=output.shape[-1]
@@ -205,7 +205,7 @@ def val_one_epoch(
         feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        #spk_emb = spk_emb.to(device)
+        spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
 
         with torch.autocast(device_type="cuda", dtype=torch.float16):
@@ -214,7 +214,7 @@ def val_one_epoch(
                     lip=lip,
                     audio=None,
                     lip_len=lip_len,
-                    #spk_emb=spk_emb,
+                    spk_emb=spk_emb,
                 )
 
             mae_loss = loss_f.mae_loss(
@@ -305,7 +305,8 @@ def main(cfg):
         settings=wandb.Settings(start_method="fork"),
     ) as run:
         model = make_model(cfg, device)
-        #print(f"{cfg.model.master.avhubert_config.model_size=}")
+        print(f"{cfg.model.avhubert_config.model_size=}")
+        print(f"{cfg.model.avhubert_config.load_pretrained_weight=}")
         #breakpoint()
         print("-----------------------以下モデル構造--------------------------")
         print(model)
