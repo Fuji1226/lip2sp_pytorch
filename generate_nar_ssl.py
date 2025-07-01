@@ -68,7 +68,6 @@ def generate(
             int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
         )
 
-        #!なんかworld特徴量使う音声デコーダだった、よくわからんな ちなグリフィンリム使う関数は data_process/feature.py/mel2wav(mel, cfg):
         _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
         save_data(

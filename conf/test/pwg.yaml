@@ -1,17 +1,20 @@
 # @package _group_
 
 # debug
-debug : False
-debug_data_len : 1
+debug : True
+debug_data_len : 2
 
 # face or lip
 face_or_lip : "avhubert_preprocess_fps25_gray"
 
 # 合成するモデルのパス
-model_path : '~/lip2sp_pytorch/check_point/audio_ae/face_cropped_max_size_fps25/2023:08:14_16-21-15/mspec80_600.ckpt'
+model_path : '/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/master/2025:06:22_14-17-25/30.ckpt'
 
 # モデルパスを検証データの結果から選択するための指標
-metric_for_select : ''
+#?使えるキー: ['gen', 'disc', 'optimizer_g', 'optimizer_d', 'scheduler_g', 'scheduler_d', 'scaler_g', 'scaler_d', 'random', 'np_random', 'torch',
+#?'torch_random', 'cuda_random', 'train_epoch_loss_disc_list', 'train_epoch_loss_gen_stft_list', 'train_epoch_loss_gen_gan_list',
+#?'train_epoch_loss_gen_all_list', 'val_epoch_loss_disc_list', 'val_epoch_loss_gen_stft_list', 'val_epoch_loss_gen_gan_list', 'val_epoch_loss_gen_all_list', 'epoch']
+metric_for_select : 'val_epoch_loss_gen_stft_list'
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
 save_path : "~/lip2sp_pytorch/result/pwg/generate"
@@ -27,5 +30,6 @@ avhubert_preprocess_fps25_test : "~/dataset/lip/np_files/avhubert_preprocess_fps
 
 test_df_path : "~/dataset/lip/data_split_csv/test.csv"
 
-# speaker : ["F01_kablab"]
-speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+speaker : ["F01_kablab"]
+#speaker : ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+#!このコンフィグ関係ある？

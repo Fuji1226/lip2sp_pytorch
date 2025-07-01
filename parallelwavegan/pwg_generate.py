@@ -19,7 +19,7 @@ from parallelwavegan.pwg_train import make_model
 from data_check import save_data_pwg
 from utils import (
     make_test_loader_with_external_data_raw,
-    get_path_test_raw,
+    get_path_pwg_test_raw,
     load_pretrained_model,
     fix_random_seed,
     select_checkpoint,
@@ -67,7 +67,7 @@ def main(cfg):
     cfg.train.face_or_lip = model_path.parents[2].name
     cfg.test.face_or_lip = model_path.parents[2].name
 
-    video_dir, audio_dir, save_path = get_path_test_raw(cfg, model_path)
+    video_dir, audio_dir, save_path = get_path_pwg_test_raw(cfg, model_path)
     test_loader, test_dataset = make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir)
         
     generate(

@@ -117,6 +117,22 @@ def get_path_test_raw(cfg, model_path):
     return video_dir, audio_dir, test_save_path
 
 
+def get_path_pwg_test_raw(cfg, model_path):
+    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
+        video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir
+    video_dir = Path(video_dir).expanduser()
+    audio_dir = Path(cfg.train.jvs.data_dir).expanduser()
+
+    save_path = Path(cfg.test.save_path).expanduser()
+    save_path = save_path / cfg.test.face_or_lip / cfg.model.name / model_path.parents[0].name / model_path.stem
+
+    train_save_path = save_path / "train_data" / "audio"
+    test_save_path = save_path / "test_data" / "audio"
+    train_save_path.mkdir(parents=True, exist_ok=True)
+    test_save_path.mkdir(parents=True, exist_ok=True)
+
+    return video_dir, audio_dir, test_save_path
+
 def get_datasets(data_root, cfg):
     print("\n--- get datasets ---")
     items = []

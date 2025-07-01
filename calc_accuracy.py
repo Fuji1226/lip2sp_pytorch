@@ -59,6 +59,23 @@ def load_text_ITA():#いけてそう
     return df
 
 
+def load_test_jvs():
+    """
+    jvs.csv から、4列目が 'test' の行のみを抽出し、
+    各行をリストとして返す。
+
+    Args:
+        csv_path (str or Path): jvs.csv のパス
+
+    Returns:
+        List[List[str]]: 'test' 行だけのリスト
+    """
+    csv_path = Path('/home/user/dataset/lip/data_split_csv/jvs.csv').expanduser()
+    df = pd.read_csv(csv_path, header=None)
+    df = df[df[3] == "test"]
+    return df
+
+
 def calc_error_rate(utt, utt_pred):
     try:
         wer_gt = np.clip(wer(utt, utt_pred), a_min=0, a_max=1)
@@ -324,7 +341,7 @@ def calc_accuracy_en(data_dir, save_path, cfg, filename):
 def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
     speaker = data_dir.stem
     wav2flac(data_dir)
-    df = load_utt()
+    df = load_test_jvs()
 
     wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
     stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
