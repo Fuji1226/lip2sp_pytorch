@@ -44,6 +44,7 @@ def wav2flac(data_dir):
                 run(cmd_gen)
                 run(cmd_in)
                 run(cmd_abs)
+                print("wav2flac is done!!!!!!!!")
 
 
 def load_utt():
@@ -343,7 +344,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
     wav2flac(data_dir)
     df = load_test_jvs()
 
-    wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
+    wb_pesq = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb') #音質客観指標の計算はtorchのライブラリ
     stoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
     estoi = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=True)
     r = sr.Recognizer()
@@ -365,14 +366,25 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
     per_gen_list = []
     iter_cnt = 0
 
-    for curdir, dirs, files in os.walk(data_dir):
+    """
+    print(f"data_dir: {data_dir}")#? /home/user/lip2sp_pytorch/result/pwg/generate/avhubert_preprocess_fps25_gray/master/2025:06:22_14-17-25/30/test_data/audio/pwg/F01_kablab 音声データは入ってない
+    print(f"exists: {os.path.exists(data_dir)}")
+    print(f"is dir: {os.path.isdir(data_dir)}")
+
+    breakpoint()
+    """
+    for curdir, dirs, files in os.walk(data_dir):#!ここが飛ばされている
+        #breakpoint()
         for file in files:
+            #print(file)
             if file.endswith(".wav"):
                 if abs_or_gen in Path(file).stem:
                     iter_cnt += 1
                     print(f"\niter_cnt : {iter_cnt}")
                     wav_gen, fs = torchaudio.load(os.path.join(curdir, file))
                     wav_in, fs = torchaudio.load(os.path.join(curdir, "input.wav"))
+                    print(f"{wav_gen.shape}")
+                    print(f"{wav_in.shape}")
                     wav_gen = wav_gen.squeeze(0)
                     wav_in = wav_in.squeeze(0)
 
@@ -383,6 +395,9 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
 
                     # pesq, stoi, estoi
                     p = wb_pesq(wav_gen, wav_in)
+                    print(f"{wav_gen.shape}")
+                    print(f"{wav_in.shape}")
+                    breakpoint()
                     s = stoi(wav_gen, wav_in)
                     es = estoi(wav_gen, wav_in)
                     pesq_list.append(p)

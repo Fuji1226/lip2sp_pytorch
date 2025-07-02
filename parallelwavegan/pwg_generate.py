@@ -33,8 +33,8 @@ current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 def generate(cfg, gen, test_loader, dataset, device, save_path):
     gen.eval()
 
-    for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+    for batch in tqdm(test_loader, total=len(test_loader)):#!test_loaderがだめ
+        wav, feature, speaker, filename, = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
 
@@ -68,8 +68,13 @@ def main(cfg):
     cfg.test.face_or_lip = model_path.parents[2].name
 
     video_dir, audio_dir, save_path = get_path_pwg_test_raw(cfg, model_path)
+    #print(video_dir,audio_dir,save_path)
+    #/home/user/dataset/lip/avhubert_preprocess_fps25
+    #/home/user/dataset/jvs_ver1
+    #/home/user/lip2sp_pytorch/result/pwg/generate/avhubert_preprocess_fps25_gray/master/2025:06:22_14-17-25/30/test_data/audio
     test_loader, test_dataset = make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir)
-        
+
+
     generate(
         cfg=cfg,
         gen=gen,
@@ -78,6 +83,7 @@ def main(cfg):
         device=device,
         save_path=save_path,
     )
+    #save_pathにwavが保存されていない
 
     for speaker in cfg.test.speaker:
         save_path_pwg_spk = save_path / "pwg" / speaker

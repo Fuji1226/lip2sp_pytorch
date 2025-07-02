@@ -738,6 +738,7 @@ def save_data_lipreading(cfg, save_path, target, output, classes_index):
 
 
 def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
+    print("出力を保存するで")
     target = target.squeeze(0).squeeze(0)
     output = output.squeeze(0).squeeze(0)
     target = target.to('cpu').detach().numpy()

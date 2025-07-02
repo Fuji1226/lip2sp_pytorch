@@ -149,7 +149,7 @@ def get_datasets(data_root, cfg):
     return items
 
 
-def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
+def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要可能性おおいにあり
     data_path_list = []
     if cfg.train.katsurada.use:
         print('load katsurada')
@@ -160,6 +160,36 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
         for i in range(df.shape[0]):
             row = df.iloc[i]
             #?単一話者用のゴリ押しコーディング、複数話者利用の場合は見直し！
+            #!こいつだあ！！！！！！！
+            audio_path = audio_dir / f'{row["filename"]}.wav'
+            video_path = video_dir / f'{row["filename"]}_front.mp4'
+            if (not audio_path.exists()) or (not video_path.exists()):
+                continue
+            data_path_list.append(
+                {
+                    'audio_path': audio_path,
+                    'video_path': video_path,
+                    'speaker': row['speaker'],
+                    'filename': row['filename'],
+                }
+            )
+
+        #print(data_path_list)
+        #breakpoint()
+    return data_path_list
+
+def get_datasets_raw_pwg(cfg, video_dir, audio_dir, data_split):#pwg専用に一旦作成
+    data_path_list = []
+    if cfg.train.katsurada.use:
+        print('load katsurada')
+        df = pd.read_csv(str(Path(cfg.train.katsurada.df_path).expanduser()))#!←参照データ周り
+        df = df.loc[df['speaker'].isin(cfg.train.speaker)]#!←話者周り
+        #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
+        df = df.loc[df['data_split'] == data_split]
+        for i in range(df.shape[0]):
+            row = df.iloc[i]
+            #?単一話者用のゴリ押しコーディング、複数話者利用の場合は見直し！
+            #!こいつだあ！！！！！！！
             audio_path = audio_dir / f'{row["filename"]}.wav'
             video_path = video_dir / f'{row["filename"]}_front.mp4'
             if (not audio_path.exists()) or (not video_path.exists()):
@@ -178,7 +208,7 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
     return data_path_list
 
 
-def get_datasets_external_data_raw(cfg, data_split):
+def get_datasets_external_data_raw(cfg, data_split):#!最終的にここな気がする
     data_path_list = []
     if cfg.train.tcd_timit.use:
         print('load tcd-timit')
@@ -258,7 +288,7 @@ def get_datasets_test(data_root, cfg):
     return items
 
 
-def get_datasets_test_raw(cfg, video_dir, audio_dir):
+def get_datasets_test_raw(cfg, video_dir, audio_dir):#!最終的にここな気がする
     df = pd.read_csv(str(Path(cfg.train.katsurada.df_path).expanduser()))
     df = df.loc[df['data_split'] == 'test']
     df = df.loc[df['speaker'].isin(cfg.test.speaker)]
@@ -377,14 +407,21 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
 
 
 def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
-    train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')
+
+    train_data_path_list = get_datasets_raw_pwg(cfg, video_dir, audio_dir, 'train')
     test_data_path_list = get_datasets_test_raw(cfg, video_dir, audio_dir)
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     test_external_data_path_list = get_datasets_external_data_raw(cfg, 'test')
-
+    """
+    print(train_data_path_list)#!4つとも空やんけ！
+    print(test_data_path_list)
+    print(train_external_data_path_list)
+    print(test_external_data_path_list)
+    breakpoint()
+    """
     if cfg.train.tcd_timit.use:
         test_data_path_list = test_external_data_path_list
-    
+
     if cfg.test.debug:
         train_data_path_list = train_data_path_list[:100]
         train_external_data_path_list = train_external_data_path_list[:100]
@@ -405,6 +442,7 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         transform=test_trans,
         cfg=cfg,
     )
+    print(f"len(test_dataset): {len(test_dataset)}")#!当たり前だけどどっちもできてない
     test_loader = DataLoader(
         dataset=test_dataset,
         batch_size=1,   
@@ -414,6 +452,7 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         drop_last=True,
         collate_fn=None,
     )
+    print(f"len(test_loader): {len(test_loader)}")
     return test_loader, test_dataset
 
 
