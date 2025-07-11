@@ -34,9 +34,19 @@ def generate(cfg, gen, test_loader, dataset, device, save_path):
     gen.eval()
 
     for batch in tqdm(test_loader, total=len(test_loader)):#!test_loaderがだめ
-        wav, feature, speaker, filename, = batch
+        """
+        #必要なものだけとってくる
+        wav = batch[0]
+        feature = batch[1]
+        speaker = batch[3][0]     # ['jvs099'] → 'jvs099'
+        filename = batch[5][0]    # ['TRAVEL1000_0090'] → 'TRAVEL1000_0090'
+        """
+        #wav, feature, speaker, filename, = batch
+        wav,feature, = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
+        print(feature.shape)
+        breakpoint()
 
         with torch.no_grad():
             noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)

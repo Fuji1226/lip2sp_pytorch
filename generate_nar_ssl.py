@@ -5,8 +5,12 @@ import hydra
 import torch
 from tqdm import tqdm
 
+import sys
+sys.path.append(str(Path("~/hifi-gan").expanduser()))
+from ToUseHFGAN import load_hifigan_model, mel_to_waveform
+
 from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean
-from data_check import save_data_pwg, save_data
+from data_check import save_data_pwg, save_data, save_data_hifigan
 from parallelwavegan.pwg_train import make_model as make_pwg
 from train_nar_ssl import make_model
 from utils import (
@@ -34,6 +38,10 @@ def generate(
 ):
     model.eval()
     pwg.eval()
+    generator_hifigan, h_hifigan = load_hifigan_model(
+    checkpoint_path=cfg.test.hifigan_checkpoint,
+    config_path=cfg.test.hifigan_config
+)
 
     lip_mean = dataset.lip_mean.to(device)
     lip_std = dataset.lip_std.to(device)
@@ -98,6 +106,22 @@ def generate(
             ana_syn=wav_abs,
         )
 
+        # HiFi-GAN で音声合成 現状かなりパワー#!できてなさそう！
+        with torch.no_grad():
+            output_denorm = output * feat_std + feat_mean  # 正規化解除（必要であれば）
+            wav_hifigan = mel_to_waveform(output_denorm, generator_hifigan)
+
+        _save_path_hifi = save_path / "hifigan" / speaker[0] / filename[0]
+
+        # 保存
+        save_data_hifigan(
+         cfg=cfg,
+        save_path=_save_path_hifi,
+        target=wav,
+        output=wav_hifigan,
+        feat=output_denorm,  # 不使用なら削除してもOK
+        )
+
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     fix_random_seed(cfg.train.random_seed)
@@ -131,6 +155,9 @@ def main(cfg):
     for speaker in cfg.test.speaker:
         save_path_spk = save_path / "griffinlim" / speaker
         save_path_pwg_spk = save_path / "pwg" / speaker
+        save_path_hifigan_spk = save_path / "hifigan" / speaker
+        calc_accuracy_new(save_path_hifigan_spk, save_path.parents[0], cfg, "accuracy_hifigan") #!計算結果がすべてNan たぶん音声自体作れていない→GPTいわく正規化ミス？
+
         if cfg.train.tcd_timit.use:
             calc_accuracy_en(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_en(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
@@ -139,6 +166,8 @@ def main(cfg):
             calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
     calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
     calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
+    calc_mean(save_path.parents[0] / 'accuracy_hifigan.txt')
+
     
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],

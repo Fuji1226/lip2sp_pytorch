@@ -1,0 +1,17 @@
+{"time":"2025-07-04T14:36:07.255954606+09:00","level":"INFO","msg":"stream: starting","core version":"0.21.0"}
+{"time":"2025-07-04T14:36:07.649292381+09:00","level":"INFO","msg":"stream: created new stream","id":"xhps0600"}
+{"time":"2025-07-04T14:36:07.649352187+09:00","level":"INFO","msg":"stream: started","id":"xhps0600"}
+{"time":"2025-07-04T14:36:07.649383568+09:00","level":"INFO","msg":"handler: started","stream_id":"xhps0600"}
+{"time":"2025-07-04T14:36:07.649455395+09:00","level":"INFO","msg":"sender: started","stream_id":"xhps0600"}
+{"time":"2025-07-04T14:36:07.649513748+09:00","level":"INFO","msg":"writer: Do: started","stream_id":"xhps0600"}
+{"time":"2025-07-04T14:36:07.835900384+09:00","level":"ERROR","msg":"HTTP error","status":401,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-07-04T14:36:07.836051082+09:00","level":"ERROR","msg":"runupserter: failed to init run","error":"returned error 401: {\"data\":{\"upsertBucket\":null},\"errors\":[{\"message\":\"user is not logged in\",\"path\":[\"upsertBucket\"],\"extensions\":{\"code\":\"PERMISSION_ERROR\"}}]}"}
+{"time":"2025-07-04T14:36:08.838685687+09:00","level":"INFO","msg":"stream: closing","id":"xhps0600"}
+{"time":"2025-07-04T14:36:08.838945317+09:00","level":"ERROR","msg":"sender: uploadConfigFile: stream: no run"}
+{"time":"2025-07-04T14:36:09.082780033+09:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-07-04T14:36:09.08293162+09:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: returned error 404: {\"data\":{\"createRunFiles\":null},\"errors\":[{\"message\":\"project /test-project not found during createRunFiles\",\"path\":[\"createRunFiles\"]}]}"}
+{"time":"2025-07-04T14:36:09.083606157+09:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-07-04T14:36:09.08367957+09:00","level":"INFO","msg":"handler: closed","stream_id":"xhps0600"}
+{"time":"2025-07-04T14:36:09.083715631+09:00","level":"INFO","msg":"writer: Close: closed","stream_id":"xhps0600"}
+{"time":"2025-07-04T14:36:09.083816599+09:00","level":"INFO","msg":"sender: closed","stream_id":"xhps0600"}
+{"time":"2025-07-04T14:36:09.083888657+09:00","level":"INFO","msg":"stream: closed","id":"xhps0600"}

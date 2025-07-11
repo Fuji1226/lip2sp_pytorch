@@ -3,5 +3,5 @@
 defaults:
   - model: master
   - train: nar
-  - test : pwg
+  - test : nar
   - wandb_conf : nar

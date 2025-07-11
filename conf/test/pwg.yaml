@@ -1,14 +1,14 @@
 # @package _group_
 
 # debug
-debug : True
+debug : False
 debug_data_len : 2
 
 # face or lip
 face_or_lip : "avhubert_preprocess_fps25_gray"
 
 # 合成するモデルのパス
-model_path : '/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/master/2025:06:22_14-17-25/30.ckpt'
+model_path : '/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspec80/2025:07:04_15-32-20/40.ckpt'
 
 # モデルパスを検証データの結果から選択するための指標
 #?使えるキー: ['gen', 'disc', 'optimizer_g', 'optimizer_d', 'scheduler_g', 'scheduler_d', 'scaler_g', 'scaler_d', 'random', 'np_random', 'torch',

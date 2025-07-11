@@ -94,7 +94,7 @@ def get_path_pwg_train_raw(cfg, current_time):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
         video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir
     video_dir = Path(video_dir).expanduser()
-    audio_dir = Path(cfg.train.jvs.data_dir).expanduser()#!ここ修正！
+    audio_dir = Path(cfg.train.jvs.data_dir).expanduser()
 
     ckpt_path, save_path, ckpt_time= get_save_and_ckpt_path(cfg, current_time)
 
@@ -180,31 +180,37 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要
 
 def get_datasets_raw_pwg(cfg, video_dir, audio_dir, data_split):#pwg専用に一旦作成
     data_path_list = []
-    if cfg.train.katsurada.use:
-        print('load katsurada')
-        df = pd.read_csv(str(Path(cfg.train.katsurada.df_path).expanduser()))#!←参照データ周り
-        df = df.loc[df['speaker'].isin(cfg.train.speaker)]#!←話者周り
-        #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
-        df = df.loc[df['data_split'] == data_split]
-        for i in range(df.shape[0]):
-            row = df.iloc[i]
-            #?単一話者用のゴリ押しコーディング、複数話者利用の場合は見直し！
-            #!こいつだあ！！！！！！！
-            audio_path = audio_dir / f'{row["filename"]}.wav'
-            video_path = video_dir / f'{row["filename"]}_front.mp4'
-            if (not audio_path.exists()) or (not video_path.exists()):
-                continue
-            data_path_list.append(
-                {
-                    'audio_path': audio_path,
-                    'video_path': video_path,
-                    'speaker': row['speaker'],
-                    'filename': row['filename'],
-                }
-            )
 
-        #print(data_path_list)
-        #breakpoint()
+    #print('load jvs')
+    df = pd.read_csv(str(Path(cfg.train.jvs.df_path).expanduser()))
+    df.head()
+    #df = df.loc[df['speaker'].isin(cfg.train.speaker)]]
+    #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
+    df = df.loc[df['data_split'] == data_split]
+
+
+    for i in range(df.shape[0]):
+        row = df.iloc[i]
+        audio_path = audio_dir /f'{row["speaker"]}' / f'{row["data"]}'/ "wav24kHz16bit" / f'{row["filename"]}.wav' #audio_dir= '~/dataset/jvs_ver1'
+        video_path = video_dir / f'{row["filename"]}.mp4'
+        """
+        print(audio_path)
+        print(video_path)
+        print(audio_path.exists(), video_path.exists())
+        """
+
+        if (not audio_path.exists()) and (not video_path.exists()):
+            continue
+        data_path_list.append(
+            {
+                'audio_path': audio_path,
+                'video_path': None,
+                'speaker': row['speaker'],
+                'filename': row['filename'],
+            }
+        )
+    #print(data_path_list)
+    #breakpoint()
     return data_path_list
 
 
@@ -223,7 +229,7 @@ def get_datasets_external_data_raw(cfg, data_split):#!最終的にここな気�
                     'audio_path': audio_dir / row['speaker'] / 'straightcam' / f"{row['filename']}.wav",
                     'video_path': video_dir / row['speaker'] / 'straightcam' / f"{row['filename']}.mp4",
                     'speaker': row['speaker'],
-                    'filename': row['filename'], 
+                    'filename': row['filename'],
                 }
             )
     if cfg.train.hifi_captain.use:
@@ -243,12 +249,12 @@ def get_datasets_external_data_raw(cfg, data_split):#!最終的にここな気�
             )
     if cfg.train.jvs.use:
         print('load jvs')
-        df = pd.read_csv(str(Path(cfg.train.jvs.df_path).expanduser()))
+        df = pd.read_csv(str(Path(cfg.train.jvs.df_path).expanduser()))#'~/dataset/lip/data_split_csv/jvs.csv'
         df = df.loc[
             (df['data'] == 'parallel100') | (df['data'] == 'nonpara30')
         ]
         df = df.loc[df['data_split'] == data_split]
-        audio_dir = Path(cfg.train.jvs.data_dir).expanduser()
+        audio_dir = Path(cfg.train.jvs.data_dir).expanduser()#'~/dataset/jvs_ver1'
         for i in range(df.shape[0]):
             row = df.iloc[i]
             data_path_list.append(
@@ -409,16 +415,28 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
 def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
 
     train_data_path_list = get_datasets_raw_pwg(cfg, video_dir, audio_dir, 'train')
-    test_data_path_list = get_datasets_test_raw(cfg, video_dir, audio_dir)
+    test_data_path_list = get_datasets_raw_pwg(cfg, video_dir, audio_dir, 'test')
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     test_external_data_path_list = get_datasets_external_data_raw(cfg, 'test')
+
     """
-    print(train_data_path_list)#!4つとも空やんけ！
-    print(test_data_path_list)
-    print(train_external_data_path_list)
-    print(test_external_data_path_list)
+    for item in train_data_path_list[:3]:
+        print(item)
+    breakpoint()
+
+    for item in test_data_path_list[:3]:
+        print(item)
+    breakpoint()
+
+    for item in train_external_data_path_list[:3]:
+        print(item)
+    breakpoint()
+
+    for item in test_external_data_path_list[:3]:
+        print(item)
     breakpoint()
     """
+
     if cfg.train.tcd_timit.use:
         test_data_path_list = test_external_data_path_list
 

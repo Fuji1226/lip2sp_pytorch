@@ -29,7 +29,7 @@ from parallelwavegan.model.generator import Generator
 from parallelwavegan.model.discriminator import Discriminator, WaveNetLikeDiscriminator
 from parallelwavegan.stft_loss import MultiResolutionSTFTLoss
 
-wandb.login(key="090cd032aea4c94dd3375f1dc7823acc30e6abef")
+#wandb.login(key="8f73812c7584e5c3a3007a1159fb3b621ba621e2")
 current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 
 
@@ -141,6 +141,8 @@ def train_one_epoch(
         wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         wav = wav.to(device).unsqueeze(1)
         feature = feature.to(device)
+        print(feature.shape)
+        breakpoint()
 
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             noise = torch.randn(feature.shape[0], 1, feature.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
@@ -393,7 +395,9 @@ def main(cfg):
     val_epoch_loss_gen_all_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
-    with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
+    #with wandb.init(**cfg.wandb_conf.setup, config=wandb_cfg, settings=wandb.Settings(start_method='fork')) as run:
+    with wandb.init(mode = "disabled") as run:
+        wandb.config.epochs = 50
         gen, disc = make_model(cfg, device)
 
         if cfg.train.which_optim == 'adam':

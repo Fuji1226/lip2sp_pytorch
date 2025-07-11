@@ -138,7 +138,7 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : ['F1']
+speaker : ['jvs091','jvs092','jvs093','jvs094','jvs095','jvs096','jvs097','jvs098','jvs099','jvs100']
 use_spk_emb : False
 finetuning : False
 where_spk_emb : "after_res"

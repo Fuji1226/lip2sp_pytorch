@@ -1,0 +1,17 @@
+{"time":"2025-07-04T14:26:11.802381357+09:00","level":"INFO","msg":"stream: starting","core version":"0.21.0"}
+{"time":"2025-07-04T14:26:12.20821156+09:00","level":"INFO","msg":"stream: created new stream","id":"lqr4muru"}
+{"time":"2025-07-04T14:26:12.208235608+09:00","level":"INFO","msg":"stream: started","id":"lqr4muru"}
+{"time":"2025-07-04T14:26:12.208317317+09:00","level":"INFO","msg":"writer: Do: started","stream_id":"lqr4muru"}
+{"time":"2025-07-04T14:26:12.208393715+09:00","level":"INFO","msg":"sender: started","stream_id":"lqr4muru"}
+{"time":"2025-07-04T14:26:12.208444197+09:00","level":"INFO","msg":"handler: started","stream_id":"lqr4muru"}
+{"time":"2025-07-04T14:26:12.386993509+09:00","level":"ERROR","msg":"HTTP error","status":401,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-07-04T14:26:12.387179654+09:00","level":"ERROR","msg":"runupserter: failed to init run","error":"returned error 401: {\"data\":{\"upsertBucket\":null},\"errors\":[{\"message\":\"user is not logged in\",\"path\":[\"upsertBucket\"],\"extensions\":{\"code\":\"PERMISSION_ERROR\"}}]}"}
+{"time":"2025-07-04T14:26:13.389840424+09:00","level":"INFO","msg":"stream: closing","id":"lqr4muru"}
+{"time":"2025-07-04T14:26:13.390187279+09:00","level":"ERROR","msg":"sender: uploadConfigFile: stream: no run"}
+{"time":"2025-07-04T14:26:13.616596458+09:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-07-04T14:26:13.616815986+09:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: returned error 404: {\"data\":{\"createRunFiles\":null},\"errors\":[{\"message\":\"project /test-project not found during createRunFiles\",\"path\":[\"createRunFiles\"]}]}"}
+{"time":"2025-07-04T14:26:13.617546629+09:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-07-04T14:26:13.61761065+09:00","level":"INFO","msg":"handler: closed","stream_id":"lqr4muru"}
+{"time":"2025-07-04T14:26:13.61764223+09:00","level":"INFO","msg":"writer: Close: closed","stream_id":"lqr4muru"}
+{"time":"2025-07-04T14:26:13.617705893+09:00","level":"INFO","msg":"sender: closed","stream_id":"lqr4muru"}
+{"time":"2025-07-04T14:26:13.617762566+09:00","level":"INFO","msg":"stream: closed","id":"lqr4muru"}
