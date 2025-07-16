@@ -106,9 +106,12 @@ def generate(
             ana_syn=wav_abs,
         )
 
-        # HiFi-GAN で音声合成 現状かなりパワー#!できてなさそう！
+        # HiFi-GAN で音声合成 現状かなりパワー
+        #!サンプリング周りでエラーが起こっているはず(めっちゃスローで聞こえる)、あとabs(分析合成音)も出力したい
         with torch.no_grad():
-            output_denorm = output * feat_std + feat_mean  # 正規化解除（必要であれば）
+            #print(output.shape, feat_mean.shape, feat_std.shape)
+            #breakpoint()
+            output_denorm = output * feat_std.view(1, 80, 1) + feat_mean.view(1, 80, 1)  # 正規化解除（必要であれば）
             wav_hifigan = mel_to_waveform(output_denorm, generator_hifigan)
 
         _save_path_hifi = save_path / "hifigan" / speaker[0] / filename[0]
@@ -153,19 +156,20 @@ def main(cfg):
     )
     
     for speaker in cfg.test.speaker:
-        save_path_spk = save_path / "griffinlim" / speaker
-        save_path_pwg_spk = save_path / "pwg" / speaker
+        #save_path_spk = save_path / "griffinlim" / speaker
+        #save_path_pwg_spk = save_path / "pwg" / speaker
         save_path_hifigan_spk = save_path / "hifigan" / speaker
         calc_accuracy_new(save_path_hifigan_spk, save_path.parents[0], cfg, "accuracy_hifigan") #!計算結果がすべてNan たぶん音声自体作れていない→GPTいわく正規化ミス？
-
+    """
         if cfg.train.tcd_timit.use:
             calc_accuracy_en(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_en(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
         else:
             calc_accuracy_new(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
-    calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
-    calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
+    #calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
+    #calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
+    """
     calc_mean(save_path.parents[0] / 'accuracy_hifigan.txt')
 
     

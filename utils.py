@@ -163,8 +163,8 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要
             #!こいつだあ！！！！！！！
             audio_path = audio_dir / f'{row["filename"]}.wav'
             video_path = video_dir / f'{row["filename"]}_front.mp4'
-            if (not audio_path.exists()) or (not video_path.exists()):
-                continue
+            #if (not audio_path.exists()) or (not video_path.exists()):
+                #continue
             data_path_list.append(
                 {
                     'audio_path': audio_path,
@@ -181,7 +181,7 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要
 def get_datasets_raw_pwg(cfg, video_dir, audio_dir, data_split):#pwg専用に一旦作成
     data_path_list = []
 
-    #print('load jvs')
+    print('load jvs')
     df = pd.read_csv(str(Path(cfg.train.jvs.df_path).expanduser()))
     df.head()
     #df = df.loc[df['speaker'].isin(cfg.train.speaker)]]
@@ -209,7 +209,7 @@ def get_datasets_raw_pwg(cfg, video_dir, audio_dir, data_split):#pwg専用に一
                 'filename': row['filename'],
             }
         )
-    #print(data_path_list)
+    print(data_path_list)
     #breakpoint()
     return data_path_list
 
@@ -414,8 +414,8 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
 
 def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
 
-    train_data_path_list = get_datasets_raw_pwg(cfg, video_dir, audio_dir, 'train')
-    test_data_path_list = get_datasets_raw_pwg(cfg, video_dir, audio_dir, 'test')
+    train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')
+    test_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'test')
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     test_external_data_path_list = get_datasets_external_data_raw(cfg, 'test')
 
