@@ -144,6 +144,9 @@ finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False
 
+# 感情ラベル
+use_emo_label : False
+
 # max_epoch
 max_epoch : 300
 

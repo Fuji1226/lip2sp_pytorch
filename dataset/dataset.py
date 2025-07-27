@@ -151,6 +151,7 @@ class DatasetWithExternalDataRawRE(Dataset):
         speaker = self.data_path[index]['speaker']
         filename = self.data_path[index]['filename']
         spk_emb = torch.from_numpy(self.embs[speaker])
+        emo_emb = self.data_path[index]['emotion']#?スカラーを読み込んでいるはず
 
         # 使わないので適当に
         speaker_idx = torch.tensor(0)
@@ -181,6 +182,7 @@ class DatasetWithExternalDataRawRE(Dataset):
             feature,
             feature_avhubert,
             spk_emb,
+            emo_emb,
             feature_len,
             lip_len,
             speaker,

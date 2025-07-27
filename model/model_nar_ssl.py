@@ -134,6 +134,12 @@ class Lip2SpeechSSL(nn.Module):
                 hidden_channels,
             )
 
+        if cfg.train.use_emo_label:#!要確認
+            self.emo_emb_layer = nn.Linear(
+                hidden_channels + cfg.model.emo_emb_dim,
+                hidden_channels,
+            )
+
         self.decoder = ResConvDecoder(cfg, hidden_channels)
         
     def extract_feature_avhubert(
@@ -242,6 +248,11 @@ class Lip2SpeechSSL(nn.Module):
             spk_emb = spk_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)
             feature = torch.cat([feature, spk_emb], dim=-1)
             feature = self.spk_emb_layer(feature)
+
+        if self.cfg.train.use_emo_label:
+            emo_emb = emo_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)#!形状現状よくわからん
+            feature = torch.cat([feature, emo_emb], dim=-1)
+            feature = self.emo_emb_layer(feature)
 
         output = self.decoder(feature)
 

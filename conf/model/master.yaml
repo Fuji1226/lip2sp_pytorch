@@ -74,6 +74,10 @@ use_lip_and_face: False
 # speaker embedding
 spk_emb_dim: 256
 
+# emotion embedding
+use_emo_label: False
+emo_emb_dim: 7
+
 # out_channels
 out_channels: 80
 

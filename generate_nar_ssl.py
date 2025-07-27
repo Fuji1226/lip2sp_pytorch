@@ -49,7 +49,13 @@ def generate(
     feat_std = dataset.feat_std.to(device)
 
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        """
+        print(len(batch))
+        print([type(x) for x in batch])
+        print([x.shape for x in batch if isinstance(x, torch.Tensor)])
+        breakpoint()
+        """
+        wav, lip, feature, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video , = batch
         lip = lip.to(device)
         feature = feature.to(device)
         feature_avhubert = feature_avhubert.to(device)
@@ -75,6 +81,7 @@ def generate(
             int(cfg.model.fps * cfg.model.reduction_factor), 
             int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
         )
+
 
         _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
@@ -113,15 +120,19 @@ def generate(
             #breakpoint()
             output_denorm = output * feat_std.view(1, 80, 1) + feat_mean.view(1, 80, 1)  # 正規化解除（必要であれば）
             wav_hifigan = mel_to_waveform(output_denorm, generator_hifigan)
+            wav_hifi_abs = mel_to_waveform(feature, generator_hifigan)
+        #print(wav_hifigan.shape, wav_hifi_abs.shape)
+        #breakpoint()
 
         _save_path_hifi = save_path / "hifigan" / speaker[0] / filename[0]
 
         # 保存
         save_data_hifigan(
-         cfg=cfg,
+        cfg=cfg,
         save_path=_save_path_hifi,
         target=wav,
         output=wav_hifigan,
+        ana_syn=wav_hifi_abs,  # ここは分析合成音を出力するために追加
         feat=output_denorm,  # 不使用なら削除してもOK
         )
 

@@ -802,35 +802,43 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
     plt.savefig(str(save_path / "mel.png"))
 
 
-def save_data_hifigan(cfg, save_path, target, output, feat=None):
+def save_data_hifigan(cfg, save_path, target, output, ana_syn, feat=None):
     save_path.mkdir(parents=True, exist_ok=True)
+    #!合成はできているが、ターゲットに比べ開始が遅い(後ろが切れてる)
 
     # [1, 1, T] → [T]
     target = target.squeeze(0).squeeze(0)
     output = output.squeeze()  # HiFi-GAN 出力は torch.Tensor 1D
+    ana_syn = ana_syn.squeeze()
     target = target.to('cpu').detach().numpy()
     output = output.astype(np.float32)
+    ana_syn = ana_syn.astype(np.float32)
 
     # 正規化
     target /= np.max(np.abs(target)) + 1e-8
     output /= np.max(np.abs(output)) + 1e-8
+    ana_syn /= np.max(np.abs(ana_syn)) + 1e-8
 
     # 長さ合わせ（最短に）
     data_len = min(target.shape[0], output.shape[0])
     target = target[:data_len]
     output = output[:data_len]
+    ana_syn = ana_syn[:data_len]
 
     # 書き出し
     write(str(save_path / "gt.wav"), rate=cfg.model.sampling_rate, data=target.astype(np.float32))
     write(str(save_path / "generate.wav"), rate=cfg.model.sampling_rate, data=output.astype(np.float32))
+    write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=ana_syn.astype(np.float32))
+
 
     # mel スペクトログラム作成＆プロット
     target_mel = wav2mel(target, cfg, ref_max=True)
     output_mel = wav2mel(output, cfg, ref_max=True)
+    ana_syn_mel = wav2mel(ana_syn, cfg, ref_max=True)
 
     plt.close("all")
     plt.figure()
-    ax = plt.subplot(2, 1, 1)
+    ax = plt.subplot(3, 1, 1)
     specshow(
         data=target_mel, 
         x_axis="time", 
@@ -846,7 +854,25 @@ def save_data_hifigan(cfg, save_path, target, output, feat=None):
     plt.ylabel("Frequency[Hz]")
     plt.title("target")
 
-    ax = plt.subplot(2, 1, 2, sharex=ax, sharey=ax)
+
+    ax = plt.subplot(3, 1, 2)
+    specshow(
+        data=ana_syn_mel, 
+        x_axis="time", 
+        y_axis="mel", 
+        sr=cfg.model.sampling_rate, 
+        hop_length=cfg.model.hop_length,
+        fmin=cfg.model.f_min,
+        fmax=cfg.model.f_max,
+        cmap="viridis",
+    )
+    plt.colorbar(format="%+2.f dB")
+    plt.xlabel("Time[s]")
+    plt.ylabel("Frequency[Hz]")
+    plt.title("Analysis by Synthesis")
+
+
+    ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
     specshow(
         data=output_mel, 
         x_axis="time", 

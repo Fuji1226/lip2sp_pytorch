@@ -103,6 +103,7 @@ def train_one_epoch(
             feature,
             feature_avhubert,
             spk_emb,
+            emo_emb,
             feature_len,
             lip_len,
             speaker,
@@ -117,6 +118,7 @@ def train_one_epoch(
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
+        emo_emb = emo_emb.to(device) if cfg.train.use_emo_label else None
         speaker_idx = speaker_idx.to(device)
 
         with torch.autocast(device_type="cuda", dtype=torch.float16):
@@ -192,6 +194,7 @@ def val_one_epoch(
             feature,
             feature_avhubert,
             spk_emb,
+            emo_emb,
             feature_len,
             lip_len,
             speaker,
@@ -207,6 +210,7 @@ def val_one_epoch(
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
+        emo_emb = emo_emb.to(device) if cfg.train.use_emo_label else None
 
         with torch.autocast(device_type="cuda", dtype=torch.float16):
             with torch.no_grad():

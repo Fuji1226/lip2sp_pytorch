@@ -163,6 +163,9 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要
             #!こいつだあ！！！！！！！
             audio_path = audio_dir / f'{row["filename"]}.wav'
             video_path = video_dir / f'{row["filename"]}_front.mp4'
+            emo_label = row['label']
+            emo_emb = torch.zeros(cfg.model.emo_emb_dim)
+            emo_emb[emo_label] = 1
             #if (not audio_path.exists()) or (not video_path.exists()):
                 #continue
             data_path_list.append(
@@ -171,6 +174,7 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要
                     'video_path': video_path,
                     'speaker': row['speaker'],
                     'filename': row['filename'],
+                    'emotion' : emo_emb,
                 }
             )
 
