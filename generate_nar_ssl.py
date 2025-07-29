@@ -114,7 +114,6 @@ def generate(
         )
 
         # HiFi-GAN で音声合成 現状かなりパワー
-        #!サンプリング周りでエラーが起こっているはず(めっちゃスローで聞こえる)、あとabs(分析合成音)も出力したい
         with torch.no_grad():
             #print(output.shape, feat_mean.shape, feat_std.shape)
             #breakpoint()

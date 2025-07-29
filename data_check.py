@@ -804,7 +804,6 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
 
 def save_data_hifigan(cfg, save_path, target, output, ana_syn, feat=None):
     save_path.mkdir(parents=True, exist_ok=True)
-    #!合成はできているが、ターゲットに比べ開始が遅い(後ろが切れてる)
 
     # [1, 1, T] → [T]
     target = target.squeeze(0).squeeze(0)
@@ -890,6 +889,15 @@ def save_data_hifigan(cfg, save_path, target, output, ana_syn, feat=None):
 
     plt.tight_layout()
     plt.savefig(str(save_path / "mel.png"))
+
+        # プロット
+    if cfg.test.waveform :
+        plot_wav(cfg, save_path, target, output, ana_syn)
+    if cfg.test.melspectrogram :
+        plot_mel(cfg, save_path, target, output, ana_syn)
+    # plot_spec(cfg, save_path, target, output, ana_syn)
+    if cfg.test.f0_form :
+        plot_f0_from_wav(cfg, save_path, target, output, ana_syn)
 
 
 def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std):
