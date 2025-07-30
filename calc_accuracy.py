@@ -16,12 +16,15 @@ import speech_recognition as sr
 import torch
 import torchaudio
 import whisper
+import jiwer
 from jiwer import wer
 from nnmnkwii.metrics import melcd
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 
 from data_process.transform import fill_nan
+from data_check import f0_avg_wav
+
 
 debug = False
 abs_or_gen = "generate"
@@ -79,7 +82,8 @@ def load_test_jvs():
 
 def calc_error_rate(utt, utt_pred):
     try:
-        wer_gt = np.clip(wer(utt, utt_pred), a_min=0, a_max=1)
+        wer_out = jiwer.process_characters(utt, utt_pred)
+        wer_gt = wer_out.cer
     except:
         wer_gt = 1.0
     return wer_gt
@@ -109,6 +113,8 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
 
     gt_data_path_list = list(data_dir.glob('**/gt.wav'))
     for i, gt_data_path in enumerate(gt_data_path_list):
+        #print(gt_data_path)
+        #breakpoint()
         abs_data_path = Path(str(gt_data_path).replace('gt', 'abs'))
         generate_data_path = Path(str(gt_data_path).replace('gt', 'generate'))
         wav_gt, _ = librosa.load(str(gt_data_path), sr=cfg.model.sampling_rate)
@@ -118,6 +124,12 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         wav_gt = wav_gt[:min_sample]
         wav_abs = wav_abs[:min_sample]
         wav_generate = wav_generate[:min_sample]
+
+        f0_avg = f0_avg_wav(cfg, save_path, wav_gt, wav_abs, wav_generate)
+        f0_gt = f0_avg['input']
+        f0_abs = f0_avg['AbS']
+        f0_gen = f0_avg['gen']
+
         wav_gt = torch.from_numpy(wav_gt)
         wav_abs = torch.from_numpy(wav_abs)
         wav_generate = torch.from_numpy(wav_generate)
@@ -149,7 +161,7 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         utt_pred_gt_parse = mecab.parse(utt_pred_gt)
         utt_pred_abs_parse = mecab.parse(utt_pred_abs)
         utt_pred_generate_parse = mecab.parse(utt_pred_generate)
-        wer_gt = calc_error_rate(utt_parse, utt_pred_gt_parse)
+        wer_gt = calc_error_rate(utt_parse, utt_pred_gt_parse) #修正した、１を超えることがあるが、文章の大半を間違えた上で追加された単語があるとありえる話
         wer_abs = calc_error_rate(utt_parse, utt_pred_abs_parse)
         wer_generate = calc_error_rate(utt_parse, utt_pred_generate_parse)
 
@@ -170,19 +182,49 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
 
         print(f'--- iter {i} ---')
         print(f'utt = {utt}')
+        print("---")
         print(f'pesq_abs = {pesq_abs}')
         print(f'pesq_generate = {pesq_generate}')
+        print("---")
         print(f'stoi_abs = {stoi_abs}')
         print(f'stoi_generate = {stoi_generate}')
+        print("---")
         print(f'estoi_abs = {estoi_abs}')
         print(f'estoi_generate = {estoi_generate}')
+        print("---")
         print(f'wer_gt = {wer_gt}')
         print(f'wer_abs = {wer_abs}')
         print(f'wer_generate = {wer_generate}')
+        print("---")
         print(f'per_gt = {per_gt}')
         print(f'per_abs = {per_abs}')
         print(f'per_generate = {per_generate}')
+        print("---")
+        print(f'f0_gt = {f0_gt}')
+        print(f'f0_abs = {f0_abs}')
+        print(f'f0_gen = {f0_gen}')
         print('')
+
+        #データが保存されているフォルダに、一緒にこの結果を保存したい
+        #gt_data_path が、wavファイルのパスなのでその一個上のディレクトリのパスを取得する
+        parent_dir = Path(gt_data_path).parent
+        #print(f"parent_dir: {parent_dir}")
+        np.savez_compressed(parent_dir / "accuracy_metrics.npz",
+                            pesq_abs=pesq_abs,
+                            pesq_generate=pesq_generate,
+                            stoi_abs=stoi_abs,
+                            stoi_generate=stoi_generate,
+                            estoi_abs=estoi_abs,
+                            estoi_generate=estoi_generate,
+                            wer_gt=wer_gt,
+                            wer_abs=wer_abs,
+                            wer_generate=wer_generate,
+                            per_gt=per_gt,
+                            per_abs=per_abs,
+                            per_generate=per_generate,
+                            f0_gt=f0_gt,
+                            f0_abs=f0_abs,
+                            f0_gen=f0_gen)
 
     pesq_abs = np.mean(pesq_abs_list)
     pesq_generate = np.mean(pesq_generate_list)
@@ -213,6 +255,9 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         f.write(f'per_gt = {per_gt * 100:f}%\n')
         f.write(f'per_abs = {per_abs * 100:f}%\n')
         f.write(f'per_generate = {per_generate * 100:f}%\n')
+        f.write(f'f0_gt = {f0_gt}\n')
+        f.write(f'f0_abs = {f0_abs}\n')
+        f.write(f'f0_gen = {f0_gen}\n')
         f.write('\n')
 
 

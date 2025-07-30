@@ -520,6 +520,55 @@ def plot_f0_from_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None,
     plt.savefig(str(save_path / "f0.png"))
 
 
+def f0_avg_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None, f0_ceil=None):
+    """
+    音声波形からf0を計算し,その平均値を返す
+    """
+    wav_input = wav_input.astype('float64')
+    wav_AbS = wav_AbS.astype('float64')
+    wav_gen = wav_gen.astype('float64')
+
+    f0_floor = pyworld.default_f0_floor if f0_floor is None else f0_floor
+    f0_ceil = pyworld.default_f0_ceil if f0_ceil is None else f0_ceil
+
+    f0_input, _ = pyworld.harvest(
+        wav_input, 
+        cfg.model.sampling_rate,
+        f0_floor=f0_floor,
+        f0_ceil=f0_ceil,
+        frame_period=cfg.model.frame_period,
+    )
+    f0_AbS, _ = pyworld.harvest(
+        wav_AbS, 
+        cfg.model.sampling_rate,
+        f0_floor=f0_floor,
+        f0_ceil=f0_ceil,
+        frame_period=cfg.model.frame_period,
+    )
+    f0_gen, _ = pyworld.harvest(
+        wav_gen, 
+        cfg.model.sampling_rate,
+        f0_floor=f0_floor,
+        f0_ceil=f0_ceil,
+        frame_period=cfg.model.frame_period,
+    )
+    # f0の値が0の部分は除外
+    f0_input = f0_input[f0_input > 0]
+    f0_AbS = f0_AbS[f0_AbS > 0]
+    f0_gen = f0_gen[f0_gen > 0]
+
+
+    #f0の値を平均して返す
+    return {
+        "input": f0_input.mean(),
+        "AbS": f0_AbS.mean(),
+        "gen": f0_gen.mean()
+    }
+    #使用例を以下に示します
+    # f0_avg = f0_avg_wav(cfg, save_path, wav_input, wav_AbS, wav_gen)
+    # print(f"f0_avg: input={f0_avg['input']}, AbS={f0_avg['AbS']}, gen={f0_avg['gen']}")
+    
+
 def plot_vuv(cfg, save_path, vuv_input, vuv_AbS, vuv_gen):
     """
     有声無声判定のプロット
@@ -892,12 +941,12 @@ def save_data_hifigan(cfg, save_path, target, output, ana_syn, feat=None):
 
         # プロット
     if cfg.test.waveform :
-        plot_wav(cfg, save_path, target, output, ana_syn)
+        plot_wav(cfg, save_path, target, ana_syn, output)
     if cfg.test.melspectrogram :
-        plot_mel(cfg, save_path, target, output, ana_syn)
+        plot_mel(cfg, save_path, target, ana_syn, output)
     # plot_spec(cfg, save_path, target, output, ana_syn)
     if cfg.test.f0_form :
-        plot_f0_from_wav(cfg, save_path, target, output, ana_syn)
+        plot_f0_from_wav(cfg, save_path, target, ana_syn, output)
 
 
 def save_data_tts(cfg, save_path, wav, feature, output, feat_mean, feat_std):
