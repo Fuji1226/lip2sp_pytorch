@@ -61,12 +61,14 @@ def generate(
         feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        #?spk_emb = spk_emb.to(device) ここ入れるべきかどうかって感じ
+        spk_emb = spk_emb.to(device)
+        emo_emb = emo_emb.to(device)
 
         lip_sep = gen_data_separate(lip, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
         feature_avhubert_sep = gen_data_separate(feature_avhubert, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
         lip_len = lip_len.expand(lip_sep.shape[0])
         spk_emb = spk_emb.expand(lip_sep.shape[0], -1)
+        emo_emb = emo_emb.expand(lip_sep.shape[0], -1)
 
         with torch.no_grad():
             output = model(
@@ -74,6 +76,7 @@ def generate(
                 audio=None,
                 lip_len=lip_len,
                 spk_emb=spk_emb,
+                emo_emb=emo_emb,
             )
 
         output = gen_data_concat(
@@ -166,11 +169,11 @@ def main(cfg):
     )
     
     for speaker in cfg.test.speaker:
-        #save_path_spk = save_path / "griffinlim" / speaker
-        #save_path_pwg_spk = save_path / "pwg" / speaker
+        save_path_spk = save_path / "griffinlim" / speaker
+        save_path_pwg_spk = save_path / "pwg" / speaker
         save_path_hifigan_spk = save_path / "hifigan" / speaker
         calc_accuracy_new(save_path_hifigan_spk, save_path.parents[0], cfg, "accuracy_hifigan") #!計算結果がすべてNan たぶん音声自体作れていない→GPTいわく正規化ミス？
-    """
+
         if cfg.train.tcd_timit.use:
             calc_accuracy_en(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             calc_accuracy_en(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
@@ -179,7 +182,7 @@ def main(cfg):
             calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
     #calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
     #calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
-    """
+
     calc_mean(save_path.parents[0] / 'accuracy_hifigan.txt')
 
     
