@@ -1,0 +1,184 @@
+/home/user/.venv/lib/python3.10/site-packages/torch/nn/utils/weight_norm.py:28: UserWarning: torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.
+  warnings.warn("torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.")
+model_parameter = 110549440
+cfg.model.avhubert_config.model_size='base'
+cfg.model.avhubert_config.load_pretrained_weight=True
+-----------------------以下モデル構造--------------------------
+Lip2SpeechSSL(
+  (avhubert): MyAVHubertModel(
+    (feature_extractor_audio): SubModel(
+      (proj): Linear(in_features=104, out_features=768, bias=True)
+    )
+    (feature_extractor_video): SubModel(
+      (resnet): ResEncoder(
+        (frontend3D): Sequential(
+          (0): Conv3d(1, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False)
+          (1): BatchNorm3d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (2): PReLU(num_parameters=64)
+          (3): MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1), dilation=1, ceil_mode=False)
+        )
+        (trunk): ResNet(
+          (layer1): Sequential(
+            (0): BasicBlock(
+              (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=64)
+              (relu2): PReLU(num_parameters=64)
+              (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (1): BasicBlock(
+              (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=64)
+              (relu2): PReLU(num_parameters=64)
+              (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (layer2): Sequential(
+            (0): BasicBlock(
+              (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=128)
+              (relu2): PReLU(num_parameters=128)
+              (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (downsample): Sequential(
+                (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+                (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              )
+            )
+            (1): BasicBlock(
+              (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=128)
+              (relu2): PReLU(num_parameters=128)
+              (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (layer3): Sequential(
+            (0): BasicBlock(
+              (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=256)
+              (relu2): PReLU(num_parameters=256)
+              (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (downsample): Sequential(
+                (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+                (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              )
+            )
+            (1): BasicBlock(
+              (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=256)
+              (relu2): PReLU(num_parameters=256)
+              (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (layer4): Sequential(
+            (0): BasicBlock(
+              (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=512)
+              (relu2): PReLU(num_parameters=512)
+              (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (downsample): Sequential(
+                (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+                (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              )
+            )
+            (1): BasicBlock(
+              (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+              (relu1): PReLU(num_parameters=512)
+              (relu2): PReLU(num_parameters=512)
+              (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+              (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (avgpool): AdaptiveAvgPool2d(output_size=1)
+        )
+      )
+      (proj): Linear(in_features=512, out_features=768, bias=True)
+    )
+    (post_extract_proj): Linear(in_features=1536, out_features=768, bias=True)
+    (dropout_input): Dropout(p=0.1, inplace=False)
+    (dropout_features): Dropout(p=0.1, inplace=False)
+    (encoder): TransformerEncoder(
+      (pos_conv): Sequential(
+        (0): Conv1d(768, 768, kernel_size=(128,), stride=(1,), padding=(64,), groups=16)
+        (1): SamePad()
+        (2): GELU(approximate='none')
+      )
+      (layers): ModuleList(
+        (0-11): 12 x TransformerSentenceEncoderLayer(
+          (self_attn): MultiheadAttention(
+            (dropout_module): FairseqDropout()
+            (k_proj): Linear(in_features=768, out_features=768, bias=True)
+            (v_proj): Linear(in_features=768, out_features=768, bias=True)
+            (q_proj): Linear(in_features=768, out_features=768, bias=True)
+            (out_proj): Linear(in_features=768, out_features=768, bias=True)
+          )
+          (dropout1): Dropout(p=0.1, inplace=False)
+          (dropout2): Dropout(p=0.0, inplace=False)
+          (dropout3): Dropout(p=0.1, inplace=False)
+          (self_attn_layer_norm): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+          (fc1): Linear(in_features=768, out_features=3072, bias=True)
+          (fc2): Linear(in_features=3072, out_features=768, bias=True)
+          (final_layer_norm): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+        )
+      )
+      (layer_norm): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+    )
+    (layer_norm): LayerNorm((1536,), eps=1e-05, elementwise_affine=True)
+  )
+  (emo_emb_layer): Linear(in_features=775, out_features=768, bias=True)
+  (decoder): ResConvDecoder(
+    (conv_layers): ModuleList(
+      (0-1): 2 x ResBlock(
+        (conv_layers): Sequential(
+          (0): Conv1d(768, 768, kernel_size=(3,), stride=(1,), padding=(1,))
+          (1): BatchNorm1d(768, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (2): ReLU()
+          (3): Dropout(p=0.1, inplace=False)
+          (4): Conv1d(768, 768, kernel_size=(3,), stride=(1,), padding=(1,))
+          (5): BatchNorm1d(768, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (6): ReLU()
+          (7): Dropout(p=0.1, inplace=False)
+        )
+      )
+    )
+    (out_layer): Conv1d(768, 320, kernel_size=(1,), stride=(1,))
+  )
+)
+----------------------------以上-------------------------------
+##### 1 #####
+training
+Traceback (most recent call last):
+  File "/home/user/lip2sp_pytorch/train_nar_ssl.py", line 430, in main
+    epoch_loss, epoch_mae_loss, epoch_mse_loss = train_one_epoch(
+  File "/home/user/lip2sp_pytorch/train_nar_ssl.py", line 98, in train_one_epoch
+    for batch in train_loader:
+  File "/home/user/.venv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 631, in __next__
+    data = self._next_data()
+  File "/home/user/.venv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1346, in _next_data
+    return self._process_data(data)
+  File "/home/user/.venv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1372, in _process_data
+    data.reraise()
+  File "/home/user/.venv/lib/python3.10/site-packages/torch/_utils.py", line 705, in reraise
+    raise exception
+ValueError: Caught ValueError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/home/user/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/worker.py", line 308, in _worker_loop
+    data = fetcher.fetch(index)  # type: ignore[possibly-undefined]
+  File "/home/user/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 54, in fetch
+    return self.collate_fn(data)
+  File "/home/user/lip2sp_pytorch/dataset/dataset_npz_with_ex.py", line 282, in collate_time_adjust_with_external_data
+    wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
+ValueError: too many values to unpack (expected 12)

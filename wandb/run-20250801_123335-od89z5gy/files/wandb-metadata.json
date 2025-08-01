@@ -1,0 +1,39 @@
+{
+  "os":  "Linux-6.5.0-35-generic-x86_64-with-glibc2.35",
+  "python":  "CPython 3.10.12",
+  "startedAt":  "2025-08-01T03:33:35.098355Z",
+  "program":  "/home/user/lip2sp_pytorch/train_nar_ssl.py",
+  "codePath":  "train_nar_ssl.py",
+  "git":  {
+    "remote":  "git@github.com:Fuji1226/lip2sp_pytorch.git",
+    "commit":  "79eb54488b151caa268e958420eea74877fccac9"
+  },
+  "email":  "fujita.ryushi.340@s.kyushu-u.ac.jp",
+  "root":  "/home/user/lip2sp_pytorch",
+  "host":  "Ubuntu",
+  "executable":  "/home/user/.venv/bin/python",
+  "cpu_count":  24,
+  "cpu_count_logical":  32,
+  "gpu":  "NVIDIA RTX A4000",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "1967317549056",
+      "used":  "1811845722112"
+    }
+  },
+  "memory":  {
+    "total":  "33389043712"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA RTX A4000",
+      "memoryTotal":  "17171480576",
+      "cudaCores":  6144,
+      "architecture":  "Ampere",
+      "uuid":  "GPU-2587c7ec-e89f-4395-60fd-eba31f6334e2"
+    }
+  ],
+  "cudaVersion":  "12.6",
+  "writerId":  "omok0wrbhy52zwwd95s88cb6phx2wwhu"
+}

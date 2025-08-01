@@ -193,13 +193,15 @@ class Lip2SpeechSSL(nn.Module):
             lip,
             audio,
             lip_len,
-            spk_emb=None,
+            spk_emb,
+            emo_emb,
     ):
         '''
         lip : (B, C, H, W, T)
         audio : (B, C, T)
         lip_len : (B,)
         spk_emb : (B, C)
+        emo_emb : (B, C)
         '''
         lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
 

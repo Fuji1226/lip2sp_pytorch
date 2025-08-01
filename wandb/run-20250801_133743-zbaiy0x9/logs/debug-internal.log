@@ -1,0 +1,13 @@
+{"time":"2025-08-01T13:37:43.547335097+09:00","level":"INFO","msg":"stream: starting","core version":"0.21.0"}
+{"time":"2025-08-01T13:37:43.925043297+09:00","level":"INFO","msg":"stream: created new stream","id":"zbaiy0x9"}
+{"time":"2025-08-01T13:37:43.925087596+09:00","level":"INFO","msg":"stream: started","id":"zbaiy0x9"}
+{"time":"2025-08-01T13:37:43.925187795+09:00","level":"INFO","msg":"handler: started","stream_id":"zbaiy0x9"}
+{"time":"2025-08-01T13:37:43.925184334+09:00","level":"INFO","msg":"writer: Do: started","stream_id":"zbaiy0x9"}
+{"time":"2025-08-01T13:37:43.925291641+09:00","level":"INFO","msg":"sender: started","stream_id":"zbaiy0x9"}
+{"time":"2025-08-01T13:38:16.66157158+09:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading artifact run-zbaiy0x9-lossloss_table-ad43b6050b3675fbdd4ac63311ab2e3a","runtime_seconds":1.6904888169999999},{"desc":"uploading artifact run-zbaiy0x9-lossmae_loss_table-2657ec19b46cec2b2313c177689c99d3","runtime_seconds":1.341213142,"subtasks":[{"desc":"loss mae_loss_table.table.json","runtime_seconds":0.376535092,"progress":"669B/669B"}]},{"desc":"uploading artifact run-zbaiy0x9-lossmse_loss_table-d358a3baf9bc6f06f84725a678f35758","runtime_seconds":1.008769907},{"desc":"uploading config.yaml","runtime_seconds":0.465697287,"progress":"29.2KB/29.2KB"}],"total_operations":4}}
+{"time":"2025-08-01T13:38:18.602208395+09:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-08-01T13:38:18.968635332+09:00","level":"INFO","msg":"stream: closing","id":"zbaiy0x9"}
+{"time":"2025-08-01T13:38:18.968661402+09:00","level":"INFO","msg":"handler: closed","stream_id":"zbaiy0x9"}
+{"time":"2025-08-01T13:38:18.968685983+09:00","level":"INFO","msg":"sender: closed","stream_id":"zbaiy0x9"}
+{"time":"2025-08-01T13:38:18.968675521+09:00","level":"INFO","msg":"writer: Close: closed","stream_id":"zbaiy0x9"}
+{"time":"2025-08-01T13:38:18.968790319+09:00","level":"INFO","msg":"stream: closed","id":"zbaiy0x9"}

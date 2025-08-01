@@ -37,7 +37,7 @@ speaker : [F1] #["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 pwg_path :  '/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspec80/2025:07:04_15-32-20/40.ckpt'
 
 #Hi-Fi GAN
-hifigan_checkpoint : '/home/user/hifi-gan/cp_hifigan/g_00051000'
+hifigan_checkpoint : '/home/user/hifi-gan/cp_hifigan/g_00180000'
 hifigan_config : '/home/user/hifi-gan/config_v1.json'
 
 #保存する図

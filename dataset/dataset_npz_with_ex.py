@@ -80,6 +80,9 @@ class DatasetWithExternalData(Dataset):
         speaker_idx = torch.tensor(self.speaker_idx[speaker])
         spk_emb = torch.from_numpy(self.embs[speaker])
         filename = data_path.stem
+        print(filename)
+        emo_emb = torch.zeros(self.cfg.model.emo_emb_dim, dtype=torch.float32)
+        breakpoint()
 
         if data_path.parents[3].name == 'lip2wav' or data_path.parents[3].name == 'lrs2_pretrain':
             lang_id = torch.tensor(1)
@@ -118,7 +121,7 @@ class DatasetWithExternalData(Dataset):
         lip = lip.to(torch.float32)
         feature = feature.to(torch.float32)
         feature_avhubert = feature_avhubert.to(torch.float32)
-        return wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
+        return wav, lip, feature, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
     
     
 class TransformWithExternalData:
@@ -279,7 +282,7 @@ class TransformWithExternalData:
     
     
 def collate_time_adjust_with_external_data(batch, cfg):
-    wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
+    wav, lip, feature, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
     
     wav_adjusted = []
     lip_adjusted = []
@@ -339,9 +342,10 @@ def collate_time_adjust_with_external_data(batch, cfg):
     feature = torch.stack(feature_adjusted)
     feature_avhubert = torch.stack(feature_avhubert_adjusted)
     spk_emb = torch.stack(spk_emb)
+    emo_emb = torch.stack(emo_emb)
     feature_len = torch.stack(feature_len)
     lip_len = torch.stack(lip_len)
     speaker_idx = torch.stack(speaker_idx)
     lang_id = torch.stack(lang_id)
     is_video = torch.stack(is_video)
-    return wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
+    return wav, lip, feature, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video

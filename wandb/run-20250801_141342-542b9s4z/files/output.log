@@ -1,0 +1,95 @@
+/home/user/.venv/lib/python3.10/site-packages/torch/nn/utils/weight_norm.py:28: UserWarning: torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.
+  warnings.warn("torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.")
+model_parameter = 110549440
+cfg.model.avhubert_config.model_size='base'
+cfg.model.avhubert_config.load_pretrained_weight=True
+##### 1 #####
+training
+iter 0/343
+/home/user/.venv/lib/python3.10/site-packages/torch/autograd/graph.py:744: UserWarning: Plan failed with a cudnnException: CUDNN_BACKEND_EXECUTION_PLAN_DESCRIPTOR: cudnnFinalize Descriptor Failed cudnn_status: CUDNN_STATUS_NOT_SUPPORTED (Triggered internally at ../aten/src/ATen/native/cudnn/Conv_v8.cpp:919.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+iter 1/343
+iter 2/343
+iter 3/343
+iter 4/343
+iter 5/343
+iter 6/343
+iter 7/343
+iter 8/343
+iter 9/343
+iter 10/343
+iter 11/343
+iter 12/343
+iter 13/343
+iter 14/343
+iter 15/343
+iter 16/343
+iter 17/343
+iter 18/343
+iter 19/343
+iter 20/343
+iter 21/343
+iter 22/343
+iter 23/343
+iter 24/343
+iter 25/343
+iter 26/343
+iter 27/343
+iter 28/343
+iter 29/343
+iter 30/343
+iter 31/343
+iter 32/343
+iter 33/343
+iter 34/343
+iter 35/343
+iter 36/343
+iter 37/343
+iter 38/343
+iter 39/343
+iter 40/343
+iter 41/343
+iter 42/343
+iter 43/343
+iter 44/343
+iter 45/343
+iter 46/343
+iter 47/343
+iter 48/343
+iter 49/343
+iter 50/343
+iter 51/343
+iter 52/343
+iter 53/343
+iter 54/343
+iter 55/343
+iter 56/343
+iter 57/343
+iter 58/343
+iter 59/343
+iter 60/343
+iter 61/343
+iter 62/343
+iter 63/343
+iter 64/343
+iter 65/343
+iter 66/343
+iter 67/343
+iter 68/343
+iter 69/343
+iter 70/343
+iter 71/343
+iter 72/343
+iter 73/343
+iter 74/343
+iter 75/343
+iter 76/343
+iter 77/343
+iter 78/343
+iter 79/343
+iter 80/343
+iter 81/343
+iter 82/343
+iter 83/343
+iter 84/343
+iter 85/343

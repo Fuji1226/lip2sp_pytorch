@@ -127,6 +127,7 @@ def train_one_epoch(
                 audio=None,
                 lip_len=lip_len,
                 spk_emb=spk_emb,
+                emo_emb=emo_emb,
             )
             mae_loss = loss_f.mae_loss(
                 output, feature, feature_len, max_len=output.shape[-1]
@@ -219,6 +220,7 @@ def val_one_epoch(
                     audio=None,
                     lip_len=lip_len,
                     spk_emb=spk_emb,
+                    emo_emb=emo_emb,
                 )
 
             mae_loss = loss_f.mae_loss(
@@ -312,9 +314,9 @@ def main(cfg):
         print(f"{cfg.model.avhubert_config.model_size=}")
         print(f"{cfg.model.avhubert_config.load_pretrained_weight=}")
         #breakpoint()
-        print("-----------------------以下モデル構造--------------------------")
-        print(model)
-        print("----------------------------以上-------------------------------")
+        #print("-----------------------以下モデル構造--------------------------")
+        #print(model)
+        #print("----------------------------以上-------------------------------")
 
         if cfg.train.which_optim == "adam":
             optimizer = torch.optim.Adam(

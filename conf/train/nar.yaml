@@ -47,7 +47,7 @@ katsurada:
   audio_dir: '/home/user/2HEAVD/ITA_text/F1/audio/alldata'
   avhubert_preprocess_fps25_video_dir: '/home/user/dataset/lip/avhubert_preprocess_fps25'
   df_path: '/home/user/2HEAVD/ITA_text/F1/data_split.csv'
-  emb_dir: '/home/user/2HEAVD/ITA_text/F1/audio/train_emb'
+  emb_dir: '/home/user/2HEAVD/ITA_text/F1/audio'
 
 
 # kablab
@@ -145,7 +145,7 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # 感情ラベル
-use_emo_label : False
+use_emo_label : True
 
 # max_epoch
 max_epoch : 300
