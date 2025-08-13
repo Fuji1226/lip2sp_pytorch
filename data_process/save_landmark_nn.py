@@ -11,11 +11,11 @@ from tqdm import tqdm
 import numpy as np
 
 
-debug = False
+debug = False #!デバッグ完了したのでこれを回すところから始めよう
 debug_iter = 5
 
-speaker = "M04_kablab"
-data_root = Path(f"~/dataset/lip/cropped_max_size_fps25/{speaker}").expanduser()
+speaker = "kab2022"
+data_root = Path(f"~/dataset/{speaker}/mov_fps25").expanduser()
 
 if data_root.parents[0].name == "cropped":
     dir_name_landmark = "landmark"
@@ -32,6 +32,9 @@ elif data_root.parents[0].name == "cropped_max_size":
 elif data_root.parents[0].name == "cropped_max_size_fps25":
     dir_name_landmark = "landmark_cropped_max_size_fps25"
     dir_name_bbox = "bbox_cropped_max_size_fps25"
+else:#応急処置
+    dir_name_landmark = "landmark_fps25"
+    dir_name_bbox = "bbox_fps25"
 
 if debug:
     save_dir_landmark = Path(f"~/dataset/lip/{dir_name_landmark}_debug/{speaker}").expanduser()
@@ -49,7 +52,7 @@ def main():
     data_path = sorted(list(data_root.glob("*.mp4")))
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device=device, flip_input=False)
 
     iter_cnt = 0
     for path in tqdm(data_path):

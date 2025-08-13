@@ -127,8 +127,11 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
 
         f0_avg = f0_avg_wav(cfg, save_path, wav_gt, wav_abs, wav_generate)
         f0_gt = f0_avg['input']
+        f0_gt_range = f0_avg['input_range']
         f0_abs = f0_avg['AbS']
+        f0_abs_range = f0_avg['AbS_range']
         f0_gen = f0_avg['gen']
+        f0_gen_range = f0_avg['gen_range']
 
         wav_gt = torch.from_numpy(wav_gt)
         wav_abs = torch.from_numpy(wav_abs)
@@ -201,8 +204,11 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         print(f'per_generate = {per_generate}')
         print("---")
         print(f'f0_gt = {f0_gt}')
+        print(f'f0_gt_range = {f0_gt_range}')
         print(f'f0_abs = {f0_abs}')
+        print(f'f0_abs_range = {f0_abs_range}')
         print(f'f0_gen = {f0_gen}')
+        print(f'f0_gen_range = {f0_gen_range}')
         print('')
 
         #データが保存されているフォルダに、一緒にこの結果を保存したい
@@ -224,7 +230,11 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
                             per_generate=per_generate,
                             f0_gt=f0_gt,
                             f0_abs=f0_abs,
-                            f0_gen=f0_gen)
+                            f0_gen=f0_gen,
+                            f0_gt_range=f0_gt_range,
+                            f0_abs_range=f0_abs_range,
+                            f0_gen_range=f0_gen_range,
+                            )
 
     pesq_abs = np.mean(pesq_abs_list)
     pesq_generate = np.mean(pesq_generate_list)

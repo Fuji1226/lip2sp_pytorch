@@ -557,12 +557,19 @@ def f0_avg_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None, f0_ce
     f0_AbS = f0_AbS[f0_AbS > 0]
     f0_gen = f0_gen[f0_gen > 0]
 
+    #それぞれの最大値と最小値を取得、範囲として返す
+    f0_input_range = (f0_input.min(), f0_input.max())
+    f0_AbS_range = (f0_AbS.min(), f0_AbS.max())
+    f0_gen_range = (f0_gen.min(), f0_gen.max())
 
     #f0の値を平均して返す
     return {
         "input": f0_input.mean(),
         "AbS": f0_AbS.mean(),
-        "gen": f0_gen.mean()
+        "gen": f0_gen.mean(),
+        "input_range": f0_input_range,
+        "AbS_range": f0_AbS_range,
+        "gen_range": f0_gen_range,
     }
     #使用例を以下に示します
     # f0_avg = f0_avg_wav(cfg, save_path, wav_input, wav_AbS, wav_gen)
