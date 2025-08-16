@@ -5,16 +5,17 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 random.seed(42)
 
-
+#!make_npz前にこれ 現状うまく行ってなさそう
 def data_split_kablab():
-    audio_dir = Path('~/dataset/lip/wav').expanduser()
-    speaker_list = list(audio_dir.glob('*'))
-    speaker_list = [s.stem for s in speaker_list]
+    audio_dir = Path('~/dataset').expanduser()
+    #speaker_list = list(audio_dir.glob('*'))
+    #speaker_list = [s.stem for s in speaker_list]
+    speaker_list = ['kab2022']
     train_ratio = 0.95
     df_list = []
 
     for speaker in speaker_list:
-        audio_path_list = list((audio_dir / speaker).glob('*.wav'))
+        audio_path_list = list((audio_dir / speaker / "wav").glob('*.wav'))
         filename_list = [f.stem for f in audio_path_list]
         
         filename_list_atr = []
@@ -31,7 +32,7 @@ def data_split_kablab():
         filename_list_train = []
         filename_list_val = []
         filename_list_test = []
-        for filename in filename_list_atr:
+        for filename in filename_list_atr:#!test入ってないそりゃatrの種類で分けたらそうなるよね test入ってなくてもイイ説
             if 'i' in filename:
                 filename_list_val.append(filename)
             elif 'j' in filename:
@@ -51,6 +52,8 @@ def data_split_kablab():
         test_df = pd.DataFrame({'filename': filename_list_test, 'data_split': 'test'})
         df = pd.concat([train_df, val_df, test_df])
         df['speaker'] = speaker
+        df['filename'] = df['filename'].astype(str)
+        df['corpus'] = None  # ← 追加
         df.loc[df['filename'].str.contains('ATR'), 'corpus'] = 'ATR'
         df.loc[df['filename'].str.contains('BASIC5000'), 'corpus'] = 'BASIC5000'
         df.loc[df['filename'].str.contains('balanced'), 'corpus'] = 'balanced'
@@ -181,8 +184,8 @@ def data_split_vctk():
 def main():
     save_dir = Path('~/dataset/lip/data_split_csv').expanduser()
     #?kablab使用の場合
-    # df = data_split_kablab()
-    # df.to_csv(str(save_dir / 'kablab.csv'), index=False)
+    df = data_split_kablab()
+    df.to_csv(str(save_dir / 'kab2022.csv'), index=False)
 
     #?hifi-captain使用の場合
     # df = data_split_hifi_captain()

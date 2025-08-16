@@ -306,8 +306,8 @@ def main():
     ffmpeg_path = '/usr/bin/ffmpeg'
 
     #! データパスの指定 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    video_dir = Path('/home/user/2HEAVD/F1/video/fps25/front/alldata').expanduser()
-    landmark_dir = Path('/home/user/dataset/lip/landmark/F1').expanduser()
+    video_dir = Path('/home/user/dataset/kab2022/mov_fps25').expanduser()
+    landmark_dir = Path('/home/user/dataset/lip/landmark_fps25/kab2022').expanduser()
     save_dir = Path('/home/user/dataset/lip/avhubert_preprocess_fps25').expanduser()
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

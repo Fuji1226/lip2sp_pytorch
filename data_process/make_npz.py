@@ -12,13 +12,13 @@ import pickle
 from transform import load_data_for_npz_audio
 
 debug = False
-speaker = "F1" #これ挙動わからん
+speaker = "kab2022" #これ挙動わからん
 margin = 0
 fps = 25
 gray = True
 
-csv_path = Path(f"/home/user/dataset/lip/data_split_csv/jvs.csv").expanduser()#!この辺バグる説ある
-data_dir = Path(f"/home/user/dataset/jvs_ver1").expanduser()#!この辺バグる説有る
+csv_path = Path(f"/home/user/dataset/lip/data_split_csv/kab2022.csv").expanduser()#!この辺バグる説ある
+data_dir = Path(f"/home/user/dataset/kab2022").expanduser()#!この辺バグる説有る
 landmark_dir = Path(f"~/dataset/lip/landmark/{speaker}").expanduser()
 dir_name = f"face_cropped_max_size_fps25_{margin}_{fps}"
 

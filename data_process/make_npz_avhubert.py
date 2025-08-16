@@ -13,7 +13,7 @@ def pad(feature, data_len):
 
 @hydra.main(config_name="config", config_path="../conf")
 def main(cfg):
-    data_dir = Path('/home/minami/dataset/lip/np_files/jsut')
+    data_dir = Path('~/dataset/lip/np_files/jsut')
     data_path_list = list(data_dir.glob('**/*.npz'))
     for data_path in tqdm(data_path_list):
         npz_key = np.load(str(data_path))
