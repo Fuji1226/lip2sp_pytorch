@@ -307,8 +307,8 @@ def main():
 
     #! データパスの指定 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     video_dir = Path('/home/user/dataset/kab2022/mov_fps25').expanduser()
-    landmark_dir = Path('/home/user/dataset/lip/landmark_fps25/kab2022').expanduser()
-    save_dir = Path('/home/user/dataset/lip/avhubert_preprocess_fps25').expanduser()
+    landmark_dir = Path('/home/user/dataset/lip/landmark/kab2022').expanduser()
+    save_dir = Path('/home/user/dataset/lip/avhubert_preprocess_fps25/kab2022').expanduser()
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     video_path_list = list(video_dir.glob('*.mp4'))  # ← 直下の動画のみ

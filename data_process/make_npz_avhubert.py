@@ -4,6 +4,7 @@ import numpy as np
 import hydra
 from feature import wav2mel, wav2mel_avhubert
 
+#もしかして、make_npz.pyのあとにやるやつ？
 
 def pad(feature, data_len):
     feature_padded = np.zeros((feature.shape[0], data_len), dtype=feature.dtype)

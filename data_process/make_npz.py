@@ -11,6 +11,8 @@ import pickle
 
 from transform import load_data_for_npz_audio
 
+#!csvの読み込みから修正！！！！！
+
 debug = False
 speaker = "kab2022" #これ挙動わからん
 margin = 0
@@ -48,7 +50,7 @@ def read_csv_gpt(csv_path, which_data):
             [
                 data_dir / "video/fps25/front/alldata" / f"{row[2]}.mp4",
                 data_dir /f"{row[0]}"/ f"{row[1]}" /"wav24kHz16bit"/ f"{row[2]}.wav",
-                landmark_dir / f"{row[2]}_front.csv"
+                landmark_dir / f"{row[2]}.csv"
             ]
             for row in reader if row[3] == which_data
         ]
