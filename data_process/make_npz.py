@@ -56,6 +56,26 @@ def read_csv_gpt(csv_path, which_data):
         ]
     return data_list
 
+def read_csv_kab2022(csv_path, which_data):
+    """
+    [filename, which_data, speaker, type] 形式のCSVから
+    動画・音声・ランドマークのパスリストを返す
+    """
+    data_list = []
+    with open(str(csv_path), "r") as f:
+        reader = csv.reader(f)
+        header = next(reader)  # ヘッダー行をスキップ
+        for row in reader:
+            filename, data_split, speaker, corpus = row
+            if data_split != which_data:
+                continue
+            video_path = data_dir / "mov_fps25" / f"{filename}.mp4"
+            audio_path = data_dir / "wav" / f"{filename}.wav"
+            landmark_path = landmark_dir / f"{filename}.csv"
+            data_list.append([video_path, audio_path, landmark_path])
+    return data_list
+#data_dir = Path(f"/home/user/dataset/kab2022").expanduser()
+
 
 def save_data(data_list, len, cfg, data_save_path, which_data):
     """
@@ -110,9 +130,9 @@ def main(cfg):
     cfg.model.gray = gray
     print(f"speaker = {speaker}, mode = {cfg.model.name}, gray = {cfg.model.gray}")
 
-    train_data_list = read_csv_gpt(csv_path, "train")
-    val_data_list = read_csv_gpt(csv_path, "val")
-    test_data_list = read_csv_gpt(csv_path, "test")
+    train_data_list = read_csv_kab2022(csv_path, "train")
+    val_data_list = read_csv_kab2022(csv_path, "val")
+    test_data_list = read_csv_kab2022(csv_path, "test")
 
     print(f"\nall data ratio")
     print(f"train_data : {len(train_data_list)}, val_data : {len(val_data_list)}, test_data : {len(test_data_list)}")

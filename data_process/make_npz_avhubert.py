@@ -14,8 +14,32 @@ def pad(feature, data_len):
 
 @hydra.main(config_name="config", config_path="../conf")
 def main(cfg):
-    data_dir = Path('~/dataset/lip/np_files/jsut')
-    data_path_list = list(data_dir.glob('**/*.npz'))
+    #!データ読み込み先の指定！忘れない！
+    #いつものnpzファイルは、~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/[data_split]/[speaker]/master/[.npz]
+    data_dir = Path('~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray').expanduser()
+    data_path_list_kab = list(data_dir.glob('*/kab2022/master/*.npz')) #kablab2022に、lipがない
+    data_path_list_katsu = list(data_dir.glob('*/F1/master/*.npz')) #kablab2022に、lipがない
+
+    #"""
+    # 追加: 最初の5つのパスを表示
+    print("kabの1つのnpzファイルパス:")
+    for p in data_path_list_kab[:1]:
+        npz = np.load(p)
+        print(p)
+        print(npz.files)
+        #[wav, feature]
+
+    for p in data_path_list_katsu[:-1]:
+        npz = np.load(p)
+        print(p)
+        print(npz.files)
+        print(npz['lip'].shape, npz['wav'].shape, npz['feature'].shape, npz['feature_avhubert'].shape)
+        #['wav', 'lip', 'feature', 'feat_add', 'landmark', 'upsample', 'data_len']
+
+    breakpoint()
+    #"""
+
+    data_path_list = data_path_list_kab
     for data_path in tqdm(data_path_list):
         npz_key = np.load(str(data_path))
         lip = npz_key['lip']

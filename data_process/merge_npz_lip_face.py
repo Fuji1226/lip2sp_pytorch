@@ -1,7 +1,7 @@
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
-
+#!lip候補１
 
 def main():
     lip_dir = Path("~/dataset/lip/np_files/lip_cropped_0.8_50_gray").expanduser()

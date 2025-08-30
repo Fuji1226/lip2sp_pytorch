@@ -62,7 +62,7 @@ def get_save_and_ckpt_path(
     if cfg.train.check_point_start:
         checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
         ckpt_time = checkpoint_path.parents[0].name
-        
+
     ckpt_path = Path(cfg.train.ckpt_path).expanduser()
     if ckpt_time is not None:
         ckpt_path = ckpt_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
@@ -72,7 +72,7 @@ def get_save_and_ckpt_path(
 
     save_path = Path(cfg.train.save_path).expanduser()
     if ckpt_time is not None:
-        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time    
+        save_path = save_path / cfg.train.face_or_lip / cfg.model.name / ckpt_time
     else:
         save_path = save_path / cfg.train.face_or_lip / cfg.model.name / current_time
     save_path.mkdir(parents=True, exist_ok=True)
