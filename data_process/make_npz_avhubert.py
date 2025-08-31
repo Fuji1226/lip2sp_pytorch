@@ -20,7 +20,7 @@ def main(cfg):
     data_path_list_kab = list(data_dir.glob('*/kab2022/master/*.npz')) #kablab2022に、lipがない
     data_path_list_katsu = list(data_dir.glob('*/F1/master/*.npz')) #kablab2022に、lipがない
 
-    #"""
+    """
     # 追加: 最初の5つのパスを表示
     print("kabの1つのnpzファイルパス:")
     for p in data_path_list_kab[:1]:
@@ -37,9 +37,9 @@ def main(cfg):
         #['wav', 'lip', 'feature', 'feat_add', 'landmark', 'upsample', 'data_len']
 
     breakpoint()
-    #"""
+    """
 
-    data_path_list = data_path_list_kab
+    data_path_list = data_path_list_katsu
     for data_path in tqdm(data_path_list):
         npz_key = np.load(str(data_path))
         lip = npz_key['lip']

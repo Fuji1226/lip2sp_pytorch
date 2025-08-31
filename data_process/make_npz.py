@@ -9,7 +9,7 @@ from tqdm import tqdm
 import csv
 import pickle
 
-from transform import load_data_for_npz_audio
+from transform import load_data_for_npz
 
 #!csvの読み込みから修正！！！！！
 
@@ -91,15 +91,17 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
             # 話者ラベル(F01_kablabとかです)
             audio_path.parents[0].name
 
-            wav, feature = load_data_for_npz_audio(
+            wav, lip, feature, feat_add, upsample, data_len, landmark = load_data_for_npz(
+                video_path=video_path,
                 audio_path=audio_path,
+                landmark_path=landmark_path,
                 cfg=cfg,
             )
 
-            if cfg.model.name == "mspec80":
-                assert feature.shape[1] == 80
-            elif cfg.model.name == "world_melfb":
-                assert feature.shape[1] == 32
+            #if cfg.model.name == "mspec80":
+            assert feature.shape[1] == 80
+            #elif cfg.model.name == "world_melfb":
+                #assert feature.shape[1] == 32
             
             # データの保存
             _data_save_path = data_save_path / speaker / cfg.model.name
@@ -107,7 +109,12 @@ def save_data(data_list, len, cfg, data_save_path, which_data):
             np.savez(
                 str(_data_save_path / audio_path.stem),
                 wav=wav,
+                lip=lip,
                 feature=feature,
+                feat_add=feat_add,
+                landmark=landmark,
+                upsample=upsample,
+                data_len=data_len,
             )
 
         except Exception as e: #例外処理-エラー出力

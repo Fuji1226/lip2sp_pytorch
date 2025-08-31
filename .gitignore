@@ -6,3 +6,4 @@ confirm.py
 data_check/
 outputs/
 result/
+wandb/
