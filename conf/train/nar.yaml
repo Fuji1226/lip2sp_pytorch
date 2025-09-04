@@ -12,8 +12,8 @@ debug_max_epoch : 200
 debug_iter : 50
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+check_point_start : True
+start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:04_16-54-20/8.ckpt'
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
@@ -22,8 +22,8 @@ fine_tuning_pretrained_model_by_external_data : False
 module_is_fixed : []
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
-check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : "~/lip2sp_pytorch/check_point/nar/face_cropped_max_size_fps25/2023:07:20_02-32-49/mspec80_400.ckpt"
+check_point_start_separate_save_dir : True
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:04_16-54-20/8.ckpt'
 
 # face or lip
 face_or_lip : "avhubert_preprocess_fps25_gray"
@@ -37,7 +37,7 @@ save_path : "~/lip2sp_pytorch/result/nar/train"
 ckpt_path : "~/lip2sp_pytorch/check_point/nar"
 ckpt_step : 1
 
-#! 口唇動画、音響特徴量ディレクトリまでのパス
+#! 口唇動画、音響特徴量ディレクトリまでのパス ←ここ使われてないっぽい、なんだこれ
 avhubert_preprocess_fps25_train : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/train/mspec80"
 avhubert_preprocess_fps25_val : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/val/mspec80'"
 
@@ -50,13 +50,13 @@ katsurada:
   emb_dir: '/home/user/2HEAVD/ITA_text/F1/audio'
 
 
-# kablab
-kablab:
+# kablab2022
+kab2022:
   use: False
-  audio_dir: '~/dataset/lip/wav'
-  avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
-  df_path: '~/dataset/lip/data_split_csv/kablab.csv'
-  emb_dir: '~/dataset/lip/emb'
+  audio_dir: '~/dataset/kab2022/wav'
+  avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25/kab2022'
+  df_path: '~/dataset/lip/data_split_csv/kab2022.csv'
+  emb_dir: '~/dataset/lip/emb/kab2022'
   text_dir: '~/dataset/lip/utt'
 
 # tcd_timit
@@ -138,8 +138,9 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : ['F1']
-use_spk_emb : False
+#ここもうちょい整理できそう整理するの面倒だが
+speaker : ["F1"] #"F1",'kab2022'
+use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False
@@ -148,7 +149,7 @@ adversarial_learning : False
 use_emo_label : True
 
 # max_epoch
-max_epoch : 300
+max_epoch : 30
 
 # テキスト処理
 for_tts : False

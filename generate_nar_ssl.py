@@ -88,7 +88,7 @@ def generate(
 
         _save_path = save_path / "griffinlim" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
-        """
+
         save_data(
              cfg=cfg,
              save_path=_save_path,
@@ -104,9 +104,9 @@ def generate(
 
         with torch.no_grad():
             noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
-            wav_pred = pwg(noise, output)
-            wav_abs = pwg(noise, feature)
-
+            #wav_pred = pwg(noise, output)
+            #wav_abs = pwg(noise, feature)
+        """
         _save_path = save_path / "pwg" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
         save_data_pwg(

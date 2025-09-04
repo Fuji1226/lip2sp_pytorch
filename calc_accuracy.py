@@ -125,7 +125,7 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         wav_abs = wav_abs[:min_sample]
         wav_generate = wav_generate[:min_sample]
 
-        f0_avg = f0_avg_wav(cfg, save_path, wav_gt, wav_abs, wav_generate)
+        f0_avg = f0_avg_wav(cfg, wav_gt, wav_abs, wav_generate)
         f0_gt = f0_avg['input']
         f0_gt_range = f0_avg['input_range']
         f0_abs = f0_avg['AbS']

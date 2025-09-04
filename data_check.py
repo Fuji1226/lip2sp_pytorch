@@ -520,7 +520,7 @@ def plot_f0_from_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None,
     plt.savefig(str(save_path / "f0.png"))
 
 
-def f0_avg_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None, f0_ceil=None):
+def f0_avg_wav(cfg, wav_input, wav_AbS, wav_gen, f0_floor=None, f0_ceil=None):
     """
     音声波形からf0を計算し,その平均値を返す
     """
@@ -552,10 +552,18 @@ def f0_avg_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None, f0_ce
         f0_ceil=f0_ceil,
         frame_period=cfg.model.frame_period,
     )
+
+    #エラー回避用、f0_genのゼロ行列を制作する準備
+    size = f0_gen.size
+
     # f0の値が0の部分は除外
     f0_input = f0_input[f0_input > 0]
     f0_AbS = f0_AbS[f0_AbS > 0]
     f0_gen = f0_gen[f0_gen > 0]
+
+    #エラー回避用、f0_genが値なしのとき、ゼロ行列を代入
+    if f0_gen.size == 0:
+        f0_gen = np.zeros(size)
 
     #それぞれの最大値と最小値を取得、範囲として返す
     f0_input_range = (f0_input.min(), f0_input.max())

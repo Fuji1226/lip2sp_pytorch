@@ -80,10 +80,14 @@ def get_save_and_ckpt_path(
 
 
 def get_path_train_raw(cfg, current_time):
-    if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
-        video_dir = cfg.train.katsurada.avhubert_preprocess_fps25_video_dir
-    video_dir = Path(video_dir).expanduser()
-    audio_dir = Path(cfg.train.katsurada.audio_dir).expanduser()
+
+    if cfg.train.katsurada.use :
+        video_dir = Path(cfg.train.katsurada.avhubert_preprocess_fps25_video_dir).expanduser()
+        audio_dir = Path(cfg.train.katsurada.audio_dir).expanduser()
+
+    if cfg.train.kab2022.use:
+        video_dir = Path(cfg.train.kab2022.avhubert_preprocess_fps25_video_dir).expanduser()
+        audio_dir = Path(cfg.train.kab2022.audio_dir).expanduser()
 
     ckpt_path, save_path, ckpt_time= get_save_and_ckpt_path(cfg, current_time)
 
@@ -178,8 +182,36 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要
                 }
             )
 
-        #print(data_path_list)
-        #breakpoint()
+    if cfg.train.kab2022.use:
+        print('load kab2022')
+        df = pd.read_csv(str(Path(cfg.train.kab2022.df_path).expanduser()))
+        df = df.loc[df['speaker'].isin(cfg.train.speaker)]
+        #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
+        df = df.loc[df['data_split'] == data_split]
+        for i in range(df.shape[0]):
+            row = df.iloc[i]
+            #?単一話者用のゴリ押しコーディング、複数話者利用の場合は見直し！
+            #!こいつだあ！！！！！！！
+            audio_path = audio_dir / f'{row["filename"]}.wav'
+            video_path = video_dir / f'{row["filename"]}.mp4'
+            emo_label = row['label']
+            emo_emb = torch.zeros(cfg.model.emo_emb_dim)
+            emo_emb[emo_label] = 1
+            #if (not audio_path.exists()) or (not video_path.exists()):
+                #continue
+            data_path_list.append(
+                {
+                    'audio_path': audio_path,
+                    'video_path': video_path,
+                    'speaker': row['speaker'],
+                    'filename': row['filename'],
+                    'emotion' : emo_emb,
+                }
+            )
+        """
+        print(data_path_list[:2])
+        breakpoint()
+        """
     return data_path_list
 
 def get_datasets_raw_pwg(cfg, video_dir, audio_dir, data_split):#pwg専用に一旦作成

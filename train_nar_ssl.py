@@ -292,6 +292,13 @@ def main(cfg):
     video_dir, audio_dir, ckpt_path, save_path, ckpt_time = get_path_train_raw(
         cfg, current_time
     )
+
+    """
+    print(f"video_dir = {video_dir}")
+    print(f"audio_dir = {audio_dir}")
+    breakpoint()
+    """
+
     train_loader, val_loader, train_dataset, val_dataset = (
         make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir)
     )
