@@ -17,8 +17,8 @@ def main(cfg):
     #!データ読み込み先の指定！忘れない！
     #いつものnpzファイルは、~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray/[data_split]/[speaker]/master/[.npz]
     data_dir = Path('~/dataset/lip/np_files/face_cropped_max_size_fps25_0_25_gray').expanduser()
-    data_path_list_kab = list(data_dir.glob('*/kab2022/master/*.npz')) #kablab2022に、lipがない
-    data_path_list_katsu = list(data_dir.glob('*/F1/master/*.npz')) #kablab2022に、lipがない
+    data_path_list_kab = list(data_dir.glob('*/M02_kablab/master/*.npz'))
+    data_path_list_katsu = list(data_dir.glob('*/F1/master/*.npz'))
 
     """
     # 追加: 最初の5つのパスを表示
@@ -39,7 +39,7 @@ def main(cfg):
     breakpoint()
     """
 
-    data_path_list = data_path_list_katsu
+    data_path_list = data_path_list_kab
     for data_path in tqdm(data_path_list):
         npz_key = np.load(str(data_path))
         lip = npz_key['lip']

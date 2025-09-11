@@ -12,18 +12,18 @@ debug_max_epoch : 200
 debug_iter : 50
 
 # checkpointから再開する場合
-check_point_start : True
-start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:04_16-54-20/8.ckpt'
+check_point_start : False
+start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:09_14-18-59/18.ckpt'
+
+# check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
+check_point_start_separate_save_dir : False
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:09_14-18-59/18.ckpt'
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
 
 # 固定するレイヤーを指定
 module_is_fixed : []
-
-# check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
-check_point_start_separate_save_dir : True
-start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:04_16-54-20/8.ckpt'
 
 # face or lip
 face_or_lip : "avhubert_preprocess_fps25_gray"
@@ -53,11 +53,12 @@ katsurada:
 # kablab2022
 kab2022:
   use: False
-  audio_dir: '~/dataset/kab2022/wav'
-  avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25/kab2022'
+  audio_dir: '~/dataset'
+  avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
   df_path: '~/dataset/lip/data_split_csv/kab2022.csv'
   emb_dir: '~/dataset/lip/emb/kab2022'
   text_dir: '~/dataset/lip/utt'
+
 
 # tcd_timit
 tcd_timit:
@@ -128,7 +129,7 @@ jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 
 # 使用するコーパス
 # corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : ["ATR"]
+corpus : ["ATR", "BASIC5000"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
@@ -138,8 +139,7 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-#ここもうちょい整理できそう整理するの面倒だが
-speaker : ["F1"] #"F1",'kab2022'
+speaker : [F1] #['kab2022','F02_kablab','F03_kablab','M04_kablab'] #F1
 use_spk_emb : True
 finetuning : False
 where_spk_emb : "after_res"
@@ -149,7 +149,7 @@ adversarial_learning : False
 use_emo_label : True
 
 # max_epoch
-max_epoch : 30
+max_epoch : 50
 
 # テキスト処理
 for_tts : False

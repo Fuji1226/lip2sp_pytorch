@@ -9,7 +9,7 @@ import sys
 sys.path.append(str(Path("~/hifi-gan").expanduser()))
 from ToUseHFGAN import load_hifigan_model, mel_to_waveform
 
-from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean
+from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean, calc_result
 from data_check import save_data_pwg, save_data, save_data_hifigan
 #from parallelwavegan.pwg_train import make_model as make_pwg
 from train_nar_ssl import make_model
@@ -186,8 +186,9 @@ def main(cfg):
     #calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
 
     calc_mean(save_path.parents[0] / 'accuracy_hifigan.txt')
+    calc_result(save_path_hifigan_spk)
+    calc_result(save_path_spk)
 
-    
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],
         checkpoint_dir=model_path.parents[1],

@@ -76,6 +76,6 @@ make_spk_emb_katsurada(spk_dir, out_dir)
 """
 
 #?kab2022のやつ実行する↓
-spk_dir = '/home/user/dataset/kab2022'
-out_dir = '/home/user/dataset/lip/emb/kab2022'
+spk_dir = '/home/user/dataset/M02_kablab'
+out_dir = '/home/user/dataset/lip/emb/M02_kablab'
 make_spk_emb_kab2022(spk_dir, out_dir)

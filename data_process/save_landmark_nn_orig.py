@@ -8,13 +8,16 @@ import face_alignment
 import av
 import time
 from tqdm import tqdm
+import numpy as np
+
 
 debug = False
-debug_iter = 3
+debug_iter = 5
 
-speaker_list = ["M02_kablab"]
+speaker_list = ["F02_kablab","F03_kablab"]
 
-def process_speaker(speaker):
+for speaker in speaker_list:
+
     data_root = Path(f"~/dataset/{speaker}/mov_fps25").expanduser()
 
     if data_root.parents[0].name == "cropped":
@@ -32,7 +35,7 @@ def process_speaker(speaker):
     elif data_root.parents[0].name == "cropped_max_size_fps25":
         dir_name_landmark = "landmark_cropped_max_size_fps25"
         dir_name_bbox = "bbox_cropped_max_size_fps25"
-    else:  # 応急処置
+    else:#応急処置
         dir_name_landmark = "landmark_fps25"
         dir_name_bbox = "bbox_fps25"
 
@@ -46,6 +49,8 @@ def process_speaker(speaker):
     os.makedirs(save_dir_landmark, exist_ok=True)
     os.makedirs(save_dir_bbox, exist_ok=True)
 
+
+def main():
     print(f"speaker = {speaker}")
     data_path = sorted(list(data_root.glob("*.mp4")))
 
@@ -54,7 +59,7 @@ def process_speaker(speaker):
 
     iter_cnt = 0
     for path in tqdm(data_path):
-        if Path(f"{save_dir_landmark}/{path.stem}.csv").exists() and Path(f"{save_dir_bbox}/{path.stem}.csv").exists():
+        if Path(str(f"{save_dir_landmark}/{path.stem}.csv")).exists() and Path(str(f"{save_dir_bbox}/{path.stem}.csv")).exists():
             continue
 
         landmark_list = []
@@ -87,30 +92,26 @@ def process_speaker(speaker):
                 bbox_list.append(bbox)
 
             total_frames = container.streams.video[0].frames
-            assert total_frames == len(landmark_list)
+            assert total_frames == len(landmark_list) 
             assert total_frames == len(bbox_list)
 
-            with open(f"{save_dir_landmark}/{path.stem}.csv", "w") as f:
+            with open(str(f"{save_dir_landmark}/{path.stem}.csv"), "w") as f:
                 writer = csv.writer(f)
                 for landmark in landmark_list:
                     writer.writerow(landmark)
 
-            with open(f"{save_dir_bbox}/{path.stem}.csv", "w") as f:
+            with open(str(f"{save_dir_bbox}/{path.stem}.csv"), "w") as f:
                 writer = csv.writer(f)
                 for bbox in bbox_list:
                     writer.writerow(bbox)
 
-        except Exception as e:
-            print(f"Error processing {path}: {e}")
+        except:
             continue
 
         iter_cnt += 1
-        if debug and iter_cnt > debug_iter:
-            break
-
-def main():
-    for speaker in speaker_list:
-        process_speaker(speaker)
+        if debug:
+            if iter_cnt > debug_iter:
+                break
 
 
 if __name__ == "__main__":

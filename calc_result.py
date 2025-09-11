@@ -6,7 +6,7 @@ from collections import defaultdict
 import os
 
 # npzファイルが入っているフォルダ群のある親ディレクトリ
-base_dir = Path('/home/user/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master/2025:08:01_14-13-42/4/test_data/audio/hifigan/F1').expanduser().resolve()
+base_dir = Path('/home/user/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master/2025:09:04_16-54-20/11/test_data/audio/hifigan/F1').expanduser().resolve()
 
 # 感情タイプごとに値を蓄積する辞書
 metrics_by_emotion = defaultdict(list)

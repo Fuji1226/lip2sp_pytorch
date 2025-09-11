@@ -8,12 +8,10 @@ fps_list = [25,]
 debug = False
 
 dir_name = "mov"
-#? '/home/user/dataset/kab2022/mov'にある動画のfpsを変更
-
 
 def main():
     #speaker_list = ["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab", "F01_kablab_20220930", "F01_kablab_all"]
-    speaker_list = ["kab2022"]
+    speaker_list = ["M02_kablab"] #M03_kabは動画消失のためスルー
     for speaker in speaker_list:
         print(f"speaker = {speaker}")
         data_dir = Path(f"~/dataset/{speaker}/{dir_name}").expanduser()

@@ -165,11 +165,11 @@ def load_data_for_npz(video_path, audio_path, landmark_path, cfg):
     feature, feat_add : (T, C)
     """
     lip, fps = load_mp4(str(video_path), cfg)   # lipはtensor
-    wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate, mono=None)
+    wav, fs = librosa.load(str(audio_path), sr=cfg.model.sampling_rate)#, mono=None)
     wav = wav / np.max(np.abs(wav), axis=0)
     upsample = get_upsample(cfg)
     landmark = load_landmark(landmark_path)     # (T, 2, 68)
-    
+
     # 音響特徴量への変換
     feature = calc_sp(wav, cfg)
     feat_add, T = calc_feat_add(wav, feature, cfg)

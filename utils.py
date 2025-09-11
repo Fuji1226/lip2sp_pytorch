@@ -153,7 +153,7 @@ def get_datasets(data_root, cfg):
     return items
 
 
-def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要可能性おおいにあり
+def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!話者毎にゴリ押ししてる
     data_path_list = []
     if cfg.train.katsurada.use:
         print('load katsurada')
@@ -190,10 +190,8 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!修正する必要
         df = df.loc[df['data_split'] == data_split]
         for i in range(df.shape[0]):
             row = df.iloc[i]
-            #?単一話者用のゴリ押しコーディング、複数話者利用の場合は見直し！
-            #!こいつだあ！！！！！！！
-            audio_path = audio_dir / f'{row["filename"]}.wav'
-            video_path = video_dir / f'{row["filename"]}.mp4'
+            audio_path = audio_dir / f'{row["speaker"]}/wav/{row["filename"]}.wav'
+            video_path = video_dir / f'{row["speaker"]}/{row["filename"]}.mp4'
             emo_label = row['label']
             emo_emb = torch.zeros(cfg.model.emo_emb_dim)
             emo_emb[emo_label] = 1

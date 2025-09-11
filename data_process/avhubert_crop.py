@@ -53,12 +53,12 @@ def get_frame_count(filename):
 
 def read_video(filename):
     cap = cv2.VideoCapture(filename)
-    while(cap.isOpened()):                                                 
+    while(cap.isOpened()):
         ret, frame = cap.read() # BGR
-        if ret:                      
-            yield frame                                                    
-        else:                                                              
-            break                                                         
+        if ret:
+            yield frame
+        else:
+            break
     cap.release()
 
 # -- Crop
@@ -66,24 +66,24 @@ def cut_patch(img, landmarks, height, width, threshold=5):
 
     center_x, center_y = np.mean(landmarks, axis=0)
 
-    if center_y - height < 0:                                                
-        center_y = height                                                    
-    if center_y - height < 0 - threshold:                                    
-        raise Exception('too much bias in height')                           
-    if center_x - width < 0:                                                 
-        center_x = width                                                     
-    if center_x - width < 0 - threshold:                                     
-        raise Exception('too much bias in width')                            
-                                                                             
-    if center_y + height > img.shape[0]:                                     
-        center_y = img.shape[0] - height                                     
-    if center_y + height > img.shape[0] + threshold:                         
-        raise Exception('too much bias in height')                           
-    if center_x + width > img.shape[1]:                                      
-        center_x = img.shape[1] - width                                      
-    if center_x + width > img.shape[1] + threshold:                          
-        raise Exception('too much bias in width')                            
-                                                                             
+    if center_y - height < 0:
+        center_y = height
+    if center_y - height < 0 - threshold:
+        raise Exception('too much bias in height')
+    if center_x - width < 0:
+        center_x = width
+    if center_x - width < 0 - threshold:
+        raise Exception('too much bias in width')
+
+    if center_y + height > img.shape[0]:
+        center_y = img.shape[0] - height
+    if center_y + height > img.shape[0] + threshold:
+        raise Exception('too much bias in height')
+    if center_x + width > img.shape[1]:
+        center_x = img.shape[1] - width
+    if center_x + width > img.shape[1] + threshold:
+        raise Exception('too much bias in width')
+
     cutted_img = np.copy(
         img[
             int(round(center_y) - round(height)): int(round(center_y) + round(height)),
@@ -193,7 +193,7 @@ def crop_patch(video_pathname, landmarks, mean_face_landmarks, stablePntsIDs, ST
 
 
 def landmarks_interpolate(landmarks):
-    
+
     """Interpolate landmarks
     param list landmarks: landmarks detected in raw videos
     """
@@ -224,7 +224,7 @@ def get_landmark(landmark_path):
     return coords_list
 
 """
-
+前のデフォルト
 def main():
     args = load_args()
 
@@ -235,15 +235,13 @@ def main():
     stablePntsIDs = [33, 36, 39, 42, 45]
     ffmpeg_path = '/usr/bin/ffmpeg'
 
-    #!データパスの指定!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     video_dir = Path('/home/user/2HEAVD/F1/video/fps25/front/alldata').expanduser()
     landmark_dir = Path('/home/user/dataset/lip/landmark').expanduser()
     save_dir = Path('/home/user/avhubert_preprocess_fps25').expanduser()#dataset_lip
-    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     video_dir_list = list(video_dir.glob('*'))
     #print(video_dir_list)
-    
+
     debug = True
     if debug == True :
         video_dir_list = video_dir_list[1:4]
@@ -268,15 +266,15 @@ def main():
             if save_path.exists():
                 continue
             save_path.parents[0].mkdir(parents=True, exist_ok=True)
-            
+
             landmarks = get_landmark(str(landmark_path))
             preprocessed_landmarks = landmarks_interpolate(landmarks)
-            
+
             if not preprocessed_landmarks:
                 frame_gen = read_video(str(video_path))
                 frames = [cv2.resize(x, (args.crop_width, args.crop_height)) for x in frame_gen]
                 write_video_ffmpeg(frames, save_path, str(ffmpeg_path))
-                
+
             sequence = crop_patch(
                 str(video_path),
                 preprocessed_landmarks,
@@ -292,7 +290,7 @@ def main():
             print(sequence)
             breakpoint()
             write_video_ffmpeg(sequence, save_path, str(ffmpeg_path))
-        
+
 """
 
 def main():
@@ -306,9 +304,10 @@ def main():
     ffmpeg_path = '/usr/bin/ffmpeg'
 
     #! データパスの指定 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    video_dir = Path('/home/user/dataset/kab2022/mov_fps25').expanduser()
-    landmark_dir = Path('/home/user/dataset/lip/landmark/kab2022').expanduser()
-    save_dir = Path('/home/user/dataset/lip/avhubert_preprocess_fps25/kab2022').expanduser()
+    speaker = "M02_kablab"
+    video_dir = Path(f'/home/user/dataset/{speaker}/mov_fps25').expanduser()
+    landmark_dir = Path(f'/home/user/dataset/lip/landmark/{speaker}').expanduser()
+    save_dir = Path(f'/home/user/dataset/lip/avhubert_preprocess_fps25/{speaker}').expanduser()
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     video_path_list = list(video_dir.glob('*.mp4'))  # ← 直下の動画のみ
@@ -361,7 +360,7 @@ def main():
             crop_width=args.crop_width
         )
         #print(sequence.shape)
-        
+
         write_video_ffmpeg(sequence, save_path, str(ffmpeg_path))
         #print("Writing video to", save_path)
 

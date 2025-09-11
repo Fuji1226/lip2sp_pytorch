@@ -5,12 +5,12 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 random.seed(42)
 
-#!make_npz前にこれ 現状うまく行ってなさそう
+#!make_npz前にこれ
 def data_split_kablab():
     audio_dir = Path('~/dataset').expanduser()
     #speaker_list = list(audio_dir.glob('*'))
     #speaker_list = [s.stem for s in speaker_list]
-    speaker_list = ['kab2022']
+    speaker_list = ['M02_kablab']  # ← 追加
     train_ratio = 0.95
     df_list = []
 
@@ -185,7 +185,7 @@ def main():
     save_dir = Path('~/dataset/lip/data_split_csv').expanduser()
     #?kablab使用の場合
     df = data_split_kablab()
-    df.to_csv(str(save_dir / 'kab2022.csv'), index=False)
+    df.to_csv(str(save_dir / 'kab2020.csv'), index=False)
 
     #?hifi-captain使用の場合
     # df = data_split_hifi_captain()
