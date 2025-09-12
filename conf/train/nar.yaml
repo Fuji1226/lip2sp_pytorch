@@ -41,23 +41,13 @@ ckpt_step : 1
 avhubert_preprocess_fps25_train : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/train/mspec80"
 avhubert_preprocess_fps25_val : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray/val/mspec80'"
 
-#!桂田先生データセット_要更新
-katsurada:
+# kablab+katsurada
+kab:
   use: True
-  audio_dir: '/home/user/2HEAVD/ITA_text/F1/audio/alldata'
-  avhubert_preprocess_fps25_video_dir: '/home/user/dataset/lip/avhubert_preprocess_fps25/F1'
-  df_path: '/home/user/2HEAVD/ITA_text/F1/data_split.csv'
-  emb_dir: '/home/user/2HEAVD/ITA_text/F1/audio'
-
-
-# kablab2022
-kab2022:
-  use: False
   audio_dir: '~/dataset'
   avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
-  df_path: '~/dataset/lip/data_split_csv/kab2022.csv'
-  emb_dir: '~/dataset/lip/emb/kab2022'
-  text_dir: '~/dataset/lip/utt'
+  df_path: '~/dataset/lip/data_split_csv/all_data.csv'
+  emb_dir: '~/dataset/lip/emb'
 
 
 # tcd_timit
@@ -128,10 +118,10 @@ jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 
 # 使用するコーパス
-# corpus : ["ATR", "BASIC5000", "balanced"]
-corpus : ["ATR", "BASIC5000"]
+corpus : ["ATR", "BASIC5000", "balanced"]
+#corpus : ["ATR", "BASIC5000"]
 corpus_synth : [
-  "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", 
+  "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", "ITA",
   "UT-PARAPHRASE", "VOICEACTRESS100", "wiki"
 ]
 
@@ -139,8 +129,10 @@ corpus_synth : [
 apply_upsampling : False
 
 # 使用する話者
-speaker : [F1] #['kab2022','F02_kablab','F03_kablab','M04_kablab'] #F1
+#!話者を変更することだけで事前学習と本学習を切り替える
+speaker : ['kab2022','F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1
 use_spk_emb : True
+spk_emb_dir : "~/dataset/lip/emb"
 finetuning : False
 where_spk_emb : "after_res"
 adversarial_learning : False
