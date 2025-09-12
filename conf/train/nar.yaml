@@ -7,17 +7,14 @@ random_seed : 42
 
 # デバッグ
 debug : False
-debug_data_len : 1000
-debug_max_epoch : 200
-debug_iter : 50
 
 # checkpointから再開する場合
-check_point_start : False
-start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:09_14-18-59/18.ckpt'
+check_point_start : True
+start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:9:12_mastar/20.ckpt'
 
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
-check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:09:09_14-18-59/18.ckpt'
+check_point_start_separate_save_dir : True
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:9:12_mastar/20.ckpt'
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか
 fine_tuning_pretrained_model_by_external_data : False
@@ -118,7 +115,7 @@ jsut_path_train : "~/dataset/lip/np_files/jsut/train"
 jsut_path_val : "~/dataset/lip/np_files/jsut/val"
 
 # 使用するコーパス
-corpus : ["ATR", "BASIC5000", "balanced"]
+corpus : ["ATR", "BASIC5000", "balanced","ITA"]
 #corpus : ["ATR", "BASIC5000"]
 corpus_synth : [
   "ATR", "BASIC5000", "balanced", "COUNTERSUFFIX26", "LOANWORD128", "ONOMATOPEE300", "PRECEDENT130", "TRAVEL1000", "ITA",
@@ -130,7 +127,7 @@ apply_upsampling : False
 
 # 使用する話者
 #!話者を変更することだけで事前学習と本学習を切り替える
-speaker : ['kab2022','F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1
+speaker : ["F1"] #['kab2022','F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1
 use_spk_emb : True
 spk_emb_dir : "~/dataset/lip/emb"
 finetuning : False
@@ -139,6 +136,8 @@ adversarial_learning : False
 
 # 感情ラベル
 use_emo_label : True
+emo_label : ["0","1","2","3","4","5","6"]
+#neutral=0,anger=1,disgust=2,fear=3,happiness=4,sadness=5,surprise=6
 
 # max_epoch
 max_epoch : 50

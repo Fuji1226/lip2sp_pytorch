@@ -149,23 +149,25 @@ def get_datasets(data_root, cfg):
     return items
 
 
-def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!話者毎にゴリ押ししてる
+def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
     data_path_list = []
 
     df = pd.read_csv(str(Path(cfg.train.kab.df_path).expanduser()))
     df = df.loc[df['speaker'].isin(cfg.train.speaker)]
     print("use speaker:", cfg.train.speaker)
     #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
+    df = df.loc[df['label'].isin(cfg.train.emo_label)]
+    print("use emotion:",cfg.train.emo_label)
     df = df.loc[df['data_split'] == data_split]
     for i in range(df.shape[0]):
         row = df.iloc[i]
 
         if row['speaker'] == 'F1':#桂田先生のデータはfrontを追記
-            video_path = video_dir / f'{row["filename"]}_front.mp4'
+            video_path = video_dir /row["speaker"]/f'{row["filename"]}_front.mp4'
         else:
-            video_path = video_dir / f'{row["filename"]}.mp4'
+            video_path = video_dir /row["speaker"]/f'{row["filename"]}.mp4'
 
-        emo_label = row['label']
+        emo_label = int(row['label'])
         emo_emb = torch.zeros(cfg.model.emo_emb_dim)
         emo_emb[emo_label] = 1
         #if (not audio_path.exists()) or (not video_path.exists()):
@@ -173,7 +175,7 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):#!話者毎にゴリ
 
         data_path_list.append(
             {
-                'audio_path': audio_dir / f'{row["filename"]}.wav',
+                'audio_path': audio_dir/row["speaker"]/ f'{row["filename"]}.wav',
                 'video_path': video_path,
                 'speaker': row['speaker'],
                 'filename': row['filename'],
@@ -307,17 +309,21 @@ def get_datasets_test_raw(cfg, video_dir, audio_dir):
     df = pd.read_csv(str(Path(cfg.train.kab.df_path).expanduser()))#TODO パスの更新
     df = df.loc[df['data_split'] == 'test']
     df = df.loc[df['speaker'].isin(cfg.test.speaker)]
+    print("test speaker:", cfg.test.speaker)
+    #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
+    df = df.loc[df['label'].isin(cfg.test.emo_label)]
+    print("test  emotion:",cfg.test.emo_label)
     data_path_list = []
     for i in range(df.shape[0]):
         row = df.iloc[i]
         if row['speaker'] == 'F1':
-            video_path = video_dir / f'{row["filename"]}_front.mp4'
+            video_path = video_dir /row["speaker"]/ f'{row["filename"]}_front.mp4'
         else:
-            video_path = video_dir / f'{row["filename"]}.mp4'
+            video_path = video_dir /row["speaker"]/f'{row["filename"]}.mp4'
 
         data_path_list.append(
             {
-                'audio_path': audio_dir / f'{row["filename"]}.wav',
+                'audio_path': audio_dir /row["speaker"]/ f'{row["filename"]}.wav',
                 'video_path': video_path,
                 'speaker': row['speaker'],
                 'filename': row['filename'],
@@ -474,7 +480,7 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         transform=test_trans,
         cfg=cfg,
     )
-    print(f"len(test_dataset): {len(test_dataset)}")#!当たり前だけどどっちもできてない
+    print(f"len(test_dataset): {len(test_dataset)}")
     test_loader = DataLoader(
         dataset=test_dataset,
         batch_size=1,   

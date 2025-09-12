@@ -378,7 +378,7 @@ def main(cfg):
             torch.cuda.set_rng_state(checkpoint["cuda_random"])
             last_epoch = checkpoint["epoch"]
 
-        if cfg.train.check_point_start_separate_save_dir:
+        if cfg.train.check_point_start_separate_save_dir:#!ここの挙動微妙、もうちょいしっかり効率化したいので調べる。
             print("load check point (separate save dir)")
             checkpoint_path = Path(
                 cfg.train.start_ckpt_path_separate_save_dir
