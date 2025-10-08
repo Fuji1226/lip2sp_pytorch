@@ -663,7 +663,7 @@ def calc_accuracy(data_dir, save_path, cfg, filename, process_times=None):
                     f.write(f"duration = {dur:f}, process_time = {time:f}\n")
 
             f.write('\n')
-                    
+
 
 def calc_mean(result_file_path):
     with open(str(result_file_path), 'r') as f:
@@ -711,7 +711,7 @@ def calc_result(result_file_path):
                 print(f"Warning: {npz_path} not found.")
 
     # 平均値を計算し保存
-    output_dir = base_dir / "averaged_metrics_by_emotion"
+    output_dir = base_dir.parent.parent.parent
     output_dir.mkdir(exist_ok=True)
 
     for emotion, metric_list in metrics_by_emotion.items():

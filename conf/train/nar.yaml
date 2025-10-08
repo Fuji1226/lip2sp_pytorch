@@ -8,15 +8,16 @@ random_seed : 42
 # デバッグ
 debug : False
 
-# checkpointから再開する場合
-check_point_start : True
-start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:9:12_mastar/20.ckpt'
+# ?checkpointから再開する場合(同条件学習の再開)
+check_point_start : False
+start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:10:02_13-45-21/9.ckpt'
 
+# ?finetuning(データを変えて学習する場合)
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : True
-start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:9:12_mastar/20.ckpt'
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:10:02_13-45-21/12.ckpt'
 
-# 複数言語で事前学習したモデルをfine tuningするかどうか
+# 複数言語で事前学習したモデルをfine tuningするかどうか←使ってないっぽい
 fine_tuning_pretrained_model_by_external_data : False
 
 # 固定するレイヤーを指定
@@ -41,7 +42,7 @@ avhubert_preprocess_fps25_val : "/home/user/2HEAVD/F1/avhubert_2HEAVD_fps25_gray
 # kablab+katsurada
 kab:
   use: True
-  audio_dir: '~/dataset'
+  audio_dir: '~/dataset/wav'
   avhubert_preprocess_fps25_video_dir: '~/dataset/lip/avhubert_preprocess_fps25'
   df_path: '~/dataset/lip/data_split_csv/all_data.csv'
   emb_dir: '~/dataset/lip/emb'
@@ -127,20 +128,20 @@ apply_upsampling : False
 
 # 使用する話者
 #!話者を変更することだけで事前学習と本学習を切り替える
-speaker : ["F1"] #['kab2022','F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1
+speaker : ['F1'] #['kab2022','F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1
 use_spk_emb : True
 spk_emb_dir : "~/dataset/lip/emb"
-finetuning : False
+finetuning : False #これも使ってない説
 where_spk_emb : "after_res"
 adversarial_learning : False
 
 # 感情ラベル
-use_emo_label : True
-emo_label : ["0","1","2","3","4","5","6"]
+use_emo_label : False
+emo_label : ["6"] #["0","1","2","3","4","5","6"]
 #neutral=0,anger=1,disgust=2,fear=3,happiness=4,sadness=5,surprise=6
 
 # max_epoch
-max_epoch : 50
+max_epoch : 30
 
 # テキスト処理
 for_tts : False
@@ -178,7 +179,7 @@ feature_freq_masking_band : 40
 # dataloader
 batch_size : 8
 
-num_workers : 8
+num_workers : 16
 iters_to_accumulate : 16
 
 # dropout

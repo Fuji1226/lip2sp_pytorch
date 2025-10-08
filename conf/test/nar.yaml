@@ -8,7 +8,7 @@ debug_data_len : 3
 face_or_lip : "avhubert_preprocess_fps25_gray"
 
 # 合成するモデルのパス
-model_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:9:12_mastar/30.ckpt'
+model_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/label6/10.ckpt'
 
 # モデルパスを検証データの結果から選択するための指標
 #?使えるキー: ['model', 'optimizer', 'scheduler', 'scaler', 'random', 'np_random',
@@ -34,13 +34,13 @@ test_df_path : '/home/user/2HEAVD/ITA_text/F1/test.csv'
 speaker : ["F1"] #["F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
 #test emotion
-emo_label : ["0","1","2","3","4","5","6"]
+emo_label : ["6"] #["0","1","2","3","4","5","6"]
 
 # parallelwavegan
 pwg_path :  '/home/user/lip2sp_pytorch/check_point/pwg/avhubert_preprocess_fps25_gray/mspec80/2025:07:04_15-32-20/40.ckpt'
 
 #Hi-Fi GAN
-hifigan_checkpoint : '/home/user/hifi-gan/cp_hifigan/g_00180000'
+hifigan_checkpoint : '/home/user/hifi-gan/cp_hifigan/g_00150000'
 hifigan_config : '/home/user/hifi-gan/config_v1.json'
 
 #保存する図

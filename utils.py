@@ -153,15 +153,26 @@ def get_datasets_raw(cfg, video_dir, audio_dir, data_split):
     data_path_list = []
 
     df = pd.read_csv(str(Path(cfg.train.kab.df_path).expanduser()))
-    df = df.loc[df['speaker'].isin(cfg.train.speaker)]
-    print("use speaker:", cfg.train.speaker)
+
+    if data_split == "test" :
+        speaker_list = cfg.test.speaker
+        emo_list = cfg.test.emo_label
+        print("test speaker:",speaker_list)
+        print("test emotion:",emo_list)
+
+    else:
+        speaker_list = cfg.train.speaker
+        emo_list = cfg.train.emo_label
+        if data_split == "train" :
+            print("train,val speaker:",speaker_list)
+            print("train,val emotion:",emo_list)
+
+    df = df.loc[df['speaker'].isin(speaker_list)]
     #df = df.loc[df['corpus'].isin(cfg.train.corpus)]
-    df = df.loc[df['label'].isin(cfg.train.emo_label)]
-    print("use emotion:",cfg.train.emo_label)
+    df = df.loc[df['label'].isin(emo_list)]
     df = df.loc[df['data_split'] == data_split]
     for i in range(df.shape[0]):
         row = df.iloc[i]
-
         if row['speaker'] == 'F1':#桂田先生のデータはfrontを追記
             video_path = video_dir /row["speaker"]/f'{row["filename"]}_front.mp4'
         else:
@@ -306,7 +317,7 @@ def get_datasets_test(data_root, cfg):
 
 
 def get_datasets_test_raw(cfg, video_dir, audio_dir):
-    df = pd.read_csv(str(Path(cfg.train.kab.df_path).expanduser()))#TODO パスの更新
+    df = pd.read_csv(str(Path(cfg.train.kab.df_path).expanduser()))
     df = df.loc[df['data_split'] == 'test']
     df = df.loc[df['speaker'].isin(cfg.test.speaker)]
     print("test speaker:", cfg.test.speaker)
@@ -473,7 +484,7 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             test_data_path_list_debug.append(data_path)
             n_data_per_speaker[speaker] += 1
         test_data_path_list = test_data_path_list_debug
-    
+
     test_trans = TransformWithExternalDataRaw(cfg, 'test')
     test_dataset = DatasetWithExternalDataRawRE(
         data_path=test_data_path_list,
@@ -483,9 +494,9 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     print(f"len(test_dataset): {len(test_dataset)}")
     test_loader = DataLoader(
         dataset=test_dataset,
-        batch_size=1,   
+        batch_size=1,
         shuffle=False,
-        num_workers=0,      
+        num_workers=0,
         pin_memory=True,
         drop_last=True,
         collate_fn=None,
@@ -519,7 +530,7 @@ def set_requires_grad_by_name(model, condition, requires_grad):
 
 def save_loss(train_loss_list, val_loss_list, save_path, filename):
     loss_save_path = save_path / f"{filename}.png"
-    
+
     plt.figure()
     plt.plot(np.arange(len(train_loss_list)), train_loss_list)
     plt.plot(np.arange(len(train_loss_list)), val_loss_list)

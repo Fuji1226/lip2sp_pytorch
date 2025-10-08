@@ -873,9 +873,10 @@ def save_data_hifigan(cfg, save_path, target, output, ana_syn, feat=None):
     target = target.squeeze(0).squeeze(0)
     output = output.squeeze()  # HiFi-GAN 出力は torch.Tensor 1D
     ana_syn = ana_syn.squeeze()
+
     target = target.to('cpu').detach().numpy()
-    output = output.astype(np.float32)
-    ana_syn = ana_syn.astype(np.float32)
+    output = output.cpu().numpy().astype(np.float32)
+    ana_syn = ana_syn.cpu().numpy().astype(np.float32)
 
     # 正規化
     target /= np.max(np.abs(target)) + 1e-8

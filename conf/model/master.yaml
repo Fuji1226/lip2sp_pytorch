@@ -75,7 +75,6 @@ use_lip_and_face: False
 spk_emb_dim: 256
 
 # emotion embedding
-use_emo_label: True
 emo_emb_dim: 7
 
 # out_channels

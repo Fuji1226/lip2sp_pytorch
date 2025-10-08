@@ -38,10 +38,11 @@ def generate(
 ):
     model.eval()
     #pwg.eval()
-    generator_hifigan, h_hifigan = load_hifigan_model(
-    checkpoint_path=cfg.test.hifigan_checkpoint,
-    config_path=cfg.test.hifigan_config
-)
+    #generator_hifigan = load_hifigan_model(
+    #checkpoint_path=cfg.test.hifigan_checkpoint,
+    #config_path=cfg.test.hifigan_config,
+    #device=device,
+#)
 
     lip_mean = dataset.lip_mean.to(device)
     lip_std = dataset.lip_std.to(device)
@@ -59,6 +60,8 @@ def generate(
         lip = lip.to(device)
         feature = feature.to(device)
         feature_avhubert = feature_avhubert.to(device)
+        #print("feature:", feature.shape)
+        #print("feature_avhubert:", feature_avhubert.shape)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
@@ -117,12 +120,12 @@ def generate(
             ana_syn=wav_abs,
         )
         """
-
+        """
         # HiFi-GAN で音声合成 現状かなりパワー
         with torch.no_grad():
             #print(output.shape, feat_mean.shape, feat_std.shape)
             #breakpoint()
-            output_denorm = output * feat_std.view(1, 80, 1) + feat_mean.view(1, 80, 1)  # 正規化解除（必要であれば）
+            output_denorm = output * feat_std.view(1, 80, 1) + feat_mean.view(1, 80, 1)  #! こいつか？正規化解除（必要であれば）
             wav_hifigan = mel_to_waveform(output_denorm, generator_hifigan)
             wav_hifi_abs = mel_to_waveform(feature, generator_hifigan)
         #print(wav_hifigan.shape, wav_hifi_abs.shape)
@@ -139,6 +142,7 @@ def generate(
         ana_syn=wav_hifi_abs,  # ここは分析合成音を出力するために追加
         feat=output_denorm,  # 不使用なら削除してもOK
         )
+        """
 
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
@@ -173,8 +177,8 @@ def main(cfg):
     for speaker in cfg.test.speaker:
         save_path_spk = save_path / "griffinlim" / speaker
         #save_path_pwg_spk = save_path / "pwg" / speaker
-        save_path_hifigan_spk = save_path / "hifigan" / speaker
-        calc_accuracy_new(save_path_hifigan_spk, save_path.parents[0], cfg, "accuracy_hifigan") #!計算結果がすべてNan たぶん音声自体作れていない→GPTいわく正規化ミス？
+        ##save_path_hifigan_spk = save_path / "hifigan" / speaker
+        #calc_accuracy_new(save_path_hifigan_spk, save_path.parents[0], cfg, "accuracy_hifigan") #!計算結果がすべてNan たぶん音声自体作れていない→GPTいわく正規化ミス？
 
         if cfg.train.tcd_timit.use:
             calc_accuracy_en(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
@@ -182,11 +186,11 @@ def main(cfg):
         else:
             calc_accuracy_new(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
             #calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
-    #calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
+    calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
     #calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
 
-    calc_mean(save_path.parents[0] / 'accuracy_hifigan.txt')
-    calc_result(save_path_hifigan_spk)
+    #calc_mean(save_path.parents[0] / 'accuracy_hifigan.txt')
+    #calc_result(save_path_hifigan_spk)
     calc_result(save_path_spk)
 
     delete_unnecessary_checkpoint(
