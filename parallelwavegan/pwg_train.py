@@ -17,9 +17,9 @@ from timm.scheduler import CosineLRScheduler
 
 from utils import (
     count_params,
-    get_path_pwg_train_raw,
+    get_dataset_filelist_from_csv,
     save_loss,
-    make_train_val_loader_with_external_data_raw,
+    make_train_val_loader_pwg,
     set_config,
     check_wav,
     requires_grad_change,
@@ -375,8 +375,10 @@ def main(cfg):
     print(f"cpu_num = {os.cpu_count()}")
     print(f"gpu_num = {torch.cuda.device_count()}")
 
-    video_dir, audio_dir, ckpt_path, save_path, ckpt_time= get_path_pwg_train_raw(cfg, current_time)
-    train_loader, val_loader, train_dataset, val_dataset = make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir)
+    #!ここをいい感じにする
+    training_files, validation_files = get_dataset_filelist_from_csv(cfg.pwg_csv_path, cfg.pwg_data_root_dir)
+    train_loader,val_loader,train_dataset,val_dataset =make_train_val_loader_pwg(cfg, training_files, validation_files)
+
 
     loss_f = MultiResolutionSTFTLoss(
         n_fft_list=cfg.train.n_fft_list,

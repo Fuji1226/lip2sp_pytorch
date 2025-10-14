@@ -100,6 +100,112 @@ def get_path_pwg_train_raw(cfg, current_time):#cfgに変更点あり、trainの�
 
     return video_dir, audio_dir, ckpt_path, save_path, ckpt_time
 
+def get_dataset_filelist_from_csv(csv_path, root_dir):
+    """
+    CSVを読み込み、train/validation のファイルリストを返す。
+    speakerごとのパス構造ルールは関数内に固定で記述。
+    """
+    # ここで speaker ごとの固定ルールを定義
+    speaker_path_rules = {
+        "male": "{root_dir}/hi-fi-captain/{speaker}/wav/{data}/{filename}.wav",
+        "female": "{root_dir}/hi-fi-captain/{speaker}/wav/{data}/{filename}.wav",
+        "jsut": "{root_dir}/jsut_ver1.1/{data}/wav/{filename}.wav"
+    }
+
+    df = pd.read_csv(csv_path)
+
+    def build_path(row):
+        speaker = row["speaker"]
+
+        # jvs001 ~ jvs100 にマッチする場合
+        if re.fullmatch(r"jvs0*(?:[1-9][0-9]?|100)", speaker):
+            template = "{root_dir}/jvs_ver1/{speaker}/{data}/wav24kHz16bit/{filename}.wav"
+
+        
+        # その他は speaker_path_rules に従う
+        elif speaker in speaker_path_rules:
+            template = speaker_path_rules[speaker]
+
+        else:
+            raise ValueError(f"Speaker '{speaker}' に対応するルールが未定義です。")
+        
+        return template.format(
+            root_dir=root_dir,
+            speaker=row["speaker"],
+            data=row["data"],
+            filename=row["filename"]
+        )
+
+    training_files = [build_path(row) for _, row in df[df["data_split"] == "train"].iterrows()]
+    validation_files = [build_path(row) for _, row in df[df["data_split"] == "val"].iterrows()]
+
+    return training_files, validation_files
+
+def make_train_val_loader_pwg(cfg, training_files, validation_files):
+    train_data_path_list = training_files #!ここがfilelistが出力する部分
+    val_data_path_list = validation_files
+
+    """
+    train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
+    val_external_data_path_list = get_datasets_external_data_raw(cfg, 'val')
+    """
+    train_trans = TransformWithExternalDataRaw(cfg, "train")
+    val_trans = TransformWithExternalDataRaw(cfg, "val")
+
+    """
+    print("tcd_timit",cfg.train.tcd_timit.use)
+    print("vctk=",cfg.train.vctk.use)
+    print("jvs=",cfg.train.jvs.use)
+    print("hifi_captain=",cfg.train.hifi_captain.use)
+    print("debug=",cfg.train.debug)
+    breakpoint()
+    """
+
+    if cfg.train.debug:
+        train_data_path_list = train_data_path_list[:100]
+        val_data_path_list = val_data_path_list[:100]
+        train_external_data_path_list = train_external_data_path_list[:100]
+        val_external_data_path_list = val_external_data_path_list[:100]
+
+
+    #print("Use DatasetRE")
+    train_dataset = DatasetWithExternalDataRawRE(
+        data_path=train_data_path_list,
+        transform=train_trans,
+        cfg=cfg,
+    )
+    #print(train_data_path_list)
+    val_dataset = DatasetWithExternalDataRawRE(
+        data_path=val_data_path_list,
+        transform=val_trans,
+        cfg=cfg,
+    )
+
+    """
+    print("train_data-",train_dataset)
+    breakpoint()
+    """
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=cfg.train.batch_size,   
+        shuffle=True,
+        num_workers=cfg.train.num_workers,
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=cfg.train.batch_size,
+        shuffle=True,
+        num_workers=cfg.train.num_workers,
+        pin_memory=True,
+        drop_last=True,
+        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+    )
+    return train_loader, val_loader, train_dataset, val_dataset
+
 def get_path_test_raw(cfg, model_path):
     if cfg.train.face_or_lip == 'avhubert_preprocess_fps25_gray':
         video_dir = cfg.train.kab.avhubert_preprocess_fps25_video_dir
@@ -369,7 +475,7 @@ def get_datasets_external_data(cfg):
 
 
 def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
-    train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')
+    train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')#!ここがfilelistが出力する部分
     val_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'val')
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     val_external_data_path_list = get_datasets_external_data_raw(cfg, 'val')

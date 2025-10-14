@@ -97,6 +97,8 @@ pwg_gen_dropout: 0.1
 pwg_disc_dropout: 0
 pwg_use_weight_norm: False
 pwg_which_disc: "normal"
+pwg_data_root_dir: '/home/user/dataset'
+pwg_csv_path: '/home/user/dataset/hfgan_data.csv'
 
 # decoder
 decoder:
