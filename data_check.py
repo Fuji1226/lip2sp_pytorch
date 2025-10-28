@@ -249,59 +249,97 @@ def plot_mel(cfg, save_path, wav_input, wav_AbS, wav_gen, ref_max=True):
     メルスペクトログラムのプロット
     """
     mel_input = wav2mel(wav_input, cfg, ref_max=ref_max)
-    mel_AbS = wav2mel(wav_AbS, cfg, ref_max=ref_max)
+    #mel_input = mel_input.T
+    if wav_AbS is not None:
+        mel_AbS = wav2mel(wav_AbS, cfg, ref_max=ref_max)
+        #mel_AbS = mel_AbS.T
     mel_gen = wav2mel(wav_gen, cfg, ref_max=ref_max)
+    #mel_gen = mel_gen.T
 
     plt.close("all")
     plt.figure(figsize=(7.5, 7.5*1.6), dpi=200)
 
-    ax = plt.subplot(3, 1, 1)
-    specshow(
-        data=mel_input, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=cfg.model.sampling_rate, 
-        hop_length=cfg.model.hop_length,
-        fmin=cfg.model.f_min,
-        fmax=cfg.model.f_max,
-        cmap="viridis",
-    )
-    plt.colorbar(format="%+2.f dB")
-    plt.xlabel("Time[s]")
-    plt.ylabel("Frequency[Hz]")
-    plt.title("Input")
-    
-    ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
-    specshow(
-        data=mel_AbS, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=cfg.model.sampling_rate, 
-        hop_length=cfg.model.hop_length, 
-        fmin=cfg.model.f_min,
-        fmax=cfg.model.f_max,
-        cmap="viridis",
-    )
-    plt.colorbar(format="%+2.f dB")
-    plt.xlabel("Time[s]")
-    plt.ylabel("Frequency[Hz]")
-    plt.title("Analysis by Synthesis")
+    if wav_AbS is not None:
+        ax = plt.subplot(3, 1, 1)     
+        specshow(
+            data=mel_input, 
+            x_axis="time", 
+            y_axis="mel", 
+            sr=cfg.model.sampling_rate, 
+            hop_length=cfg.model.hop_length,
+            fmin=cfg.model.f_min,
+            fmax=cfg.model.f_max,
+            cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("Input")
+        
+        ax = plt.subplot(3, 1, 2, sharex=ax, sharey=ax)
+        specshow(
+            data=mel_AbS, 
+            x_axis="time", 
+            y_axis="mel", 
+            sr=cfg.model.sampling_rate, 
+            hop_length=cfg.model.hop_length, 
+            fmin=cfg.model.f_min,
+            fmax=cfg.model.f_max,
+            cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("Analysis by Synthesis")
 
-    ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
-    specshow(
-        data=mel_gen, 
-        x_axis="time", 
-        y_axis="mel", 
-        sr=cfg.model.sampling_rate, 
-        hop_length=cfg.model.hop_length, 
-        fmin=cfg.model.f_min,
-        fmax=cfg.model.f_max,
-        cmap="viridis",
-    )
-    plt.colorbar(format="%+2.f dB")
-    plt.xlabel("Time[s]")
-    plt.ylabel("Frequency[Hz]")
-    plt.title("Synthesis")
+        ax = plt.subplot(3, 1, 3, sharex=ax, sharey=ax)
+        specshow(
+            data=mel_gen, 
+            x_axis="time", 
+            y_axis="mel", 
+            sr=cfg.model.sampling_rate, 
+            hop_length=cfg.model.hop_length, 
+            fmin=cfg.model.f_min,
+            fmax=cfg.model.f_max,
+            cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("Synthesis")
+
+    else:
+        ax = plt.subplot(2, 1, 1)
+        specshow(
+            data=mel_input, 
+            x_axis="time", 
+            y_axis="mel", 
+            sr=cfg.model.sampling_rate, 
+            hop_length=cfg.model.hop_length,
+            fmin=cfg.model.f_min,
+            fmax=cfg.model.f_max,
+            cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("Input")
+
+        ax = plt.subplot(2, 1, 2, sharex=ax, sharey=ax)
+        specshow(
+            data=mel_gen, 
+            x_axis="time", 
+            y_axis="mel", 
+            sr=cfg.model.sampling_rate, 
+            hop_length=cfg.model.hop_length, 
+            fmin=cfg.model.f_min,
+            fmax=cfg.model.f_max,
+            cmap="viridis",
+        )
+        plt.colorbar(format="%+2.f dB")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Frequency[Hz]")
+        plt.title("Synthesis")
 
     plt.tight_layout()
     plt.savefig(str(save_path / "melspectrogram.png"))
@@ -471,39 +509,42 @@ def plot_f0(cfg, save_path, f0_input, f0_AbS, f0_gen):
     plt.savefig(str(save_path / "f0.png"))
 
 
-def plot_f0_from_wav(cfg, save_path, wav_input, wav_AbS, wav_gen, f0_floor=None, f0_ceil=None):
+def plot_f0_from_wav(cfg, save_path, wav_input, wav_gen, f0_floor=None, f0_ceil=None):
     """
     音声波形からf0を計算し,その上でプロットする
     """
     wav_input = wav_input.astype('float64')
-    wav_AbS = wav_AbS.astype('float64')
+    #wav_AbS = wav_AbS.astype('float64')
     wav_gen = wav_gen.astype('float64')
+
 
     f0_floor = pyworld.default_f0_floor if f0_floor is None else f0_floor
     f0_ceil = pyworld.default_f0_ceil if f0_ceil is None else f0_ceil
 
     f0_input, _ = pyworld.harvest(
-        wav_input, 
+        wav_input,
         cfg.model.sampling_rate,
         f0_floor=f0_floor,
         f0_ceil=f0_ceil,
         frame_period=cfg.model.frame_period,
     )
+    """
     f0_AbS, _ = pyworld.harvest(
-        wav_AbS, 
+        wav_AbS,
         cfg.model.sampling_rate,
         f0_floor=f0_floor,
         f0_ceil=f0_ceil,
         frame_period=cfg.model.frame_period,
     )
+    """
     f0_gen, _ = pyworld.harvest(
-        wav_gen, 
+        wav_gen,
         cfg.model.sampling_rate,
         f0_floor=f0_floor,
         f0_ceil=f0_ceil,
         frame_period=cfg.model.frame_period,
     )
-    
+
     time = np.arange(0, f0_input.shape[0]) / 100
 
     plt.close("all")
@@ -765,7 +806,7 @@ def save_data(cfg, save_path, wav, lip, feature, output, lip_mean, lip_std, feat
         plot_mel(cfg, save_path, wav, wav_AbS, wav_gen)
     # plot_spec(cfg, save_path, wav, wav_AbS, wav_gen)
     if cfg.test.f0_form :
-        plot_f0_from_wav(cfg, save_path, wav, wav_AbS, wav_gen)
+        plot_f0_from_wav(cfg, save_path, wav, wav_gen)
 
     
 def save_data_lipreading(cfg, save_path, target, output, classes_index):
@@ -801,7 +842,7 @@ def save_data_lipreading(cfg, save_path, target, output, classes_index):
     return phoneme_error_rate
 
 
-def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
+def save_data_pwg(cfg, save_path, target, output, ana_syn=None):#←ana_syn切り替えれば、従来どおりできる？
     target = target.squeeze(0).squeeze(0)
     output = output.squeeze(0).squeeze(0)
     target = target.to('cpu').detach().numpy()
@@ -824,6 +865,10 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
         ana_syn = ana_syn.astype(np.float32)
         ana_syn = ana_syn[:data_len]
         write(str(save_path / "abs.wav"), rate=cfg.model.sampling_rate, data=ana_syn)
+
+    # プロット
+    if cfg.test.f0_form :
+        plot_f0_from_wav(cfg, save_path, target, output)
 
     target = wav2mel(target, cfg, ref_max=True)
     output = wav2mel(output, cfg, ref_max=True)
@@ -864,6 +909,8 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):
 
     plt.tight_layout()
     plt.savefig(str(save_path / "mel.png"))
+
+
 
 
 def save_data_hifigan(cfg, save_path, target, output, ana_syn, feat=None):

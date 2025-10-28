@@ -140,7 +140,7 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         for j in range(424):
             utt_num = df[j][1]
             if utt_num in gt_data_path.parents[0].name:
-                utt = df[j][3]
+                utt = df[j][2]
                 utt = utt.replace("。", "").replace("、", "")
                 break
 
@@ -195,10 +195,15 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         print(f'estoi_abs = {estoi_abs}')
         print(f'estoi_generate = {estoi_generate}')
         print("---")
+        print("WERは、漢字かな交じり日本語文における計算")
         print(f'wer_gt = {wer_gt}')
+        print(f'gt_sentence = {utt_pred_gt}')
         print(f'wer_abs = {wer_abs}')
+        print(f'abs_sentence = {utt_pred_abs}')
         print(f'wer_generate = {wer_generate}')
+        print(f'generate_sentence = {utt_pred_generate}')
         print("---")
+        print("PERは、音素単位での誤り率を計算、phoneme error rate")
         print(f'per_gt = {per_gt}')
         print(f'per_abs = {per_abs}')
         print(f'per_generate = {per_generate}')
@@ -259,9 +264,11 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         f.write(f"stoi_generate = {stoi_generate:f}\n")
         f.write(f"estoi_abs = {estoi_abs:f}\n")
         f.write(f"estoi_generate = {estoi_generate:f}\n")
+        f.write("-WER,word error rate,漢字かな交じり文の誤り率\n")
         f.write(f'wer_gt = {wer_gt * 100:f}%\n')
         f.write(f'wer_abs = {wer_abs * 100:f}%\n')
         f.write(f'wer_generate = {wer_generate * 100:f}%\n')
+        f.write("-PER,phoneme error rate,音素単位での誤り率\n")
         f.write(f'per_gt = {per_gt * 100:f}%\n')
         f.write(f'per_abs = {per_abs * 100:f}%\n')
         f.write(f'per_generate = {per_generate * 100:f}%\n')
@@ -711,8 +718,12 @@ def calc_result(result_file_path):
                 print(f"Warning: {npz_path} not found.")
 
     # 平均値を計算し保存
+
     output_dir = base_dir.parent.parent.parent
     output_dir.mkdir(exist_ok=True)
+
+    if base_dir.parent == "pwg":
+        output_dir = output_dir / "pwg_mean_metrics"
 
     for emotion, metric_list in metrics_by_emotion.items():
         # 各キーごとに平均計算

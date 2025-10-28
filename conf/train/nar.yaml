@@ -14,8 +14,8 @@ start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess
 
 # ?finetuning(データを変えて学習する場合)
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
-check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:10:02_13-45-21/12.ckpt'
+check_point_start_separate_save_dir : True
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/pre-pre-emo/18.ckpt'
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか←使ってないっぽい
 fine_tuning_pretrained_model_by_external_data : False
@@ -137,7 +137,7 @@ adversarial_learning : False
 
 # 感情ラベル
 use_emo_label : False
-emo_label : ["4"] #["0","1","2","3","4","5","6"]
+emo_label : [0] #["0","1","2","3","4","5","6"]
 #neutral=0,anger=1,disgust=2,fear=3,happiness=4,sadness=5,surprise=6
 
 # max_epoch

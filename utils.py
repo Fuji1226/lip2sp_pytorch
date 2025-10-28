@@ -475,7 +475,7 @@ def get_datasets_external_data(cfg):
 
 
 def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
-    train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')#!ここがfilelistが出力する部分
+    train_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'train')
     val_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'val')
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     val_external_data_path_list = get_datasets_external_data_raw(cfg, 'val')
@@ -524,7 +524,7 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
         )
 
     """
-    print("train_data-",train_dataset)
+    print("train_data-",len(train_dataset))
     breakpoint()
     """
 

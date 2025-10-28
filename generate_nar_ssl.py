@@ -11,7 +11,7 @@ from ToUseHFGAN import load_hifigan_model, mel_to_waveform
 
 from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean, calc_result
 from data_check import save_data_pwg, save_data, save_data_hifigan
-#from parallelwavegan.pwg_train import make_model as make_pwg
+from parallelwavegan.pwg_train import make_model as make_pwg
 from train_nar_ssl import make_model
 from utils import (
     delete_unnecessary_checkpoint,
@@ -30,14 +30,14 @@ current_time = datetime.now().strftime('%Y:%m:%d_%H-%M-%S')
 def generate(
         cfg,
         model,
-        #pwg,
+        pwg,
         test_loader,
         dataset,
         device,
         save_path,
 ):
     model.eval()
-    #pwg.eval()
+    pwg.eval()
     #generator_hifigan = load_hifigan_model(
     #checkpoint_path=cfg.test.hifigan_checkpoint,
     #config_path=cfg.test.hifigan_config,
@@ -107,9 +107,9 @@ def generate(
 
         with torch.no_grad():
             noise = torch.randn(output.shape[0], 1, output.shape[-1] * cfg.model.hop_length).to(device=device, dtype=feature.dtype)
-            #wav_pred = pwg(noise, output)
-            #wav_abs = pwg(noise, feature)
-        """
+            wav_pred = pwg(noise, output)
+            wav_abs = pwg(noise, feature)
+
         _save_path = save_path / "pwg" / speaker[0] / filename[0]
         _save_path.mkdir(parents=True, exist_ok=True)
         save_data_pwg(
@@ -119,7 +119,7 @@ def generate(
             output=wav_pred,
             ana_syn=wav_abs,
         )
-        """
+
         """
         # HiFi-GAN で音声合成 現状かなりパワー
         with torch.no_grad():
@@ -147,14 +147,14 @@ def generate(
 @hydra.main(config_name="config", config_path="conf")
 def main(cfg):
     fix_random_seed(cfg.train.random_seed)
-    
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
-    """
+
     pwg, disc = make_pwg(cfg, device)
     model_path_pwg = Path(cfg.test.pwg_path).expanduser()
     pwg = load_pretrained_model(model_path_pwg, pwg, "gen")
-    """
+
     model_path = select_checkpoint(cfg)
     model = make_model(cfg, device)
     model = load_pretrained_model(model_path, model, "model")
@@ -167,7 +167,7 @@ def main(cfg):
     generate(
         cfg=cfg,
         model=model,
-        #pwg=pwg,
+        pwg=pwg,
         test_loader=test_loader,
         dataset=test_dataset,
         device=device,
@@ -176,22 +176,23 @@ def main(cfg):
     
     for speaker in cfg.test.speaker:
         save_path_spk = save_path / "griffinlim" / speaker
-        #save_path_pwg_spk = save_path / "pwg" / speaker
+        save_path_pwg_spk = save_path / "pwg" / speaker
         ##save_path_hifigan_spk = save_path / "hifigan" / speaker
         #calc_accuracy_new(save_path_hifigan_spk, save_path.parents[0], cfg, "accuracy_hifigan") #!計算結果がすべてNan たぶん音声自体作れていない→GPTいわく正規化ミス？
 
         if cfg.train.tcd_timit.use:
             calc_accuracy_en(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
-            #calc_accuracy_en(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+            calc_accuracy_en(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
         else:
             calc_accuracy_new(save_path_spk, save_path.parents[0], cfg, "accuracy_griffinlim")
-            #calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
+            calc_accuracy_new(save_path_pwg_spk, save_path.parents[0], cfg, "accuracy_pwg")
     calc_mean(save_path.parents[0] / 'accuracy_griffinlim.txt')
-    #calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
+    calc_mean(save_path.parents[0] / 'accuracy_pwg.txt')
 
     #calc_mean(save_path.parents[0] / 'accuracy_hifigan.txt')
     #calc_result(save_path_hifigan_spk)
     calc_result(save_path_spk)
+    calc_result(save_path_pwg_spk)
 
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],
