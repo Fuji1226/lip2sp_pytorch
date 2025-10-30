@@ -15,7 +15,7 @@ start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess
 # ?finetuning(データを変えて学習する場合)
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : True
-start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/pre-pre-emo/18.ckpt'
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/nar/large/avhubert_preprocess_fps25_gray/master/2025:10:29_16-30-32/10.ckpt'
 
 # 複数言語で事前学習したモデルをfine tuningするかどうか←使ってないっぽい
 fine_tuning_pretrained_model_by_external_data : False
@@ -32,7 +32,7 @@ n_data_used_recorded_and_synth : 20000
 save_path : "~/lip2sp_pytorch/result/nar/train"
 
 # check point path
-ckpt_path : "~/lip2sp_pytorch/check_point/nar"
+ckpt_path : "~/lip2sp_pytorch/check_point/nar/large"
 ckpt_step : 1
 
 #! 口唇動画、音響特徴量ディレクトリまでのパス ←ここ使われてないっぽい、なんだこれ
@@ -128,7 +128,7 @@ apply_upsampling : False
 
 # 使用する話者
 #!話者を変更することだけで事前学習と本学習を切り替える
-speaker : ['F1'] #['kab2022','F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1
+speaker : ["F1"] #['kab2022','F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1
 use_spk_emb : True
 spk_emb_dir : "~/dataset/lip/emb"
 finetuning : False #これも使ってない説
@@ -136,8 +136,8 @@ where_spk_emb : "after_res"
 adversarial_learning : False
 
 # 感情ラベル
-use_emo_label : False
-emo_label : [0] #["0","1","2","3","4","5","6"]
+use_emo_label : True
+emo_label : [0,1,2,3,4,5,6]
 #neutral=0,anger=1,disgust=2,fear=3,happiness=4,sadness=5,surprise=6
 
 # max_epoch
@@ -177,7 +177,7 @@ feature_time_masking_length : 50
 feature_freq_masking_band : 40
 
 # dataloader
-batch_size : 8
+batch_size : 2
 
 num_workers : 16
 iters_to_accumulate : 16

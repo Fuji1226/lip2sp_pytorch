@@ -1,0 +1,263 @@
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
+
+import torch
+import torch.nn as nn
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+from model.avhubert import ResEncoder
+from utils import (
+    load_avhubert,
+    load_raven,
+    load_vatlm,
+)
+
+
+class ResBlock(nn.Module):
+    def __init__(self, hidden_channels, kernel_size, dropout):
+        super().__init__()
+        padding = (kernel_size - 1) // 2
+        self.conv_layers = nn.Sequential(
+            nn.Conv1d(hidden_channels, hidden_channels, kernel_size=kernel_size, stride=1, padding=padding),
+            nn.BatchNorm1d(hidden_channels),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Conv1d(hidden_channels, hidden_channels, kernel_size=kernel_size, stride=1, padding=padding),
+            nn.BatchNorm1d(hidden_channels),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x):
+        res = x
+        out = self.conv_layers(x)
+        return out + res
+
+
+class ResConvDecoder(nn.Module):
+    def __init__(
+            self,
+            cfg,
+            hidden_channels,
+    ):
+        super().__init__()
+        self.cfg = cfg
+        self.conv_layers = []
+        for i in range(cfg.model.decoder.n_conv_layers):
+            self.conv_layers.append(
+                ResBlock(
+                    hidden_channels=hidden_channels,
+                    kernel_size=cfg.model.decoder.conv_kernel_size,
+                    dropout=cfg.model.decoder.dropout,
+                )
+            )
+        self.conv_layers = nn.ModuleList(self.conv_layers)
+        self.out_layer = nn.Conv1d(hidden_channels, cfg.model.n_mel_channels * cfg.model.reduction_factor, kernel_size=1)
+
+    def forward(
+            self,
+            x,
+    ):
+        '''
+        x: (B, T, C)
+        '''
+        x = x.permute(0, 2, 1)
+        for layer in self.conv_layers:
+            x = layer(x)
+        x = self.out_layer(x)
+        x = x.permute(0, 2, 1)      # (B, T, C)
+        x = x.reshape(x.shape[0], -1, self.cfg.model.n_mel_channels)
+        x = x.permute(0, 2, 1)      # (B, C, T)
+        return x
+
+
+class Lip2SpeechSSL(nn.Module):
+    def __init__(
+            self,
+            cfg,
+    ):
+        super().__init__()
+        self.cfg = cfg
+
+        if cfg.model.model_name == 'avhubert':
+            self.avhubert = load_avhubert(cfg.model.avhubert_config)
+            hidden_channels = self.avhubert.encoder_embed_dim
+        elif cfg.model.model_name == 'raven':
+            self.raven = load_raven(cfg.model.raven_config)
+            hidden_channels = self.raven.attention_dim
+        elif cfg.model.model_name == 'vatlm':
+            self.vatlm = load_vatlm(cfg.model.vatlm_config)
+            hidden_channels = self.vatlm.encoder_embed_dim
+        elif cfg.model.model_name == 'ensemble':
+            self.avhubert = load_avhubert(cfg.model.avhubert_config)
+            self.raven = load_raven(cfg.model.raven_config)
+            self.vatlm = load_vatlm(cfg.model.vatlm_config)
+            hidden_channels = self.avhubert.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
+            self.fuse_layer = nn.Linear(
+                self.avhubert.encoder_embed_dim + self.raven.attention_dim + self.vatlm.encoder_embed_dim,
+                hidden_channels,
+            )
+        elif cfg.model.model_name == 'ensemble_avhubert_vatlm':
+            self.avhubert = load_avhubert(cfg.model.avhubert_config)
+            self.vatlm = load_vatlm(cfg.model.vatlm_config)
+            hidden_channels = self.avhubert.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
+            self.fuse_layer = nn.Linear(
+                self.avhubert.encoder_embed_dim + self.vatlm.encoder_embed_dim,
+                hidden_channels,
+            )
+        elif cfg.model.model_name == 'ensemble_avhubert_raven':
+            self.avhubert = load_avhubert(cfg.model.avhubert_config)
+            self.raven = load_raven(cfg.model.raven_config)
+            hidden_channels = self.avhubert.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
+            self.fuse_layer = nn.Linear(
+                self.avhubert.encoder_embed_dim + self.raven.attention_dim,
+                hidden_channels,
+            )
+        elif cfg.model.model_name == 'ensemble_raven_vatlm':
+            self.raven = load_raven(cfg.model.raven_config)
+            self.vatlm = load_vatlm(cfg.model.vatlm_config)
+            hidden_channels = self.vatlm.encoder_embed_dim
+            self.dropout = nn.Dropout(cfg.model.ssl_feature_dropout)
+            self.fuse_layer = nn.Linear(
+                self.raven.attention_dim + self.vatlm.encoder_embed_dim,
+                hidden_channels,
+            )
+
+        if cfg.train.use_spk_emb:
+            self.spk_emb_layer = nn.Linear(
+                hidden_channels + cfg.model.spk_emb_dim,
+                hidden_channels,
+            )
+
+        if cfg.train.use_emo_label:#!要確認
+            self.emo_emb_layer = nn.Linear(
+                hidden_channels + cfg.model.emo_emb_dim,
+                hidden_channels,
+            )
+
+        self.decoder = ResConvDecoder(cfg, hidden_channels)
+
+    def extract_feature_avhubert(
+            self,
+            lip,
+            lip_len,
+            audio,
+    ):
+        padding_mask = torch.arange(lip.shape[2]).unsqueeze(0).expand(lip.shape[0], -1).to(device=lip.device)
+        padding_mask = padding_mask > lip_len.unsqueeze(-1)
+        x = self.avhubert(
+            video=lip,
+            audio=audio, 
+            return_res_output=False,
+            padding_mask=padding_mask, 
+        )   # (B, T, C)
+        return x
+    
+    def extract_feature_raven(
+            self,
+            lip,
+            lip_len,
+            audio,
+    ):
+        padding_mask = torch.arange(lip.shape[2]).unsqueeze(0).expand(lip.shape[0], -1).to(device=lip.device)
+        padding_mask = padding_mask <= lip_len.unsqueeze(-1)    # True for unmasked positions
+        padding_mask = padding_mask.unsqueeze(1)    # (B, 1, T)
+        x, _ = self.raven(
+            xs=lip,
+            masks=padding_mask,
+        )   # (B, T, C)
+        return x
+    
+    def extract_feature_vatlm(
+            self,
+            lip,
+            lip_len,
+            audio,
+    ):
+        padding_mask = torch.arange(lip.shape[2]).unsqueeze(0).expand(lip.shape[0], -1).to(device=lip.device)
+        padding_mask = padding_mask > lip_len.unsqueeze(-1)
+        x = self.vatlm(
+            video=lip,
+            audio=audio,
+            padding_mask=padding_mask,
+        )   # (B, T, C)
+        return x
+
+    def forward(
+            self,
+            lip,
+            audio,
+            lip_len,
+            spk_emb,
+            emo_emb,
+    ):
+        '''
+        lip : (B, C, H, W, T)
+        audio : (B, C, T)
+        lip_len : (B,)
+        spk_emb : (B, C)
+        emo_emb : (B, C)
+        '''
+        lip = lip.permute(0, 1, 4, 2, 3)    # (B, C, T, H, W)
+
+        if self.cfg.model.model_name == 'avhubert':
+            feature = self.extract_feature_avhubert(lip, lip_len, audio)
+        elif self.cfg.model.model_name == 'raven':
+            feature = self.extract_feature_raven(lip, lip_len, audio)
+        elif self.cfg.model.model_name == 'vatlm':
+            feature = self.extract_feature_vatlm(lip, lip_len, audio)
+        elif self.cfg.model.model_name == 'ensemble':
+            with torch.no_grad():
+                feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
+                feature_raven = self.extract_feature_raven(lip, lip_len, audio)
+                feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
+            feature_avhubert = self.dropout(feature_avhubert)
+            feature_raven = self.dropout(feature_raven)
+            feature_vatlm = self.dropout(feature_vatlm)
+            feature = torch.concat([feature_avhubert, feature_raven, feature_vatlm], dim=-1)
+            feature = self.fuse_layer(feature)
+        elif self.cfg.model.model_name == 'ensemble_avhubert_vatlm':
+            with torch.no_grad():
+                feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
+                feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
+            feature_avhubert = self.dropout(feature_avhubert)
+            feature_vatlm = self.dropout(feature_vatlm)
+            feature = torch.concat([feature_avhubert, feature_vatlm], dim=-1)
+            feature = self.fuse_layer(feature)
+        elif self.cfg.model.model_name == 'ensemble_avhubert_raven':
+            with torch.no_grad():
+                feature_avhubert = self.extract_feature_avhubert(lip, lip_len, audio)
+                feature_raven = self.extract_feature_raven(lip, lip_len, audio)
+            feature_avhubert = self.dropout(feature_avhubert)
+            feature_raven = self.dropout(feature_raven)
+            feature = torch.concat([feature_avhubert, feature_raven], dim=-1)
+            feature = self.fuse_layer(feature)
+        elif self.cfg.model.model_name == 'ensemble_raven_vatlm':
+            with torch.no_grad():
+                feature_raven = self.extract_feature_raven(lip, lip_len, audio)
+                feature_vatlm = self.extract_feature_vatlm(lip, lip_len, audio)
+            feature_raven = self.dropout(feature_raven)
+            feature_vatlm = self.dropout(feature_vatlm)
+            feature = torch.concat([feature_raven, feature_vatlm], dim=-1)
+            feature = self.fuse_layer(feature)
+
+        if self.cfg.train.use_spk_emb:
+            spk_emb = spk_emb.float()
+            spk_emb = spk_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)
+            feature = torch.cat([feature, spk_emb], dim=-1)
+            feature = self.spk_emb_layer(feature)
+
+        if self.cfg.train.use_emo_label:
+            emo_emb = emo_emb.float()
+            emo_emb = emo_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)#!形状現状よくわからん
+            feature = torch.cat([feature, emo_emb], dim=-1)
+            feature = self.emo_emb_layer(feature)
+
+        output = self.decoder(feature)
+
+        return output
