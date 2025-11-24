@@ -300,6 +300,13 @@ def load_data_MF(audio_path, video_path, cfg):
     feature_double = wav2mel(wav, cfg, cfg.model.multi_fft.n_fft_double, cfg.model.multi_fft.hop_length_double, cfg.model.multi_fft.win_length_double)
     feature_avhubert = wav2mel_avhubert(wav, cfg)  # (C, T)
 
+    if cfg.train.debug: #TODO,shapeの確認
+        print(f"feature shape: {feature.shape}")
+        print(f"feature_half shape: {feature_half.shape}")
+        print(f"feature_double shape: {feature_double.shape}")
+        print(f"feature_avhubert shape: {feature_avhubert.shape}")
+        breakpoint()
+
     upsample = get_upsample(cfg)
 
     if video_path is not None:
@@ -309,6 +316,7 @@ def load_data_MF(audio_path, video_path, cfg):
         lip = torch.rand(int(feature.shape[1] * upsample), 1, 96, 96)
     lip = lip.numpy()
 
+    #以下のパラメータの最小値
     data_len = min(
         int(feature.shape[1] // upsample * upsample),
         int(feature_half.shape[1] // upsample * upsample),
@@ -346,4 +354,13 @@ def load_data_MF(audio_path, video_path, cfg):
     lip_padded = np.zeros((data_len // upsample, 1, 96, 96))
     lip_padded[:lip.shape[0]] = lip
     lip = lip_padded
+    if cfg.train.debug:#TODO,shapeの確認
+        print(f"wav shape: {wav.shape}")
+        print(f"feature shape: {feature.shape}")
+        print(f"feature_half shape: {feature_half.shape}")
+        print(f"feature_double shape: {feature_double.shape}")
+        print(f"feature_avhubert shape: {feature_avhubert.shape}")
+        print(f"lip shape: {lip.shape}")
+        breakpoint()
+
     return wav, feature, feature_half, feature_double, feature_avhubert, lip

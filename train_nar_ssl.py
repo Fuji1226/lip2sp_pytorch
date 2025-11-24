@@ -125,7 +125,7 @@ def train_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        feature_avhubert = feature_avhubert.to(device)#TODO: multi-fft対応
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
@@ -141,10 +141,10 @@ def train_one_epoch(
                 emo_emb=emo_emb,
             )
             mae_loss = loss_f.mae_loss(
-                output, feature, feature_len, max_len=output.shape[-1]#TODO: multi-fft対応 多解像度のfftに対してそれぞれ損失を出し、加算(or平均化)する
+                output, feature, feature_len, max_len=output.shape[-1]
             )
             mse_loss = loss_f.mse_loss(
-                output, feature, feature_len, max_len=output.shape[-1] #TODO: multi-fft対応
+                output, feature, feature_len, max_len=output.shape[-1] 
             )
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
@@ -217,7 +217,7 @@ def val_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        feature_avhubert = feature_avhubert.to(device)#TODO: multi-fft対応
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
@@ -235,10 +235,10 @@ def val_one_epoch(
                 )
 
             mae_loss = loss_f.mae_loss(
-                output, feature, feature_len, max_len=output.shape[-1]#TODO: multi-fft対応
+                output, feature, feature_len, max_len=output.shape[-1]
             )
             mse_loss = loss_f.mse_loss(
-                output, feature, feature_len, max_len=output.shape[-1]#TODO: multi-fft対応
+                output, feature, feature_len, max_len=output.shape[-1]
             )
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()

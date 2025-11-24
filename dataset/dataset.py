@@ -180,7 +180,7 @@ class DatasetWithExternalDataRawRE(Dataset):
             wav,
             lip,
             feature,
-            feature_avhubert,#feature_avfubert_half,feature_avhubert,feature_avhubert_doubleのようにbatchに多重解像度を入れる説
+            feature_avhubert,
             spk_emb,
             emo_emb,
             feature_len,
@@ -259,6 +259,13 @@ class DatasetWithExternalDataRawMF(Dataset):
         feature_double = torch.from_numpy(feature_double).permute(1, 0)   # (T, C)
         feature_avhubert = torch.from_numpy(feature_avhubert).permute(1, 0)     # (T, C)
         lip = torch.from_numpy(lip).permute(1, 2, 3, 0)     # (C, H, W, T)
+        if self.cfg.train.debug:#TODO,shapeの確認
+            print(f"Dataset MF: feature shape before transform: {feature.shape}")
+            print(f"Dataset MF: feature_half shape before transform: {feature_half.shape}")
+            print(f"Dataset MF: feature_double shape before transform: {feature_double.shape}")
+            print(f"Dataset MF: feature_avhubert shape before transform: {feature_avhubert.shape}")
+            print(f"Dataset MF: lip shape before transform: {lip.shape}")
+            breakpoint()
 
         lip, feature,feature_half, feature_double, feature_avhubert = self.transform(
             lip=lip,
@@ -503,6 +510,13 @@ class TransformWithExternalDataRawMF:
         feature_half = (feature_half - feat_mean) / feat_std
         feature_double = (feature_double - feat_mean) / feat_std
         feature_avhubert = F.layer_norm(feature_avhubert, feature_avhubert.shape[1:]).permute(1, 0)     # (C, T)
+        if self.cfg.train.debug:#TODO,shapeの確認
+            print(f"Transform MF: feature shape after normalization: {feature.shape}")
+            print(f"Transform MF: feature_half shape after normalization: {feature_half.shape}")
+            print(f"Transform MF: feature_double shape after normalization: {feature_double.shape}")
+            print(f"Transform MF: feature_avhubert shape after normalization: {feature_avhubert.shape}")
+            print(f"Transform MF: lip shape after normalization: {lip.shape}")
+            breakpoint()
         return lip, feature, feature_half, feature_double, feature_avhubert
 
     def segment_masking_segmean(self, lip):
@@ -608,4 +622,11 @@ class TransformWithExternalDataRawMF:
         feature_half = feature_half.to(torch.float32)
         feature_double = feature_double.to(torch.float32)
         feature_avhubert = feature_avhubert.to(torch.float32)
+        if self.cfg.train.debug:#TODO,shapeの確認
+            print(f"Transform MF: feature shape after all processing: {feature.shape}")
+            print(f"Transform MF: feature_half shape after all processing: {feature_half.shape}")
+            print(f"Transform MF: feature_double shape after all processing: {feature_double.shape}")
+            print(f"Transform MF: feature_avhubert shape after all processing: {feature_avhubert.shape}")
+            print(f"Transform MF: lip shape after all processing: {lip.shape}")
+            breakpoint()
         return lip, feature, feature_half, feature_double, feature_avhubert

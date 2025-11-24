@@ -366,6 +366,12 @@ def collate_time_adjust_with_external_dataMF(batch, cfg):
     feat_input_len = int(lip_input_len * upsample_scale)
     wav_input_len = int(feat_input_len * cfg.model.hop_length)
 
+    if cfg.train.debug:
+        print(f"lip_input_len: {lip_input_len}")
+        print(f"feat_input_len: {feat_input_len}")
+        print(f"wav_input_len: {wav_input_len}")
+        breakpoint()
+
     for w, l, f, f_half, f_double, f_avhubert, f_len in zip(wav, lip, feature, feature_half, feature_double, feature_avhubert, feature_len):
         # 揃えるlenよりも短い時は足りない分をゼロパディング
         if f_len <= feat_input_len:
@@ -375,6 +381,10 @@ def collate_time_adjust_with_external_dataMF(batch, cfg):
             f_half_padded = torch.zeros(f_half.shape[0], feat_input_len)#?この辺やばいかも
             f_double_padded = torch.zeros(f_double.shape[0], feat_input_len)#?この辺やばいかも
             f_avhubert_padded = torch.zeros(f_avhubert.shape[0], lip_input_len)
+            if cfg.train.debug:
+                print(f"Before padding shapes: w:{w.shape}, l:{l.shape}, f:{f.shape}, f_half:{f_half.shape}, f_double:{f_double.shape}, f_avhubert:{f_avhubert.shape}")
+                print(f"After padding shapes: w_padded:{w_padded.shape}, l_padded:{l_padded.shape}, f_padded:{f_padded.shape}, f_half_padded:{f_half_padded.shape}, f_double_padded:{f_double_padded.shape}, f_avhubert_padded:{f_avhubert_padded.shape}")
+                breakpoint()
 
             # 音響特徴量の系列長をベースに判定しているので、稀に波形のサンプル数が多い場合がある
             # その際に余ったサンプルを除外する（シフト幅的に余りが生じているのでそれを省いている）
@@ -434,4 +444,7 @@ def collate_time_adjust_with_external_dataMF(batch, cfg):
     speaker_idx = torch.stack(speaker_idx)
     lang_id = torch.stack(lang_id)
     is_video = torch.stack(is_video)
+    if cfg.train.debug:
+        print(f"Final batch shapes: wav:{wav.shape}, lip:{lip.shape}, feature:{feature.shape}, feature_half:{feature_half.shape}, feature_double:{feature_double.shape}, feature_avhubert:{feature_avhubert.shape}")
+        breakpoint()
     return wav, lip, feature, feature_half, feature_double, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
