@@ -80,10 +80,11 @@ class Lip2SpeechSSL(nn.Module):
     ):
         super().__init__()
         self.cfg = cfg
-
+        #!avhubert!
         if cfg.model.model_name == 'avhubert':
             self.avhubert = load_avhubert(cfg.model.avhubert_config)
             hidden_channels = self.avhubert.encoder_embed_dim
+
         elif cfg.model.model_name == 'raven':
             self.raven = load_raven(cfg.model.raven_config)
             hidden_channels = self.raven.attention_dim
@@ -141,6 +142,26 @@ class Lip2SpeechSSL(nn.Module):
             )
 
         self.decoder = ResConvDecoder(cfg, hidden_channels)
+
+        """
+        avhubert layer
+        spkemb layer (Linear) ←ここ2つは、avhubertの出力に
+        emoemb layer (Linear) ←結合してからデコードするイメージ
+        decoder (ResConvDecoder)
+
+        movie
+        ↓
+        [avhubert]
+        ↓
+        feature
+        ↓+spkemb+emoemb
+        feature/spk/emo
+        ↓
+        [CONVdecoder]
+        ↓
+        mel
+
+        """
 
     def extract_feature_avhubert(
             self,

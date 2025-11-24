@@ -129,6 +129,7 @@ def train_one_epoch(
             feature,
             feature_avhubert,
             spk_emb,
+            emo_emb,
             feature_len,
             lip_len,
             speaker,
@@ -139,18 +140,19 @@ def train_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        #feature_avhubert = feature_avhubert.to(device)
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        #spk_emb = spk_emb.to(device)
+        spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
+        emo_emb = emo_emb.to(device) if cfg.train.use_emo_label else None
 
         with torch.autocast(device_type="cuda", dtype=torch.float16):
             output = model(
                 lip=lip,
                 audio=None,
                 lip_len=lip_len,
-                #spk_emb=spk_emb,
+                spk_emb=spk_emb,
             )
             mae_loss = loss_f.mae_loss(
                 output, feature, feature_len, max_len=output.shape[-1]
@@ -218,6 +220,7 @@ def val_one_epoch(
             feature,
             feature_avhubert,
             spk_emb,
+            emo_emb,
             feature_len,
             lip_len,
             speaker,
@@ -228,11 +231,12 @@ def val_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        #feature_avhubert = feature_avhubert.to(device)
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        #spk_emb = spk_emb.to(device)
+        spk_emb = spk_emb.to(device)
         speaker_idx = speaker_idx.to(device)
+        emo_emb = emo_emb.to(device) if cfg.train.use_emo_label else None
 
         with torch.autocast(device_type="cuda", dtype=torch.float16):
             with torch.no_grad():
@@ -240,7 +244,7 @@ def val_one_epoch(
                     lip=lip,
                     audio=None,
                     lip_len=lip_len,
-                    #spk_emb=spk_emb,
+                    spk_emb=spk_emb,
                 )
 
             mae_loss = loss_f.mae_loss(

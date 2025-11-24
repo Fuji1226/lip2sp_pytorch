@@ -62,6 +62,12 @@ def load_text_ITA():#いけてそう
     df = df.values[-424:]
     return df
 
+def load_text_BASIC():
+    csv_path = Path( '/home/user/dataset/jsut_ver1.1/basic5000/csv_fixed.csv').expanduser()
+    df = pd.read_csv(str(csv_path))
+    df = df.values[-5000:]
+    return df
+
 
 def load_test_jvs():
     """
@@ -91,7 +97,11 @@ def calc_error_rate(utt, utt_pred):
 
 def calc_accuracy_new(data_dir, save_path, cfg, filename):
     speaker = data_dir.stem
-    df = load_text_ITA()
+    # cfg.test.speakerの中にkab2022がある場合
+    if cfg.test.speaker[0] == "kab2022":
+        df = load_text_BASIC()
+    else:
+        df = load_text_ITA()
     wb_pesq_evaluator = PerceptualEvaluationSpeechQuality(cfg.model.sampling_rate, 'wb')
     stoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=False)
     estoi_evaluator = ShortTimeObjectiveIntelligibility(cfg.model.sampling_rate, extended=True)
@@ -136,13 +146,21 @@ def calc_accuracy_new(data_dir, save_path, cfg, filename):
         wav_gt = torch.from_numpy(wav_gt)
         wav_abs = torch.from_numpy(wav_abs)
         wav_generate = torch.from_numpy(wav_generate)
+        if cfg.test.speaker[0] == "kab2022":
+            for j in range(5000):
+                utt_num = df[j][0]
+                if utt_num in gt_data_path.parents[0].name:
+                    utt = df[j][1]
+                    utt = utt.replace("。", "").replace("、", "")
+                    break
+        else:
+            for j in range(424):
+                utt_num = df[j][1]
+                if utt_num in gt_data_path.parents[0].name:
+                    utt = df[j][2]
+                    utt = utt.replace("。", "").replace("、", "")
+                    break
 
-        for j in range(424):
-            utt_num = df[j][1]
-            if utt_num in gt_data_path.parents[0].name:
-                utt = df[j][2]
-                utt = utt.replace("。", "").replace("、", "")
-                break
 
         pesq_abs = wb_pesq_evaluator(wav_abs, wav_gt)
         pesq_generate = wb_pesq_evaluator(wav_generate, wav_gt)

@@ -349,3 +349,89 @@ def collate_time_adjust_with_external_data(batch, cfg):
     lang_id = torch.stack(lang_id)
     is_video = torch.stack(is_video)
     return wav, lip, feature, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
+
+
+def collate_time_adjust_with_external_dataMF(batch, cfg):
+    wav, lip, feature,feature_half,feature_double, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
+    
+    wav_adjusted = []
+    lip_adjusted = []
+    feature_adjusted = []
+    feature_half_adjusted = []
+    feature_double_adjusted = []
+    feature_avhubert_adjusted = []
+
+    lip_input_len = int(cfg.model.input_lip_sec * cfg.model.fps)
+    upsample_scale = 1000 // cfg.model.frame_period // cfg.model.fps
+    feat_input_len = int(lip_input_len * upsample_scale)
+    wav_input_len = int(feat_input_len * cfg.model.hop_length)
+
+    for w, l, f, f_half, f_double, f_avhubert, f_len in zip(wav, lip, feature, feature_half, feature_double, feature_avhubert, feature_len):
+        # 揃えるlenよりも短い時は足りない分をゼロパディング
+        if f_len <= feat_input_len:
+            w_padded = torch.zeros(wav_input_len)
+            l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_input_len)
+            f_padded = torch.zeros(f.shape[0], feat_input_len)
+            f_half_padded = torch.zeros(f_half.shape[0], feat_input_len)#?この辺やばいかも
+            f_double_padded = torch.zeros(f_double.shape[0], feat_input_len)#?この辺やばいかも
+            f_avhubert_padded = torch.zeros(f_avhubert.shape[0], lip_input_len)
+
+            # 音響特徴量の系列長をベースに判定しているので、稀に波形のサンプル数が多い場合がある
+            # その際に余ったサンプルを除外する（シフト幅的に余りが生じているのでそれを省いている）
+            w = w[:wav_input_len]
+
+            w_padded[:w.shape[0]] = w
+            l_padded[..., :l.shape[-1]] = l
+            f_padded[:, :f.shape[-1]] = f
+            f_half_padded[:, :f_half.shape[-1]] = f_half
+            f_double_padded[:, :f_double.shape[-1]] = f_double
+            f_avhubert_padded[:, :f_avhubert.shape[-1]] = f_avhubert
+
+            w = w_padded
+            l = l_padded
+            f = f_padded
+            f_half = f_half_padded
+            f_double = f_double_padded
+            f_avhubert = f_avhubert_padded
+
+        # 揃えるlenよりも長い時はランダムに切り取り
+        else:
+            lip_start_frame = torch.randint(0, l.shape[-1] - lip_input_len, (1,)).item()
+            feature_start_frame = int(lip_start_frame * upsample_scale)
+            wav_start_sample = int(feature_start_frame * cfg.model.hop_length)
+
+            w = w[wav_start_sample:wav_start_sample + wav_input_len]
+            l = l[..., lip_start_frame:lip_start_frame + lip_input_len]
+            f = f[:, feature_start_frame:feature_start_frame + feat_input_len]
+            f_half = f_half[:, feature_start_frame:feature_start_frame + feat_input_len]
+            f_double = f_double[:, feature_start_frame:feature_start_frame + feat_input_len]
+            f_avhubert = f_avhubert[:, lip_start_frame:lip_start_frame + lip_input_len]
+
+        assert w.shape[0] == wav_input_len
+        assert l.shape[-1] == lip_input_len
+        assert f.shape[-1] == feat_input_len
+        assert f_half.shape[-1] == feat_input_len
+        assert f_double.shape[-1] == feat_input_len
+        assert f_avhubert.shape[-1] == lip_input_len
+
+        wav_adjusted.append(w)
+        lip_adjusted.append(l)
+        feature_adjusted.append(f)
+        feature_half_adjusted.append(f_half)
+        feature_double_adjusted.append(f_double)
+        feature_avhubert_adjusted.append(f_avhubert)
+
+    wav = torch.stack(wav_adjusted)
+    lip = torch.stack(lip_adjusted)
+    feature = torch.stack(feature_adjusted)
+    feature_half = torch.stack(feature_half_adjusted)
+    feature_double = torch.stack(feature_double_adjusted)
+    feature_avhubert = torch.stack(feature_avhubert_adjusted)
+    spk_emb = torch.stack(spk_emb)
+    emo_emb = torch.stack(emo_emb)
+    feature_len = torch.stack(feature_len)
+    lip_len = torch.stack(lip_len)
+    speaker_idx = torch.stack(speaker_idx)
+    lang_id = torch.stack(lang_id)
+    is_video = torch.stack(is_video)
+    return wav, lip, feature, feature_half, feature_double, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video

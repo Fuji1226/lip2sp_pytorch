@@ -88,6 +88,27 @@ def posenc(x, device, start_index=0):
     return positional_encoding
 
 
+class PositionalEncoding_old(nn.Module):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 300):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+
+        #x : (T, B, C)
+
+        x = x + self.pe[:x.size(0)]
+        return self.dropout(x)
+
+
+# ...existing code...
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 300):
         super().__init__()
@@ -102,11 +123,26 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         """
-        x : (T, B, C)
+        x: (B, T, C) もしくは (T, B, C)
+        self.pe: (max_len, 1, d_model)
+        安全にスライスしてブロードキャストで足す。
         """
-        x = x + self.pe[:x.size(0)]
-        return self.dropout(x)
+        if x.dim() != 3:
+            raise ValueError("PositionalEncoding expects 3D tensor (B,T,C) or (T,B,C)")
 
+        d_model = self.pe.size(2)  # 正しい次元を参照
+        # 入力が (B, T, C) の場合
+        if x.size(-1) == d_model:
+            seq_len = x.size(1)
+            # pe_slice: (1, T, C) -> (B, T, C) にブロードキャスト可能
+            pe_slice = self.pe[:seq_len].squeeze(1).unsqueeze(0).to(x.device)  # (1, T, C)
+            return self.dropout(x + pe_slice)
+        else:
+            # 入力が (T, B, C) の場合
+            seq_len = x.size(0)
+            # pe_slice: (T, C) -> (T, B, C) にブロードキャスト可能
+            pe_slice = self.pe[:seq_len].squeeze(1).to(x.device)  # (T, C)
+            return self.dropout(x + pe_slice)
 
 def plot_trans_att_w(att_w, filename, cfg, current_time, ckpt_time):
     for i in range(att_w.shape[0]):

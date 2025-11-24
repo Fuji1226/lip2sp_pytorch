@@ -23,6 +23,23 @@ avhubert_nfilt: 26
 avhubert_preemph: 0.97
 feature_normalize: 'all_stat'
 
+#多重fft 窓長とホップ長さは要検討
+multi_fft:
+  use: True
+
+  n_fft_half: 256
+  hop_length_half: 80
+  hop_length_sec_half: 0.005
+  win_length_half: 200
+  win_length_sec_half: 0.0125
+
+  n_fft_double: 1024
+  hop_length_double: 320
+  hop_length_sec_double: 0.02
+  win_length_double: 800
+  win_length_sec_double: 0.05
+
+
 # input grayscale（グレースケールかRGBか）
 gray: True
 
@@ -116,7 +133,7 @@ ssl_feature_dropout: 0.3
 # avhubert
 avhubert_config:
   model_size: 'large'
-  load_pretrained_weight: True
+  load_pretrained_weight: True #ここFalseの場合の検討もする
   base:
     ckpt_path: '~/av_hubert_data/base_vox_iter5_torch.ckpt'
     resnet_relu_type: 'prelu'

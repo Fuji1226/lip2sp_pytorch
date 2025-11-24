@@ -27,7 +27,7 @@ def log10(x, eps=EPS):
     return np.log10(np.maximum(x, eps))
 
 
-def wav2mel(wav, cfg, ref_max=False):
+def wav2mel(wav, cfg, n_fft, hop_length, win_length, ref_max=False):
     """
     音声波形をメルスペクトログラムに変換
     wav : (T,)
@@ -36,9 +36,9 @@ def wav2mel(wav, cfg, ref_max=False):
     mel_spec = librosa.feature.melspectrogram(
         y=wav,
         sr=cfg.model.sampling_rate,
-        n_fft=cfg.model.n_fft,
-        hop_length=cfg.model.hop_length,
-        win_length=cfg.model.win_length,
+        n_fft= n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
         window="hann",
         n_mels=cfg.model.n_mel_channels,
         fmin=cfg.model.f_min,
@@ -77,12 +77,13 @@ def wav2mel_avhubert(wav, cfg):
     '''
     avhubertで用いられる音響特徴量
     '''
+    #窓長、ホップ長をhalf,doubleで帰る場合は、参照入力を増やす
     feature = logfbank(
-        wav, 
+        wav,
         samplerate=cfg.model.sampling_rate,
         winlen=cfg.model.win_length_sec,
         winstep=cfg.model.hop_length_sec,
-        nfft=cfg.model.n_fft,
+        nfft= cfg.model.n_fft,
         nfilt=cfg.model.avhubert_nfilt,
         preemph=cfg.model.avhubert_preemph,
         lowfreq=cfg.model.f_min,

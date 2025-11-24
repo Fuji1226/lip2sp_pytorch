@@ -112,6 +112,8 @@ def train_one_epoch(
             wav,
             lip,
             feature,
+            feature_half,
+            feature_double,
             feature_avhubert,
             spk_emb,
             emo_emb,
@@ -125,7 +127,9 @@ def train_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        feature_avhubert = feature_avhubert.to(device)#TODO: multi-fft対応
+        feature_half = feature_half.to(device)
+        feature_double = feature_double.to(device)
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
@@ -140,12 +144,31 @@ def train_one_epoch(
                 spk_emb=spk_emb,
                 emo_emb=emo_emb,
             )
-            mae_loss = loss_f.mae_loss(
-                output, feature, feature_len, max_len=output.shape[-1]#TODO: multi-fft対応 多解像度のfftに対してそれぞれ損失を出し、加算(or平均化)する
+            #mae_loss 算出
+            mae_loss_base = loss_f.mae_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
             )
-            mse_loss = loss_f.mse_loss(
-                output, feature, feature_len, max_len=output.shape[-1] #TODO: multi-fft対応
+            mae_loss_half = loss_f.mae_loss(
+                output, feature_half, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
             )
+            mae_loss_double = loss_f.mae_loss(
+                output, feature_double, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
+            )
+
+            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0
+
+            #mse_loss 算出
+            mse_loss_base = loss_f.mse_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
+            )
+            mse_loss_half = loss_f.mse_loss(
+                output, feature_half, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+            )
+            mse_loss_double = loss_f.mse_loss(
+                output, feature_double, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+            )
+            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0
+
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()
@@ -204,6 +227,8 @@ def val_one_epoch(
             wav,
             lip,
             feature,
+            feature_half,
+            feature_double,
             feature_avhubert,
             spk_emb,
             emo_emb,
@@ -217,7 +242,9 @@ def val_one_epoch(
         ) = batch
         lip = lip.to(device)
         feature = feature.to(device)
-        feature_avhubert = feature_avhubert.to(device)#TODO: multi-fft対応
+        feature_half = feature_half.to(device)
+        feature_double = feature_double.to(device)
+        feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
         spk_emb = spk_emb.to(device)
@@ -234,12 +261,31 @@ def val_one_epoch(
                     emo_emb=emo_emb,
                 )
 
-            mae_loss = loss_f.mae_loss(
-                output, feature, feature_len, max_len=output.shape[-1]#TODO: multi-fft対応
+            #mae_loss 算出
+            mae_loss_base = loss_f.mae_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
             )
-            mse_loss = loss_f.mse_loss(
-                output, feature, feature_len, max_len=output.shape[-1]#TODO: multi-fft対応
+            mae_loss_half = loss_f.mae_loss(
+                output, feature_half, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
             )
+            mae_loss_double = loss_f.mae_loss(
+                output, feature_double, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
+            )
+
+            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0
+
+            #mse_loss 算出
+            mse_loss_base = loss_f.mse_loss(
+                output, feature, feature_len, max_len=output.shape[-1]
+            )
+            mse_loss_half = loss_f.mse_loss(
+                output, feature_half, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+            )
+            mse_loss_double = loss_f.mse_loss(
+                output, feature_double, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+            )
+            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0
+
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()

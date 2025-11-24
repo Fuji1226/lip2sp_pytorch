@@ -94,9 +94,12 @@ astt_gcn_n_head : 2
 lm_enc_n_nodes : 68
 
 # speaker embedding
-use_spk_emb : False
-where_spk_emb : "after_res"
+use_spk_emb : True
+where_spk_emb : "after_enc"
 spk_emb_dim : 256
+
+# emotion embedding
+emo_emb_dim: 7
 
 # f0
 use_f0_predicter : True
@@ -139,7 +142,7 @@ taco_dec_conv_kernel_size : 31
 taco_use_attention : True
 
 # 使用するencoder
-which_encoder : "transformer"
+which_encoder : "gru"
 
 # 使用するdecoder
 which_decoder : "restc"

@@ -41,13 +41,13 @@ def generate(
     feat_std = dataset.feat_std.to(device)
 
     for batch in tqdm(test_loader, total=len(test_loader)):
-        wav, lip, feature, feature_avhubert, spk_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
+        wav, lip, feature, feature_avhubert, spk_emb, emo_emb,feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = batch
         lip = lip.to(device)
         feature = feature.to(device)
         feature_avhubert = feature_avhubert.to(device)
         lip_len = lip_len.to(device)
         feature_len = feature_len.to(device)
-        #spk_emb = spk_emb.to(device)
+        spk_emb = spk_emb.to(device)
 
         lip_sep = gen_data_separate(lip, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)
         feature_avhubert_sep = gen_data_separate(feature_avhubert, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)

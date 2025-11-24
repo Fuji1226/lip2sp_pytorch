@@ -21,9 +21,10 @@ from torch.utils.data import DataLoader
 import wandb
 from data_process.feature import wav2mel
 from data_process.phoneme_encode import get_keys_from_value
-from dataset.dataset import DatasetWithExternalDataRaw, DatasetWithExternalDataRawRE, TransformWithExternalDataRaw
+from dataset.dataset import DatasetWithExternalDataRaw, DatasetWithExternalDataRawRE, TransformWithExternalDataRaw, DatasetWithExternalDataRawMF, TransformWithExternalDataRawMF
 from dataset.dataset_npz_with_ex import (
     collate_time_adjust_with_external_data,
+    collate_time_adjust_with_external_dataMF,
 )
 from model.avhubert import MyAVHubertModel
 from model.raven import E2E as MyRAVEN
@@ -479,8 +480,13 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     val_data_path_list = get_datasets_raw(cfg, video_dir, audio_dir, 'val')
     train_external_data_path_list = get_datasets_external_data_raw(cfg, 'train')
     val_external_data_path_list = get_datasets_external_data_raw(cfg, 'val')
-    train_trans = TransformWithExternalDataRaw(cfg, "train")
-    val_trans = TransformWithExternalDataRaw(cfg, "val")
+    
+    if cfg.model.multi_fft.use == True :
+        train_trans = TransformWithExternalDataRawMF(cfg, "train")
+        val_trans = TransformWithExternalDataRawMF(cfg, "val")
+    else:
+        train_trans = TransformWithExternalDataRaw(cfg, "train")
+        val_trans = TransformWithExternalDataRaw(cfg, "val")
 
     """
     print("tcd_timit",cfg.train.tcd_timit.use)
@@ -509,6 +515,18 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             transform=val_trans,
             cfg=cfg,
         )
+    elif cfg.model.multi_fft.use == True :
+        #print("Use DatasetRE multi_fft")
+        train_dataset = DatasetWithExternalDataRawMF(
+            data_path=train_data_path_list,
+            transform=train_trans,
+            cfg=cfg,
+        )
+        val_dataset = DatasetWithExternalDataRawMF(
+            data_path=val_data_path_list,
+            transform=val_trans,
+            cfg=cfg,
+        )
     else:
         #print("Use DatasetRE")
         train_dataset = DatasetWithExternalDataRawRE(
@@ -528,24 +546,44 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
     breakpoint()
     """
 
-    train_loader = DataLoader(
-        dataset=train_dataset,
-        batch_size=cfg.train.batch_size,   
-        shuffle=True,
-        num_workers=cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+    if cfg.model.multi_fft.use == False :
+        train_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=cfg.train.batch_size,   
+            shuffle=True,
+            num_workers=cfg.train.num_workers,
+            pin_memory=True,
+            drop_last=True,
+            collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
     )
-    val_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=cfg.train.batch_size,
-        shuffle=True,
-        num_workers=cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+        val_loader = DataLoader(
+            dataset=val_dataset,
+            batch_size=cfg.train.batch_size,
+            shuffle=True,
+            num_workers=cfg.train.num_workers,
+            pin_memory=True,
+            drop_last=True,
+            collate_fn=partial(collate_time_adjust_with_external_data, cfg=cfg),
+        )
+    else:
+        train_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=cfg.train.batch_size,   
+            shuffle=True,
+            num_workers=cfg.train.num_workers,
+            pin_memory=True,
+            drop_last=True,
+            collate_fn=partial(collate_time_adjust_with_external_dataMF, cfg=cfg),
     )
+        val_loader = DataLoader(
+            dataset=val_dataset,
+            batch_size=cfg.train.batch_size,
+            shuffle=True,
+            num_workers=cfg.train.num_workers,
+            pin_memory=True,
+            drop_last=True,
+            collate_fn=partial(collate_time_adjust_with_external_dataMF, cfg=cfg),
+        )
     return train_loader, val_loader, train_dataset, val_dataset
 
 

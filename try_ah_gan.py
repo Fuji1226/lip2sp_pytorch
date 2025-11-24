@@ -7,6 +7,7 @@ import dotenv
 import hydra
 import numpy as np
 import torch
+import torch.nn as nn
 from omegaconf import OmegaConf
 from timm.scheduler import CosineLRScheduler
 
@@ -77,60 +78,56 @@ def make_generator(
     count_params(Generator, "model")
     return Generator.to(device)
 
-class Discriminator(torch.nn.Module):
+# --- 変更: より明確なメルスペクトログラム用識別器（Patch/patch-style） ---
+class MelDiscriminator(nn.Module):
     """
-    識別器Dのクラス
+    Mel-spectrogram 用のPatchGAN風判別器（Patch判定）。
+    入力想定: Generator出力 (B, T, C) または (B, C, T)。
+    内部で (B,1,C,T) に整形して2D畳み込みを行い、patch map (B,1,H,W) を返す。
     """
-    def __init__(self, nch=1, nch_d=128):
-        """
-        :param nch: 入力画像のチャネル数
-        :param nch_d: 先頭層の出力チャネル数
-        """
-        super(Discriminator, self).__init__()
+    def __init__(self, in_mel_channels=80, base_ch=64):
+        super(MelDiscriminator, self).__init__()
+        self.in_mel_channels = in_mel_channels
+        self.net = nn.Sequential(
+            nn.Conv2d(1, base_ch, kernel_size=(3,3), stride=(1,2), padding=(1,1)),
+            nn.LeakyReLU(0.2, inplace=True),
 
-        # ニューラルネットワークの構造を定義する
-        self.layers = torch.nn.ModuleDict({
-            'layer0': torch.nn.Sequential(
-                torch.nn.Conv2d(nch, nch_d, 4, 2, 1),     # 畳み込み
-                torch.nn.LeakyReLU(negative_slope=0.2)    # leaky ReLU関数
-            ),  # (B, nch, 28, 28) -> (B, nch_d, 14, 14)
-            'layer1': torch.nn.Sequential(
-                torch.nn.Conv2d(nch_d, nch_d * 2, 4, 2, 1),
-                torch.nn.BatchNorm2d(nch_d * 2),
-                torch.nn.LeakyReLU(negative_slope=0.2)
-            ),  # (B, nch_d, 14, 14) -> (B, nch_d*2, 7, 7)
-            'layer2': torch.nn.Sequential(
-                torch.nn.Conv2d(nch_d * 2, nch_d * 4, 3, 2, 0),
-                torch.nn.BatchNorm2d(nch_d * 4),
-                torch.nn.LeakyReLU(negative_slope=0.2)
-            ),  # (B, nch_d*2, 7, 7) -> (B, nch_d*4, 3, 3)
-            'layer3': torch.nn.Sequential(
-                torch.nn.Conv2d(nch_d * 4, 1, 3, 1, 0),
-                torch.nn.Sigmoid()    # Sigmoid関数
-            )
-            # (B, nch_d*4, 3, 3) -> (B, 1, 1, 1)
-        })
+            nn.Conv2d(base_ch, base_ch*2, kernel_size=(3,3), stride=(2,2), padding=(1,1)),
+            nn.BatchNorm2d(base_ch*2),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(base_ch*2, base_ch*4, kernel_size=(3,3), stride=(2,2), padding=(1,1)),
+            nn.BatchNorm2d(base_ch*4),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(base_ch*4, 1, kernel_size=(3,3), stride=(1,1), padding=(1,1)),
+            # 出力は patch map（後続で平均等してスカラーにできます）
+        )
 
     def forward(self, x):
-        """
-        順方向の演算
-        :param x: 本物画像あるいは生成画像
-        :return: 識別信号
-        """
-        for layer in self.layers.values():  # self.layersの各層で演算を行う
-            x = layer(x)
-        return x.squeeze()     # Tensorの形状を(B)に変更して戻り値とする
-
-def make_discriminator(
-    cfg,
-    device,
-):
-    Discriminator = Discriminator(nch=cfg.model.n_mel_channels, nch_d=128)
-    count_params(Discriminator, "discriminator")
-    return Discriminator.to(device)
+        # x: (B, T, C) または (B, C, T) または (B,1,C,T)
+        if x.dim() == 3:
+            # 判定: 末尾の次元がメルチャネル数なら (B,T,C) とみなす
+            if x.shape[-1] == self.in_mel_channels:
+                # (B, T, C) -> (B, C, T)
+                x = x.permute(0,2,1)
+                x = x.unsqueeze(1)  # -> (B,1,C,T)
+            else:
+                # (B, C, T) とみなす
+                x = x.unsqueeze(1)  # -> (B,1,C,T)
+        elif x.dim() == 4:
+            # 既に (B,1,C,T) の場合はそのまま、別の形式なら可能な変換を試みるが基本は想定外
+            pass
+        return self.net(x)  # (B,1,H,W)
 
 
-def train_one_epoch(
+def make_discriminator(cfg, device):
+    D = MelDiscriminator(in_mel_channels=cfg.model.n_mel_channels, base_ch=64)
+    count_params(D, "discriminator")
+    return D.to(device)
+# --- 変更ここまで ---
+
+def train_one_epochG(
     model,
     train_loader,
     optimizer,
@@ -139,14 +136,18 @@ def train_one_epoch(
     device,
     cfg,
     ckpt_time,
+    discriminator = None,
 ):
     epoch_loss = 0
     epoch_mae_loss = 0
     epoch_mse_loss = 0
     iter_cnt = 0
     all_iter = len(train_loader)
-    print("training")
+    print("Generator-train")
     model.train()
+
+    gan_weight = getattr(cfg.train, "gan_loss_weight", 0.0)
+    mse = nn.MSELoss()
 
     for batch in train_loader:
         print(f"iter {iter_cnt}/{all_iter}")
@@ -188,13 +189,27 @@ def train_one_epoch(
             mse_loss = loss_f.mse_loss(
                 output, feature, feature_len, max_len=output.shape[-1]
             )
-            loss = mae_loss
+
+            adv_loss = 0.0
+            if gan_weight > 0.0 and discriminator is not None:
+                discriminator.eval()
+                # output は (B,T,C) → 判別器へそのまま渡す
+                pred = discriminator(output)
+                real_target = torch.full_like(pred, 0.9, device=device)
+                adv_loss = mse(pred, real_target)
+
+
+            loss = mae_loss + gan_weight * adv_loss
+
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()
             epoch_loss += loss.item()
             wandb.log({"train_mae_loss": mae_loss})
             wandb.log({"train_mse_loss": mse_loss})
             wandb.log({"train_loss": loss})
+            if gan_weight > 0.0:
+                wandb.log({"train_adv_loss": adv_loss})
+
             loss = loss / cfg.train.iters_to_accumulate
 
         scaler.scale(loss).backward()
@@ -224,7 +239,7 @@ def train_one_epoch(
     return epoch_loss, epoch_mae_loss, epoch_mse_loss
 
 
-def val_one_epoch(
+def val_one_epochG(
     model,
     val_loader,
     loss_f,
@@ -237,7 +252,7 @@ def val_one_epoch(
     epoch_mse_loss = 0
     iter_cnt = 0
     all_iter = len(val_loader)
-    print("validation")
+    print("Generator-validation")
     model.eval()
 
     for batch in val_loader:
@@ -323,6 +338,81 @@ def val_one_epoch(
     epoch_mse_loss /= iter_cnt
     result = (epoch_loss, epoch_mae_loss, epoch_mse_loss)
     return result
+
+# --------------- 追加: Discriminator 学習関数 (LSGAN / MSE) ---------------
+def train_one_epochD(
+    generator,
+    discriminator,
+    train_loader,
+    optimizerD,
+    device,
+    cfg,
+):
+    """
+    Discriminator を1エポック学習（Generatorは固定）。LSGAN (MSE) を使用。
+    入力の real feature は train_loader から得られる feature (B, T, C)。
+    Generator 出力は (B, T, C) を想定。
+    """
+    discriminator.train()
+    generator.eval()
+    mse = nn.MSELoss()
+    epoch_loss = 0.0
+    iter_cnt = 0
+    all_iter = len(train_loader)
+    real_label_val = 0.9  # label smoothing
+    fake_label_val = 0.0
+    print("Discriminator-train" )
+
+    for batch in train_loader:
+        print(f"iter {iter_cnt}/{all_iter}")
+        (
+            wav,
+            lip,
+            feature,
+            feature_avhubert,
+            spk_emb,
+            emo_emb,
+            feature_len,
+            lip_len,
+            speaker,
+            speaker_idx,
+            filename,
+            lang_id,
+            is_video,
+        ) = batch
+
+        # real mel: (B, T, C) -> (B, T, C)
+        real_mel = feature.to(device)
+
+        # real forward
+        real_pred = discriminator(real_mel)  # returns (B,1,H,W)
+        real_target = torch.full_like(real_pred, real_label_val, device=device)
+        loss_real = mse(real_pred, real_target)
+
+        # fake mel: generator で生成
+        lip = lip.to(device)
+        lip_len = lip_len.to(device)
+        spk_emb = spk_emb.to(device)
+        emo_emb = emo_emb.to(device) if cfg.train.use_emo_label else None
+
+        with torch.no_grad():
+            fake_mel = generator(lip=lip, audio=None, lip_len=lip_len, spk_emb=spk_emb, emo_emb=emo_emb)
+        # fake_mel: (B,T,C) expected; pass to D directly
+        fake_pred = discriminator(fake_mel.detach())
+        fake_target = torch.full_like(fake_pred, fake_label_val, device=device)
+        loss_fake = mse(fake_pred, fake_target)
+
+        lossD = 0.5 * (loss_real + loss_fake)
+
+        optimizerD.zero_grad()
+        lossD.backward()
+        optimizerD.step()
+
+        epoch_loss += lossD.item()
+        iter_cnt += 1
+
+    return epoch_loss / max(1, iter_cnt)
+# --------------- ここまで ---------------
 
 
 @hydra.main(config_name="config", config_path="conf")
@@ -426,91 +516,31 @@ def main(cfg):
         scaler = torch.cuda.amp.GradScaler()
 
         last_epoch = 0
-        """
-        if cfg.train.check_point_start:
-            print("load check point")
-            checkpoint_path = Path(cfg.train.start_ckpt_path).expanduser()
-            if torch.cuda.is_available():
-                checkpoint = torch.load(checkpoint_path)
-            else:
-                checkpoint = torch.load(
-                    checkpoint_path, map_location=torch.device("cpu")
-                )
-            model.load_state_dict(checkpoint["model"])
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            scheduler.load_state_dict(checkpoint["scheduler"])
-            scaler.load_state_dict(checkpoint["scaler"])
-            random.setstate(checkpoint["random"])
-            np.random.set_state(checkpoint["np_random"])
-            torch.set_rng_state(checkpoint["torch"])
-            torch.random.set_rng_state(checkpoint["torch_random"])
-            torch.cuda.set_rng_state(checkpoint["cuda_random"])
-            last_epoch = checkpoint["epoch"]
-
-        if cfg.train.check_point_start_separate_save_dir:
-            print("load check point (separate save dir)")
-            checkpoint_path = Path(
-                cfg.train.start_ckpt_path_separate_save_dir
-            ).expanduser()
-            if torch.cuda.is_available():
-                checkpoint = torch.load(checkpoint_path)
-            else:
-                checkpoint = torch.load(
-                    checkpoint_path, map_location=torch.device("cpu")
-                )
-            model.load_state_dict(checkpoint["model"])
-
-        if (
-            cfg.model.model_name == "ensemble"
-            or cfg.model.model_name == "ensemble_avhubert_vatlm"
-            or cfg.model.model_name == "ensemble_avhubert_raven"
-            or cfg.model.model_name == "ensemble_raven_vatlm"
-        ):
-            ckpt_path_avhubert = Path(cfg.model.ckpt_path_avhubert).expanduser()
-            ckpt_path_raven = Path(cfg.model.ckpt_path_raven).expanduser()
-            ckpt_path_vatlm = Path(cfg.model.ckpt_path_vatlm).expanduser()
-            ckpt_avhubert = torch.load(str(ckpt_path_avhubert), map_location=device)[
-                "model"
-            ]
-            ckpt_avhubert = {
-                name: param
-                for name, param in ckpt_avhubert.items()
-                if "avhubert." in name
-            }
-            ckpt_raven = torch.load(str(ckpt_path_raven), map_location=device)["model"]
-            ckpt_raven = {
-                name: param for name, param in ckpt_raven.items() if "raven." in name
-            }
-            ckpt_vatlm = torch.load(str(ckpt_path_vatlm), map_location=device)["model"]
-            ckpt_vatlm = {
-                name: param for name, param in ckpt_vatlm.items() if "vatlm." in name
-            }
-            model.load_state_dict(ckpt_avhubert, strict=False)
-            model.load_state_dict(ckpt_raven, strict=False)
-            model.load_state_dict(ckpt_vatlm, strict=False)
-
-            for name, param in model.named_parameters():
-                if "avhubert." in name or "raven." in name or "vatlm." in name:
-                    param.requires_grad = False
-
-            cnt = 0
-            for name, param in model.named_parameters():
-                if param.requires_grad:
-                    cnt += param.numel()
-                    print(name)
-            print(f"Number of Learnable Parameters: {cnt}")
-        """
 
         wandb.watch(Generator, **cfg.wandb_conf.watch)
 
-        #!train_one_epoch_D→val_one_epoch_D→,train_one_epoch_G→val_one_epoch_Gの流れをつくりたい
+        #!train_one_epoch_D→,train_one_epoch_G→val_one_epoch_Gの流れをつくりたい
         for epoch in range(cfg.train.max_epoch - last_epoch):
             current_epoch = 1 + epoch + last_epoch
             print(f"##### {current_epoch} #####")
-            epoch_loss, epoch_mae_loss, epoch_mse_loss = train_one_epoch(
-                model=model,
+
+            # 1) Discriminatorを1エポック学習（Generator固定）
+            if getattr(cfg.train, "use_gan", False) and getattr(cfg.train, "gan_loss_weight", 0.0) > 0.0:
+                lossD_epoch = train_one_epochD(
+                    generator=Generator,
+                    discriminator=Discriminator,
+                    train_loader=train_loader,
+                    optimizerD=optimizerD,
+                    device=device,
+                    cfg=cfg,
+                )
+                wandb.log({"train_discriminator_loss": lossD_epoch, "epoch": current_epoch})
+
+            # 2) Generatorを1エポック学習（Discriminator固定）
+            epoch_loss, epoch_mae_loss, epoch_mse_loss = train_one_epochG(
+                model=Generator,
                 train_loader=train_loader,
-                optimizer=optimizer,
+                optimizer=optimizerG,
                 scaler=scaler,
                 loss_f=loss_f,
                 device=device,
@@ -521,8 +551,8 @@ def main(cfg):
             train_mae_loss_list.append(epoch_mae_loss)
             train_mse_loss_list.append(epoch_mse_loss)
 
-            epoch_loss, epoch_mae_loss, epoch_mse_loss = val_one_epoch(
-                model=model,
+            epoch_loss, epoch_mae_loss, epoch_mse_loss = val_one_epochG(
+                model=Generator,
                 val_loader=val_loader,
                 loss_f=loss_f,
                 device=device,
@@ -542,8 +572,8 @@ def main(cfg):
 
             if current_epoch % cfg.train.ckpt_step == 0:
                 save_checkpoint(
-                    model=model,
-                    optimizer=optimizer,
+                    model=Generator,
+                    optimizer=optimizerG,
                     scheduler=scheduler,
                     scaler=scaler,
                     train_loss_list=train_loss_list,
@@ -569,7 +599,7 @@ if __name__ == "__main__":
 
 
 
-#!以下、学習コードの参考
+"""!以下、学習コードの参考
 G_losses = []
 D_losses = []
 D_x_out = []
@@ -599,7 +629,7 @@ for epoch in range(n_epoch):
 
         fake_image = netG(noise)    # 生成器Gでノイズから生成画像を生成
         
-        output = netD(fake_image.detach())  # 識別器Dで本物画像に対する識別信号を出力
+        output = netD(fake_image.detach())  # 識別器Dで生成画像に対する識別信号を出力
         errD_fake = criterion(output, fake_target)  # 生成画像に対する識別信号の損失値
         D_G_z1 = output.mean().item()  # 生成画像の識別信号の平均
 
@@ -648,3 +678,4 @@ for epoch in range(n_epoch):
     if (epoch + 1) % 10 == 0:   # 10エポックごとにモデルを保存する
         torch.save(netG.state_dict(), '{}/netG_epoch_{}.pth'.format(outf, epoch + 1))
         torch.save(netD.state_dict(), '{}/netD_epoch_{}.pth'.format(outf, epoch + 1))
+"""
