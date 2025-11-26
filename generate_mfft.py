@@ -8,7 +8,6 @@ from torchsummary import summary
 
 import sys
 sys.path.append(str(Path("~/hifi-gan").expanduser()))
-from ToUseHFGAN import load_hifigan_model, mel_to_waveform
 
 from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean, calc_result
 from data_check import save_data_pwg, save_data, save_data_hifigan
@@ -57,7 +56,7 @@ def generate(
         print([x.shape for x in batch if isinstance(x, torch.Tensor)])
         breakpoint()
         """
-        wav, lip, feature, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video , = batch
+        wav, lip, feature,feature_half, feature_double, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video , = batch
         lip = lip.to(device)
         feature = feature.to(device)
         feature_avhubert = feature_avhubert.to(device)
@@ -83,8 +82,14 @@ def generate(
                 emo_emb=emo_emb,
             )
 
+        #output = (output_double(B,C,T), output_base(B,C,T), output_half(B,C,T))の形状
+        output_base = output[1]  #base
+        output_half = output[2]#half
+        output_double = output[0]#double
+        output = output_base
+
         output = gen_data_concat(
-            output, 
+            output,
             int(cfg.model.fps * cfg.model.reduction_factor), 
             int((lip_len[0] % cfg.model.fps) * cfg.model.reduction_factor)
         )
@@ -200,6 +205,11 @@ def main(cfg):
         result_dir=save_path.parents[3],
         checkpoint_dir=model_path.parents[1],
     )
+    """
+    save_path = Path(cfg.test.save_path).expanduser()
+    "~/lip2sp_pytorch/result/nar/generate"
+    save_path = save_path / cfg.test.face_or_lip / cfg.model.name / model_path.parents[0].name / model_path.stem
+    """
 
 
 if __name__ == "__main__":

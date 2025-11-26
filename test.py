@@ -1,6 +1,14 @@
-import os
+import torch
+x = torch.randn(2, 2, 28)
 
-dir_path = "/home/user/vcc18/data/scp/"
-print("=== ディレクトリ内のファイル一覧 ===")
-for f in os.listdir(dir_path):
-    print(f" - {f}")
+
+x_double = x[:, :, :2 * (x.shape[2] // 14)]
+x_base = x[:, :, 2 * (x.shape[2] // 14):6 * (x.shape[2] // 14)]
+x_half = x[:, :, 6 * (x.shape[2] // 14):]
+
+print(x)
+print(x_double.shape,x_double)
+breakpoint()
+print(x_base.shape,x_base)
+breakpoint()
+print(x_half.shape,x_half)

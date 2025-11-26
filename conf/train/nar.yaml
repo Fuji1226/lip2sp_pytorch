@@ -11,12 +11,12 @@ debug_iter : 2
 
 # ?checkpointから再開する場合(同条件学習の再開)
 check_point_start : False
-start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/nar/avhubert_preprocess_fps25_gray/master/2025:10:02_13-45-21/9.ckpt'
+start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/mfft_try/10.ckpt'
 
 # ?finetuning(データを変えて学習する場合)
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/mspec80/2025:11:18_15-39-56/7.ckpt'
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/mfft_try/10.ckpt'
 # 複数言語で事前学習したモデルをfine tuningするかどうか←使ってないっぽい
 fine_tuning_pretrained_model_by_external_data : False
 
@@ -128,7 +128,7 @@ apply_upsampling : False
 
 # 使用する話者
 #!話者を変更することだけで事前学習と本学習を切り替える
-speaker : ['F02_kablab','F03_kablab','M02_kablab','M04_kablab'] #F1,"kab2022"
+speaker : ["F1", 'F02_kablab','F03_kablab','M02_kablab','M04_kablab',"kab2022"] #F1,
 use_spk_emb : True
 spk_emb_dir : "~/dataset/lip/emb"
 finetuning : False #これも使ってない説
@@ -215,5 +215,5 @@ use_weighted_mean : False
 loss_disc_weight : 0.01
 
 #discriminator
-use_gan : True
+use_gan : False
 gan_loss_weight : 1.0

@@ -584,6 +584,7 @@ def make_train_val_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             drop_last=True,
             collate_fn=partial(collate_time_adjust_with_external_dataMF, cfg=cfg),
         )
+
     return train_loader, val_loader, train_dataset, val_dataset
 
 
@@ -629,12 +630,24 @@ def make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir):
             n_data_per_speaker[speaker] += 1
         test_data_path_list = test_data_path_list_debug
 
-    test_trans = TransformWithExternalDataRaw(cfg, 'test')
-    test_dataset = DatasetWithExternalDataRawRE(
-        data_path=test_data_path_list,
-        transform=test_trans,
-        cfg=cfg,
-    )
+
+    if cfg.model.multi_fft.use == True :
+        test_trans = TransformWithExternalDataRawMF(cfg, 'test')
+        test_dataset = DatasetWithExternalDataRawMF(
+            data_path=test_data_path_list,
+            transform=test_trans,
+            cfg=cfg,
+        )
+
+    else:
+        test_trans = TransformWithExternalDataRaw(cfg, 'test')
+        test_dataset = DatasetWithExternalDataRawRE(
+            data_path=test_data_path_list,
+            transform=test_trans,
+            cfg=cfg,
+        )
+
+
     print(f"len(test_dataset): {len(test_dataset)}")
     test_loader = DataLoader(
         dataset=test_dataset,

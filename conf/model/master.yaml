@@ -32,12 +32,14 @@ multi_fft:
   hop_length_sec_half: 0.005
   win_length_half: 200
   win_length_sec_half: 0.0125
+  upsample_half: 8
 
   n_fft_double: 1024
   hop_length_double: 320
   hop_length_sec_double: 0.02
   win_length_double: 800
   win_length_sec_double: 0.05
+  upsample_double: 2
 
 
 # input grayscale（グレースケールかRGBか）

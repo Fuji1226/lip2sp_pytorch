@@ -7,16 +7,16 @@ debug_data_len : 3
 # face or lip
 face_or_lip : "avhubert_preprocess_fps25_gray"
 
-# 合成するモデルのパス
-model_path : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/mspec80/2025:11:18_17-41-40/12.ckpt'
+# 合成するモデルのパス、一番最後のckptを指定！
+model_path : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/mfft_try/38.ckpt'
 # モデルパスを検証データの結果から選択するための指標
 #?使えるキー: ['model', 'optimizer', 'scheduler', 'scaler', 'random', 'np_random',
 #?'torch', 'torch_random', 'cuda_random', 'train_loss_list', 'train_mae_loss_list',
 #?'train_mse_loss_list', 'val_loss_list', 'val_mae_loss_list', 'val_mse_loss_list','epoch']
-metric_for_select : "val_mse_loss_list"
+metric_for_select : "val_mae_loss_list"
 
 # generate.pyを実行したときのデータを保存するディレクトリまでのパス
-save_path : "~/lip2sp_pytorch/result/happyoukaiyou/nar/generate"
+save_path : "~/lip2sp_pytorch/result/nar/generate"
 
 # 口唇動画、音響特徴量ディレクトリまでのパス
 lip_pre_loaded_path_03_50_gray : "~/dataset/lip/np_files/lip_cropped_0.3_50_gray/test"
@@ -30,7 +30,7 @@ avhubert_preprocess_fps25_test : "/home/user/dataset/lip/np_files/face_cropped_m
 test_df_path : '/home/user/2HEAVD/ITA_text/F1/test.csv'
 
 # speaker : ["F01_kablab"]
-speaker : ["kab2022"] #["F1","kab2022","F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
+speaker : ["F1"] #["F1","kab2022","F01_kablab", "F02_kablab", "M01_kablab", "M04_kablab"]
 
 #test emotion
 emo_label : [0,1,2,3,4,5,6] #intで入力

@@ -1388,4 +1388,4 @@ class MyAVHubertModel(nn.Module):
                 padding_mask=padding_mask,
                 layer=None if output_layer is None else output_layer - 1,
             )   # (B, T, C)
-            return features
+            return features#!(B, T, C)(B,1000,80)

@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from omegaconf import OmegaConf
 from timm.scheduler import CosineLRScheduler
+from torchsummary import summary
 
 import wandb
 from loss import MaskedLoss
@@ -144,30 +145,35 @@ def train_one_epoch(
                 spk_emb=spk_emb,
                 emo_emb=emo_emb,
             )
+
+            #output = (output_double(B,C,T), output_base(B,C,T), output_half(B,C,T))の形状
+            output_base = output[1]  #base
+            output_half = output[2]#half
+            output_double = output[0]#double
             #mae_loss 算出
             mae_loss_base = loss_f.mae_loss(
-                output, feature, feature_len, max_len=output.shape[-1]
+                output_base, feature, feature_len, max_len=output_base.shape[-1]
             )
             mae_loss_half = loss_f.mae_loss(
-                output, feature_half, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
+                output_half, feature_half, feature_len*2, max_len=output_half.shape[-1]
             )
             mae_loss_double = loss_f.mae_loss(
-                output, feature_double, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
+                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
             )
 
-            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0
+            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0 #TODO:重み
 
             #mse_loss 算出
             mse_loss_base = loss_f.mse_loss(
-                output, feature, feature_len, max_len=output.shape[-1]
+                output_base, feature, feature_len, max_len=output_base.shape[-1]
             )
             mse_loss_half = loss_f.mse_loss(
-                output, feature_half, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+                output_half, feature_half, feature_len, max_len=output_half.shape[-1]
             )
             mse_loss_double = loss_f.mse_loss(
-                output, feature_double, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
             )
-            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0
+            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0 #TODO:重み
 
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
@@ -190,13 +196,13 @@ def train_one_epoch(
         if cfg.train.debug:
             if iter_cnt > cfg.train.debug_iter:
                 check_mel_nar(
-                    feature[0], output[0], cfg, "mel_train", current_time, ckpt_time
+                    feature[0], output_base[0], cfg, "mel_train", current_time, ckpt_time
                 )
                 break
 
         if iter_cnt % (all_iter - 1) == 0:
             check_mel_nar(
-                feature[0], output[0], cfg, "mel_train", current_time, ckpt_time
+                feature[0], output_base[0], cfg, "mel_train", current_time, ckpt_time
             )
 
     epoch_loss /= iter_cnt
@@ -260,36 +266,40 @@ def val_one_epoch(
                     spk_emb=spk_emb,
                     emo_emb=emo_emb,
                 )
-
+            #output = (output_double(B,C,T), output_base(B,C,T), output_half(B,C,T))の形状
+            output_base = output[1]  #base
+            output_half = output[2]#half
+            output_double = output[0]#double
             #mae_loss 算出
             mae_loss_base = loss_f.mae_loss(
-                output, feature, feature_len, max_len=output.shape[-1]
+                output_base, feature, feature_len, max_len=output_base.shape[-1]
             )
             mae_loss_half = loss_f.mae_loss(
-                output, feature_half, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
+                output_half, feature_half, feature_len, max_len=output_half.shape[-1]
             )
             mae_loss_double = loss_f.mae_loss(
-                output, feature_double, feature_len, max_len=output.shape[-1]#TODO: feature_lenがおそらく異なる
+                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
             )
 
-            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0
+            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0 #TODO:重み
 
             #mse_loss 算出
             mse_loss_base = loss_f.mse_loss(
-                output, feature, feature_len, max_len=output.shape[-1]
+                output_base, feature, feature_len, max_len=output_base.shape[-1]
             )
             mse_loss_half = loss_f.mse_loss(
-                output, feature_half, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+                output_half, feature_half, feature_len, max_len=output_half.shape[-1]
             )
             mse_loss_double = loss_f.mse_loss(
-                output, feature_double, feature_len, max_len=output.shape[-1] #TODO: feature_lenがおそらく異なる
+                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
             )
-            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0
+            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0 #TODO:重み
 
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()
             epoch_loss += loss.item()
+            #TODOfeature_baseのlossと、合計損失を分けてログに出す
             wandb.log({"val_mae_loss": mae_loss})
             wandb.log({"val_mse_loss": mse_loss})
             wandb.log({"val_loss": loss})
@@ -299,7 +309,7 @@ def val_one_epoch(
             if iter_cnt > cfg.train.debug_iter:
                 check_mel_nar(
                     feature[0],
-                    output[0],
+                    output_base[0],
                     cfg,
                     "mel_validation",
                     current_time,
@@ -311,7 +321,7 @@ def val_one_epoch(
             if iter_cnt % (all_iter - 1) == 0:
                 check_mel_nar(
                     feature[0],
-                    output[0],
+                    output_base[0],
                     cfg,
                     "mel_validation",
                     current_time,
@@ -319,7 +329,7 @@ def val_one_epoch(
                 )
         else:
             check_mel_nar(
-                feature[0], output[0], cfg, "mel_validation", current_time, ckpt_time
+                feature[0], output_base[0], cfg, "mel_validation", current_time, ckpt_time
             )
 
     epoch_loss /= iter_cnt
@@ -378,9 +388,9 @@ def main(cfg):
         print(f"{cfg.model.avhubert_config.model_size=}")
         print(f"{cfg.model.avhubert_config.load_pretrained_weight=}")
         #breakpoint()
-        #print("-----------------------以下モデル構造--------------------------")
-        #print(model)
-        #print("----------------------------以上-------------------------------")
+        print("-----------------------以下モデル構造--------------------------")
+        summary(model, input_size=[(3, int(cfg.model.input_lip_sec * cfg.model.fps), cfg.model.fps)], device=str(device))
+        print("----------------------------以上-------------------------------")
 
         if cfg.train.which_optim == "adam":
             optimizer = torch.optim.Adam(

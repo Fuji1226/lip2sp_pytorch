@@ -5,6 +5,7 @@ sys.path.append(str(Path('~/lip2sp_pytorch').expanduser()))
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from model.avhubert import ResEncoder
@@ -45,7 +46,7 @@ class ResConvDecoder(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.conv_layers = []
-        for i in range(cfg.model.decoder.n_conv_layers):
+        for i in range(cfg.model.decoder.n_conv_layers):#層数分のResBlockを積む(2層)
             self.conv_layers.append(
                 ResBlock(
                     hidden_channels=hidden_channels,
@@ -53,7 +54,7 @@ class ResConvDecoder(nn.Module):
                     dropout=cfg.model.decoder.dropout,
                 )
             )
-        self.conv_layers = nn.ModuleList(self.conv_layers)
+        self.conv_layers = nn.ModuleList(self.conv_layers)#ModuleListに変換(呼び出しやすいようにしてある)
         self.out_layer = nn.Conv1d(hidden_channels, cfg.model.n_mel_channels * cfg.model.reduction_factor, kernel_size=1)
 
     def forward(
@@ -71,6 +72,77 @@ class ResConvDecoder(nn.Module):
         x = x.reshape(x.shape[0], -1, self.cfg.model.n_mel_channels)
         x = x.permute(0, 2, 1)      # (B, C, T)
         return x
+
+
+class ResConvDecoderMF(nn.Module):
+    def __init__(
+            self,
+            cfg,
+            hidden_channels,
+    ):
+        super().__init__()
+        self.cfg = cfg
+        self.conv_layers = []
+        for i in range(cfg.model.decoder.n_conv_layers):
+            self.conv_layers.append(
+                ResBlock(
+                    hidden_channels=hidden_channels,
+                    kernel_size=cfg.model.decoder.conv_kernel_size,
+                    dropout=cfg.model.decoder.dropout,
+                )
+            )
+        self.conv_layers = nn.ModuleList(self.conv_layers)
+        # 出力チャネルは n_mel_channels（reshape 後にこのチャネル数になる）
+        self.out_layer = nn.Conv1d(hidden_channels, cfg.model.n_mel_channels * cfg.model.reduction_factor, kernel_size=1)
+
+        # --- マルチ解像度用の学習可能なアップ/ダウンサンプリング層 ---
+        out_ch = cfg.model.n_mel_channels
+        # アップサンプル x2 (B, C, T) -> (B, C, 2*T)
+        self.up_conv = nn.ConvTranspose1d(out_ch, out_ch, kernel_size=4, stride=2, padding=1, output_padding=0)
+        # ダウンサンプル x0.5 (B, C, T) -> (B, C, T//2)
+        self.down_conv = nn.Conv1d(out_ch, out_ch, kernel_size=4, stride=2, padding=1)
+
+    def forward(
+            self,
+            x,
+    ):
+        """
+        x: (B, T, C)  -> 最終 base 出力 (B, C, T)
+        戻り値: (x_double, x_base, x_half)
+          x_base  : (B, C, T)      -- base (既存の出力)
+          x_double: (B, C, T//2)   -- downsampled (double name は既存呼び出しに合わせた命名)
+          x_half  : (B, C, 2*T)    -- upsampled
+        """
+        # base 出力を作る（既存処理）
+        x = x.permute(0, 2, 1)  # (B, C_in, T)
+        for layer in self.conv_layers:
+            x = layer(x)
+        x = self.out_layer(x)   # (B, out_ch * reduction, T)
+        x = x.permute(0, 2, 1)  # (B, T, out_ch * reduction)
+        x = x.reshape(x.shape[0], -1, self.cfg.model.n_mel_channels)  # (B, time, n_mel)
+        x_base = x.permute(0, 2, 1).contiguous()  # (B, C, T)  <-- base
+
+        # --- ダウンサンプリング（x_double） ---
+        try:
+            x_double = self.down_conv(x_base)  # (B, C, ~T/2)
+        except Exception:
+            # フォールバック: 線形補間で半分にする
+            x_double = F.interpolate(x_base, scale_factor=0.5, mode="linear", align_corners=False)
+
+        # --- アップサンプリング（x_half） ---
+        try:
+            x_half = self.up_conv(x_base)  # (B, C, ~2*T)
+        except Exception:
+            # フォールバック: 線形補間で2倍にする
+            x_half = F.interpolate(x_base, scale_factor=2.0, mode="linear", align_corners=False)
+
+        # 出力を contiguous に保つ
+        x_double = x_double.contiguous()
+        x_base = x_base.contiguous()
+        x_half = x_half.contiguous()
+
+        # 既存コードが期待する順序に合わせて返す (double, base, half)
+        return x_double, x_base, x_half
 
 
 class Lip2SpeechSSL(nn.Module):
@@ -130,18 +202,30 @@ class Lip2SpeechSSL(nn.Module):
             )
 
         if cfg.train.use_spk_emb:
-            self.spk_emb_layer = nn.Linear(
-                hidden_channels + cfg.model.spk_emb_dim,
-                hidden_channels,
-            )
+            if cfg.train.use_emo_label:
+                self.spk_emb_layer = nn.Linear(
+                    hidden_channels + cfg.model.spk_emb_dim + cfg.model.emo_emb_dim,
+                    hidden_channels,
+                )
 
-        if cfg.train.use_emo_label:#!要確認
+            else:
+                self.spk_emb_layer = nn.Linear(
+                    hidden_channels + cfg.model.spk_emb_dim,
+                    hidden_channels,
+                )
+
+        """
+        if cfg.train.use_emo_label:#←これだと、話者層→感情層になってしまう。やりたいのは話者+感情層
             self.emo_emb_layer = nn.Linear(
                 hidden_channels + cfg.model.emo_emb_dim,
                 hidden_channels,
             )
+        """
+        if cfg.model.multi_fft.use:
+            self.decoder = ResConvDecoderMF(cfg, hidden_channels)
 
-        self.decoder = ResConvDecoder(cfg, hidden_channels)
+        else:
+            self.decoder = ResConvDecoder(cfg, hidden_channels)
 
         """
         avhubert layer
@@ -268,18 +352,33 @@ class Lip2SpeechSSL(nn.Module):
             feature = self.fuse_layer(feature)
 
         if self.cfg.train.use_spk_emb:
-            spk_emb = spk_emb.float()
-            spk_emb = spk_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)
-            feature = torch.cat([feature, spk_emb], dim=-1)
-            feature = self.spk_emb_layer(feature)
+            if self.cfg.train.use_emo_label:
+                spk_emb = spk_emb.float()
+                emo_emb = emo_emb.float()
+                spk_emb = spk_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)
+                emo_emb = emo_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)
+                feature = torch.cat([feature, spk_emb, emo_emb], dim=-1)
+                feature = self.spk_emb_layer(feature)
+            else:
+                spk_emb = spk_emb.float()
+                spk_emb = spk_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)
+                feature = torch.cat([feature, spk_emb], dim=-1)
+                feature = self.spk_emb_layer(feature)
 
-        if self.cfg.train.use_emo_label:
+        """
+        if self.cfg.train.use_emo_label:#←これだと、話者層→感情層になってしまう。やりたいのは話者+感情層
             emo_emb = emo_emb.float()
-            emo_emb = emo_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)#!形状現状よくわからん
+            emo_emb = emo_emb.unsqueeze(1).expand(-1, feature.shape[1], -1)   # (B, T, C)
             feature = torch.cat([feature, emo_emb], dim=-1)
             feature = self.emo_emb_layer(feature)
+        """
 
-        output = self.decoder(feature)
+        if self.cfg.model.multi_fft.use:
+            output_double, output_base, output_half = self.decoder(feature)
+            output = (output_double, output_base, output_half)
+
+        else:
+            output = self.decoder(feature)
 
         return output
 

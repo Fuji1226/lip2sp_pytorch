@@ -248,12 +248,16 @@ def plot_mel(cfg, save_path, wav_input, wav_AbS, wav_gen, ref_max=True):
     """
     メルスペクトログラムのプロット
     """
-    mel_input = wav2mel(wav_input, cfg, ref_max=ref_max)
+
+    n_fft =cfg.model.n_fft
+    hop_length = cfg.model.hop_length
+    win_length = cfg.model.win_length
+    mel_input = wav2mel(wav_input, cfg, n_fft, hop_length, win_length, ref_max=ref_max)
     #mel_input = mel_input.T
     if wav_AbS is not None:
-        mel_AbS = wav2mel(wav_AbS, cfg, ref_max=ref_max)
+        mel_AbS = wav2mel(wav_AbS, cfg, n_fft, hop_length, win_length, ref_max=ref_max)
         #mel_AbS = mel_AbS.T
-    mel_gen = wav2mel(wav_gen, cfg, ref_max=ref_max)
+    mel_gen = wav2mel(wav_gen, cfg, n_fft, hop_length, win_length, ref_max=ref_max)
     #mel_gen = mel_gen.T
 
     plt.close("all")
@@ -870,8 +874,9 @@ def save_data_pwg(cfg, save_path, target, output, ana_syn=None):#←ana_syn切�
     if cfg.test.f0_form :
         plot_f0_from_wav(cfg, save_path, target, output)
 
-    target = wav2mel(target, cfg, ref_max=True)
-    output = wav2mel(output, cfg, ref_max=True)
+
+    target = wav2mel(target, cfg, cfg.model.n_fft, cfg.model.hop_length, cfg.model.win_length, ref_max=True)
+    output = wav2mel(output, cfg, cfg.model.n_fft, cfg.model.hop_length, cfg.model.win_length, ref_max=True)
     
     plt.close("all")
     plt.figure()

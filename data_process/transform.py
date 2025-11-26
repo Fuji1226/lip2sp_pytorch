@@ -292,21 +292,21 @@ def load_data(audio_path, video_path, cfg):
     return wav, feature, feature_avhubert, lip
 
 
-def load_data_MF(audio_path, video_path, cfg):
+def load_data_MF(audio_path, video_path, cfg):#TODO もし、すべてのfeatureを揃える必要があれば、長いもの(feature_half:data_len*2)に揃える
     wav, _ = librosa.load(str(audio_path), sr=cfg.model.sampling_rate)
     wav = wav / np.max(np.abs(wav))     # (T,)
     feature = wav2mel(wav, cfg, cfg.model.n_fft,cfg.model.hop_length,cfg.model.win_length, ref_max=False)     # (C, T)
     feature_half = wav2mel(wav, cfg, cfg.model.multi_fft.n_fft_half,cfg.model.multi_fft.hop_length_half,cfg.model.multi_fft.win_length_half)
     feature_double = wav2mel(wav, cfg, cfg.model.multi_fft.n_fft_double, cfg.model.multi_fft.hop_length_double, cfg.model.multi_fft.win_length_double)
     feature_avhubert = wav2mel_avhubert(wav, cfg)  # (C, T)
-
-    if cfg.train.debug: #TODO,shapeの確認
+    """
+    if cfg.train.debug:
+        print("もともとのデータ")
         print(f"feature shape: {feature.shape}")
-        print(f"feature_half shape: {feature_half.shape}")
-        print(f"feature_double shape: {feature_double.shape}")
-        print(f"feature_avhubert shape: {feature_avhubert.shape}")
-        breakpoint()
-
+        print(f"feature_half shape: {feature_half.shape}") #?だいたいfeatureの2倍(C,2T)
+        print(f"feature_double shape: {feature_double.shape}")#?だいたいfeatureの半分(C,T/2)
+        print(f"feature_avhubert shape: {feature_avhubert.shape}")#?だいたいfeatureと同じ(C,T)
+    """
     upsample = get_upsample(cfg)
 
     if video_path is not None:
@@ -316,11 +316,11 @@ def load_data_MF(audio_path, video_path, cfg):
         lip = torch.rand(int(feature.shape[1] * upsample), 1, 96, 96)
     lip = lip.numpy()
 
-    #以下のパラメータの最小値
+    #時間長の最小値に揃えるための,データ時間長の計算
     data_len = min(
         int(feature.shape[1] // upsample * upsample),
-        int(feature_half.shape[1] // upsample * upsample),
-        int(feature_double.shape[1] // upsample * upsample),
+        int(feature_half.shape[1]// 2 // upsample * upsample),
+        int(feature_double.shape[1] * 2 // upsample * upsample),
         int(feature_avhubert.shape[1] // upsample * upsample),
         int(lip.shape[0] * upsample),
     )
@@ -330,18 +330,18 @@ def load_data_MF(audio_path, video_path, cfg):
     wav_padded[:wav.shape[0]] = wav
     wav = wav_padded
 
-    feature = feature[:, :data_len]
+    feature = feature[:, :data_len]#data_len = (int)
     feature_padded = np.zeros((feature.shape[0], data_len))
     feature_padded[:, :feature.shape[1]] = feature
     feature = feature_padded
 
-    feature_half = feature_half[:, :data_len]
-    feature_half_padded = np.zeros((feature_half.shape[0], data_len))
+    feature_half = feature_half[:, :data_len*2]
+    feature_half_padded = np.zeros((feature_half.shape[0], data_len*2))
     feature_half_padded[:, :feature_half.shape[1]] = feature_half
     feature_half = feature_half_padded
 
-    feature_double = feature_double[:, :data_len]
-    feature_double_padded = np.zeros((feature_double.shape[0], data_len))
+    feature_double = feature_double[:, :data_len//2]
+    feature_double_padded = np.zeros((feature_double.shape[0], data_len//2))
     feature_double_padded[:, :feature_double.shape[1]] = feature_double
     feature_double = feature_double_padded
 
@@ -354,13 +354,15 @@ def load_data_MF(audio_path, video_path, cfg):
     lip_padded = np.zeros((data_len // upsample, 1, 96, 96))
     lip_padded[:lip.shape[0]] = lip
     lip = lip_padded
-    if cfg.train.debug:#TODO,shapeの確認
+
+    """
+    if cfg.train.debug:
+        print("data_lenで、切り出し、パディングで揃えたデータ")
         print(f"wav shape: {wav.shape}")
-        print(f"feature shape: {feature.shape}")
-        print(f"feature_half shape: {feature_half.shape}")
-        print(f"feature_double shape: {feature_double.shape}")
+        print(f"feature shape: {feature.shape}")#?(C,data_len)以下すべてTが同じ これが駄目
+        print(f"feature_half shape: {feature_half.shape}")#?(C,data_len*2)
+        print(f"feature_double shape: {feature_double.shape}")#?(C,data_len//2)
         print(f"feature_avhubert shape: {feature_avhubert.shape}")
         print(f"lip shape: {lip.shape}")
-        breakpoint()
-
+    """
     return wav, feature, feature_half, feature_double, feature_avhubert, lip

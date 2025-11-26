@@ -352,8 +352,8 @@ def collate_time_adjust_with_external_data(batch, cfg):
 
 
 def collate_time_adjust_with_external_dataMF(batch, cfg):
-    wav, lip, feature,feature_half,feature_double, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
-    
+    wav, lip, feature, feature_half, feature_double, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video = list(zip(*batch))
+    #時間のつじつまを合わせる
     wav_adjusted = []
     lip_adjusted = []
     feature_adjusted = []
@@ -361,16 +361,10 @@ def collate_time_adjust_with_external_dataMF(batch, cfg):
     feature_double_adjusted = []
     feature_avhubert_adjusted = []
 
-    lip_input_len = int(cfg.model.input_lip_sec * cfg.model.fps)
-    upsample_scale = 1000 // cfg.model.frame_period // cfg.model.fps
-    feat_input_len = int(lip_input_len * upsample_scale)
-    wav_input_len = int(feat_input_len * cfg.model.hop_length)
-
-    if cfg.train.debug:
-        print(f"lip_input_len: {lip_input_len}")
-        print(f"feat_input_len: {feat_input_len}")
-        print(f"wav_input_len: {wav_input_len}")
-        breakpoint()
+    lip_input_len = int(cfg.model.input_lip_sec * cfg.model.fps)#? 250 (10*25)
+    upsample_scale = 1000 // cfg.model.frame_period // cfg.model.fps#? 4 (1000 // 10 // 25)
+    feat_input_len = int(lip_input_len * upsample_scale)#? 1000 (250 * 4)
+    wav_input_len = int(feat_input_len * cfg.model.hop_length)#? 160000 (1000 * 160)
 
     for w, l, f, f_half, f_double, f_avhubert, f_len in zip(wav, lip, feature, feature_half, feature_double, feature_avhubert, feature_len):
         # 揃えるlenよりも短い時は足りない分をゼロパディング
@@ -378,13 +372,9 @@ def collate_time_adjust_with_external_dataMF(batch, cfg):
             w_padded = torch.zeros(wav_input_len)
             l_padded = torch.zeros(l.shape[0], l.shape[1], l.shape[2], lip_input_len)
             f_padded = torch.zeros(f.shape[0], feat_input_len)
-            f_half_padded = torch.zeros(f_half.shape[0], feat_input_len)#?この辺やばいかも
-            f_double_padded = torch.zeros(f_double.shape[0], feat_input_len)#?この辺やばいかも
+            f_half_padded = torch.zeros(f_half.shape[0], feat_input_len*2)
+            f_double_padded = torch.zeros(f_double.shape[0], feat_input_len//2)
             f_avhubert_padded = torch.zeros(f_avhubert.shape[0], lip_input_len)
-            if cfg.train.debug:
-                print(f"Before padding shapes: w:{w.shape}, l:{l.shape}, f:{f.shape}, f_half:{f_half.shape}, f_double:{f_double.shape}, f_avhubert:{f_avhubert.shape}")
-                print(f"After padding shapes: w_padded:{w_padded.shape}, l_padded:{l_padded.shape}, f_padded:{f_padded.shape}, f_half_padded:{f_half_padded.shape}, f_double_padded:{f_double_padded.shape}, f_avhubert_padded:{f_avhubert_padded.shape}")
-                breakpoint()
 
             # 音響特徴量の系列長をベースに判定しているので、稀に波形のサンプル数が多い場合がある
             # その際に余ったサンプルを除外する（シフト幅的に余りが生じているのでそれを省いている）
@@ -408,20 +398,22 @@ def collate_time_adjust_with_external_dataMF(batch, cfg):
         else:
             lip_start_frame = torch.randint(0, l.shape[-1] - lip_input_len, (1,)).item()
             feature_start_frame = int(lip_start_frame * upsample_scale)
+            feature_half_start_frame = int(lip_start_frame * upsample_scale*2)
+            feature_double_start_frame = int(lip_start_frame * upsample_scale//2)
             wav_start_sample = int(feature_start_frame * cfg.model.hop_length)
 
             w = w[wav_start_sample:wav_start_sample + wav_input_len]
             l = l[..., lip_start_frame:lip_start_frame + lip_input_len]
             f = f[:, feature_start_frame:feature_start_frame + feat_input_len]
-            f_half = f_half[:, feature_start_frame:feature_start_frame + feat_input_len]
-            f_double = f_double[:, feature_start_frame:feature_start_frame + feat_input_len]
+            f_half = f_half[:, feature_half_start_frame:feature_half_start_frame + feat_input_len*2]
+            f_double = f_double[:, feature_double_start_frame:feature_double_start_frame + feat_input_len//2]
             f_avhubert = f_avhubert[:, lip_start_frame:lip_start_frame + lip_input_len]
 
         assert w.shape[0] == wav_input_len
         assert l.shape[-1] == lip_input_len
         assert f.shape[-1] == feat_input_len
-        assert f_half.shape[-1] == feat_input_len
-        assert f_double.shape[-1] == feat_input_len
+        assert f_half.shape[-1] == feat_input_len*2
+        assert f_double.shape[-1] == feat_input_len//2
         assert f_avhubert.shape[-1] == lip_input_len
 
         wav_adjusted.append(w)
@@ -444,7 +436,5 @@ def collate_time_adjust_with_external_dataMF(batch, cfg):
     speaker_idx = torch.stack(speaker_idx)
     lang_id = torch.stack(lang_id)
     is_video = torch.stack(is_video)
-    if cfg.train.debug:
-        print(f"Final batch shapes: wav:{wav.shape}, lip:{lip.shape}, feature:{feature.shape}, feature_half:{feature_half.shape}, feature_double:{feature_double.shape}, feature_avhubert:{feature_avhubert.shape}")
-        breakpoint()
+
     return wav, lip, feature, feature_half, feature_double, feature_avhubert, spk_emb, emo_emb, feature_len, lip_len, speaker, speaker_idx, filename, lang_id, is_video
