@@ -252,7 +252,7 @@ def preprocess_movie(video_path, bbox_path, landmark_path, cfg, aligner):
 def load_data(audio_path, video_path, cfg):
     wav, _ = librosa.load(str(audio_path), sr=cfg.model.sampling_rate)
     wav = wav / np.max(np.abs(wav))     # (T,)
-    feature = wav2mel(wav, cfg, ref_max=False)     # (C, T)
+    feature = wav2mel(wav, cfg, cfg.model.n_fft,cfg.model.hop_length,cfg.model.win_length, ref_max=False)     # (C, T)
     feature_avhubert = wav2mel_avhubert(wav, cfg)  # (C, T)
 
     upsample = get_upsample(cfg)

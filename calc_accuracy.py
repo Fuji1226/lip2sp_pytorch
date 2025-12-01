@@ -24,6 +24,7 @@ from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 
 from data_process.transform import fill_nan
 from data_check import f0_avg_wav
+from world_error import world_output
 
 
 debug = False
@@ -714,6 +715,7 @@ def calc_mean(result_file_path):
 
 
 def calc_result(result_file_path):
+    print('---Now caricurate accuracy by emotion---')
     base_dir = Path(result_file_path).expanduser().resolve()
     #ex)'/home/user/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master/2025:09:04_16-54-20/11/test_data/audio/hifigan/F1'
 
@@ -740,8 +742,9 @@ def calc_result(result_file_path):
     output_dir = base_dir.parent.parent.parent
     output_dir.mkdir(exist_ok=True)
 
-    if base_dir.parent == "pwg":
-        output_dir = output_dir / "pwg_mean_metrics"
+    if base_dir.parent.name == "pwg":
+        output_dir = output_dir / "pwg_mean_accuracy"
+        output_dir.mkdir(exist_ok=True)
 
     for emotion, metric_list in metrics_by_emotion.items():
         # 各キーごとに平均計算
@@ -752,13 +755,13 @@ def calc_result(result_file_path):
             mean_metrics[key] = np.mean(stacked, axis=0)
 
         # 保存
-        output_path = output_dir / f"{emotion}_mean_metrics.npz"
+        output_path = output_dir / f"{emotion}_mean_accuracy.npz"
         np.savez(output_path, **mean_metrics)
         print(f"Saved: {output_path}")
 
         #作成したnpzファイルを読み込みtxtファイルに保存
 
-        with open(output_dir / f"{emotion}_mean_metrics.txt", "w") as f:
+        with open(output_dir / f"{emotion}_mean_accuracy.txt", "w") as f:
             for key, value in mean_metrics.items():
                 if isinstance(value, np.ndarray):
                     value_str = ', '.join(map(str, value))
@@ -768,3 +771,93 @@ def calc_result(result_file_path):
 
         #作成したnpzファイルの削除
         os.remove(output_path)
+
+
+def calc_worldloss(result_file_path,cfg):
+    print('---Now caricurate world loss---')
+    base_dir = Path(result_file_path).expanduser().resolve()
+    #ex)'/home/user/lip2sp_pytorch/result/nar/generate/avhubert_preprocess_fps25_gray/master/2025:09:04_16-54-20/11/test_data/audio/hifigan/F1'
+
+    # 感情タイプごとに値を蓄積する辞書
+    wavs_by_emotion = defaultdict(list)
+
+    # 各サブディレクトリを走査（例: happiness_001, sadness_002, etc.）
+    for subdir in base_dir.iterdir():
+        if subdir.is_dir():
+            # emotionタイプを抽出（最初のアンダースコアまで）
+            emotion = subdir.name.split("_")[0]
+
+            # 1階層下の accuracy_metrics.npz を探す
+            wav_gen_path = subdir / "generate.wav"
+            wav_abs_path = subdir / "abs.wav"
+            wav_gt_path = subdir / "gt.wav"
+            if wav_gen_path.exists() and wav_abs_path.exists() and wav_gt_path.exists():
+                #3つのwavファイルのデータパス(文字列)のリストを作成
+                    wavs_by_emotion[emotion].append(
+                    (str(wav_gen_path), str(wav_abs_path), str(wav_gt_path))
+                )
+            else:
+                print(f"Warning: wav files not found in {subdir}.")
+
+    # 平均値を計算し保存
+
+    output_dir = base_dir.parent.parent.parent
+    output_dir.mkdir(exist_ok=True)
+
+    if base_dir.parent.name == "pwg":
+        output_dir = output_dir / "pwg_world_loss"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    """
+    1.emotionごとにリストから3種類のwavファイルを読み込み
+    2.f0_mae_AbS(float), f0_mae_gen(float) = world_output(wav_input,wav_AbS,wav_gen,cfg)を計算
+    3.emotionごとに平均値を算出
+    4.結果をtxtファイルに保存
+    """
+    # emotion ごとに各 wav トリプルを読み込み world_output を実行、平均を取る
+    for emotion, wav_triplets in wavs_by_emotion.items():
+        f0_mae_abs_list = []
+        f0_mae_gen_list = []
+
+        for gen_path, abs_path, gt_path in wav_triplets:
+            try:
+                # wav を読み込み（cfg.model.sampling_rate にリサンプリング）
+                sr = cfg.model.sampling_rate
+                wav_input, _ = librosa.load(gt_path, sr=sr)
+                wav_abs, _ = librosa.load(abs_path, sr=sr)
+                wav_gen, _ = librosa.load(gen_path, sr=sr)
+
+                # world_output が (f0_mae_AbS, f0_mae_gen) を返す前提
+                res = world_output(wav_input, wav_abs, wav_gen, cfg)
+                if isinstance(res, (list, tuple)) and len(res) >= 2:
+                    f0_mae_ab, f0_mae_gen = float(res[0]), float(res[1])
+                elif isinstance(res, dict):
+                    # もし dict だったらキー名に依存して抽出（存在すれば）
+                    f0_mae_ab = float(res.get("f0_mae_AbS", np.nan))
+                    f0_mae_gen = float(res.get("f0_mae_gen", np.nan))
+                else:
+                    # 想定外の戻り値
+                    print(f"Warning: unexpected world_output return for {gen_path}: {type(res)}")
+                    continue
+
+                # NaN は扱えるように append
+                f0_mae_abs_list.append(f0_mae_ab)
+                f0_mae_gen_list.append(f0_mae_gen)
+
+            except Exception as e:
+                print(f"Error processing {gen_path}, {abs_path}, {gt_path}: {e}")
+                continue
+
+        # 平均を計算（NaN を無視）
+        mean_ab = float(np.nan) if len(f0_mae_abs_list) == 0 else float(np.nanmean(f0_mae_abs_list))
+        mean_gen = float(np.nan) if len(f0_mae_gen_list) == 0 else float(np.nanmean(f0_mae_gen_list))
+
+        # 保存
+        out_txt = output_dir / f"{emotion}_world_loss.txt"
+        with open(out_txt, "w") as f:
+            f.write(f"emotion: {emotion}\n")
+            f.write(f"n_samples: {len(f0_mae_abs_list)}\n")
+            f.write(f"f0_mae_AbS_mean: {mean_ab}\n")
+            f.write(f"f0_mae_gen_mean: {mean_gen}\n")
+
+        print(f"Saved world metrics for {emotion} -> {out_txt}")

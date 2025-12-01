@@ -93,14 +93,20 @@ class ResConvDecoderMF(nn.Module):
             )
         self.conv_layers = nn.ModuleList(self.conv_layers)
         # 出力チャネルは n_mel_channels（reshape 後にこのチャネル数になる）
+        #conv_layers→out_layerで (B, out_ch * reduction, T) になる
         self.out_layer = nn.Conv1d(hidden_channels, cfg.model.n_mel_channels * cfg.model.reduction_factor, kernel_size=1)
 
+        self.out_layer_half = nn.Conv1d(hidden_channels, cfg.model.n_mel_channels * cfg.model.reduction_factor*2, kernel_size=1)
+        self.out_layer_double = nn.Conv1d(hidden_channels, cfg.model.n_mel_channels * cfg.model.reduction_factor//2, kernel_size=1)
+        """
+        出力baseをもとにアップ、ダウンをする操作
         # --- マルチ解像度用の学習可能なアップ/ダウンサンプリング層 ---
         out_ch = cfg.model.n_mel_channels
         # アップサンプル x2 (B, C, T) -> (B, C, 2*T)
         self.up_conv = nn.ConvTranspose1d(out_ch, out_ch, kernel_size=4, stride=2, padding=1, output_padding=0)
         # ダウンサンプル x0.5 (B, C, T) -> (B, C, T//2)
         self.down_conv = nn.Conv1d(out_ch, out_ch, kernel_size=4, stride=2, padding=1)
+        """
 
     def forward(
             self,
@@ -117,11 +123,27 @@ class ResConvDecoderMF(nn.Module):
         x = x.permute(0, 2, 1)  # (B, C_in, T)
         for layer in self.conv_layers:
             x = layer(x)
-        x = self.out_layer(x)   # (B, out_ch * reduction, T)
-        x = x.permute(0, 2, 1)  # (B, T, out_ch * reduction)
-        x = x.reshape(x.shape[0], -1, self.cfg.model.n_mel_channels)  # (B, time, n_mel)
-        x_base = x.permute(0, 2, 1).contiguous()  # (B, C, T)  <-- base
 
+        #convからそれぞれに入力
+        x_base = self.out_layer(x)   # (B, out_ch * reduction, T)
+        x_half = self.out_layer_half(x)   # (B, out_ch * reduction*2, T)
+        x_double = self.out_layer_double(x)   # (B, out_ch * reduction//2, T)
+
+        # --- base 出力の整形 ---
+        x_base = x_base.permute(0, 2, 1)  # (B, T, out_ch * reduction)
+        x_base = x_base.reshape(x_base.shape[0], -1, self.cfg.model.n_mel_channels)  # (B, time, n_mel)
+        x_base = x_base.permute(0, 2, 1).contiguous()  # (B, C, T)  <-- base
+
+        # --- half 出力の整形 ---
+        x_half = x_half.permute(0, 2, 1)  # (B, T, out_ch * reduction*2)
+        x_half = x_half.reshape(x_half.shape[0], -1, self.cfg.model.n_mel_channels)  # (B, time, n_mel)
+        x_half = x_half.permute(0, 2, 1).contiguous()  # (B, C, T)  <-- half
+
+        # --- double 出力の整形 ---
+        x_double = x_double.permute(0, 2, 1)  # (B, T, out_ch * reduction//2)
+        x_double = x_double.reshape(x_double.shape[0], -1, self.cfg.model.n_mel_channels)  # (B, time, n_mel)
+        x_double = x_double.permute(0, 2, 1).contiguous()  # (B, C, T)  <-- double
+        """
         # --- ダウンサンプリング（x_double） ---
         try:
             x_double = self.down_conv(x_base)  # (B, C, ~T/2)
@@ -135,7 +157,7 @@ class ResConvDecoderMF(nn.Module):
         except Exception:
             # フォールバック: 線形補間で2倍にする
             x_half = F.interpolate(x_base, scale_factor=2.0, mode="linear", align_corners=False)
-
+        """
         # 出力を contiguous に保つ
         x_double = x_double.contiguous()
         x_base = x_base.contiguous()

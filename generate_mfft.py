@@ -9,8 +9,8 @@ from torchsummary import summary
 import sys
 sys.path.append(str(Path("~/hifi-gan").expanduser()))
 
-from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean, calc_result
-from data_check import save_data_pwg, save_data, save_data_hifigan
+from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean, calc_result, calc_worldloss
+from data_check import save_data_pwg, save_data
 from parallelwavegan.pwg_train import make_model as make_pwg
 from train_nar_ssl import make_model
 from utils import (
@@ -200,6 +200,7 @@ def main(cfg):
     #calc_result(save_path_hifigan_spk)
     #calc_result(save_path_spk)
     calc_result(save_path_pwg_spk)
+    calc_worldloss(save_path_pwg_spk,cfg)
 
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],

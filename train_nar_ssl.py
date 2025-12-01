@@ -39,6 +39,7 @@ def save_checkpoint(
     val_loss_list,
     val_mae_loss_list,
     val_mse_loss_list,
+    val_mae_loss_base_list,
     epoch,
     ckpt_path,
 ):
@@ -59,6 +60,7 @@ def save_checkpoint(
             "val_loss_list": val_loss_list,
             "val_mae_loss_list": val_mae_loss_list,
             "val_mse_loss_list": val_mse_loss_list,
+            "val_mae_loss_base_list": val_mae_loss_base_list,
             "epoch": epoch,
         },
         ckpt_path,
@@ -193,6 +195,7 @@ def val_one_epoch(
     epoch_loss = 0
     epoch_mae_loss = 0
     epoch_mse_loss = 0
+    epoch_mae_loss_base = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("validation")
@@ -244,6 +247,7 @@ def val_one_epoch(
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()
             epoch_loss += loss.item()
+            epoch_mae_loss_base += mae_loss.item()
             wandb.log({"val_mae_loss": mae_loss})
             wandb.log({"val_mse_loss": mse_loss})
             wandb.log({"val_loss": loss})
@@ -279,7 +283,8 @@ def val_one_epoch(
     epoch_loss /= iter_cnt
     epoch_mae_loss /= iter_cnt
     epoch_mse_loss /= iter_cnt
-    result = (epoch_loss, epoch_mae_loss, epoch_mse_loss)
+    epoch_mae_loss_base /= iter_cnt
+    result = (epoch_loss, epoch_mae_loss, epoch_mse_loss, epoch_mae_loss_base)
     return result
 
 
@@ -321,6 +326,7 @@ def main(cfg):
     val_loss_list = []
     val_mae_loss_list = []
     val_mse_loss_list = []
+    val_mae_loss_base_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(
@@ -461,7 +467,7 @@ def main(cfg):
             train_mae_loss_list.append(epoch_mae_loss)
             train_mse_loss_list.append(epoch_mse_loss)
 
-            epoch_loss, epoch_mae_loss, epoch_mse_loss = val_one_epoch(
+            epoch_loss, epoch_mae_loss, epoch_mse_loss, epoch_mae_loss_base = val_one_epoch(
                 model=model,
                 val_loader=val_loader,
                 loss_f=loss_f,
@@ -472,6 +478,7 @@ def main(cfg):
             val_loss_list.append(epoch_loss)
             val_mae_loss_list.append(epoch_mae_loss)
             val_mse_loss_list.append(epoch_mse_loss)
+            val_mae_loss_base_list.append(epoch_mae_loss_base)
 
             if cfg.train.which_scheduler == "exp":
                 wandb.log({"learning_rate": scheduler.get_last_lr()[0]})
@@ -492,6 +499,7 @@ def main(cfg):
                     val_loss_list=val_loss_list,
                     val_mae_loss_list=val_mae_loss_list,
                     val_mse_loss_list=val_mse_loss_list,
+                    val_mae_loss_base_list=val_mae_loss_base_list,
                     epoch=current_epoch,
                     ckpt_path=str(ckpt_path / f"{current_epoch}.ckpt"),
                 )
@@ -499,6 +507,7 @@ def main(cfg):
             save_loss(train_loss_list, val_loss_list, save_path, "loss")
             save_loss(train_mae_loss_list, val_mae_loss_list, save_path, "mae_loss")
             save_loss(train_mse_loss_list, val_mse_loss_list, save_path, "mse_loss")
+            save_loss(train_mae_loss_list, val_mae_loss_base_list, save_path, "val_mae_loss_base")
 
     wandb.finish()
 

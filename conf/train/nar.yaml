@@ -11,14 +11,20 @@ debug_iter : 2
 
 # ?checkpointから再開する場合(同条件学習の再開)
 check_point_start : False
-start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/mfft_try/10.ckpt'
+start_ckpt_path : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/mfft_try4_pre/21.ckpt'
 
 # ?finetuning(データを変えて学習する場合)
 # check_point_startだと、以前の保存用ディレクトリに続けて保存されてしまうので、分けたい時用
 check_point_start_separate_save_dir : False
-start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/mfft_try/10.ckpt'
+start_ckpt_path_separate_save_dir : '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/base_emo_pre/46.ckpt'
 # 複数言語で事前学習したモデルをfine tuningするかどうか←使ってないっぽい
 fine_tuning_pretrained_model_by_external_data : False
+
+multi_fft : #TODO:建設中
+  n_step : 1 #3まで 1→Mel_base(通常)、2→Mel_half,doubleのみ学習、3→全層を重み損失で学習
+  base_loss_ratio : 1.0
+  half_loss_ratio : 0.0
+  double_loss_ratio : 1.0
 
 # 固定するレイヤーを指定
 module_is_fixed : []
@@ -128,7 +134,7 @@ apply_upsampling : False
 
 # 使用する話者
 #!話者を変更することだけで事前学習と本学習を切り替える
-speaker : ["F1", 'F02_kablab','F03_kablab','M02_kablab','M04_kablab',"kab2022"] #F1,
+speaker : ['F02_kablab','F03_kablab','M02_kablab','M04_kablab',"kab2022"] #F1,
 use_spk_emb : True
 spk_emb_dir : "~/dataset/lip/emb"
 finetuning : False #これも使ってない説

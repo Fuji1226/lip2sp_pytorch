@@ -24,6 +24,8 @@ from utils import (
     set_config,
 )
 
+#!せっかくマルチタスクやるなら、world特徴量でやるってのはどう
+
 dotenv.load_dotenv()
 wandb.login(key=os.environ['WANDB_API_KEY'])
 current_time = datetime.now().strftime("%Y:%m:%d_%H-%M-%S")
@@ -40,6 +42,7 @@ def save_checkpoint(
     val_loss_list,
     val_mae_loss_list,
     val_mse_loss_list,
+    val_mae_loss_base_list,
     epoch,
     ckpt_path,
 ):
@@ -60,6 +63,7 @@ def save_checkpoint(
             "val_loss_list": val_loss_list,
             "val_mae_loss_list": val_mae_loss_list,
             "val_mse_loss_list": val_mse_loss_list,
+            "val_mae_loss_base_list": val_mae_loss_base_list,
             "epoch": epoch,
         },
         ckpt_path,
@@ -75,7 +79,7 @@ def make_model(
     else:
         model = Lip2SpeechSSL(cfg)
     """
-    #avhubertフリーズの際に使用するセクション
+    #avhubertフリーズの際に使用するセクション#TODOこれを建設利用
     for name, param in model.named_parameters():
         # 例: avhubertモジュールをfreeze
         if "avhubert." in name:
@@ -158,22 +162,22 @@ def train_one_epoch(
                 output_half, feature_half, feature_len*2, max_len=output_half.shape[-1]
             )
             mae_loss_double = loss_f.mae_loss(
-                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
+                output_double, feature_double, feature_len//2, max_len=output_double.shape[-1]
             )
 
-            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0 #TODO:重み
+            mae_loss = (cfg.train.multi_fft.base_loss_ratio*mae_loss_base +cfg.train.multi_fft.half_loss_ratio*mae_loss_half + cfg.train.multi_fft.double_loss_ratio*mae_loss_double)/(cfg.train.multi_fft.base_loss_ratio + cfg.train.multi_fft.half_loss_ratio + cfg.train.multi_fft.double_loss_ratio)
 
             #mse_loss 算出
             mse_loss_base = loss_f.mse_loss(
                 output_base, feature, feature_len, max_len=output_base.shape[-1]
             )
             mse_loss_half = loss_f.mse_loss(
-                output_half, feature_half, feature_len, max_len=output_half.shape[-1]
+                output_half, feature_half, feature_len*2, max_len=output_half.shape[-1]
             )
             mse_loss_double = loss_f.mse_loss(
-                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
+                output_double, feature_double, feature_len//2, max_len=output_double.shape[-1]
             )
-            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0 #TODO:重み
+            mse_loss = (cfg.train.multi_fft.base_loss_ratio*mse_loss_base +cfg.train.multi_fft.half_loss_ratio*mse_loss_half + cfg.train.multi_fft.double_loss_ratio*mse_loss_double)/(cfg.train.multi_fft.base_loss_ratio + cfg.train.multi_fft.half_loss_ratio + cfg.train.multi_fft.double_loss_ratio)
 
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
@@ -222,6 +226,7 @@ def val_one_epoch(
     epoch_loss = 0
     epoch_mae_loss = 0
     epoch_mse_loss = 0
+    epoch_mae_loss_base = 0
     iter_cnt = 0
     all_iter = len(val_loader)
     print("validation")
@@ -275,34 +280,36 @@ def val_one_epoch(
                 output_base, feature, feature_len, max_len=output_base.shape[-1]
             )
             mae_loss_half = loss_f.mae_loss(
-                output_half, feature_half, feature_len, max_len=output_half.shape[-1]
+                output_half, feature_half, feature_len*2, max_len=output_half.shape[-1]
             )
             mae_loss_double = loss_f.mae_loss(
-                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
+                output_double, feature_double, feature_len//2, max_len=output_double.shape[-1]
             )
 
-            mae_loss = (mae_loss_base +mae_loss_half + mae_loss_double)/3.0 #TODO:重み
+            mae_loss = (cfg.train.multi_fft.base_loss_ratio*mae_loss_base +cfg.train.multi_fft.half_loss_ratio*mae_loss_half + cfg.train.multi_fft.double_loss_ratio*mae_loss_double)/(cfg.train.multi_fft.base_loss_ratio + cfg.train.multi_fft.half_loss_ratio + cfg.train.multi_fft.double_loss_ratio)
 
             #mse_loss 算出
             mse_loss_base = loss_f.mse_loss(
                 output_base, feature, feature_len, max_len=output_base.shape[-1]
             )
             mse_loss_half = loss_f.mse_loss(
-                output_half, feature_half, feature_len, max_len=output_half.shape[-1]
+                output_half, feature_half, feature_len*2, max_len=output_half.shape[-1]
             )
             mse_loss_double = loss_f.mse_loss(
-                output_double, feature_double, feature_len, max_len=output_double.shape[-1]
+                output_double, feature_double, feature_len//2, max_len=output_double.shape[-1]
             )
-            mse_loss = (mse_loss_base + mse_loss_half + mse_loss_double) / 3.0 #TODO:重み
+            mse_loss = (cfg.train.multi_fft.base_loss_ratio*mse_loss_base +cfg.train.multi_fft.half_loss_ratio*mse_loss_half + cfg.train.multi_fft.double_loss_ratio*mse_loss_double)/(cfg.train.multi_fft.base_loss_ratio + cfg.train.multi_fft.half_loss_ratio + cfg.train.multi_fft.double_loss_ratio)
 
             loss = mae_loss
             epoch_mae_loss += mae_loss.item()
             epoch_mse_loss += mse_loss.item()
             epoch_loss += loss.item()
-            #TODOfeature_baseのlossと、合計損失を分けてログに出す
+            epoch_mae_loss_base += mae_loss_base.item()
+
             wandb.log({"val_mae_loss": mae_loss})
             wandb.log({"val_mse_loss": mse_loss})
             wandb.log({"val_loss": loss})
+            wandb.log({"val_base_mae_loss": mae_loss_base})
 
         iter_cnt += 1
         if cfg.train.debug:
@@ -335,7 +342,8 @@ def val_one_epoch(
     epoch_loss /= iter_cnt
     epoch_mae_loss /= iter_cnt
     epoch_mse_loss /= iter_cnt
-    result = (epoch_loss, epoch_mae_loss, epoch_mse_loss)
+    epoch_mae_loss_base /= iter_cnt
+    result = (epoch_loss, epoch_mae_loss, epoch_mse_loss, epoch_mae_loss_base)
     return result
 
 
@@ -377,6 +385,7 @@ def main(cfg):
     val_loss_list = []
     val_mae_loss_list = []
     val_mse_loss_list = []
+    val_mae_loss_base_list = []
 
     cfg.wandb_conf.setup.name = f"{cfg.wandb_conf.setup.name}_{cfg.model.name}"
     with wandb.init(
@@ -517,7 +526,7 @@ def main(cfg):
             train_mae_loss_list.append(epoch_mae_loss)
             train_mse_loss_list.append(epoch_mse_loss)
 
-            epoch_loss, epoch_mae_loss, epoch_mse_loss = val_one_epoch(
+            epoch_loss, epoch_mae_loss, epoch_mse_loss, epoch_mae_loss_base  = val_one_epoch(
                 model=model,
                 val_loader=val_loader,
                 loss_f=loss_f,
@@ -528,6 +537,7 @@ def main(cfg):
             val_loss_list.append(epoch_loss)
             val_mae_loss_list.append(epoch_mae_loss)
             val_mse_loss_list.append(epoch_mse_loss)
+            val_mae_loss_base_list.append(epoch_mae_loss_base)
 
             if cfg.train.which_scheduler == "exp":
                 wandb.log({"learning_rate": scheduler.get_last_lr()[0]})
@@ -548,13 +558,15 @@ def main(cfg):
                     val_loss_list=val_loss_list,
                     val_mae_loss_list=val_mae_loss_list,
                     val_mse_loss_list=val_mse_loss_list,
+                    val_mae_loss_base_list=val_mae_loss_base_list,
                     epoch=current_epoch,
                     ckpt_path=str(ckpt_path / f"{current_epoch}.ckpt"),
                 )
 
             save_loss(train_loss_list, val_loss_list, save_path, "loss")
             save_loss(train_mae_loss_list, val_mae_loss_list, save_path, "mae_loss")
-            save_loss(train_mse_loss_list, val_mse_loss_list, save_path, "mse_loss")
+            save_loss(train_mse_loss_list, val_mse_loss_list, save_path, "mse_loss")#←これがカスタムチャートです。baselossを外に出してこれで作成
+            save_loss(train_mae_loss_list, val_mae_loss_base_list, save_path, "val_mae_loss_base")
 
     wandb.finish()
 

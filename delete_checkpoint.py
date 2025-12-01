@@ -19,7 +19,7 @@ def select_checkpoint(path, key):
     return checkpoint_path
 
 
-path = '/home/user/lip2sp_pytorch/check_point/nar/large/avhubert_preprocess_fps25_gray/master/Large_FT_pre/30.ckpt'
+path = '/home/user/lip2sp_pytorch/check_point/avhubert_preprocess_fps25_gray/master/2025:11:30_16-04-33/50.ckpt'
 key = "val_mae_loss_list"
 
 use_cp_path = select_checkpoint(path,key)

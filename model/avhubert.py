@@ -1172,7 +1172,7 @@ class TransformerEncoder(nn.Module):
                     activation_fn=args.activation_fn,
                     layer_norm_first=args.layer_norm_first,
                 )
-                for _ in range(args.encoder_layers)
+                for _ in range(args.encoder_layers)#b→12, L→24
             ]
         )
 
@@ -1286,25 +1286,25 @@ class MyAVHubertModel(nn.Module):
         #データ入力ネットワーク↓
         sub_cfg = deepcopy(cfg)
         sub_cfg.encoder_layers = sub_cfg.sub_encoder_layers
-        resnet = ResEncoder(relu_type=cfg.resnet_relu_type, weights=cfg.resnet_weights, cfg=cfg)
-        self.feature_extractor_audio = SubModel(resnet=None, input_dim=cfg.audio_feat_dim, cfg=sub_cfg)
-        self.feature_extractor_video = SubModel(resnet=resnet, input_dim=resnet.backend_out, cfg=sub_cfg)
+        resnet = ResEncoder(relu_type=cfg.resnet_relu_type, weights=cfg.resnet_weights, cfg=cfg)#type-prelu weights-none
+        self.feature_extractor_audio = SubModel(resnet=None, input_dim=cfg.audio_feat_dim, cfg=sub_cfg)#104
+        self.feature_extractor_video = SubModel(resnet=resnet, input_dim=resnet.backend_out, cfg=sub_cfg)#512
         #音声と映像の特徴量の扱い方↓
         self.modality_fuse = cfg.modality_fuse
-        self.encoder_embed_dim = cfg.encoder_embed_dim
+        self.encoder_embed_dim = cfg.encoder_embed_dim#b→768 L→1024
         if self.modality_fuse == 'concat':#次元的に増やす、特徴量を並列に並べる
             self.embed = cfg.encoder_embed_dim * 2
         elif self.modality_fuse == 'add':#単純に加算する。次元数は変わらない。
             self.embed = cfg.encoder_embed_dim
         #特徴量の次元数調整(線形層で調整)↓
         self.post_extract_proj = (
-            nn.Linear(self.embed, cfg.encoder_embed_dim)
+            nn.Linear(self.embed, cfg.encoder_embed_dim)#b→768 L→1024
             if self.embed != cfg.encoder_embed_dim
             else None
         )
 
-        self.dropout_input = nn.Dropout(cfg.dropout_input)
-        self.dropout_features = nn.Dropout(cfg.dropout_features)
+        self.dropout_input = nn.Dropout(cfg.dropout_input)#0.1
+        self.dropout_features = nn.Dropout(cfg.dropout_features)#0.1 使ってないかな
         self.encoder = TransformerEncoder(cfg)#時系列エンコーディング
         self.layer_norm = LayerNorm(self.embed)
 

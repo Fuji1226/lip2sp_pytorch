@@ -8,10 +8,9 @@ from torchsummary import summary
 
 import sys
 sys.path.append(str(Path("~/hifi-gan").expanduser()))
-from ToUseHFGAN import load_hifigan_model, mel_to_waveform
 
-from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean, calc_result
-from data_check import save_data_pwg, save_data, save_data_hifigan
+from calc_accuracy import calc_accuracy_en, calc_accuracy_new, calc_mean, calc_result, calc_worldloss
+from data_check import save_data_pwg, save_data
 from parallelwavegan.pwg_train import make_model as make_pwg
 from train_nar_ssl import make_model
 from utils import (
@@ -165,7 +164,7 @@ def main(cfg):
 
     video_dir, audio_dir, save_path = get_path_test_raw(cfg, model_path)
     test_loader, test_dataset = make_test_loader_with_external_data_raw(cfg, video_dir, audio_dir)
-    
+
     generate(
         cfg=cfg,
         model=model,
@@ -179,7 +178,7 @@ def main(cfg):
     for speaker in cfg.test.speaker:
         #save_path_spk = save_path / "griffinlim" / speaker
         save_path_pwg_spk = save_path / "pwg" / speaker
-        ##save_path_hifigan_spk = save_path / "hifigan" / speaker
+        ##save_path_hifigan_spk = save_path / "hifigan" / speaker save_path_pwg_spk = save_path / "pwg" / speaker
         #calc_accuracy_new(save_path_hifigan_spk, save_path.parents[0], cfg, "accuracy_hifigan")
 
         if cfg.train.tcd_timit.use:
@@ -195,6 +194,7 @@ def main(cfg):
     #calc_result(save_path_hifigan_spk)
     #calc_result(save_path_spk)
     calc_result(save_path_pwg_spk)
+    calc_worldloss(save_path_pwg_spk,cfg)
 
     delete_unnecessary_checkpoint(
         result_dir=save_path.parents[3],
